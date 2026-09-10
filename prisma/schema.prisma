@@ -1,0 +1,291 @@
+// Database schema for the invite-gated coaching marketplace.
+// Run: npx prisma migrate dev --name add_reviews_categories_disputes_etc
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  BUYER
+  SELLER
+}
+
+enum InviteStatus {
+  PENDING
+  REDEEMED
+  EXPIRED
+  REVOKED
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  IN_ESCROW
+  COMPLETED
+  RELEASED
+  REFUNDED
+  CANCELLED
+}
+
+// A simple fixed list rather than free text, so filtering on the coaches
+// page actually works reliably (free-text categories would fragment into
+// a dozen near-duplicate spellings). Add more values here if you need a
+// category this list doesn't cover yet - Prisma migrations handle enum
+// changes fine.
+enum GigCategory {
+  ESSAY_REVIEW
+  MOCK_INTERVIEW
+  APPLICATION_STRATEGY
+  TUTORING
+  OTHER
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  emailVerified DateTime?
+  image        String?   // set automatically by Google sign-in; separate from photoUrl below
+  passwordHash String?   // optional now - a Google-only account has no password on our side
+  role         Role      @default(BUYER)
+  name         String
+  createdAt    DateTime  @default(now())
+
+  // Seller-only profile fields. Null for buyers/admins.
+  credential   String?
+  bio          String?
+  photoUrl     String?
+  stripeAccountId String? // Stripe Connect account id, once onboarded
+
+  // Login rate limiting - tracks repeated failed password attempts so a
+  // brute-force guessing attack gets locked out rather than allowed to
+  // keep trying indefinitely. See the authorize() function in lib/auth.ts.
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+
+  accounts Account[] // one row per login method (Google, etc.) linked to this user
+  sessions Session[]
+
+  gigs         Gig[]         @relation("SellerGigs")
+  sentInvites  Invite[]      @relation("InvitesCreatedByAdmin")
+  buyerOrders  Order[]       @relation("BuyerOrders")
+  sellerOrders Order[]       @relation("SellerOrders")
+  messages     Message[]
+  conversationsAsBuyer  Conversation[] @relation("BuyerConversations")
+  conversationsAsSeller Conversation[] @relation("SellerConversations")
+  reviewsWritten  Review[] @relation("ReviewsByBuyer")
+  reviewsReceived Review[] @relation("ReviewsOfSeller")
+  disputeMessages DisputeMessage[]
+}
+
+// These two models are boilerplate required by NextAuth whenever you add
+// an OAuth provider like Google - NextAuth needs somewhere to store the
+// link between "this Google account" and "this User row," and to track
+// active sessions. You never query these directly; NextAuth manages them.
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// The core access-control mechanism: a seller account can only be created
+// by redeeming a code an admin generated. Nothing about seller signup is
+// self-serve.
+model Invite {
+  id        String       @id @default(cuid())
+  code      String       @unique
+  email     String
+  status    InviteStatus @default(PENDING)
+  createdAt DateTime     @default(now())
+  expiresAt DateTime
+  redeemedByUserId String?
+
+  createdBy   User   @relation("InvitesCreatedByAdmin", fields: [createdById], references: [id])
+  createdById String
+}
+
+model Gig {
+  id          String      @id @default(cuid())
+  title       String
+  description String
+  price       Int         // cents, to avoid float rounding issues
+  duration    String      // display string, e.g. "48hr turnaround"
+  category    GigCategory @default(OTHER)
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+
+  seller   User   @relation("SellerGigs", fields: [sellerId], references: [id])
+  sellerId String
+
+  orders Order[]
+}
+
+model Order {
+  id        String      @id @default(cuid())
+  status    OrderStatus @default(PENDING_PAYMENT)
+  amount    Int         // cents, snapshot of gig price at purchase time
+  dueDate   DateTime?   // buyer-selected deadline, set at checkout
+  stripePaymentIntentId String?
+  createdAt DateTime    @default(now())
+  completedAt DateTime?
+
+  // The exact moment Stripe considers this payment's funds "available"
+  // for payout - not a guess, this comes straight from Stripe's own
+  // balance_transaction.available_on timestamp for the charge, fetched
+  // once payment clears (see the webhook). A Transfer attempted before
+  // this time can fail with an "insufficient available funds" error, so
+  // releaseOrder() checks this before ever attempting one.
+  fundsAvailableAt DateTime?
+
+  // Revisions: an informal flag + note the buyer can raise mid-order,
+  // separate from the message thread so it's visible as status at a
+  // glance rather than buried in chat history.
+  revisionRequested Boolean @default(false)
+  revisionNote      String?
+
+  // Disputes: buyer-raised, admin-resolved. A disputed order is NOT
+  // auto-refunded - an admin reviews it and decides (see /api/orders/[id]/refund
+  // and /api/orders/[id]/release, both of which an admin can call regardless
+  // of who normally would).
+  disputed       Boolean @default(false)
+  disputeReason  String?
+
+  // Scheduling: an optional specific time for the video call, proposed
+  // and confirmed between buyer and seller via messages, then locked in
+  // here so it shows clearly on the order itself.
+  scheduledCallTime DateTime?
+
+  // Completion flow: the seller marks work done (status -> COMPLETED),
+  // which starts a 48-hour window. The buyer can confirm early (which
+  // releases immediately) or do nothing - either way, a cron job
+  // auto-releases the payment once 48 hours have passed since
+  // workCompletedAt. See /api/orders/[id]/mark-complete and
+  // /api/cron/auto-release.
+  workCompletedAt DateTime?
+
+  // Tracks the last time a "your work is overdue" reminder email was
+  // sent to the seller, so the daily cron sends at most one per day
+  // rather than one per cron run.
+  reminderLastSentAt DateTime?
+
+  // Discounts: set at checkout if a valid code was applied. No longer
+  // reachable from the checkout page (removed per product decision),
+  // but left in the schema in case discount codes come back later -
+  // admin can still create them, they just won't be applied anywhere
+  // right now.
+  discountCode   DiscountCode? @relation(fields: [discountCodeId], references: [id])
+  discountCodeId String?
+
+  gig      Gig    @relation(fields: [gigId], references: [id])
+  gigId    String
+  buyer    User   @relation("BuyerOrders", fields: [buyerId], references: [id])
+  buyerId  String
+  seller   User   @relation("SellerOrders", fields: [sellerId], references: [id])
+  sellerId String
+
+  conversation   Conversation? @relation(fields: [conversationId], references: [id])
+  conversationId String?
+
+  review Review?
+  disputeMessages DisputeMessage[]
+}
+
+// A separate thread from the regular buyer/seller Conversation, created
+// implicitly the moment a dispute is opened. Buyer, seller, and any admin
+// can all post here - this is specifically where an admin asks follow-up
+// questions to understand what happened before deciding to refund or
+// release. Kept distinct from the regular message thread so there's a
+// clean, dedicated record of the dispute itself.
+model DisputeMessage {
+  id        String   @id @default(cuid())
+  body      String
+  createdAt DateTime @default(now())
+
+  order   Order  @relation(fields: [orderId], references: [id])
+  orderId String
+
+  sender   User   @relation(fields: [senderId], references: [id])
+  senderId String
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int      // 1-5
+  comment   String?
+  createdAt DateTime @default(now())
+
+  order   Order  @relation(fields: [orderId], references: [id])
+  orderId String @unique // one review per order, enforced at the database level
+
+  buyer   User   @relation("ReviewsByBuyer", fields: [buyerId], references: [id])
+  buyerId String
+  seller  User   @relation("ReviewsOfSeller", fields: [sellerId], references: [id])
+  sellerId String
+}
+
+model DiscountCode {
+  id             String    @id @default(cuid())
+  code           String    @unique
+  percentOff     Int?      // e.g. 20 for 20% off - use this OR amountOffCents, not both
+  amountOffCents Int?      // fixed dollar amount off, in cents
+  active         Boolean   @default(true)
+  expiresAt      DateTime?
+  maxRedemptions Int?      // null = unlimited
+  redemptions    Int       @default(0)
+  createdAt      DateTime  @default(now())
+
+  orders Order[]
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  buyer    User   @relation("BuyerConversations", fields: [buyerId], references: [id])
+  buyerId  String
+  seller   User   @relation("SellerConversations", fields: [sellerId], references: [id])
+  sellerId String
+
+  messages Message[]
+  orders   Order[]
+
+  @@unique([buyerId, sellerId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  body           String
+  attachmentUrl  String?      // set if a file was attached, via /api/upload
+  attachmentName String?      // original filename, shown in the UI
+  createdAt      DateTime     @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  conversationId String
+  sender         User         @relation(fields: [senderId], references: [id])
+  senderId       String
+}
