@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseDate } from "@/lib/validate";
 
 // Seller-only, on purpose: a buyer moving their own deadline out would
 // defeat the point of having one. This exists specifically for the case
@@ -22,11 +23,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
 
   const { dueDate } = await req.json();
-  if (!dueDate) return NextResponse.json({ error: "A new due date is required" }, { status: 400 });
+  const parsed = parseDate(dueDate);
+  if (!parsed) return NextResponse.json({ error: "Pick a valid date between today and one year from now" }, { status: 400 });
 
   const updated = await prisma.order.update({
     where: { id: params.id },
-    data: { dueDate: new Date(dueDate) },
+    data: { dueDate: parsed },
   });
 
   return NextResponse.json({ order: updated });

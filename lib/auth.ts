@@ -19,6 +19,7 @@ import { prisma } from "./prisma";
 // password by trying thousands of combinations back to back.
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
+const ROLE_RECHECK_MS = 5 * 60 * 1000;
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -38,7 +39,10 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        const user = await prisma.user.findUnique({ where: { email: credentials.email } });
+        // Case-insensitive, so "Jane@x.com" and "jane@x.com" are the same account.
+        const user = await prisma.user.findFirst({
+          where: { email: { equals: credentials.email.trim(), mode: "insensitive" } },
+        });
         // No password on file means this account was created via Google
         // only - there's nothing to check a typed password against.
         if (!user || !user.passwordHash) return null;
@@ -91,7 +95,8 @@ export const authOptions: NextAuthOptions = {
     // channels that were designed for it.
     async signIn({ user, account }) {
       if (account?.provider === "google") {
-        const existing = await prisma.user.findUnique({ where: { email: user.email! } });
+        if (!user.email) return false;
+        const existing = await prisma.user.findFirst({ where: { email: { equals: user.email, mode: "insensitive" } } });
         if (existing && existing.role !== "BUYER") {
           return false; // rejects the sign-in attempt
         }
@@ -102,7 +107,15 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         // Credentials login already returns `role` on the user object.
         // Google sign-in doesn't, so look it up the first time.
-        token.role = (user as any).role ?? (await prisma.user.findUnique({ where: { id: user.id } }))?.role;
+        token.role = (user as any).role ?? (await prisma.user.findUnique({ where: { id: user.id }, select: { role: true } }))?.role;
+        token.roleCheckedAt = Date.now();
+      } else if (token.sub && Date.now() - ((token.roleCheckedAt as number) || 0) > ROLE_RECHECK_MS) {
+        // Re-read the role every few minutes, so demoting an account (or
+        // deleting it) takes effect quickly instead of lasting until the
+        // 30-day session token expires.
+        const fresh = await prisma.user.findUnique({ where: { id: token.sub }, select: { role: true } });
+        token.role = fresh?.role ?? null;
+        token.roleCheckedAt = Date.now();
       }
       return token;
     },

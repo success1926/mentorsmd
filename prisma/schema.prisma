@@ -5,9 +5,15 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// DATABASE_URL should be your provider's POOLED connection string (Neon:
+// the "-pooler" host; Supabase: port 6543 with ?pgbouncer=true). On
+// Vercel every request can spin up a new function instance with its own
+// connections, and a direct URL runs out of connections under load.
+// DIRECT_URL is the normal non-pooled string, used only by migrations.
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
@@ -103,6 +109,7 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Session {
@@ -127,6 +134,8 @@ model Invite {
 
   createdBy   User   @relation("InvitesCreatedByAdmin", fields: [createdById], references: [id])
   createdById String
+
+  @@index([createdAt])
 }
 
 model Gig {
@@ -143,6 +152,9 @@ model Gig {
   sellerId String
 
   orders Order[]
+
+  @@index([sellerId, active])
+  @@index([active, category, createdAt])
 }
 
 model Order {
@@ -161,6 +173,10 @@ model Order {
   // this time can fail with an "insufficient available funds" error, so
   // releaseOrder() checks this before ever attempting one.
   fundsAvailableAt DateTime?
+
+  // Stripe Transfer id once the seller has been paid - lets you match a
+  // payout in the Stripe dashboard to its order.
+  stripeTransferId String?
 
   // Revisions: an informal flag + note the buyer can raise mid-order,
   // separate from the message thread so it's visible as status at a
@@ -213,6 +229,16 @@ model Order {
 
   review Review?
   disputeMessages DisputeMessage[]
+
+  // Postgres doesn't index foreign keys automatically. Without these,
+  // every "my orders" page and every cron run scans the whole table.
+  @@index([buyerId, createdAt])
+  @@index([sellerId, createdAt])
+  @@index([status, workCompletedAt])
+  @@index([status, dueDate])
+  @@index([disputed, status])
+  @@index([gigId])
+  @@index([conversationId])
 }
 
 // A separate thread from the regular buyer/seller Conversation, created
@@ -231,6 +257,8 @@ model DisputeMessage {
 
   sender   User   @relation(fields: [senderId], references: [id])
   senderId String
+
+  @@index([orderId, createdAt])
 }
 
 model Review {
@@ -246,6 +274,8 @@ model Review {
   buyerId String
   seller  User   @relation("ReviewsOfSeller", fields: [sellerId], references: [id])
   sellerId String
+
+  @@index([sellerId, createdAt])
 }
 
 model DiscountCode {
@@ -271,10 +301,16 @@ model Conversation {
   seller   User   @relation("SellerConversations", fields: [sellerId], references: [id])
   sellerId String
 
+  // Last time each side was emailed about new messages here - used to
+  // send at most one notification email per 15 minutes per conversation.
+  buyerNotifiedAt  DateTime?
+  sellerNotifiedAt DateTime?
+
   messages Message[]
   orders   Order[]
 
   @@unique([buyerId, sellerId])
+  @@index([sellerId, createdAt])
 }
 
 model Message {
@@ -288,4 +324,7 @@ model Message {
   conversationId String
   sender         User         @relation(fields: [senderId], references: [id])
   senderId       String
+
+  @@index([conversationId, createdAt])
+  @@index([conversationId, senderId])
 }

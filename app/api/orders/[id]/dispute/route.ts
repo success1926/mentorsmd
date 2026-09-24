@@ -23,13 +23,26 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "You can only dispute a pending or just-completed order" }, { status: 400 });
   }
 
-  const { reason } = await req.json();
-  if (!reason?.trim()) return NextResponse.json({ error: "Describe the issue before opening a dispute" }, { status: 400 });
+  if (order.disputed) {
+    return NextResponse.json({ error: "A dispute is already open on this order" }, { status: 409 });
+  }
 
-  const updated = await prisma.order.update({
-    where: { id: params.id },
+  const { reason } = await req.json();
+  if (typeof reason !== "string" || !reason.trim()) {
+    return NextResponse.json({ error: "Describe the issue before opening a dispute" }, { status: 400 });
+  }
+  if (reason.length > 5000) return NextResponse.json({ error: "Please keep it under 5000 characters" }, { status: 400 });
+
+  // Conditional: only flag it if it's still unreleased and not already
+  // disputed (stops the cron paying out mid-dispute, and duplicate threads).
+  const claim = await prisma.order.updateMany({
+    where: { id: params.id, status: { in: ["IN_ESCROW", "COMPLETED"] }, disputed: false },
     data: { disputed: true, disputeReason: reason },
   });
+  if (claim.count === 0) {
+    return NextResponse.json({ error: "This order changed - refresh the page" }, { status: 409 });
+  }
+  const updated = await prisma.order.findUnique({ where: { id: params.id } });
 
   // Seed the dispute thread with the buyer's original reason as the
   // first message, so the admin sees it in context immediately rather
@@ -39,7 +52,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   });
 
   try {
-    const admins = await prisma.user.findMany({ where: { role: "ADMIN" } });
+    const admins = await prisma.user.findMany({ where: { role: "ADMIN" }, select: { email: true } });
     await Promise.all(
       admins.map((admin) =>
         sendDisputeOpenedEmail(admin.email, order.gig.title, reason, `${SITE_URL}/orders/${order.id}`)

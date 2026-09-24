@@ -23,10 +23,16 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ error: `Order isn't awaiting completion (currently ${order.status})` }, { status: 400 });
   }
 
-  const updated = await prisma.order.update({
-    where: { id: params.id },
+  // Conditional update so a refund landing at the same moment can't be
+  // overwritten back to COMPLETED.
+  const claim = await prisma.order.updateMany({
+    where: { id: params.id, status: "IN_ESCROW" },
     data: { status: "COMPLETED", workCompletedAt: new Date() },
   });
+  if (claim.count === 0) {
+    return NextResponse.json({ error: "This order changed - refresh the page" }, { status: 409 });
+  }
+  const updated = await prisma.order.findUnique({ where: { id: params.id } });
 
   try {
     await sendWorkCompleteEmail(order.buyer.email, order.gig.title, `${SITE_URL}/orders/${order.id}`);

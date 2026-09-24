@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseDate } from "@/lib/validate";
 
 // Deliberately simple: either the buyer or seller can set/change the time
 // directly - there's no separate "propose then accept" negotiation flow.
@@ -21,11 +22,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
 
   const { scheduledCallTime } = await req.json();
-  if (!scheduledCallTime) return NextResponse.json({ error: "A date and time is required" }, { status: 400 });
+  const parsed = parseDate(scheduledCallTime);
+  if (!parsed) return NextResponse.json({ error: "Pick a valid date and time within the next year" }, { status: 400 });
+  if (!["IN_ESCROW", "COMPLETED"].includes(order.status)) {
+    return NextResponse.json({ error: "Calls can only be scheduled on an active order" }, { status: 400 });
+  }
 
   const updated = await prisma.order.update({
     where: { id: params.id },
-    data: { scheduledCallTime: new Date(scheduledCallTime) },
+    data: { scheduledCallTime: parsed },
   });
 
   return NextResponse.json({ order: updated });

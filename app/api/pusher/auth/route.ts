@@ -13,8 +13,11 @@ export async function POST(req: Request) {
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const formData = await req.formData();
-  const socketId = formData.get("socket_id") as string;
-  const channelName = formData.get("channel_name") as string;
+  const socketId = formData.get("socket_id");
+  const channelName = formData.get("channel_name");
+  if (typeof socketId !== "string" || typeof channelName !== "string") {
+    return NextResponse.json({ error: "Bad request" }, { status: 400 });
+  }
 
   const userId = (session.user as any).id;
   const role = (session.user as any).role;
@@ -23,11 +26,11 @@ export async function POST(req: Request) {
 
   if (channelName.startsWith("private-conversation-")) {
     const conversationId = channelName.replace("private-conversation-", "");
-    const convo = await prisma.conversation.findUnique({ where: { id: conversationId } });
+    const convo = await prisma.conversation.findUnique({ where: { id: conversationId }, select: { buyerId: true, sellerId: true } });
     authorized = !!convo && (convo.buyerId === userId || convo.sellerId === userId);
   } else if (channelName.startsWith("private-dispute-")) {
     const orderId = channelName.replace("private-dispute-", "");
-    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    const order = await prisma.order.findUnique({ where: { id: orderId }, select: { buyerId: true, sellerId: true } });
     // Admins can join any dispute thread; buyer/seller only their own.
     authorized = !!order && (role === "ADMIN" || order.buyerId === userId || order.sellerId === userId);
   }

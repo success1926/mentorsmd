@@ -1,52 +1,62 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { releaseOrder, FundsNotYetAvailableError } from "@/lib/orderRelease";
+import { releaseOrder, FundsNotYetAvailableError, OrderStateChangedError } from "@/lib/orderRelease";
+import { isAuthorizedCron } from "@/lib/cron";
 
 const WINDOW_HOURS = 96;
+
+// Vercel functions time out (10s by default). Each release is a Stripe
+// call, so cap how many we do per run and stop early if we're running low
+// on time - anything left over is picked up by the next run.
+export const maxDuration = 60;
+const BATCH_SIZE = 50;
+const TIME_BUDGET_MS = 45_000;
 
 // Runs once daily at 3am UTC (see vercel.json) - checks every COMPLETED
 // order and releases any where 96 hours have passed since the seller
 // marked it done, regardless of whether the buyer ever clicked anything.
-// This is the mechanism that makes "funds release automatically after
-// 96 hours" actually true, rather than just a promise in the UI.
-//
-// Why daily rather than hourly: Vercel's free Hobby tier only allows
-// cron jobs to run once per day - an hourly schedule fails to deploy at
-// all on that tier. Rather than requiring a paid Vercel plan or a
-// third-party scheduler just for slightly tighter timing, this runs
-// once a day, which adds at most ~24 hours of slack on top of the
-// 96-hour window (a small fraction of it, not a meaningful delay in
-// practice). If you later upgrade to Vercel Pro, you can change the
-// schedule in vercel.json to "0 * * * *" for near-exact 96-hour timing
-// - no other code changes needed.
+// On Vercel Pro you can change the schedule in vercel.json to "0 * * * *"
+// for near-exact 96-hour timing - no other code changes needed.
 export async function GET(req: Request) {
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCron(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const started = Date.now();
   const cutoff = new Date(Date.now() - WINDOW_HOURS * 60 * 60 * 1000);
+  const eligible = {
+    status: "COMPLETED" as const,
+    workCompletedAt: { lte: cutoff },
+    disputed: false, // never auto-release something an admin still needs to look at
+  };
 
   const dueForRelease = await prisma.order.findMany({
+    // Skip orders that would just fail again (seller hasn't connected
+    // payouts, funds still settling) so they can't clog the front of
+    // every batch and starve everything behind them.
     where: {
-      status: "COMPLETED",
-      workCompletedAt: { lte: cutoff },
-      disputed: false, // never auto-release something an admin still needs to look at
+      ...eligible,
+      seller: { stripeAccountId: { not: null } },
+      OR: [{ fundsAvailableAt: null }, { fundsAvailableAt: { lte: new Date() } }],
     },
+    select: { id: true },
+    orderBy: { workCompletedAt: "asc" },
+    take: BATCH_SIZE,
   });
 
   const results = [];
   for (const order of dueForRelease) {
+    if (Date.now() - started > TIME_BUDGET_MS) break;
     try {
-      await releaseOrder(order.id);
+      // The same conditions are re-checked atomically at claim time, so a
+      // dispute or revision request that lands mid-run is respected.
+      await releaseOrder(order.id, eligible);
       results.push({ orderId: order.id, released: true });
     } catch (err: any) {
       if (err instanceof FundsNotYetAvailableError) {
-        // Not a real problem - just means this specific payment hasn't
-        // settled with Stripe yet. Since the order stays COMPLETED,
-        // tomorrow's run will pick it up again automatically.
-        console.log(`Order ${order.id}: funds not available until ${err.availableAt.toISOString()}, will retry tomorrow.`);
         results.push({ orderId: order.id, released: false, reason: "funds_settling" });
+      } else if (err instanceof OrderStateChangedError) {
+        results.push({ orderId: order.id, released: false, reason: "state_changed" });
       } else {
         console.error(`Auto-release failed for order ${order.id}:`, err);
         results.push({ orderId: order.id, released: false, error: err.message });

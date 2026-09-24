@@ -44,9 +44,9 @@ export default function OrderDetailPage() {
   const [submittingReview, setSubmittingReview] = useState(false);
 
   function loadOrder() {
-    fetch("/api/orders")
+    fetch(`/api/orders/${orderId}`)
       .then((res) => res.json())
-      .then((data) => setOrder(data.orders?.find((o: any) => o.id === orderId)));
+      .then((data) => setOrder(data.order));
   }
 
   useEffect(loadOrder, [orderId]);
@@ -181,6 +181,8 @@ export default function OrderDetailPage() {
     order.status === "RELEASED" ? "Released" :
     order.status === "REFUNDED" ? "Refunded" :
     order.status === "COMPLETED" ? "Awaiting your review" :
+    order.status === "CANCELLED" ? "Cancelled" :
+    order.status === "PENDING_PAYMENT" ? "Awaiting payment" :
     "Pending";
 
   return (

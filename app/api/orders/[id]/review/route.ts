@@ -27,14 +27,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const { rating, comment } = await req.json();
   const ratingNum = Number(rating);
-  if (!ratingNum || ratingNum < 1 || ratingNum > 5) {
+  if (!Number.isInteger(ratingNum) || ratingNum < 1 || ratingNum > 5) {
     return NextResponse.json({ error: "Rating must be between 1 and 5" }, { status: 400 });
   }
 
   const review = await prisma.review.create({
     data: {
       rating: ratingNum,
-      comment: comment || null,
+      comment: typeof comment === "string" && comment.trim() ? comment.trim().slice(0, 2000) : null,
       orderId: order.id,
       buyerId: userId,
       sellerId: order.sellerId,

@@ -74,6 +74,8 @@ export default function OrdersPage() {
                 {o.status === "RELEASED" ? "Released" :
                  o.status === "REFUNDED" ? "Refunded" :
                  o.status === "COMPLETED" ? "Awaiting review" :
+                 o.status === "CANCELLED" ? "Cancelled" :
+                 o.status === "PENDING_PAYMENT" ? "Awaiting payment" :
                  "Pending"}
               </span>
             </Link>

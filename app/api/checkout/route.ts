@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
+import { parseDate } from "@/lib/validate";
 
 // Creates a Stripe Checkout Session for one gig package. Deliberately NOT
 // a Connect "destination charge" - the money lands in OUR Stripe balance
@@ -26,6 +27,13 @@ export async function POST(req: Request) {
 
   if (!dueDate) {
     return NextResponse.json({ error: "Pick a due date before checking out" }, { status: 400 });
+  }
+  const parsedDueDate = parseDate(dueDate);
+  if (!parsedDueDate) {
+    return NextResponse.json({ error: "Pick a due date between today and one year from now" }, { status: 400 });
+  }
+  if (typeof gigId !== "string") {
+    return NextResponse.json({ error: "Package not found" }, { status: 404 });
   }
 
   const gig = await prisma.gig.findUnique({ where: { id: gigId }, include: { seller: true } });
@@ -61,7 +69,7 @@ export async function POST(req: Request) {
       sellerId: gig.sellerId,
       amount: gig.price,
       status: "PENDING_PAYMENT",
-      dueDate: new Date(dueDate),
+      dueDate: parsedDueDate,
       conversationId: conversation.id,
     },
   });
@@ -73,13 +81,15 @@ export async function POST(req: Request) {
       {
         price_data: {
           currency: "usd",
-          product_data: { name: gig.title, description: gig.description },
+          product_data: { name: gig.title.slice(0, 250), description: gig.description.slice(0, 500) },
           unit_amount: gig.price, // cents
         },
         quantity: 1,
       },
     ],
     metadata: { orderId: order.id },
+    // Unpaid sessions expire after 1 hour instead of Stripe's 24h default.
+    expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
     success_url: `${process.env.NEXTAUTH_URL}/orders/${order.id}?success=true`,
     cancel_url: `${process.env.NEXTAUTH_URL}/gigs/${gig.id}?cancelled=true`,
   });

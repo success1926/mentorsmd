@@ -9,6 +9,7 @@ export async function MentorSpotlight() {
     where: { role: "SELLER", gigs: { some: { active: true } } },
     take: 3,
     orderBy: { createdAt: "desc" },
+    select: { id: true, name: true, credential: true, bio: true, photoUrl: true }, // public fields only
   });
 
   if (mentors.length === 0) return null; // nothing to show yet if no coaches have joined

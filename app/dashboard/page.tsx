@@ -30,22 +30,30 @@ export default function DashboardPage() {
 
   async function submitNew() {
     if (!form.title.trim()) return;
-    await fetch("/api/gigs", {
+    const res = await fetch("/api/gigs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
+    if (!res.ok) {
+      alert((await res.json().catch(() => ({}))).error || "Couldn't save this package");
+      return;
+    }
     setForm(emptyForm);
     setAdding(false);
     load();
   }
 
   async function saveEdit(id: string) {
-    await fetch(`/api/gigs/${id}`, {
+    const res = await fetch(`/api/gigs/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
+    if (!res.ok) {
+      alert((await res.json().catch(() => ({}))).error || "Couldn't save changes");
+      return;
+    }
     setEditingId(null);
     load();
   }
