@@ -12,7 +12,7 @@ export default function ContactPage() {
 
       <div style={{ maxWidth: 400, margin: "0 auto", display: "grid", gap: 12 }}>
         <a href={`tel:${PHONE.replace(/[^\d+]/g, "")}`} className="card" style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div className="avatar" style={{ width: 44, height: 44, fontSize: 18, background: "#1E5631" }}>📞</div>
+          <div className="avatar" style={{ width: 44, height: 44, fontSize: 18, background: "#5536D6" }}>📞</div>
           <div>
             <div className="text-secondary" style={{ marginBottom: 2 }}>Call us</div>
             <div style={{ fontWeight: 600 }}>{PHONE}</div>

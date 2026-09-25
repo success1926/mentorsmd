@@ -31,7 +31,7 @@ export function FAQ() {
 
   return (
     <div style={{ maxWidth: 640, margin: "0 auto" }}>
-      <h2 style={{ fontSize: 22, textAlign: "center", marginBottom: 24 }}>Frequently asked questions</h2>
+      <h2 className="section-title" style={{ textAlign: "center", marginBottom: 28 }}>Questions, answered</h2>
       <div style={{ display: "grid", gap: 10 }}>
         {faqs.map((item, i) => {
           const isOpen = openIndex === i;
@@ -46,16 +46,17 @@ export function FAQ() {
                   alignItems: "center",
                   background: "none",
                   border: "none",
-                  color: "#16211A",
+                  color: "#1B1834",
                   padding: "16px 18px",
-                  fontSize: 15,
-                  fontWeight: 500,
+                  fontSize: 16,
+                  fontWeight: 600,
+                  fontFamily: "inherit",
                   textAlign: "left",
                   cursor: "pointer",
                 }}
               >
                 {item.q}
-                <span style={{ color: "#6B7A70", fontSize: 20, transform: isOpen ? "rotate(45deg)" : "none", transition: "transform 0.15s" }}>
+                <span style={{ color: "#6E6A83", fontSize: 20, transform: isOpen ? "rotate(45deg)" : "none", transition: "transform 0.15s" }}>
                   +
                 </span>
               </button>

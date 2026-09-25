@@ -4,7 +4,7 @@
 const founders = [
   {
     initials: "JD",
-    color: "#1E5631",
+    color: "#5536D6",
     name: "Jane Doe",
     title: "Co-Founder & CEO",
     bio: "Placeholder bio. A couple of sentences about her background, why she started MentorsMD, and what she's focused on now.",
@@ -39,7 +39,7 @@ export default function FoundersPage() {
             </div>
             <div style={{ fontWeight: 600, fontSize: 17, marginBottom: 2 }}>{f.name}</div>
             <div className="text-secondary" style={{ marginBottom: 14 }}>{f.title}</div>
-            <p style={{ lineHeight: 1.6, textAlign: "left", color: "#33413A" }}>{f.bio}</p>
+            <p style={{ lineHeight: 1.6, textAlign: "left", color: "#2E2A45" }}>{f.bio}</p>
           </div>
         ))}
       </div>

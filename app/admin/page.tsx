@@ -95,7 +95,7 @@ export default function AdminPage() {
             ["Paid to coaches", earnings.paidToSellersCents],
             ["Pending", earnings.inEscrowCents],
           ].map(([label, cents]: any) => (
-            <div key={label} style={{ background: "#F3F6F4", borderRadius: 8, padding: 16 }}>
+            <div key={label} style={{ background: "#F7F5FB", borderRadius: 8, padding: 16 }}>
               <div className="text-secondary" style={{ marginBottom: 6 }}>{label}</div>
               <div style={{ fontSize: 22, fontWeight: 700 }}>${(cents / 100).toFixed(2)}</div>
             </div>
@@ -130,7 +130,7 @@ export default function AdminPage() {
         </p>
         <div style={{ display: "flex", gap: 8 }}>
           <input className="input" style={{ marginBottom: 0, flex: 1 }} placeholder="Coach's email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <button onClick={createInvite} disabled={creating} className="btn" style={{ background: "#1E5631", border: "none", color: "#fff" }}>
+          <button onClick={createInvite} disabled={creating} className="btn" style={{ background: "#5536D6", border: "none", color: "#fff" }}>
             {creating ? "Sending..." : "Send invite"}
           </button>
         </div>
@@ -171,7 +171,7 @@ export default function AdminPage() {
           <input className="input" style={{ marginBottom: 0 }} placeholder="Percent off (e.g. 10)" value={newCode.percentOff} onChange={(e) => setNewCode({ ...newCode, percentOff: e.target.value, amountOffDollars: "" })} />
           <input className="input" style={{ marginBottom: 0 }} placeholder="or $ off (e.g. 5)" value={newCode.amountOffDollars} onChange={(e) => setNewCode({ ...newCode, amountOffDollars: e.target.value, percentOff: "" })} />
         </div>
-        <button onClick={createDiscountCode} disabled={creatingCode} className="btn" style={{ background: "#1E5631", border: "none", color: "#fff" }}>
+        <button onClick={createDiscountCode} disabled={creatingCode} className="btn" style={{ background: "#5536D6", border: "none", color: "#fff" }}>
           {creatingCode ? "Creating..." : "Create code"}
         </button>
       </div>
@@ -262,7 +262,7 @@ function DisputeCard({
         <button onClick={onRefund} disabled={resolving} className="btn" style={{ background: "#DC2626", border: "none", color: "#fff", flex: 1 }}>
           Refund buyer
         </button>
-        <button onClick={onRelease} disabled={resolving} className="btn" style={{ background: "#1E5631", border: "none", color: "#fff", flex: 1 }}>
+        <button onClick={onRelease} disabled={resolving} className="btn" style={{ background: "#5536D6", border: "none", color: "#fff", flex: 1 }}>
           Release to coach
         </button>
       </div>

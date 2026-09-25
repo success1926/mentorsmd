@@ -89,7 +89,7 @@ export default function MessageThreadPage() {
 
       <div
         className="msg-thread"
-        style={{ marginBottom: 14, borderColor: dragOver ? "#1E5631" : undefined, borderStyle: dragOver ? "dashed" : undefined, borderWidth: dragOver ? 2 : undefined }}
+        style={{ marginBottom: 14, borderColor: dragOver ? "#5536D6" : undefined, borderStyle: dragOver ? "dashed" : undefined, borderWidth: dragOver ? 2 : undefined }}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
         onDrop={(e) => {
@@ -149,7 +149,7 @@ export default function MessageThreadPage() {
               Booking unlocks once {counterpart?.name?.split(" ")[0]} replies to your message.
             </div>
           )}
-          <h2 style={{ fontSize: 15, color: "#5B6A61", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>
+          <h2 style={{ fontSize: 15, color: "#5D5973", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>
             {counterpart?.name?.split(" ")[0]}'s packages
           </h2>
           <div style={{ display: "grid", gap: 10 }}>
@@ -159,7 +159,7 @@ export default function MessageThreadPage() {
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                       <div style={{ fontWeight: 600, fontSize: 14 }}>{g.title}</div>
-                      <span className="badge" style={{ background: "#EAF0EC", color: "#33413A" }}>{CATEGORY_LABELS[g.category] || g.category}</span>
+                      <span className="badge" style={{ background: "#F1EDFF", color: "#2E2A45" }}>{CATEGORY_LABELS[g.category] || g.category}</span>
                     </div>
                     <p className="text-secondary" style={{ margin: "0 0 4px", fontSize: 13 }}>{g.description}</p>
                     <div className="text-muted">{g.duration}</div>
@@ -170,7 +170,7 @@ export default function MessageThreadPage() {
                       disabled={!bookable}
                       onClick={() => bookable && router.push(`/gigs/${g.id}/checkout`)}
                       className="btn"
-                      style={bookable ? { background: "#1E5631", border: "none", color: "#fff" } : {}}
+                      style={bookable ? { background: "#5536D6", border: "none", color: "#fff" } : {}}
                     >
                       Book ${(g.price / 100).toFixed(0)}
                     </button>

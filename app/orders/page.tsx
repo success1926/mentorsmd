@@ -25,7 +25,7 @@ export default function OrdersPage() {
 
   return (
     <div>
-      <div style={{ display: "flex", border: "1px solid #D8E2DC", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
+      <div style={{ display: "flex", border: "1px solid #E7E3EF", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
         <button
           onClick={() => setView("orders")}
           style={{
@@ -35,8 +35,8 @@ export default function OrdersPage() {
             cursor: "pointer",
             fontSize: 14,
             fontWeight: 600,
-            background: view === "orders" ? "#1E5631" : "#F3F6F4",
-            color: view === "orders" ? "#fff" : "#33413A",
+            background: view === "orders" ? "#5536D6" : "#F7F5FB",
+            color: view === "orders" ? "#fff" : "#2E2A45",
           }}
         >
           Orders ({orders.length})
@@ -47,12 +47,12 @@ export default function OrdersPage() {
             flex: 1,
             padding: "12px 0",
             border: "none",
-            borderLeft: "1px solid #D8E2DC",
+            borderLeft: "1px solid #E7E3EF",
             cursor: "pointer",
             fontSize: 14,
             fontWeight: 600,
-            background: view === "messages" ? "#1E5631" : "#F3F6F4",
-            color: view === "messages" ? "#fff" : "#33413A",
+            background: view === "messages" ? "#5536D6" : "#F7F5FB",
+            color: view === "messages" ? "#fff" : "#2E2A45",
           }}
         >
           Messages ({conversations.length})

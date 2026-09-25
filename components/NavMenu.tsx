@@ -23,7 +23,7 @@ export function NavMenu() {
     display: "block",
     padding: "10px 14px",
     fontSize: 14,
-    color: "#33413A",
+    color: "#2E2A45",
     borderRadius: 6,
   };
 
@@ -44,13 +44,13 @@ export function NavMenu() {
             position: "absolute",
             top: "calc(100% + 6px)",
             left: 0,
-            background: "#F3F6F4",
-            border: "1px solid #D8E2DC",
+            background: "#F7F5FB",
+            border: "1px solid #E7E3EF",
             borderRadius: 10,
             padding: 6,
             minWidth: 190,
             zIndex: 50,
-            boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+            boxShadow: "0 8px 24px rgba(27,24,52,0.14)",
           }}
         >
           <Link href="/" className="nav-menu-link" style={linkStyle} onClick={() => setOpen(false)}>Home</Link>
@@ -59,7 +59,7 @@ export function NavMenu() {
 
           {!session && (
             <>
-              <div style={{ borderTop: "1px solid #D8E2DC", margin: "6px 0" }} />
+              <div style={{ borderTop: "1px solid #E7E3EF", margin: "6px 0" }} />
               <Link href="/signup/buyer" className="nav-menu-link" style={linkStyle} onClick={() => setOpen(false)}>Join as a buyer</Link>
               <Link href="/login" className="nav-menu-link" style={linkStyle} onClick={() => setOpen(false)}>Log in</Link>
             </>
@@ -67,14 +67,14 @@ export function NavMenu() {
 
           {session && role === "BUYER" && (
             <>
-              <div style={{ borderTop: "1px solid #D8E2DC", margin: "6px 0" }} />
+              <div style={{ borderTop: "1px solid #E7E3EF", margin: "6px 0" }} />
               <Link href="/orders" className="nav-menu-link" style={linkStyle} onClick={() => setOpen(false)}>My orders</Link>
             </>
           )}
 
           {session && role === "SELLER" && (
             <>
-              <div style={{ borderTop: "1px solid #D8E2DC", margin: "6px 0" }} />
+              <div style={{ borderTop: "1px solid #E7E3EF", margin: "6px 0" }} />
               <Link href="/dashboard" className="nav-menu-link" style={linkStyle} onClick={() => setOpen(false)}>My packages</Link>
               <Link href="/dashboard/payouts" className="nav-menu-link" style={linkStyle} onClick={() => setOpen(false)}>Payouts</Link>
               <Link href="/orders" className="nav-menu-link" style={linkStyle} onClick={() => setOpen(false)}>My orders</Link>
@@ -83,14 +83,14 @@ export function NavMenu() {
 
           {session && role === "ADMIN" && (
             <>
-              <div style={{ borderTop: "1px solid #D8E2DC", margin: "6px 0" }} />
+              <div style={{ borderTop: "1px solid #E7E3EF", margin: "6px 0" }} />
               <Link href="/admin" className="nav-menu-link" style={linkStyle} onClick={() => setOpen(false)}>Admin</Link>
             </>
           )}
 
           {session && (
             <>
-              <div style={{ borderTop: "1px solid #D8E2DC", margin: "6px 0" }} />
+              <div style={{ borderTop: "1px solid #E7E3EF", margin: "6px 0" }} />
               <button
                 onClick={() => { setOpen(false); signOut({ callbackUrl: "/" }); }}
                 className="nav-menu-link" style={{ ...linkStyle, width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer" }}
@@ -100,7 +100,7 @@ export function NavMenu() {
             </>
           )}
 
-          <div style={{ borderTop: "1px solid #D8E2DC", margin: "6px 0" }} />
+          <div style={{ borderTop: "1px solid #E7E3EF", margin: "6px 0" }} />
           <Link href="/contact" className="nav-menu-link" style={linkStyle} onClick={() => setOpen(false)}>Contact us</Link>
         </div>
       )}

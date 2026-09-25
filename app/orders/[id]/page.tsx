@@ -222,21 +222,21 @@ export default function OrderDetailPage() {
         )}
 
         {showSchedule && (
-          <div style={{ marginTop: 12, borderTop: "1px solid #D8E2DC", paddingTop: 12 }}>
+          <div style={{ marginTop: 12, borderTop: "1px solid #E7E3EF", paddingTop: 12 }}>
             <input type="datetime-local" className="input" value={scheduleValue} onChange={(e) => setScheduleValue(e.target.value)} />
-            <button onClick={handleSchedule} disabled={scheduling || !scheduleValue} className="btn" style={{ background: "#1E5631", border: "none", color: "#fff" }}>
+            <button onClick={handleSchedule} disabled={scheduling || !scheduleValue} className="btn" style={{ background: "#5536D6", border: "none", color: "#fff" }}>
               {scheduling ? "Saving..." : "Confirm time"}
             </button>
           </div>
         )}
 
         {showDueDate && (
-          <div style={{ marginTop: 12, borderTop: "1px solid #D8E2DC", paddingTop: 12 }}>
+          <div style={{ marginTop: 12, borderTop: "1px solid #E7E3EF", paddingTop: 12 }}>
             <p className="text-muted" style={{ marginTop: 0, marginBottom: 8 }}>
               A revision request automatically sets the due date to 7 days out - use this if you need more time than that.
             </p>
             <input type="date" className="input" value={dueDateValue} onChange={(e) => setDueDateValue(e.target.value)} />
-            <button onClick={handleChangeDueDate} disabled={savingDueDate || !dueDateValue} className="btn" style={{ background: "#1E5631", border: "none", color: "#fff" }}>
+            <button onClick={handleChangeDueDate} disabled={savingDueDate || !dueDateValue} className="btn" style={{ background: "#5536D6", border: "none", color: "#fff" }}>
               {savingDueDate ? "Saving..." : "Update due date"}
             </button>
           </div>
@@ -276,7 +276,7 @@ export default function OrderDetailPage() {
         <>
           <div
             className="msg-thread"
-            style={{ marginBottom: 14, borderColor: dragOver ? "#1E5631" : undefined, borderStyle: dragOver ? "dashed" : undefined, borderWidth: dragOver ? 2 : undefined }}
+            style={{ marginBottom: 14, borderColor: dragOver ? "#5536D6" : undefined, borderStyle: dragOver ? "dashed" : undefined, borderWidth: dragOver ? 2 : undefined }}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
             onDrop={(e) => {
@@ -353,7 +353,7 @@ export default function OrderDetailPage() {
             <div className="card">
               <textarea className="input" placeholder="What needs to change?" value={revisionNote} onChange={(e) => setRevisionNote(e.target.value)} />
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={handleRequestRevision} disabled={requestingRevision} className="btn" style={{ background: "#1E5631", border: "none", color: "#fff" }}>
+                <button onClick={handleRequestRevision} disabled={requestingRevision} className="btn" style={{ background: "#5536D6", border: "none", color: "#fff" }}>
                   {requestingRevision ? "Sending..." : "Send request"}
                 </button>
                 <button onClick={() => setShowRevision(false)} className="btn">Cancel</button>
@@ -409,11 +409,11 @@ export default function OrderDetailPage() {
                 <div style={{ fontWeight: 600, marginBottom: 10 }}>Leave a review</div>
                 <div style={{ display: "flex", gap: 4, marginBottom: 10, fontSize: 24 }}>
                   {[1, 2, 3, 4, 5].map((n) => (
-                    <span key={n} onClick={() => setReviewRating(n)} style={{ cursor: "pointer", color: n <= reviewRating ? "#1E5631" : "#D8E2DC" }}>★</span>
+                    <span key={n} onClick={() => setReviewRating(n)} style={{ cursor: "pointer", color: n <= reviewRating ? "#5536D6" : "#E7E3EF" }}>★</span>
                   ))}
                 </div>
                 <textarea className="input" placeholder="Optional comment" value={reviewComment} onChange={(e) => setReviewComment(e.target.value)} />
-                <button onClick={handleSubmitReview} disabled={submittingReview || !reviewRating} className="btn" style={{ background: "#1E5631", border: "none", color: "#fff" }}>
+                <button onClick={handleSubmitReview} disabled={submittingReview || !reviewRating} className="btn" style={{ background: "#5536D6", border: "none", color: "#fff" }}>
                   {submittingReview ? "Submitting..." : "Submit review"}
                 </button>
               </div>
