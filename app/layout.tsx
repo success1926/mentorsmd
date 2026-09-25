@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Fraunces, Instrument_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { TopNav } from "@/components/TopNav";
@@ -24,12 +25,17 @@ export const metadata: Metadata = {
 // versions, rather than inside `metadata` - this is what colors the
 // phone's browser toolbar to match the brand.
 export const viewport: Viewport = {
-  themeColor: "#1E5631",
+  themeColor: "#5536D6",
 };
+
+// Brand fonts, self-hosted by Next.js (no request to Google at page load).
+// Fraunces = headlines and coach names; Instrument Sans = everything else.
+const display = Fraunces({ subsets: ["latin"], style: ["normal", "italic"], variable: "--font-display-loaded", display: "swap" });
+const body = Instrument_Sans({ subsets: ["latin"], variable: "--font-body-loaded", display: "swap" });
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body>
         <Providers>
           <TopNav />

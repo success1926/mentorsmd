@@ -19,16 +19,17 @@ const testimonials = [
 
 export function Testimonials() {
   return (
-    <div style={{ marginBottom: 44 }}>
-      <h2 style={{ fontSize: 22, textAlign: "center", marginBottom: 20 }}>What students are saying</h2>
-      <div style={{ display: "grid", gap: 12 }}>
+    <div>
+      <h2 className="section-title" style={{ marginBottom: 28 }}>What students are saying</h2>
+      <div className="grid-3">
         {testimonials.map((t) => (
-          <div key={t.name} className="card">
-            <p style={{ lineHeight: 1.6, marginBottom: 10, fontStyle: "italic" }}>"{t.quote}"</p>
-            <div className="text-secondary" style={{ fontSize: 13 }}>
-              <span style={{ fontWeight: 600, color: "#33413A" }}>{t.name}</span> · {t.context}
-            </div>
-          </div>
+          <figure key={t.name} className="card" style={{ margin: 0, display: "flex", flexDirection: "column", gap: 16, padding: 28 }}>
+            <div aria-hidden="true" className="display" style={{ fontSize: 54, lineHeight: 0.5, height: 22, color: "var(--accent)" }}>&ldquo;</div>
+            <blockquote className="display" style={{ margin: 0, fontSize: 20, lineHeight: 1.45, fontWeight: 400 }}>{t.quote}</blockquote>
+            <figcaption className="text-secondary" style={{ fontSize: 14, marginTop: "auto" }}>
+              <span style={{ fontWeight: 600, color: "var(--ink)" }}>{t.name}</span> · {t.context}
+            </figcaption>
+          </figure>
         ))}
       </div>
     </div>

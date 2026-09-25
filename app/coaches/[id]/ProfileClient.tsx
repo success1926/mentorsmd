@@ -19,6 +19,7 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
   const isBuyer = (session?.user as any)?.role === "BUYER";
 
   const [bookable, setBookable] = useState(false);
+  const [eligReason, setEligReason] = useState<string>("not_messaged");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [draft, setDraft] = useState("");
@@ -31,7 +32,10 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
     if (!isBuyer) return;
     fetch(`/api/conversations/eligibility?sellerId=${seller.id}`)
       .then((res) => res.json())
-      .then((data) => setBookable(!!data.canPickDueDate));
+      .then((data) => {
+        setBookable(!!data.canPickDueDate);
+        setEligReason(data.reason || "");
+      });
   }, [isBuyer, seller.id]);
 
   async function startConversation() {
@@ -84,6 +88,7 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
     const data = await res.json();
     setMessages(data.messages || []);
     const elig = await fetch(`/api/conversations/eligibility?sellerId=${seller.id}`).then((r) => r.json());
+    setEligReason(elig.reason || "");
     setBookable(!!elig.canPickDueDate);
   }
 
@@ -105,23 +110,33 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
 
   return (
     <div>
-      <Link href="/coaches" className="text-secondary" style={{ display: "inline-block", marginBottom: 16 }}>&larr; Back to browse</Link>
-      <div style={{ display: "flex", gap: 18, alignItems: "center", marginBottom: 8 }}>
-        <div className="avatar" style={{ width: 72, height: 72, fontSize: 24, background: "#1E5631" }}>{initials}</div>
-        <div>
-          <h1 style={{ fontSize: 22, marginBottom: 2 }}>{seller.name}</h1>
-          <div className="text-secondary">{seller.credential}</div>
-          {avgRating && (
-            <div className="text-secondary" style={{ marginTop: 4 }}>
-              ★ {avgRating.toFixed(1)} · {reviews.length} review{reviews.length !== 1 ? "s" : ""}
-            </div>
-          )}
+      <Link href="/coaches" className="text-secondary" style={{ display: "inline-block", marginBottom: 16, fontWeight: 600, color: "var(--primary-deep)" }}>&larr; All coaches</Link>
+      <section className="card" style={{ padding: 0, marginBottom: 24, overflow: "hidden" }}>
+        <div className="profile-banner" />
+        <div style={{ padding: "0 28px 28px", display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="avatar" style={{ width: 104, height: 104, fontSize: 36, marginTop: -52, border: "5px solid #fff", position: "relative" }}>{initials}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <h1 style={{ margin: 0, fontSize: 34 }}>{seller.name}</h1>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="var(--primary)" role="img" aria-label="Verified coach">
+              <path d="M12 2l2.4 2.1 3.2-.3.9 3.1 2.8 1.6-1.1 3 1.1 3-2.8 1.6-.9 3.1-3.2-.3L12 22l-2.4-2.1-3.2.3-.9-3.1-2.8-1.6 1.1-3-1.1-3 2.8-1.6.9-3.1 3.2.3z" />
+              <path d="M8.5 12l2.5 2.5 4.5-5" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" />
+            </svg>
+            <span className="badge badge-brand">Verified by MentorsMD</span>
+          </div>
+          {seller.credential && <div style={{ fontSize: 17, fontWeight: 600 }}>{seller.credential}</div>}
+          <div className="text-secondary" style={{ fontSize: 15 }}>
+            {avgRating ? (
+              <><span className="stars">★</span> <b style={{ color: "var(--ink)" }}>{avgRating.toFixed(1)}</b> ({reviews.length} review{reviews.length !== 1 ? "s" : ""})</>
+            ) : (
+              <span className="badge badge-brand">New coach</span>
+            )}
+          </div>
+          {seller.bio && <p className="text-secondary" style={{ lineHeight: 1.65, margin: "6px 0 0", fontSize: 16 }}>{seller.bio}</p>}
         </div>
-      </div>
-      <p style={{ lineHeight: 1.6, marginTop: 16, marginBottom: 24, maxWidth: 560 }}>{seller.bio}</p>
+      </section>
 
       {isBuyer && !conversationId && (
-        <button onClick={startConversation} className="btn" style={{ marginBottom: 20 }}>
+        <button onClick={startConversation} className="btn btn-solid btn-lg" style={{ marginBottom: 20 }}>
           Message {seller.name.split(" ")[0]}
         </button>
       )}
@@ -129,7 +144,7 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
       {isBuyer && conversationId && (
         <div
           className="msg-thread"
-          style={{ marginBottom: 20, borderColor: dragOver ? "#1E5631" : undefined, borderStyle: dragOver ? "dashed" : undefined, borderWidth: dragOver ? 2 : undefined }}
+          style={{ marginBottom: 20, borderColor: dragOver ? "#5536D6" : undefined, borderStyle: dragOver ? "dashed" : undefined, borderWidth: dragOver ? 2 : undefined }}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
           onDrop={(e) => {
@@ -176,33 +191,55 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
         </div>
       )}
 
-      {isBuyer && !bookable && (
-        <div className="badge badge-warning" style={{ display: "block", marginBottom: 20, padding: "10px 14px" }}>
-          Message {seller.name.split(" ")[0]} and wait for a reply to unlock booking and a due date.
+      {isBuyer && (
+        <div className="card" style={{ marginBottom: 24, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="eyebrow" style={{ color: "var(--muted)" }}>Before you book</div>
+          {[
+            { label: `Message ${seller.name.split(" ")[0]}`, done: bookable || eligReason === "awaiting_reply" },
+            { label: `${seller.name.split(" ")[0]} replies`, done: bookable },
+            { label: "Pick a due date & pay (held until you approve)", done: false },
+          ].map((step, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 15 }}>
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 26, height: 26, borderRadius: "50%", flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 13, fontWeight: 700,
+                  background: step.done ? "var(--primary)" : "#fff",
+                  color: step.done ? "#fff" : "var(--primary)",
+                  border: step.done ? "none" : "2px solid var(--tint-2)",
+                }}
+              >
+                {step.done ? "✓" : i + 1}
+              </span>
+              <span style={{ fontWeight: step.done ? 600 : 500 }}>{step.label}</span>
+              <span className="sr-only">{step.done ? "(done)" : "(not yet)"}</span>
+            </div>
+          ))}
         </div>
       )}
 
-      <h2 style={{ fontSize: 16, color: "#5B6A61", marginBottom: 12, textTransform: "uppercase", letterSpacing: 0.5 }}>Packages</h2>
+      <h2 style={{ fontSize: 28, margin: "0 0 14px" }}>Packages</h2>
       <div style={{ display: "grid", gap: 12, marginBottom: 32 }}>
         {seller.gigs.map((g: any) => (
           <div key={g.id} className="card">
             <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <div style={{ fontWeight: 600 }}>{g.title}</div>
-                  <span className="badge" style={{ background: "#EAF0EC", color: "#33413A" }}>{CATEGORY_LABELS[g.category] || g.category}</span>
+                  <div style={{ fontWeight: 600, fontSize: 18 }}>{g.title}</div>
+                  <span className="badge badge-brand">{CATEGORY_LABELS[g.category] || g.category}</span>
                 </div>
                 <p className="text-secondary" style={{ lineHeight: 1.5, marginBottom: 8 }}>{g.description}</p>
                 <div className="text-muted">{g.duration}</div>
               </div>
               <div style={{ textAlign: "right", flexShrink: 0 }}>
-                <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>${(g.price / 100).toFixed(0)}</div>
+                <div className="display" style={{ fontSize: 28, marginBottom: 8 }}>${(g.price / 100).toFixed(0)}</div>
                 {isBuyer ? (
                   <button
                     disabled={!bookable}
                     onClick={() => router.push(`/gigs/${g.id}/checkout`)}
                     className="btn"
-                    style={bookable ? { background: "#1E5631", border: "none", color: "#fff" } : {}}
+                    style={bookable ? { background: "#5536D6", border: "none", color: "#fff" } : {}}
                   >
                     Book and pay ${(g.price / 100).toFixed(0)}
                   </button>
@@ -217,11 +254,11 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
 
       {reviews.length > 0 && (
         <>
-          <h2 style={{ fontSize: 16, color: "#5B6A61", marginBottom: 12, textTransform: "uppercase", letterSpacing: 0.5 }}>Reviews</h2>
+          <h2 style={{ fontSize: 28, margin: "0 0 14px" }}>Reviews</h2>
           <div style={{ display: "grid", gap: 10 }}>
             {reviews.map((r) => (
               <div key={r.id} className="card">
-                <div style={{ marginBottom: r.comment ? 6 : 0 }}>{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</div>
+                <div style={{ marginBottom: r.comment ? 6 : 0 }}><span className="stars" aria-label={`${r.rating} out of 5 stars`}>{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span></div>
                 {r.comment && <p className="text-secondary" style={{ margin: 0, lineHeight: 1.5 }}>{r.comment}</p>}
               </div>
             ))}

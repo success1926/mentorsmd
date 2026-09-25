@@ -62,7 +62,7 @@ export default function PayoutsPage() {
           {status?.started && status?.outstandingItems && status.outstandingItems.length > 0 && (
             <div className="card" style={{ marginBottom: 16, padding: 12 }}>
               <div className="text-secondary" style={{ marginBottom: 6, fontWeight: 600 }}>Still needed:</div>
-              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#5B6A61" }}>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#5D5973" }}>
                 {status.outstandingItems.map((item: string, i: number) => (
                   <li key={i}>{item}</li>
                 ))}
@@ -76,7 +76,7 @@ export default function PayoutsPage() {
           {status?.started && (
             <details open style={{ marginBottom: 16, fontSize: 12 }}>
               <summary className="text-muted" style={{ cursor: "pointer" }}>Raw Stripe data (debug)</summary>
-              <pre style={{ whiteSpace: "pre-wrap", background: "#F3F6F4", padding: 10, borderRadius: 6, marginTop: 8, fontSize: 11, overflow: "auto", maxHeight: 300 }}>
+              <pre style={{ whiteSpace: "pre-wrap", background: "#F7F5FB", padding: 10, borderRadius: 6, marginTop: 8, fontSize: 11, overflow: "auto", maxHeight: 300 }}>
                 {JSON.stringify((status as any).rawAccount || status, null, 2)}
               </pre>
             </details>
@@ -89,7 +89,7 @@ export default function PayoutsPage() {
       )}
 
       {!checking && (
-        <button onClick={loadStatus} className="btn" style={{ marginTop: 16, background: "none", border: "none", padding: 0, fontSize: 12, color: "#5B6A61" }}>
+        <button onClick={loadStatus} className="btn" style={{ marginTop: 16, background: "none", border: "none", padding: 0, fontSize: 12, color: "#5D5973" }}>
           Refresh status
         </button>
       )}

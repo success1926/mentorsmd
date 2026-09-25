@@ -60,7 +60,7 @@ export default function CheckoutPage() {
         <label className="text-secondary" style={{ display: "block", marginBottom: 6 }}>Due date</label>
         <input type="date" min={minDate} value={dueDate} onChange={(e) => { setDueDate(e.target.value); setError(""); }} className="input" />
 
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 700, padding: "10px 0", borderTop: "1px solid #D8E2DC", marginTop: 6, marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 700, padding: "10px 0", borderTop: "1px solid #E7E3EF", marginTop: 6, marginBottom: 16 }}>
           <span>Total due today</span><span>${(gig.price / 100).toFixed(2)}</span>
         </div>
 

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 
 const CATEGORIES = [
-  { value: "", label: "All categories" },
+  { value: "", label: "All services" },
   { value: "ESSAY_REVIEW", label: "Essay review" },
   { value: "MOCK_INTERVIEW", label: "Mock interview" },
   { value: "APPLICATION_STRATEGY", label: "Application strategy" },
@@ -13,9 +13,9 @@ const CATEGORIES = [
 
 const SORTS = [
   { value: "newest", label: "Newest" },
+  { value: "rating", label: "Highest rated" },
   { value: "price_asc", label: "Price: low to high" },
   { value: "price_desc", label: "Price: high to low" },
-  { value: "rating", label: "Highest rated" },
 ];
 
 export function CoachFilters({
@@ -40,13 +40,35 @@ export function CoachFilters({
   }
 
   return (
-    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-      <select className="input" style={{ width: "auto", marginBottom: 0 }} value={category} onChange={(e) => updateParam("category", e.target.value)}>
-        {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-      </select>
-      <select className="input" style={{ width: "auto", marginBottom: 0 }} value={sort} onChange={(e) => updateParam("sort", e.target.value)}>
-        {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-      </select>
+    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} role="group" aria-label="Filter by service">
+        {CATEGORIES.map((c) => {
+          const active = c.value === category;
+          return (
+            <button
+              key={c.value}
+              type="button"
+              aria-pressed={active}
+              onClick={() => updateParam("category", c.value)}
+              className={`chip ${active ? "chip-active" : ""}`}
+              style={{ cursor: "pointer", fontFamily: "inherit" }}
+            >
+              {c.label}
+            </button>
+          );
+        })}
+      </div>
+      <label className="text-secondary" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15 }}>
+        Sort by
+        <select
+          className="input"
+          style={{ width: "auto", marginBottom: 0, fontWeight: 600 }}
+          value={sort}
+          onChange={(e) => updateParam("sort", e.target.value)}
+        >
+          {SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </select>
+      </label>
     </div>
   );
 }

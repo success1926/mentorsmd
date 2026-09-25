@@ -89,7 +89,7 @@ export default function DashboardPage() {
                   <input className="input" style={{ marginBottom: 0 }} value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} placeholder="Turnaround" />
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => saveEdit(g.id)} className="btn" style={{ background: "#1E5631", border: "none", color: "#fff" }}>Save</button>
+                  <button onClick={() => saveEdit(g.id)} className="btn" style={{ background: "#5536D6", border: "none", color: "#fff" }}>Save</button>
                   <button onClick={() => setEditingId(null)} className="btn">Cancel</button>
                 </div>
               </div>
@@ -98,7 +98,7 @@ export default function DashboardPage() {
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                     <div style={{ fontWeight: 600 }}>{g.title}</div>
-                    <span className="badge" style={{ background: "#EAF0EC", color: "#33413A" }}>{categoryLabel(g.category)}</span>
+                    <span className="badge" style={{ background: "#F1EDFF", color: "#2E2A45" }}>{categoryLabel(g.category)}</span>
                   </div>
                   <p className="text-secondary" style={{ marginBottom: 8 }}>{g.description}</p>
                   <div className="text-muted">{g.duration}</div>
@@ -128,7 +128,7 @@ export default function DashboardPage() {
             <input className="input" style={{ marginBottom: 0 }} value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} placeholder="Turnaround" />
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={submitNew} className="btn" style={{ background: "#1E5631", border: "none", color: "#fff" }}>Add package</button>
+            <button onClick={submitNew} className="btn" style={{ background: "#5536D6", border: "none", color: "#fff" }}>Add package</button>
             <button onClick={() => setAdding(false)} className="btn">Cancel</button>
           </div>
         </div>
