@@ -57,17 +57,23 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
       formData.append("file", pendingFile);
       const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
       const uploadData = await uploadRes.json();
-      if (uploadRes.ok) {
-        attachmentUrl = uploadData.url;
-        attachmentName = uploadData.name;
+      if (!uploadRes.ok) {
+        alert(uploadData.error || "That file couldn't be uploaded");
+        return; // keep the draft and file so they can fix it
       }
+      attachmentUrl = uploadData.url;
+      attachmentName = uploadData.name;
     }
 
-    await fetch(`/api/conversations/${conversationId}/messages`, {
+    const sendRes = await fetch(`/api/conversations/${conversationId}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ body: draft, attachmentUrl, attachmentName }),
     });
+    if (!sendRes.ok) {
+      alert((await sendRes.json().catch(() => ({}))).error || "Message failed to send");
+      return;
+    }
     setDraft("");
     setPendingFile(null);
 

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { releaseOrder, FundsNotYetAvailableError } from "@/lib/orderRelease";
+import { releaseOrder, FundsNotYetAvailableError, OrderStateChangedError } from "@/lib/orderRelease";
 
 // Two ways a human reaches this:
 //   1. Buyer confirms early, once the seller has marked work COMPLETED.
@@ -40,9 +40,14 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   }
 
   try {
-    const result = await releaseOrder(order.id);
+    // Re-check the same condition atomically at claim time, so a revision
+    // request or refund that lands between the check above and now wins.
+    const result = await releaseOrder(order.id, isAdmin ? {} : { status: "COMPLETED", buyerId: userId });
     return NextResponse.json(result);
   } catch (err: any) {
+    if (err instanceof OrderStateChangedError) {
+      return NextResponse.json({ error: err.message }, { status: 409 });
+    }
     if (err instanceof FundsNotYetAvailableError) {
       const readable = err.availableAt.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
       return NextResponse.json(
@@ -50,6 +55,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
         { status: 400 }
       );
     }
+    console.error(`Release failed for order ${order.id}:`, err);
     return NextResponse.json({ error: err.message || "Release failed" }, { status: 400 });
   }
 }

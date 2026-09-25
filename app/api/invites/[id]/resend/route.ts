@@ -17,7 +17,12 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   }
 
   const inviteUrl = `${process.env.NEXTAUTH_URL}/onboard-coach?code=${invite.code}&email=${encodeURIComponent(invite.email)}`;
-  await sendSellerInviteEmail(invite.email, inviteUrl);
+  try {
+    await sendSellerInviteEmail(invite.email, inviteUrl);
+  } catch (err) {
+    console.error("Failed to resend invite email:", err);
+    return NextResponse.json({ error: "The email failed to send - check your Resend setup and try again" }, { status: 502 });
+  }
 
   return NextResponse.json({ success: true });
 }

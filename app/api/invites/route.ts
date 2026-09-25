@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendSellerInviteEmail } from "@/lib/email";
+import { normalizeEmail } from "@/lib/validate";
 
 // This is the whole access-control mechanism for who can become a seller:
 // only an authenticated ADMIN can call this route to mint a code. There is
@@ -24,12 +25,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
 
-  const { email } = await req.json();
+  const { email: rawEmail } = await req.json();
+  const email = normalizeEmail(rawEmail);
   if (!email) {
-    return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
   }
 
-  const code = crypto.randomBytes(4).toString("hex").toUpperCase(); // e.g. "A1B2C3D4"
+  const code = crypto.randomBytes(8).toString("hex").toUpperCase(); // 16 chars - not guessable
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7); // 7 days
 
   const invite = await prisma.invite.create({
@@ -46,6 +48,7 @@ export async function POST(req: Request) {
   try {
     await sendSellerInviteEmail(email, inviteUrl);
   } catch (err) {
+    console.error("Failed to send invite email:", err);
     // The invite still exists even if the email failed to send - the
     // admin can resend it (see the /resend route below) rather than
     // losing the whole invite over a transient email error.
@@ -61,6 +64,6 @@ export async function GET() {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
 
-  const invites = await prisma.invite.findMany({ orderBy: { createdAt: "desc" } });
+  const invites = await prisma.invite.findMany({ orderBy: { createdAt: "desc" }, take: 200 });
   return NextResponse.json({ invites });
 }

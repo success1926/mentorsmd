@@ -40,9 +40,9 @@ export default function MessageThreadPage() {
 
   useEffect(() => {
     if (!conversation || !isBuyer) return;
-    fetch("/api/gigs")
+    fetch(`/api/gigs?sellerId=${encodeURIComponent(conversation.sellerId)}`)
       .then((res) => res.json())
-      .then((data) => setGigs((data.gigs || []).filter((g: any) => g.seller.id === conversation.sellerId)));
+      .then((data) => setGigs(data.gigs || []));
     fetch(`/api/conversations/eligibility?sellerId=${conversation.sellerId}`)
       .then((res) => res.json())
       .then((data) => setBookable(!!data.canPickDueDate));

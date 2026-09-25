@@ -15,9 +15,9 @@ export default function CheckoutPage() {
   const minDate = new Date().toISOString().split("T")[0];
 
   useEffect(() => {
-    fetch("/api/gigs")
+    fetch(`/api/gigs/${gigId}`)
       .then((res) => res.json())
-      .then((data) => setGig(data.gigs.find((g: any) => g.id === gigId)));
+      .then((data) => setGig(data.gig));
   }, [gigId]);
 
   async function handleConfirm() {

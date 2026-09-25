@@ -42,17 +42,26 @@ export function useConversation(conversationId: string) {
       formData.append("file", file);
       const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
       const uploadData = await uploadRes.json();
-      if (uploadRes.ok) {
-        attachmentUrl = uploadData.url;
-        attachmentName = uploadData.name;
+      if (!uploadRes.ok) {
+        // Stop here (and keep the draft) rather than silently sending the
+        // message without the file.
+        alert(uploadData.error || "That file couldn't be uploaded");
+        throw new Error(uploadData.error || "Upload failed");
       }
+      attachmentUrl = uploadData.url;
+      attachmentName = uploadData.name;
     }
 
-    await fetch(`/api/conversations/${conversationId}/messages`, {
+    const res = await fetch(`/api/conversations/${conversationId}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ body, attachmentUrl, attachmentName }),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Message failed to send");
+      throw new Error(data.error || "Send failed");
+    }
     // No need to manually add the message to state here - the Pusher
     // event above will deliver it back to us (and to the other person)
     // the moment the server broadcasts it.

@@ -17,7 +17,8 @@ export async function GET() {
 
   const orders = await prisma.order.findMany({
     where: { status: { in: ["IN_ESCROW", "COMPLETED", "RELEASED"] } },
-    include: { gig: true, seller: true, buyer: true },
+    // Only the fields shown - never pull whole User rows (password hashes etc).
+    include: { gig: { select: { title: true } }, seller: { select: { name: true } }, buyer: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
   });
 

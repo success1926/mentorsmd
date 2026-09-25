@@ -37,13 +37,18 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
 
   const { note } = await req.json();
-  if (!note?.trim()) return NextResponse.json({ error: "Add a note describing what needs to change" }, { status: 400 });
+  if (typeof note !== "string" || !note.trim()) {
+    return NextResponse.json({ error: "Add a note describing what needs to change" }, { status: 400 });
+  }
+  if (note.length > 5000) return NextResponse.json({ error: "Note is too long (5000 characters max)" }, { status: 400 });
 
   const wasCompleted = order.status === "COMPLETED";
   const newDueDate = new Date(Date.now() + REVISION_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
-  const updated = await prisma.order.update({
-    where: { id: params.id },
+  // Conditional on the status we just read, so this can't resurrect an
+  // order that the auto-release cron paid out a moment ago.
+  const claim = await prisma.order.updateMany({
+    where: { id: params.id, status: order.status },
     data: {
       revisionRequested: true,
       revisionNote: note,
@@ -52,6 +57,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       ...(wasCompleted ? { status: "IN_ESCROW", workCompletedAt: null } : {}),
     },
   });
+  if (claim.count === 0) {
+    return NextResponse.json({ error: "This order changed - refresh the page" }, { status: 409 });
+  }
+  const updated = await prisma.order.findUnique({ where: { id: params.id } });
 
   try {
     await sendRevisionRequestedEmail(order.seller.email, order.gig.title, note, `${SITE_URL}/orders/${order.id}`);

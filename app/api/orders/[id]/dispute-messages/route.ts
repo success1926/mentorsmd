@@ -4,11 +4,12 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { pusher, disputeChannel } from "@/lib/pusher";
 import { sendDisputeMessageEmail, SITE_URL } from "@/lib/email";
+import { LIMITS } from "@/lib/validate";
 
 async function getAuthorizedOrder(orderId: string, userId: string, role: string) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { buyer: true, seller: true, gig: true },
+    include: { buyer: { select: { email: true } }, seller: { select: { email: true } }, gig: { select: { title: true } } },
   });
   if (!order) return null;
   const isParticipant = order.buyerId === userId || order.sellerId === userId;
@@ -51,14 +52,21 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
 
   const { body } = await req.json();
-  if (!body?.trim()) return NextResponse.json({ error: "Message can't be empty" }, { status: 400 });
+  if (typeof body !== "string" || !body.trim()) return NextResponse.json({ error: "Message can't be empty" }, { status: 400 });
+  if (body.length > LIMITS.messageBody) {
+    return NextResponse.json({ error: `Message is too long (${LIMITS.messageBody} characters max)` }, { status: 400 });
+  }
 
   const message = await prisma.disputeMessage.create({
     data: { body, orderId: params.id, senderId: userId },
     include: { sender: { select: { id: true, name: true, role: true } } },
   });
 
-  await pusher.trigger(disputeChannel(params.id), "new-message", message);
+  try {
+    await pusher.trigger(disputeChannel(params.id), "new-message", message);
+  } catch (err) {
+    console.error("Pusher trigger failed:", err);
+  }
 
   try {
     const senderName = message.sender.name;
@@ -68,7 +76,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         sendDisputeMessageEmail(order.seller.email, senderName, order.gig.title, body, `${SITE_URL}/orders/${order.id}`),
       ]);
     } else {
-      const admins = await prisma.user.findMany({ where: { role: "ADMIN" } });
+      const admins = await prisma.user.findMany({ where: { role: "ADMIN" }, select: { email: true } });
       await Promise.all(
         admins.map((admin) =>
           sendDisputeMessageEmail(admin.email, senderName, order.gig.title, body, `${SITE_URL}/orders/${order.id}`)

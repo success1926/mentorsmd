@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendOverdueReminderEmail, SITE_URL } from "@/lib/email";
+import { isAuthorizedCron } from "@/lib/cron";
+
+export const maxDuration = 60;
+const BATCH_SIZE = 100;
 
 // Runs once a day (see vercel.json). Finds every order that's past its
 // due date, still IN_ESCROW (seller hasn't marked it complete), and
 // either has never gotten a reminder or didn't get one in the last 20
-// hours (the 20hr threshold, rather than exactly 24, gives the daily
-// cron schedule some slack so a slightly-early or slightly-late run
-// doesn't skip a day or send twice).
+// hours (20hr rather than 24 gives the daily schedule some slack).
 export async function GET(req: Request) {
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCron(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -23,7 +24,9 @@ export async function GET(req: Request) {
       dueDate: { lt: now },
       OR: [{ reminderLastSentAt: null }, { reminderLastSentAt: { lt: twentyHoursAgo } }],
     },
-    include: { seller: true, gig: true },
+    include: { seller: { select: { email: true } }, gig: { select: { title: true } } },
+    orderBy: { dueDate: "asc" },
+    take: BATCH_SIZE,
   });
 
   const results = [];
@@ -34,6 +37,8 @@ export async function GET(req: Request) {
       results.push({ orderId: order.id, reminded: true });
     } catch (err: any) {
       console.error(`Overdue reminder failed for order ${order.id}:`, err);
+      // Still stamp it, so one bad email address can't block the batch.
+      await prisma.order.update({ where: { id: order.id }, data: { reminderLastSentAt: now } }).catch(() => {});
       results.push({ orderId: order.id, reminded: false, error: err.message });
     }
   }

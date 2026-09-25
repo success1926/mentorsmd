@@ -12,7 +12,7 @@ export async function GET() {
   const orders = await prisma.order.findMany({
     where: { disputed: true, status: { in: ["IN_ESCROW", "COMPLETED"] } }, // resolved disputes (refunded/released) drop off this list naturally
     include: {
-      gig: true,
+      gig: { select: { id: true, title: true } },
       buyer: { select: { name: true, email: true } },
       seller: { select: { name: true, email: true } },
     },
