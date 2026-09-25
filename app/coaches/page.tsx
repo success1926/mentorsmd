@@ -2,7 +2,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { SearchBar } from "@/components/SearchBar";
 import { CoachFilters } from "@/components/CoachFilters";
-import { VerifiedIcon, initialsOf } from "@/components/MentorSpotlight";
+import { VerifiedIcon } from "@/components/MentorSpotlight";
+import { Avatar } from "@/components/Avatar";
 
 export const dynamic = "force-dynamic"; // always show current listings, never a stale cached build
 
@@ -41,7 +42,7 @@ export default async function CoachesPage({
           }
         : {}),
     },
-    include: { seller: { select: { id: true, name: true, credential: true, bio: true } } },
+    include: { seller: { select: { id: true, name: true, credential: true, bio: true, photoUrl: true } } },
     orderBy: { createdAt: "desc" },
     take: 500,
   });
@@ -139,9 +140,7 @@ export default async function CoachesPage({
               const cats = Array.from(new Set(gigs.map((g) => g.category)));
               return (
                 <article key={seller.id} className="card coach-row">
-                  <div className="avatar" style={{ width: "100%", aspectRatio: "1", fontSize: 34, background: AVATARS[i % AVATARS.length] }}>
-                    {initialsOf(seller.name)}
-                  </div>
+                  <Avatar name={seller.name} photoUrl={seller.photoUrl} style={{ width: "100%", aspectRatio: "1", fontSize: 34, background: AVATARS[i % AVATARS.length] }} />
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <Link href={`/coaches/${seller.id}`} className="display" style={{ fontSize: 23 }}>{seller.name}</Link>

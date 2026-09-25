@@ -59,3 +59,9 @@ export function isOurBlobUrl(url: unknown): url is string {
     return false;
   }
 }
+
+export const PASSWORD_RULE = "Password must be at least 8 characters";
+
+export function isValidNewPassword(pw: unknown): pw is string {
+  return typeof pw === "string" && pw.length >= 8 && pw.length <= 200;
+}

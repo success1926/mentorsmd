@@ -49,6 +49,7 @@ export function TopNav() {
             {session && role === "BUYER" && <Link href="/orders" className="btn">My orders</Link>}
             {session && role === "SELLER" && (
               <>
+                <Link href="/dashboard/profile" className="btn hide-mobile">Edit profile</Link>
                 <Link href="/dashboard" className="btn hide-mobile">My packages</Link>
                 <Link href="/dashboard/payouts" className="btn hide-mobile">Payouts</Link>
                 <Link href="/orders" className="btn">My orders</Link>

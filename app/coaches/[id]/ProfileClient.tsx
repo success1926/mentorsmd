@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Avatar } from "@/components/Avatar";
 
 const CATEGORY_LABELS: Record<string, string> = {
   ESSAY_REVIEW: "Essay review",
@@ -114,7 +115,7 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
       <section className="card" style={{ padding: 0, marginBottom: 24, overflow: "hidden" }}>
         <div className="profile-banner" />
         <div style={{ padding: "0 28px 28px", display: "flex", flexDirection: "column", gap: 12 }}>
-          <div className="avatar" style={{ width: 104, height: 104, fontSize: 36, marginTop: -52, border: "5px solid #fff", position: "relative" }}>{initials}</div>
+          <Avatar name={seller.name} photoUrl={seller.photoUrl} style={{ width: 104, height: 104, fontSize: 36, marginTop: -52, border: "5px solid #fff", position: "relative" }} />
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <h1 style={{ margin: 0, fontSize: 34 }}>{seller.name}</h1>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="var(--primary)" role="img" aria-label="Verified coach">

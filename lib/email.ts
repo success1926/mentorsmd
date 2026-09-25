@@ -181,4 +181,19 @@ export async function sendDisputeMessageEmail(toEmail: string, fromName: string,
   });
 }
 
+// Sent when someone uses "Forgot password?". The link works once and
+// expires after an hour.
+export async function sendPasswordResetEmail(toEmail: string, resetUrl: string) {
+  await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    subject: "Reset your MentorsMD password",
+    html: `
+      <p>Someone (hopefully you) asked to reset the password for this MentorsMD account.</p>
+      <p><a href="${esc(resetUrl)}">Choose a new password</a></p>
+      <p style="color:#555;">This link expires in 1 hour and can only be used once. If you didn't ask for this, you can ignore this email and your password won't change.</p>
+    `,
+  });
+}
+
 export { SITE_URL };

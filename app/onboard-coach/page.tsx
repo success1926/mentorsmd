@@ -59,7 +59,8 @@ function OnboardCoachForm() {
     }
 
     await signIn("credentials", { email, password, redirect: false });
-    router.push("/dashboard");
+    // First stop for a brand-new coach: add a photo and polish their bio.
+    router.push("/dashboard/profile");
     router.refresh();
   }
 
