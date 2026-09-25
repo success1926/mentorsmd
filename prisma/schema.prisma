@@ -73,6 +73,11 @@ model User {
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
 
+  // Set whenever the password is reset or changed. Any login session
+  // started before this moment is ended within ~5 minutes (see the jwt
+  // callback in lib/auth.ts), which kicks out anyone else who was in.
+  passwordChangedAt DateTime?
+
   accounts Account[] // one row per login method (Google, etc.) linked to this user
   sessions Session[]
 
@@ -86,6 +91,23 @@ model User {
   reviewsWritten  Review[] @relation("ReviewsByBuyer")
   reviewsReceived Review[] @relation("ReviewsOfSeller")
   disputeMessages DisputeMessage[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+// One row per "forgot password" request. Only a SHA-256 hash of the
+// token is stored, so someone who reads the database still can't use a
+// reset link. Links expire after an hour and work once.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@index([userId, createdAt])
 }
 
 // These two models are boilerplate required by NextAuth whenever you add

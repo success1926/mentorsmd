@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { Avatar } from "./Avatar";
 
 const CATEGORY_LABELS: Record<string, string> = {
   ESSAY_REVIEW: "Essay review",
@@ -18,6 +19,7 @@ export type FeaturedCoach = {
   name: string;
   credential: string | null;
   bio: string | null;
+  photoUrl: string | null;
   minPrice: number | null;
   categories: string[];
   avgRating: number | null;
@@ -36,6 +38,7 @@ export async function getFeaturedCoaches(take = 3): Promise<FeaturedCoach[]> {
       name: true,
       credential: true,
       bio: true, // public fields only
+      photoUrl: true,
       gigs: { where: { active: true }, select: { price: true, category: true } },
     },
   });
@@ -56,6 +59,7 @@ export async function getFeaturedCoaches(take = 3): Promise<FeaturedCoach[]> {
       name: m.name,
       credential: m.credential,
       bio: m.bio,
+      photoUrl: m.photoUrl,
       minPrice: m.gigs.length ? Math.min(...m.gigs.map((g) => g.price)) : null,
       categories: Array.from(new Set(m.gigs.map((g) => g.category))).slice(0, 3),
       avgRating: r?._avg.rating ?? null,
@@ -72,9 +76,7 @@ export function CoachCard({ coach, index }: { coach: FeaturedCoach; index: numbe
   return (
     <Link href={`/coaches/${coach.id}`} className="card coach-card" style={{ height: "100%" }}>
       <div className="coach-card-banner" style={{ background: BANNERS[index % BANNERS.length] }}>
-        <div className="avatar coach-card-avatar" style={{ background: AVATARS[index % AVATARS.length] }}>
-          {initialsOf(coach.name)}
-        </div>
+        <Avatar name={coach.name} photoUrl={coach.photoUrl} className="coach-card-avatar" style={{ background: AVATARS[index % AVATARS.length] }} />
       </div>
       <div className="coach-card-body">
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

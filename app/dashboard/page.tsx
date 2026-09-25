@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 const CATEGORIES = [
   { value: "ESSAY_REVIEW", label: "Essay review" },
@@ -72,7 +73,10 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <h1 style={{ fontSize: 22, marginBottom: 20 }}>My packages</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+        <h1 style={{ fontSize: 30, margin: 0 }}>My packages</h1>
+        <Link href="/dashboard/profile" className="btn">Edit profile &amp; photo</Link>
+      </div>
       <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
         {gigs.length === 0 && <p className="text-muted">No packages yet — add your first one below.</p>}
         {gigs.map((g) => (

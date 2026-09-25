@@ -5,8 +5,9 @@ import { TrustpilotWidget } from "@/components/TrustpilotWidget";
 import { FAQ } from "@/components/FAQ";
 import { StudentSpotlight } from "@/components/StudentSpotlight";
 import { Testimonials } from "@/components/Testimonials";
-import { getFeaturedCoaches, CoachCard, VerifiedIcon, initialsOf } from "@/components/MentorSpotlight";
+import { getFeaturedCoaches, CoachCard, VerifiedIcon } from "@/components/MentorSpotlight";
 import { ScrollGrow } from "@/components/ScrollGrow";
+import { Avatar } from "@/components/Avatar";
 
 export const dynamic = "force-dynamic"; // coach cards and counts read live data
 
@@ -82,7 +83,7 @@ export default async function HomePage() {
             {heroCoach && (
               <div className="card" style={{ position: "absolute", top: 64, left: 0, width: "78%", boxShadow: "0 20px 48px rgba(27,24,52,0.12)", display: "flex", flexDirection: "column", gap: 14 }}>
                 <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-                  <div className="avatar" style={{ width: 60, height: 60, fontSize: 22 }}>{initialsOf(heroCoach.name)}</div>
+                  <Avatar name={heroCoach.name} photoUrl={heroCoach.photoUrl} style={{ width: 60, height: 60, fontSize: 22 }} />
                   <div style={{ minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span className="display" style={{ fontSize: 21 }}>{heroCoach.name}</span>

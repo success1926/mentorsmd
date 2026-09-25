@@ -69,12 +69,14 @@ export function NavMenu() {
             <>
               <div style={{ borderTop: "1px solid #E7E3EF", margin: "6px 0" }} />
               <Link href="/orders" className="nav-menu-link" style={linkStyle} onClick={() => setOpen(false)}>My orders</Link>
+              <Link href="/dashboard/profile" className="nav-menu-link" style={linkStyle} onClick={() => setOpen(false)}>Account settings</Link>
             </>
           )}
 
           {session && role === "SELLER" && (
             <>
               <div style={{ borderTop: "1px solid #E7E3EF", margin: "6px 0" }} />
+              <Link href="/dashboard/profile" className="nav-menu-link" style={linkStyle} onClick={() => setOpen(false)}>Edit profile</Link>
               <Link href="/dashboard" className="nav-menu-link" style={linkStyle} onClick={() => setOpen(false)}>My packages</Link>
               <Link href="/dashboard/payouts" className="nav-menu-link" style={linkStyle} onClick={() => setOpen(false)}>Payouts</Link>
               <Link href="/orders" className="nav-menu-link" style={linkStyle} onClick={() => setOpen(false)}>My orders</Link>

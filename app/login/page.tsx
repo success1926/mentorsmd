@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,7 +19,7 @@ export default function LoginPage() {
     const res = await signIn("credentials", { email, password, redirect: false });
     setLoading(false);
     if (res?.error) {
-      setError("That email or password isn't right. After several failed attempts, an account is temporarily locked for security.");
+      setError("That email or password isn't right. After several failed attempts an account is locked for 15 minutes. Resetting your password unlocks it right away.");
       return;
     }
     router.push("/");
@@ -38,7 +39,10 @@ export default function LoginPage() {
       <form onSubmit={handleSubmit}>
         <input className="input" placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         <input className="input" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        {error && <div style={{ color: "#DC2626", fontSize: 13, marginBottom: 12 }}>{error}</div>}
+        <div style={{ textAlign: "right", marginTop: -4, marginBottom: 12 }}>
+          <Link href="/forgot-password" style={{ fontSize: 14, fontWeight: 600, color: "var(--primary-deep)" }}>Forgot password?</Link>
+        </div>
+        {error && <div role="alert" style={{ color: "#DC2626", fontSize: 13, marginBottom: 12 }}>{error}</div>}
         <button className="btn-primary" disabled={loading || !email || !password}>
           {loading ? "Logging in..." : "Log in"}
         </button>
