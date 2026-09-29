@@ -21,7 +21,8 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     await sendSellerInviteEmail(invite.email, inviteUrl);
   } catch (err) {
     console.error("Failed to resend invite email:", err);
-    return NextResponse.json({ error: "The email failed to send - check your Resend setup and try again" }, { status: 502 });
+    const reason = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: `The email failed to send: ${reason}` }, { status: 502 });
   }
 
   return NextResponse.json({ success: true });

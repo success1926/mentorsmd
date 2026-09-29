@@ -42,16 +42,30 @@ export default function AdminPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     setCreating(false);
+    if (!res.ok) {
+      alert(data.error || "Couldn't create the invite.");
+      return;
+    }
     setEmail("");
-    if (data.emailSent === false) alert("Invite created but the email failed to send — try resending it.");
+    if (data.emailSent === false) alert(data.warning || "Invite created but the email failed to send — try resending it.");
+    else alert(`Invite email sent to ${data.invite?.email}.`);
     loadInvites();
   }
 
   async function resend(id: string) {
-    await fetch(`/api/invites/${id}/resend`, { method: "POST" });
-    alert("Invite email re-sent.");
+    const res = await fetch(`/api/invites/${id}/resend`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    alert(res.ok ? "Invite email re-sent." : data.error || "The email failed to send.");
+  }
+
+  async function cancelInvite(inv: any) {
+    if (!confirm(`Cancel the invite for ${inv.email}? Their link will stop working.`)) return;
+    const res = await fetch(`/api/invites/${inv.id}`, { method: "DELETE" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) alert(data.error || "Couldn't cancel the invite.");
+    loadInvites();
   }
 
   async function createDiscountCode() {
@@ -151,6 +165,7 @@ export default function AdminPage() {
                 <>
                   <span className="badge badge-warning">{inv.status}</span>
                   <button onClick={() => resend(inv.id)} className="btn">Resend</button>
+                  <button onClick={() => cancelInvite(inv)} className="btn" style={{ color: "#B42318", borderColor: "#F3C4C0" }}>Cancel</button>
                 </>
               )}
             </div>

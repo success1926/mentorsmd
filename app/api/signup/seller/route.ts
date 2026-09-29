@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   const invite = await prisma.invite.findUnique({ where: { code: code.trim().toUpperCase() } });
 
   if (!invite) {
-    return NextResponse.json({ error: "That invite code doesn't exist" }, { status: 400 });
+    return NextResponse.json({ error: "That invite code doesn't exist or was cancelled" }, { status: 400 });
   }
   if (invite.status !== "PENDING") {
     return NextResponse.json({ error: "That invite code has already been used or is no longer valid" }, { status: 400 });

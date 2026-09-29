@@ -52,7 +52,10 @@ export async function POST(req: Request) {
     // The invite still exists even if the email failed to send - the
     // admin can resend it (see the /resend route below) rather than
     // losing the whole invite over a transient email error.
-    return NextResponse.json({ invite, emailSent: false, warning: "Invite created but the email failed to send" });
+    // Pass the real reason back so the admin sees it (e.g. "domain is not
+    // verified") instead of a silent failure.
+    const reason = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ invite, emailSent: false, warning: `Invite created but the email failed to send: ${reason}` });
   }
 
   return NextResponse.json({ invite, emailSent: true });
