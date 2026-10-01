@@ -30,8 +30,8 @@ export const viewport: Viewport = {
 
 // Brand fonts, self-hosted by Next.js (no request to Google at page load).
 // Fraunces = headlines and coach names; Instrument Sans = everything else.
-const display = Fraunces({ subsets: ["latin"], weight: ["400", "500"], style: ["normal", "italic"], variable: "--font-display-loaded", display: "swap" });
-const body = Instrument_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-body-loaded", display: "swap" });
+const display = Fraunces({ subsets: ["latin"], style: ["normal", "italic"], variable: "--font-display-loaded", display: "swap" });
+const body = Instrument_Sans({ subsets: ["latin"], variable: "--font-body-loaded", display: "swap" });
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
