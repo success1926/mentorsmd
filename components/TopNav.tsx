@@ -125,7 +125,7 @@ export function TopNav() {
   const marketing = !session || role === "BUYER";
   const right = role ? RIGHT_LINKS[role] || [] : [];
   const menu = role ? MENU[role] || [] : [];
-  const active = (href: string) => (href === pathname || (href !== "/" && pathname.startsWith(href) && href !== "/dashboard") || (href === "/dashboard" && pathname === "/dashboard") ? "page" : undefined);
+  const active = (href: string): "page" | undefined => (href === pathname || (href !== "/" && pathname.startsWith(href) && href !== "/dashboard") || (href === "/dashboard" && pathname === "/dashboard") ? "page" : undefined);
 
   return (
     <header className={`nav ${isHome ? "nav-home" : ""}`}>
