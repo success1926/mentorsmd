@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendWorkCompleteEmail, SITE_URL } from "@/lib/email";
+import { callSummary } from "@/lib/calls";
 
 // This is now the ONLY way an order moves out of IN_ESCROW under normal
 // circumstances - the seller says the work is done, which starts the
@@ -13,14 +14,33 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const order = await prisma.order.findUnique({ where: { id: params.id }, include: { buyer: true, gig: true } });
+  const order = await prisma.order.findUnique({ where: { id: params.id }, include: { buyer: true, gig: true, callBookings: true } });
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
   if (order.sellerId !== (session.user as any).id) {
-    return NextResponse.json({ error: "Only the coach on this order can mark it complete" }, { status: 403 });
+    return NextResponse.json({ error: "Only the mentor on this order can mark it complete" }, { status: 403 });
   }
   if (order.status !== "IN_ESCROW") {
     return NextResponse.json({ error: `Order isn't awaiting completion (currently ${order.status})` }, { status: 400 });
+  }
+
+  if (order.disputed) {
+    return NextResponse.json({ error: "This order has an open dispute - an admin will resolve it" }, { status: 400 });
+  }
+
+  // Calls included in the package have to happen first (or be skipped by
+  // the student, or forfeited after the 48-hour booking window).
+  const calls = callSummary(order);
+  if (!calls.satisfied) {
+    return NextResponse.json(
+      {
+        error:
+          calls.toBook > 0
+            ? "This package includes a call that hasn't been booked yet. You can mark it complete once the call happens."
+            : "This package includes a call that hasn't happened yet. You can mark it complete after the call.",
+      },
+      { status: 400 }
+    );
   }
 
   // Conditional update so a refund landing at the same moment can't be

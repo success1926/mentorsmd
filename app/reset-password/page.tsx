@@ -62,7 +62,7 @@ function ResetPasswordForm() {
           {error.includes("Request a new one") && <Link href="/forgot-password" style={{ textDecoration: "underline" }}>Request a new link</Link>}
         </div>
       )}
-      <button className="btn-primary" disabled={loading || !password || !confirm}>
+      <button className="btn btn-primary btn-lg btn-block" disabled={loading || !password || !confirm}>
         {loading ? "Saving..." : "Set new password"}
       </button>
     </form>
@@ -71,12 +71,12 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="card-narrow">
+    <div className="page-narrow"><div className="card-narrow stack">
       <h1 style={{ fontSize: 28, margin: "0 0 18px" }}>Choose a new password</h1>
       {/* useSearchParams needs a Suspense boundary in the Next.js app router */}
       <Suspense fallback={<p className="text-secondary">Loading...</p>}>
         <ResetPasswordForm />
       </Suspense>
-    </div>
+    </div></div>
   );
 }

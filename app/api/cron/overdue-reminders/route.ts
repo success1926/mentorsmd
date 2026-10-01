@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendOverdueReminderEmail, SITE_URL } from "@/lib/email";
 import { isAuthorizedCron } from "@/lib/cron";
+import { runCallRules } from "@/lib/callRules";
 
 export const maxDuration = 60;
 const BATCH_SIZE = 100;
@@ -22,6 +23,7 @@ export async function GET(req: Request) {
     where: {
       status: "IN_ESCROW",
       dueDate: { lt: now },
+      callHoldAt: null, // on-hold orders get the call-rule emails instead
       OR: [{ reminderLastSentAt: null }, { reminderLastSentAt: { lt: twentyHoursAgo } }],
     },
     include: { seller: { select: { email: true } }, gig: { select: { title: true } } },
@@ -43,5 +45,15 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ checked: overdueOrders.length, results });
+  // Unbooked-call reminders, holds and forfeits ride along on this daily
+  // run (keeps the project at two cron jobs, which the Hobby plan allows).
+  let calls: any = null;
+  try {
+    calls = await runCallRules(now);
+  } catch (err: any) {
+    console.error("Call rules failed:", err);
+    calls = { error: err.message };
+  }
+
+  return NextResponse.json({ checked: overdueOrders.length, results, calls });
 }

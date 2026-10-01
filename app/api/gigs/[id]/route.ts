@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { GIG_CATEGORIES, LIMITS, isNonEmptyString, parsePriceToCents } from "@/lib/validate";
+import { LIMITS, isNonEmptyString, parsePriceToCents } from "@/lib/validate";
+import { parseGigSearchFields } from "@/lib/gigInput";
 
 // Public: a single package, used by the checkout page (which previously
 // downloaded every gig on the site just to find this one).
@@ -39,11 +40,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (body.description !== undefined && !isNonEmptyString(body.description, LIMITS.gigDescription)) {
     return NextResponse.json({ error: `Description is required (max ${LIMITS.gigDescription} chars)` }, { status: 400 });
   }
-  if (body.duration !== undefined && (typeof body.duration !== "string" || body.duration.length > LIMITS.gigDuration)) {
-    return NextResponse.json({ error: "Turnaround text is too long" }, { status: 400 });
-  }
-  if (body.category !== undefined && !GIG_CATEGORIES.includes(body.category)) {
-    return NextResponse.json({ error: "Unknown category" }, { status: 400 });
+  // Search answers are validated as a whole (e.g. switching the format to
+  // "Written feedback" drops the call fields).
+  const touchesSearch = ["service", "format", "turnaround", "callsIncluded", "callLength", "calEventUrl"].some(
+    (k) => body[k] !== undefined
+  );
+  let searchData = {};
+  if (touchesSearch) {
+    const parsed = parseGigSearchFields(body, gig);
+    if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
+    searchData = parsed.data;
   }
   let price = gig.price;
   if (body.price !== undefined) {
@@ -59,9 +65,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     data: {
       title: body.title?.trim() ?? gig.title,
       description: body.description?.trim() ?? gig.description,
-      duration: body.duration ?? gig.duration,
-      category: body.category ?? gig.category,
       price,
+      ...searchData,
     },
   });
 

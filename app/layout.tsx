@@ -12,11 +12,11 @@ import { Footer } from "@/components/Footer";
 // proper preview card instead of a bare link).
 export const metadata: Metadata = {
   title: "MentorsMD",
-  description: "Book coaching sessions with vetted med students and residents",
+  description: "One-on-one help from med students and residents, every one vetted by our senior team.",
   manifest: "/manifest.json", // lets someone "Add to Home Screen" on their phone
   openGraph: {
     title: "MentorsMD",
-    description: "Book coaching sessions with vetted med students and residents",
+    description: "One-on-one help from med students and residents, every one vetted by our senior team.",
     type: "website",
   },
 };
@@ -30,8 +30,8 @@ export const viewport: Viewport = {
 
 // Brand fonts, self-hosted by Next.js (no request to Google at page load).
 // Fraunces = headlines and coach names; Instrument Sans = everything else.
-const display = Fraunces({ subsets: ["latin"], style: ["normal", "italic"], variable: "--font-display-loaded", display: "swap" });
-const body = Instrument_Sans({ subsets: ["latin"], variable: "--font-body-loaded", display: "swap" });
+const display = Fraunces({ subsets: ["latin"], weight: ["400", "500"], style: ["normal", "italic"], variable: "--font-display-loaded", display: "swap" });
+const body = Instrument_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-body-loaded", display: "swap" });
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -39,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <Providers>
           <TopNav />
-          <main className="container">{children}</main>
+          <main className="site-main">{children}</main>
           <Footer />
         </Providers>
       </body>

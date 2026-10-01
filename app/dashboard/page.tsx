@@ -2,145 +2,205 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { statusBadge, tintFor, initialsOf } from "@/components/ui";
+import { callSummary, fmtDateTime } from "@/lib/calls";
+import { formatHasCall, money } from "@/lib/options";
 
-const CATEGORIES = [
-  { value: "ESSAY_REVIEW", label: "Essay review" },
-  { value: "MOCK_INTERVIEW", label: "Mock interview" },
-  { value: "APPLICATION_STRATEGY", label: "Application strategy" },
-  { value: "TUTORING", label: "Tutoring" },
-  { value: "OTHER", label: "Other" },
-];
+const ACTIVE = ["IN_ESCROW", "COMPLETED"];
+const DAY = 24 * 3600_000;
 
-const emptyForm = { title: "", description: "", price: "", duration: "", category: "OTHER" };
+type Attn = { key: string; tone: "" | "warn" | "danger"; text: string; href: string; cta: string };
 
-export default function DashboardPage() {
+function OrderRow({ o }: { o: any }) {
+  return (
+    <div className="list-row" style={{ flexWrap: "wrap" }}>
+      <span className="avatar" style={{ background: tintFor(o.buyer?.name || ""), width: 40, height: 40, fontSize: 15 }}>
+        {initialsOf(o.buyer?.name || "")}
+      </span>
+      <div className="grow stack-sm" style={{ gap: 2, minWidth: 180 }}>
+        <b style={{ fontSize: 15 }}>{o.gig.title}</b>
+        <span className="text-muted">
+          {o.buyer?.name} · {money(o.amount)}
+          {o.dueDate && ACTIVE.includes(o.status) ? ` · Due ${new Date(o.dueDate).toLocaleDateString()}` : ""}
+        </span>
+      </div>
+      {statusBadge(o)}
+      <div className="row" style={{ gap: 6 }}>
+        {o.conversationId && <Link href={`/messages/${o.conversationId}`} className="btn btn-sm">Message</Link>}
+        <Link href={`/orders/${o.id}`} className="btn btn-sm btn-soft">Open order</Link>
+      </div>
+    </div>
+  );
+}
+
+export default function MentorDashboard() {
+  const { data: session, status } = useSession();
+  const role = (session?.user as any)?.role;
+  const first = (session?.user?.name || "").split(" ")[0];
+
+  const [orders, setOrders] = useState<any[] | null>(null);
+  const [convos, setConvos] = useState<any[]>([]);
+  const [profile, setProfile] = useState<any>(null);
   const [gigs, setGigs] = useState<any[]>([]);
-  const [adding, setAdding] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(emptyForm);
+  const [payouts, setPayouts] = useState<boolean | null>(null);
+  const [toggling, setToggling] = useState(false);
 
-  function load() {
-    // mine=true is what limits this to the logged-in seller's own
-    // packages, rather than every seller's packages on the site.
-    fetch("/api/gigs?mine=true")
-      .then((res) => res.json())
-      .then((data) => setGigs(data.gigs || []));
+  function loadProfile() {
+    fetch("/api/profile").then((r) => r.json()).then((d) => setProfile(d.profile)).catch(() => {});
   }
 
-  useEffect(load, []);
+  useEffect(() => {
+    if (role !== "SELLER") return;
+    fetch("/api/orders").then((r) => r.json()).then((d) => setOrders((d.orders || []).filter((o: any) => !["PENDING_PAYMENT", "CANCELLED"].includes(o.status)))).catch(() => setOrders([]));
+    fetch("/api/conversations").then((r) => r.json()).then((d) => setConvos(d.conversations || [])).catch(() => {});
+    fetch("/api/gigs?mine=true").then((r) => r.json()).then((d) => setGigs(d.gigs || [])).catch(() => {});
+    fetch("/api/stripe/status").then((r) => r.json()).then((d) => setPayouts(!!d.connected)).catch(() => {});
+    loadProfile();
+  }, [role]);
 
-  async function submitNew() {
-    if (!form.title.trim()) return;
-    const res = await fetch("/api/gigs", {
+  if (status === "loading") return <div className="page text-muted">Loading…</div>;
+  if (role !== "SELLER") {
+    return (
+      <div className="page-narrow">
+        <div className="alert">The dashboard is for mentor accounts. <Link href="/orders" className="link">Go to my orders</Link></div>
+      </div>
+    );
+  }
+
+  const now = Date.now();
+  const available = profile
+    ? profile.profileStatus === "ACTIVE" || (profile.profileStatus === "PAUSED" && profile.pausedUntil && new Date(profile.pausedUntil).getTime() <= now)
+    : true;
+
+  async function toggleAvailable() {
+    if (profile?.profileStatus === "REMOVED") return;
+    setToggling(true);
+    const res = await fetch("/api/profile/availability", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ action: available ? "pause" : "unpause" }),
     });
-    if (!res.ok) {
-      alert((await res.json().catch(() => ({}))).error || "Couldn't save this package");
-      return;
-    }
-    setForm(emptyForm);
-    setAdding(false);
-    load();
+    setToggling(false);
+    if (!res.ok) alert((await res.json().catch(() => ({}))).error || "Couldn't update availability");
+    loadProfile();
   }
 
-  async function saveEdit(id: string) {
-    const res = await fetch(`/api/gigs/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    if (!res.ok) {
-      alert((await res.json().catch(() => ({}))).error || "Couldn't save changes");
-      return;
-    }
-    setEditingId(null);
-    load();
-  }
+  const list = orders || [];
+  const active = list.filter((o) => ACTIVE.includes(o.status));
+  const done = list.filter((o) => !ACTIVE.includes(o.status));
+  const dueSoon = active.filter((o) => o.status === "IN_ESCROW" && o.dueDate && new Date(o.dueDate).getTime() - now < 7 * DAY);
+  const heldCents = active.reduce((s, o) => s + Math.round(o.amount * 0.8), 0);
 
-  async function remove(id: string) {
-    await fetch(`/api/gigs/${id}`, { method: "DELETE" });
-    load();
+  const attn: Attn[] = [];
+  if (payouts === false) attn.push({ key: "payouts", tone: "danger", text: "Connect payouts so students can book you.", href: "/dashboard/payouts", cta: "Connect" });
+  if (profile && (!profile.mentorStage || !profile.schoolType)) attn.push({ key: "q", tone: "warn", text: "Answer the mentor questions. Your packages are hidden from search until you do.", href: "/account#search", cta: "Answer" });
+  if (gigs.length === 0) attn.push({ key: "gigs", tone: "warn", text: "Create your first package.", href: "/dashboard/packages", cta: "Create" });
+  if (profile && !profile.calLink && gigs.some((g) => formatHasCall(g.format))) attn.push({ key: "cal", tone: "", text: "Connect Cal.com so students can book the calls in your packages.", href: "/account#calendar", cta: "Connect" });
+  for (const o of active) {
+    const c = callSummary(o);
+    const who = o.buyer?.name?.split(" ")[0] || "Student";
+    if (o.disputed) attn.push({ key: `d${o.id}`, tone: "danger", text: `${who} opened a dispute on ${o.gig.title}.`, href: `/orders/${o.id}`, cta: "View" });
+    else if (c.onHold) attn.push({ key: `h${o.id}`, tone: "warn", text: `${o.gig.title} is on hold: ${who} hasn't booked the call.`, href: `/orders/${o.id}`, cta: "Review" });
+    else if (o.status === "IN_ESCROW" && o.revisionRequested) attn.push({ key: `r${o.id}`, tone: "warn", text: `${who} asked for a revision on ${o.gig.title}.`, href: `/orders/${o.id}`, cta: "Open" });
+    else if (o.status === "IN_ESCROW" && o.dueDate && new Date(o.dueDate).getTime() < now) attn.push({ key: `o${o.id}`, tone: "danger", text: `${o.gig.title} for ${who} is past due.`, href: `/orders/${o.id}`, cta: "Open" });
+    const next = c.upcoming[0];
+    if (next && new Date(next.startTime).getTime() - now < DAY) attn.push({ key: `c${next.id}`, tone: "", text: `Call with ${who}: ${fmtDateTime(next.startTime)}.`, href: `/orders/${o.id}`, cta: "Open" });
   }
-
-  function startEdit(g: any) {
-    setEditingId(g.id);
-    setForm({ title: g.title, description: g.description, price: (g.price / 100).toString(), duration: g.duration, category: g.category });
-  }
-
-  const categoryLabel = (value: string) => CATEGORIES.find((c) => c.value === value)?.label || value;
 
   return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
-        <h1 style={{ fontSize: 30, margin: 0 }}>My packages</h1>
-        <Link href="/dashboard/profile" className="btn">Edit profile &amp; photo</Link>
-      </div>
-      <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
-        {gigs.length === 0 && <p className="text-muted">No packages yet — add your first one below.</p>}
-        {gigs.map((g) => (
-          <div key={g.id} className="card">
-            {editingId === g.id ? (
-              <div>
-                <input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Title" />
-                <textarea className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Description" />
-                <select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-                  {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-                </select>
-                <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-                  <input className="input" style={{ marginBottom: 0 }} value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="Price ($)" />
-                  <input className="input" style={{ marginBottom: 0 }} value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} placeholder="Turnaround" />
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => saveEdit(g.id)} className="btn" style={{ background: "#5536D6", border: "none", color: "#fff" }}>Save</button>
-                  <button onClick={() => setEditingId(null)} className="btn">Cancel</button>
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                    <div style={{ fontWeight: 600 }}>{g.title}</div>
-                    <span className="badge" style={{ background: "#F1EDFF", color: "#2E2A45" }}>{categoryLabel(g.category)}</span>
-                  </div>
-                  <p className="text-secondary" style={{ marginBottom: 8 }}>{g.description}</p>
-                  <div className="text-muted">{g.duration}</div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>${(g.price / 100).toFixed(0)}</div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => startEdit(g)} className="btn">Edit</button>
-                    <button onClick={() => remove(g.id)} className="btn btn-danger">Remove</button>
-                  </div>
-                </div>
-              </div>
-            )}
+    <div className="page stack-lg">
+      <div className="between" style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div className="stack-sm">
+          <h1 className="page-title">Hi{first ? `, ${first}` : ""}</h1>
+          <p className="lede">Here&apos;s what&apos;s happening with your mentoring.</p>
+        </div>
+        <div className="card row" style={{ padding: "14px 18px", gap: 14 }}>
+          <label className="switch">
+            <input type="checkbox" checked={available} disabled={toggling || profile?.profileStatus === "REMOVED"} onChange={toggleAvailable} aria-label="Available for new orders" />
+            <span />
+          </label>
+          <div className="stack-sm" style={{ gap: 0 }}>
+            <b>{profile?.profileStatus === "REMOVED" ? "Profile removed" : available ? "Available for new orders" : "Paused"}</b>
+            <span className="text-muted">
+              {profile?.profileStatus === "REMOVED"
+                ? "Restore it from your account page"
+                : available
+                ? "You show up in search"
+                : profile?.pausedUntil
+                ? `Hidden until ${new Date(profile.pausedUntil).toLocaleDateString()}`
+                : "Hidden from search"}
+            </span>
           </div>
-        ))}
+          <Link href="/account#availability" className="link small">Options</Link>
+        </div>
       </div>
 
-      {adding ? (
-        <div className="card">
-          <input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Package title" />
-          <textarea className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="What's included" />
-          <select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-            {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </select>
-          <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-            <input className="input" style={{ marginBottom: 0 }} value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="Price ($)" />
-            <input className="input" style={{ marginBottom: 0 }} value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} placeholder="Turnaround" />
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={submitNew} className="btn" style={{ background: "#5536D6", border: "none", color: "#fff" }}>Add package</button>
-            <button onClick={() => setAdding(false)} className="btn">Cancel</button>
-          </div>
+      <div className="stat-cards">
+        <div className="stat-card"><span className="text-secondary">Active orders</span><span className="stat-num">{active.length}</span></div>
+        <div className="stat-card" style={{ background: "var(--pink-soft)" }}><span className="text-secondary">Due in 7 days</span><span className="stat-num">{dueSoon.length}</span></div>
+        <div className="stat-card" style={{ background: "var(--blue)" }}><span className="text-secondary">Held for you</span><span className="stat-num">{money(heldCents)}</span></div>
+        <div className="stat-card"><span className="text-secondary">Completed</span><span className="stat-num">{done.filter((o) => o.status === "RELEASED").length}</span></div>
+      </div>
+
+      <div className="dash-grid">
+        <div className="stack-lg" style={{ gap: 24 }}>
+          <section className="stack-sm">
+            <h2 style={{ fontSize: 28 }}>Needs your attention</h2>
+            {attn.length === 0 ? (
+              <div className="empty">You&apos;re all caught up.</div>
+            ) : (
+              attn.map((a) => (
+                <div key={a.key} className="attn">
+                  <span className={`attn-dot ${a.tone}`} />
+                  <span className="grow">{a.text}</span>
+                  <Link href={a.href} className="btn btn-sm">{a.cta}</Link>
+                </div>
+              ))
+            )}
+          </section>
+
+          <section>
+            <details className="collapse" open>
+              <summary>Active orders <span className="tab-count" style={{ marginRight: "auto", marginLeft: 8 }}>{active.length}</span></summary>
+              <div className="collapse-body" style={{ gap: 0 }}>
+                {orders === null && <span className="text-muted">Loading…</span>}
+                {orders !== null && active.length === 0 && <span className="text-muted">No active orders right now.</span>}
+                {active.map((o) => <OrderRow key={o.id} o={o} />)}
+              </div>
+            </details>
+            <details className="collapse">
+              <summary>Completed orders <span className="tab-count" style={{ marginRight: "auto", marginLeft: 8 }}>{done.length}</span></summary>
+              <div className="collapse-body" style={{ gap: 0 }}>
+                {done.length === 0 && <span className="text-muted">Nothing here yet.</span>}
+                {done.map((o) => <OrderRow key={o.id} o={o} />)}
+              </div>
+            </details>
+          </section>
         </div>
-      ) : (
-        <button onClick={() => { setForm(emptyForm); setAdding(true); }} className="btn" style={{ width: "100%", borderStyle: "dashed" }}>
-          Add a package
-        </button>
-      )}
+
+        <aside id="messages" className="card stack" style={{ gap: 4 }}>
+          <div className="between" style={{ marginBottom: 6 }}>
+            <b style={{ fontSize: 18 }}>Messages</b>
+            <Link href="/messages" className="link small">All messages</Link>
+          </div>
+          {convos.length === 0 && <span className="text-muted">When a student messages you, it shows up here.</span>}
+          {convos.slice(0, 8).map((c) => {
+            const last = c.messages?.[0];
+            const unanswered = last && last.senderId !== (session?.user as any)?.id;
+            return (
+              <Link key={c.id} href={`/messages/${c.id}`} className="list-row" style={{ padding: "12px 0" }}>
+                <span className="avatar" style={{ background: tintFor(c.buyer?.id || ""), width: 38, height: 38, fontSize: 14 }}>{initialsOf(c.buyer?.name || "")}</span>
+                <div className="grow stack-sm" style={{ gap: 0, minWidth: 0 }}>
+                  <b style={{ fontSize: 15 }}>{c.buyer?.name}</b>
+                  <span className="text-muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{last ? last.body || "Attachment" : "No messages yet"}</span>
+                </div>
+                {unanswered && <span className="attn-dot" aria-label="Waiting on your reply" />}
+              </Link>
+            );
+          })}
+        </aside>
+      </div>
     </div>
   );
 }

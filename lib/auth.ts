@@ -47,6 +47,11 @@ export const authOptions: NextAuthOptions = {
         // only - there's nothing to check a typed password against.
         if (!user || !user.passwordHash) return null;
 
+        // Accounts removed by an admin can't sign in. (A mentor who
+        // removed their own profile still can - they may have orders to
+        // finish and payouts to collect.)
+        if (user.removedByAdmin) return null;
+
         // Locked out: refuse regardless of whether the password given
         // this time would have been correct. Deliberately returns the
         // same generic null as a wrong password, rather than a distinct
@@ -100,6 +105,7 @@ export const authOptions: NextAuthOptions = {
         if (existing && existing.role !== "BUYER") {
           return false; // rejects the sign-in attempt
         }
+        if (existing?.removedByAdmin) return false;
       }
       return true;
     },
@@ -114,11 +120,11 @@ export const authOptions: NextAuthOptions = {
         // Re-read the role every few minutes, so demoting an account (or
         // deleting it) takes effect quickly instead of lasting until the
         // 30-day session token expires.
-        const fresh = await prisma.user.findUnique({ where: { id: token.sub }, select: { role: true, passwordChangedAt: true } });
+        const fresh = await prisma.user.findUnique({ where: { id: token.sub }, select: { role: true, passwordChangedAt: true, removedByAdmin: true } });
         token.role = fresh?.role ?? null;
         token.roleCheckedAt = Date.now();
         // Password was reset after this login started: end this session.
-        if (!fresh || (fresh.passwordChangedAt && fresh.passwordChangedAt.getTime() > ((token.issuedAtMs as number) || 0))) {
+        if (!fresh || fresh.removedByAdmin || (fresh.passwordChangedAt && fresh.passwordChangedAt.getTime() > ((token.issuedAtMs as number) || 0))) {
           token.revoked = true;
         }
       }

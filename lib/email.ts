@@ -47,9 +47,9 @@ export async function sendSellerInviteEmail(toEmail: string, inviteUrl: string) 
   await resend.emails.send({
     from: FROM,
     to: toEmail,
-    subject: "You're invited to coach on MentorsMD",
+    subject: "You're invited to mentor on MentorsMD",
     html: `
-      <p>You've been invited to set up a coach profile.</p>
+      <p>You've been invited to set up a mentor profile.</p>
       <p><a href="${esc(inviteUrl)}">Click here to accept the invite and set up your profile</a></p>
       <p>This link expires in 7 days and can only be used once.</p>
     `,
@@ -143,8 +143,8 @@ export async function sendWorkCompleteEmail(buyerEmail: string, gigTitle: string
     to: buyerEmail,
     subject: subj(`${gigTitle} is ready for review`),
     html: `
-      <p>Your coach marked <strong>${esc(gigTitle)}</strong> as complete.</p>
-      <p>You have 96 hours to review it. If you don't take any action, payment releases to your coach automatically once that window passes.</p>
+      <p>Your mentor marked <strong>${esc(gigTitle)}</strong> as complete.</p>
+      <p>You have 96 hours to review it. If you don't take any action, payment releases to your mentor automatically once that window passes.</p>
       <p><a href="${esc(orderUrl)}">Review the work</a></p>
     `,
   });
@@ -192,6 +192,81 @@ export async function sendPasswordResetEmail(toEmail: string, resetUrl: string) 
       <p>Someone (hopefully you) asked to reset the password for this MentorsMD account.</p>
       <p><a href="${esc(resetUrl)}">Choose a new password</a></p>
       <p style="color:#555;">This link expires in 1 hour and can only be used once. If you didn't ask for this, you can ignore this email and your password won't change.</p>
+    `,
+  });
+}
+
+// ---- Calls ----
+
+// Sent to both sides when a call is booked or rescheduled.
+export async function sendCallBookedEmail(toEmail: string, gigTitle: string, when: Date, orderUrl: string, rescheduled = false) {
+  await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    subject: subj(`${rescheduled ? "Call rescheduled" : "Call booked"}: ${gigTitle}`),
+    html: `
+      <p>A call for <strong>${esc(gigTitle)}</strong> is ${rescheduled ? "now" : ""} set for <strong>${esc(when.toUTCString())}</strong>.</p>
+      <p>The Join button on the order page opens 10 minutes before the start time.</p>
+      <p><a href="${esc(orderUrl)}">View the order</a></p>
+    `,
+  });
+}
+
+export async function sendCallCancelledEmail(toEmail: string, gigTitle: string, orderUrl: string) {
+  await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    subject: subj(`Call cancelled: ${gigTitle}`),
+    html: `
+      <p>The call for <strong>${esc(gigTitle)}</strong> was cancelled. You can book a new time from the order page.</p>
+      <p><a href="${esc(orderUrl)}">View the order</a></p>
+    `,
+  });
+}
+
+// Nudges the student while a call included in their package is unbooked.
+export async function sendBookCallReminderEmail(buyerEmail: string, gigTitle: string, dueDate: Date | null, orderUrl: string) {
+  await resend.emails.send({
+    from: FROM,
+    to: buyerEmail,
+    subject: subj(`Book your call: ${gigTitle}`),
+    html: `
+      <p>Your package <strong>${esc(gigTitle)}</strong> includes a call with your mentor that isn't booked yet.</p>
+      ${dueDate ? `<p>Please book it before <strong>${esc(dueDate.toDateString())}</strong>.</p>` : ""}
+      <p><a href="${esc(orderUrl)}">Book a call</a></p>
+    `,
+  });
+}
+
+// The due date passed with a call still unbooked: the order is paused.
+export async function sendCallHoldEmail(toEmail: string, gigTitle: string, orderUrl: string, forStudent: boolean) {
+  await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    subject: subj(`Action needed: ${gigTitle}`),
+    html: forStudent
+      ? `
+      <p>The due date for <strong>${esc(gigTitle)}</strong> has passed and the call included in it isn't booked.</p>
+      <p>You have 48 hours to book it, or to tell us you don't need it. After that, the call is forfeited and your mentor can complete the order.</p>
+      <p><a href="${esc(orderUrl)}">Book now or skip the call</a></p>
+    `
+      : `
+      <p>The due date for <strong>${esc(gigTitle)}</strong> has passed and the student hasn't booked the included call.</p>
+      <p>The order is paused. We've asked the student to book within 48 hours. You can extend the due date, message them, or contact us.</p>
+      <p><a href="${esc(orderUrl)}">View the order</a></p>
+    `,
+  });
+}
+
+export async function sendCallForfeitedEmail(toEmail: string, gigTitle: string, orderUrl: string) {
+  await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    subject: subj(`Call not booked: ${gigTitle}`),
+    html: `
+      <p>The call included in <strong>${esc(gigTitle)}</strong> wasn't booked within 48 hours of the due date, so it has been marked as forfeited.</p>
+      <p>The mentor can now mark the order complete.</p>
+      <p><a href="${esc(orderUrl)}">View the order</a></p>
     `,
   });
 }

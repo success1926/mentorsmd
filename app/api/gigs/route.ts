@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { GIG_CATEGORIES, LIMITS, isNonEmptyString, parsePriceToCents } from "@/lib/validate";
+import { LIMITS, isNonEmptyString, parsePriceToCents } from "@/lib/validate";
+import { parseGigSearchFields } from "@/lib/gigInput";
 
 // Public: anyone (even logged out) can browse gigs.
 //   ?mine=true      (seller session) only that seller's own packages - the dashboard
@@ -38,7 +39,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Only seller accounts can create packages" }, { status: 403 });
   }
 
-  const { title, description, price, duration, category } = await req.json();
+  const body = await req.json();
+  const { title, description, price } = body;
   if (!isNonEmptyString(title, LIMITS.gigTitle) || !isNonEmptyString(description, LIMITS.gigDescription)) {
     return NextResponse.json(
       { error: `Title (max ${LIMITS.gigTitle} chars) and description (max ${LIMITS.gigDescription} chars) are required` },
@@ -49,20 +51,17 @@ export async function POST(req: Request) {
   if (priceCents === null) {
     return NextResponse.json({ error: "Price must be between $5 and $10,000" }, { status: 400 });
   }
-  if (category && !GIG_CATEGORIES.includes(category)) {
-    return NextResponse.json({ error: "Unknown category" }, { status: 400 });
-  }
-  if (duration && (typeof duration !== "string" || duration.length > LIMITS.gigDuration)) {
-    return NextResponse.json({ error: "Turnaround text is too long" }, { status: 400 });
-  }
+  // Every package must answer the search questions (service, format,
+  // turnaround, and calls if it includes one) - see lib/gigInput.ts.
+  const parsed = parseGigSearchFields(body);
+  if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
   const gig = await prisma.gig.create({
     data: {
       title: title.trim(),
       description: description.trim(),
       price: priceCents,
-      duration: duration || "",
-      category: category || "OTHER",
+      ...parsed.data,
       sellerId: (session.user as any).id,
     },
   });

@@ -68,5 +68,15 @@ export async function GET() {
   }
 
   const invites = await prisma.invite.findMany({ orderBy: { createdAt: "desc" }, take: 200 });
-  return NextResponse.json({ invites });
+
+  // For "Joined" invites, show who joined (their name and profile).
+  const ids = invites.map((i) => i.redeemedByUserId).filter((id): id is string => !!id);
+  const joined = ids.length
+    ? await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, createdAt: true } })
+    : [];
+  const byId = new Map(joined.map((u) => [u.id, u]));
+
+  return NextResponse.json({
+    invites: invites.map((i) => ({ ...i, joinedUser: i.redeemedByUserId ? byId.get(i.redeemedByUserId) ?? null : null })),
+  });
 }

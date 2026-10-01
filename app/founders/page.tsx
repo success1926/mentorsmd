@@ -20,14 +20,14 @@ const founders = [
 
 export default function FoundersPage() {
   return (
-    <div>
-      <h1 style={{ fontSize: 26, textAlign: "center", marginBottom: 8 }}>Meet the founders</h1>
+    <div className="page-narrow">
+      <h1 className="page-title" style={{ marginBottom: 12, textAlign: "center" }}>Meet the founders</h1>
       <p className="text-secondary" style={{ textAlign: "center", maxWidth: 480, margin: "0 auto 40px" }}>
         {/* Placeholder copy - replace with your real story */}
         A short line about why we started MentorsMD.
       </p>
 
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${founders.length}, 1fr)`, gap: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 24 }}>
         {founders.map((f) => (
           <div key={f.name} style={{ textAlign: "center" }}>
             {/* Photo placeholder - replace with an <img> tag once you have real photos */}

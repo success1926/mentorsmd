@@ -7,7 +7,7 @@ import { isOurBlobUrl } from "@/lib/validate";
 
 // Profile photo upload. Stored in the same Vercel Blob storage as message
 // attachments. The browser already crops/resizes the image to a square
-// before sending (see app/dashboard/profile), so files here are small.
+// before sending (see app/account), so files here are small.
 const MAX_SIZE = 2 * 1024 * 1024; // the browser sends ~100KB; this is headroom
 
 // Checks the file's first bytes, not just the type the browser claims.
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   // Only coaches have public photos.
   if ((session.user as any).role !== "SELLER") {
-    return NextResponse.json({ error: "Only coaches can add a profile photo" }, { status: 403 });
+    return NextResponse.json({ error: "Only mentors can add a profile photo" }, { status: 403 });
   }
   const userId = (session.user as any).id;
 

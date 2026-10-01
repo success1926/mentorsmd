@@ -28,13 +28,17 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ error: "Only the buyer or an admin can release this payment" }, { status: 403 });
   }
 
+  if (isBuyer && !isAdmin && order.disputed) {
+    return NextResponse.json({ error: "This order has an open dispute - an admin will resolve it" }, { status: 400 });
+  }
+
   // A buyer can only confirm early once the seller has actually marked
   // the work complete - they can't skip straight from IN_ESCROW to
   // released. An admin can override this (dispute resolution).
   const validStatus = isAdmin ? ["IN_ESCROW", "COMPLETED"].includes(order.status) : order.status === "COMPLETED";
   if (!validStatus) {
     return NextResponse.json(
-      { error: isBuyer ? "Your coach hasn't marked this complete yet" : `Order isn't releasable (currently ${order.status})` },
+      { error: isBuyer ? "Your mentor hasn't marked this complete yet" : `Order isn't releasable (currently ${order.status})` },
       { status: 400 }
     );
   }
@@ -42,7 +46,12 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   try {
     // Re-check the same condition atomically at claim time, so a revision
     // request or refund that lands between the check above and now wins.
-    const result = await releaseOrder(order.id, isAdmin ? {} : { status: "COMPLETED", buyerId: userId });
+    const result = await releaseOrder(order.id, isAdmin ? {} : { status: "COMPLETED", buyerId: userId, disputed: false });
+    if (order.disputed) {
+      await prisma.order
+        .update({ where: { id: order.id }, data: { disputeResolvedAt: new Date(), disputeResolution: "RELEASED" } })
+        .catch((e) => console.error("Couldn't stamp dispute resolution:", e));
+    }
     return NextResponse.json(result);
   } catch (err: any) {
     if (err instanceof OrderStateChangedError) {

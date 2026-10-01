@@ -11,6 +11,8 @@ export const LIMITS = {
   bio: 3000,
   credential: 200,
   reviewComment: 2000,
+  awayNote: 300,
+  reason: 1000,
 };
 
 export const GIG_CATEGORIES = ["ESSAY_REVIEW", "MOCK_INTERVIEW", "APPLICATION_STRATEGY", "TUTORING", "OTHER"] as const;

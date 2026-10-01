@@ -36,7 +36,10 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   const claimedAt = Date.now();
   const claim = await prisma.order.updateMany({
     where: { id: order.id, status: order.status },
-    data: { status: "REFUNDED" },
+    data: {
+      status: "REFUNDED",
+      ...(order.disputed ? { disputeResolvedAt: new Date(), disputeResolution: "REFUNDED" } : {}),
+    },
   });
   if (claim.count === 0) {
     return NextResponse.json({ error: "This order was already released or refunded - refresh the page" }, { status: 409 });
@@ -51,7 +54,10 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     console.error(`Refund failed for order ${order.id}:`, err);
     if (isDefiniteStripeFailure(err)) {
       // Stripe refused - no money moved, so the order goes back to escrow.
-      await prisma.order.updateMany({ where: { id: order.id, status: "REFUNDED" }, data: { status: order.status } });
+      await prisma.order.updateMany({
+        where: { id: order.id, status: "REFUNDED" },
+        data: { status: order.status, disputeResolvedAt: null, disputeResolution: null },
+      });
       return NextResponse.json({ error: err.message || "Refund failed" }, { status: 502 });
     }
     // Network/5xx: the refund MAY have happened. Keep the order REFUNDED
@@ -61,6 +67,11 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       { status: 502 }
     );
   }
+
+  // Refunded orders don't keep their future calls.
+  await prisma.callBooking
+    .updateMany({ where: { orderId: order.id, status: "BOOKED", startTime: { gt: new Date() } }, data: { status: "CANCELLED" } })
+    .catch((e) => console.error("Couldn't cancel calls on refunded order:", e));
 
   const updated = await prisma.order.findUnique({ where: { id: order.id } });
   return NextResponse.json({ order: updated });

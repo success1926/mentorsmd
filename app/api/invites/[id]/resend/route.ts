@@ -16,6 +16,9 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ error: "This invite has already been used or is no longer valid" }, { status: 400 });
   }
 
+  // Resending gives the link a fresh 7 days, so an expired invite can be revived.
+  await prisma.invite.update({ where: { id: invite.id }, data: { expiresAt: new Date(Date.now() + 7 * 24 * 3600_000) } });
+
   const inviteUrl = `${process.env.NEXTAUTH_URL}/onboard-coach?code=${invite.code}&email=${encodeURIComponent(invite.email)}`;
   try {
     await sendSellerInviteEmail(invite.email, inviteUrl);

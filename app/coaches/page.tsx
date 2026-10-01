@@ -1,188 +1,199 @@
+import { Suspense } from "react";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
-import { SearchBar } from "@/components/SearchBar";
-import { CoachFilters } from "@/components/CoachFilters";
-import { VerifiedIcon } from "@/components/MentorSpotlight";
-import { Avatar } from "@/components/Avatar";
+import { BrowseFilters, SortSelect } from "@/components/BrowseFilters";
+import { Icon, ICONS, Vetted, Rating, tintFor, initialsOf } from "@/components/ui";
+import { parseBrowseFilters, searchMentors } from "@/lib/mentorQueries";
+import { BACKGROUNDS, FILTER_GROUPS, FORMATS, SCHOOL_TYPES, SERVICES, STAGES, TURNAROUNDS, labelFor, money } from "@/lib/options";
 
-export const dynamic = "force-dynamic"; // always show current listings, never a stale cached build
+export const dynamic = "force-dynamic";
+export const metadata = { title: "Find your mentor · MentorsMD" };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  ESSAY_REVIEW: "Essay review",
-  MOCK_INTERVIEW: "Mock interview",
-  APPLICATION_STRATEGY: "Application strategy",
-  TUTORING: "Tutoring",
-  OTHER: "Other",
-};
-const VALID_CATEGORIES = Object.keys(CATEGORY_LABELS);
+type SP = Record<string, string | string[] | undefined>;
 
-const AVATARS = ["var(--primary)", "var(--ink)", "var(--primary-deep)", "#8A3A6B", "#2E5E8C"];
+// Quick links set a filter (and clear the others).
+const QUICK = [
+  { label: "Popular", qs: "" },
+  { label: "Personal statement", qs: "service=PERSONAL_STATEMENT" },
+  { label: "Secondaries", qs: "service=SECONDARIES" },
+  { label: "MMI", qs: "service=MMI" },
+  { label: "Traditional interviews", qs: "service=TRADITIONAL_INTERVIEW" },
+  { label: "MCAT", qs: "service=MCAT" },
+  { label: "School list", qs: "service=SCHOOL_LIST" },
+  { label: "Reapplicants", qs: "bg=REAPPLICANT" },
+  { label: "Non-traditional", qs: "bg=NON_TRADITIONAL" },
+  { label: "DO schools", qs: "school=DO" },
+  { label: "MD/PhD", qs: "school=MD_PHD" },
+  { label: "Gap years", qs: "bg=GAP_YEARS" },
+];
 
-export default async function CoachesPage({
-  searchParams,
-}: {
-  searchParams: { q?: string; category?: string; sort?: string };
-}) {
-  const query = (searchParams.q?.trim() || "").slice(0, 100);
-  const category = VALID_CATEGORIES.includes(searchParams.category || "") ? searchParams.category! : "";
-  const sort = searchParams.sort || "newest";
+function toParams(sp: SP) {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(sp)) {
+    if (Array.isArray(v)) v.forEach((x) => p.append(k, x));
+    else if (v) p.set(k, v);
+  }
+  return p;
+}
 
-  const gigs = await prisma.gig.findMany({
-    where: {
-      active: true,
-      ...(category ? { category: category as any } : {}),
-      ...(query
-        ? {
-            OR: [
-              { title: { contains: query, mode: "insensitive" } },
-              { description: { contains: query, mode: "insensitive" } },
-              { seller: { name: { contains: query, mode: "insensitive" } } },
-              { seller: { credential: { contains: query, mode: "insensitive" } } },
-            ],
-          }
-        : {}),
-    },
-    include: { seller: { select: { id: true, name: true, credential: true, bio: true, photoUrl: true } } },
-    orderBy: { createdAt: "desc" },
-    take: 500,
-  });
+export default async function BrowsePage({ searchParams }: { searchParams: SP }) {
+  const filters = parseBrowseFilters(searchParams);
+  const mentors = await searchMentors(filters);
+  const params = toParams(searchParams);
 
-  const bySeller = new Map<string, { seller: any; gigs: typeof gigs; minPrice: number }>();
-  for (const gig of gigs) {
-    const existing = bySeller.get(gig.sellerId);
-    if (existing) {
-      existing.gigs.push(gig);
-      existing.minPrice = Math.min(existing.minPrice, gig.price);
-    } else {
-      bySeller.set(gig.sellerId, { seller: gig.seller, gigs: [gig], minPrice: gig.price });
+  // Active filter pills, each linking to the same URL minus that value.
+  const pills: { label: string; href: string }[] = [];
+  for (const g of FILTER_GROUPS) {
+    for (const v of params.getAll(g.key)) {
+      const label = g.options.find((o) => o.value === v)?.label;
+      if (!label) continue;
+      const next = new URLSearchParams(params.toString());
+      const rest = next.getAll(g.key).filter((x) => x !== v);
+      next.delete(g.key);
+      rest.forEach((x) => next.append(g.key, x));
+      pills.push({ label, href: `/coaches${next.toString() ? `?${next}` : ""}` });
     }
   }
-
-  const sellers = Array.from(bySeller.values());
-
-  // Ratings are shown on every card, so fetch them once for everyone listed.
-  const ratings = sellers.length
-    ? await prisma.review.groupBy({
-        by: ["sellerId"],
-        _avg: { rating: true },
-        _count: { _all: true },
-        where: { sellerId: { in: sellers.map((s) => s.seller.id) } },
-      })
-    : [];
-  const ratingMap = new Map(ratings.map((r) => [r.sellerId, { avg: r._avg.rating || 0, count: r._count._all }]));
-
-  if (sort === "rating") {
-    sellers.sort((a, b) => (ratingMap.get(b.seller.id)?.avg || 0) - (ratingMap.get(a.seller.id)?.avg || 0));
-  } else if (sort === "price_asc") {
-    sellers.sort((a, b) => a.minPrice - b.minPrice);
-  } else if (sort === "price_desc") {
-    sellers.sort((a, b) => b.minPrice - a.minPrice);
+  if (filters.q) {
+    const next = new URLSearchParams(params.toString());
+    next.delete("q");
+    pills.unshift({ label: `"${filters.q}"`, href: `/coaches${next.toString() ? `?${next}` : ""}` });
   }
-  // "newest" is already the default order from the gig query above.
+  const pkgFiltered = filters.service.length + filters.format.length + filters.turnaround.length + filters.price.length > 0;
+  const activeQuick = QUICK.find((q) => (q.qs ? params.toString() === q.qs : params.toString() === "" || params.toString().startsWith("sort=")))?.label;
 
   return (
-    <div className="bleed" style={{ marginTop: -32 }}>
-      <section style={{ background: "#fff", borderBottom: "1px solid var(--line)", padding: "44px 0 28px" }}>
-        <div className="wrap" style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-          <div className="section-head" style={{ marginBottom: 0 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <h1 className="section-title">Find your coach</h1>
-              <p className="text-secondary" style={{ margin: 0, fontSize: 17 }}>
-                Every coach was personally invited and verified. Message anyone for free.
-              </p>
-            </div>
-          </div>
-          <SearchBar initialValue={query} target="/coaches" placeholder="Search by name, school, specialty or service" />
-          <CoachFilters query={query} category={category} sort={sort} />
-        </div>
-      </section>
+    <div>
+      <div style={{ borderBottom: "1px solid var(--line)" }}>
+        <nav aria-label="Quick filters" className="wrap row" style={{ gap: 28, overflowX: "auto", height: 56, fontSize: 15 }}>
+          {QUICK.map((q) => (
+            <Link
+              key={q.label}
+              href={q.qs ? `/coaches?${q.qs}` : "/coaches"}
+              className="nowrap"
+              style={{
+                padding: "16px 0",
+                borderBottom: `2px solid ${activeQuick === q.label ? "var(--primary)" : "transparent"}`,
+                fontWeight: activeQuick === q.label ? 600 : 400,
+              }}
+            >
+              {q.label}
+            </Link>
+          ))}
+        </nav>
+      </div>
 
-      <div className="wrap" style={{ padding: "32px 24px 24px" }}>
-        <div className="browse-layout">
-          <aside className="hide-mobile" style={{ display: "flex", flexDirection: "column", gap: 20, position: "sticky", top: 96 }}>
-            <div className="card" style={{ background: "var(--tint)", border: "none", display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, color: "var(--primary-deep)" }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <rect x="4" y="10" width="16" height="11" rx="2" />
-                  <path d="M8 10V7a4 4 0 018 0v3" />
-                </svg>
-                Pay when you're happy
-              </div>
-              <div className="text-secondary" style={{ lineHeight: 1.5 }}>
-                Payments are held until you approve the work. Ask for a revision if it's not right.
-              </div>
-            </div>
-            <div className="card" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ fontWeight: 700 }}>Message first</div>
-              <div className="text-secondary" style={{ lineHeight: 1.5 }}>
-                Booking unlocks once a coach replies to you, so you know they can help on your timeline.
-              </div>
-            </div>
+      <div className="page" style={{ paddingTop: 40 }}>
+        <section className="stack" style={{ gap: 14, marginBottom: 36 }}>
+          <h1 className="page-title">Find your mentor</h1>
+          <p className="lede">Every mentor is vetted by our senior team. Message anyone for free.</p>
+          <form action="/coaches" method="get" className="search-inline" role="search" style={{ maxWidth: 760 }}>
+            <Icon d={ICONS.search} size={20} />
+            <input name="q" defaultValue={filters.q} aria-label="Search mentors" placeholder="Search by name, school or keyword" />
+            {/* keep the current filters when searching */}
+            {Array.from(params.entries())
+              .filter(([k]) => k !== "q")
+              .map(([k, v], i) => (
+                <input key={`${k}-${v}-${i}`} type="hidden" name={k} value={v} />
+              ))}
+            <button type="submit" className="btn btn-primary">Search</button>
+          </form>
+        </section>
+
+        <div className="browse">
+          <aside aria-label="Filters" className="filters">
+            <Suspense fallback={null}><BrowseFilters /></Suspense>
           </aside>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <p className="text-secondary" style={{ margin: 0, fontSize: 15 }}>
-              <b style={{ color: "var(--ink)" }}>
-                {sellers.length} coach{sellers.length !== 1 ? "es" : ""}
-              </b>
-              {query && ` for "${query}"`}
-              {category && ` in ${CATEGORY_LABELS[category]}`}
-              {(query || category) && (
-                <>
-                  {" · "}
-                  <Link href="/coaches" style={{ textDecoration: "underline" }}>clear filters</Link>
-                </>
-              )}
-            </p>
+          <div className="stack" style={{ gap: 18 }}>
+            <details className="filters-mobile collapse">
+              <summary>Filters{pills.length ? ` (${pills.length})` : ""}</summary>
+              <div className="collapse-body">
+                <div className="filters">
+                  <Suspense fallback={null}><BrowseFilters /></Suspense>
+                </div>
+              </div>
+            </details>
 
-            {sellers.map(({ seller, gigs, minPrice }, i) => {
-              const r = ratingMap.get(seller.id);
-              const cats = Array.from(new Set(gigs.map((g) => g.category)));
+            <div className="between" style={{ flexWrap: "wrap" }}>
+              <b style={{ fontSize: 17 }}>
+                {mentors.length} {mentors.length === 1 ? "mentor" : "mentors"}
+              </b>
+              <Suspense fallback={null}><SortSelect value={filters.sort} /></Suspense>
+            </div>
+
+            {pills.length > 0 && (
+              <div className="row-wrap">
+                {pills.map((p) => (
+                  <Link key={p.href + p.label} href={p.href} className="filter-pill" aria-label={`Remove filter ${p.label}`} scroll={false}>
+                    {p.label}
+                    <span aria-hidden="true">×</span>
+                  </Link>
+                ))}
+                <Link href={filters.sort !== "best" ? `/coaches?sort=${filters.sort}` : "/coaches"} className="link small" scroll={false}>
+                  Clear all
+                </Link>
+              </div>
+            )}
+
+            {mentors.length === 0 && (
+              <div className="empty stack" style={{ alignItems: "center" }}>
+                <b style={{ color: "var(--ink)", fontSize: 18 }}>No mentors match those filters yet.</b>
+                <span>Try removing a filter, or browse everyone.</span>
+                <Link href="/coaches" className="btn btn-primary">Show all mentors</Link>
+              </div>
+            )}
+
+            {mentors.map((m) => {
+              const tags = [labelFor(STAGES, m.mentorStage), labelFor(SCHOOL_TYPES, m.schoolType), ...m.backgrounds.map((b) => labelFor(BACKGROUNDS, b))].filter(Boolean);
+              const head = pkgFiltered
+                ? `${m.packages.length} ${m.packages.length === 1 ? "package matches" : "packages match"}`
+                : `${m.totalPackages} ${m.totalPackages === 1 ? "package" : "packages"}`;
               return (
-                <article key={seller.id} className="card coach-row">
-                  <Avatar name={seller.name} photoUrl={seller.photoUrl} style={{ width: "100%", aspectRatio: "1", fontSize: 34, background: AVATARS[i % AVATARS.length] }} />
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <Link href={`/coaches/${seller.id}`} className="display" style={{ fontSize: 23 }}>{seller.name}</Link>
-                      <VerifiedIcon />
-                      {r && r.count >= 3 && r.avg >= 4.8 && <span className="badge badge-brand" style={{ borderRadius: 999 }}>Top rated</span>}
+                <article key={m.id} className="mentor-card">
+                  <Link href={`/coaches/${m.id}`} aria-hidden="true" tabIndex={-1}>
+                    {m.photoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={m.photoUrl} alt="" className="avatar" style={{ objectFit: "cover" }} loading="lazy" />
+                    ) : (
+                      <span className="avatar" style={{ background: tintFor(m.id) }}>{initialsOf(m.name)}</span>
+                    )}
+                  </Link>
+                  <div className="stack" style={{ gap: 10, minWidth: 0 }}>
+                    <div className="row-wrap">
+                      <Link href={`/coaches/${m.id}`} className="display" style={{ fontSize: 26 }}>{m.name}</Link>
+                      <Vetted />
+                      {m.avgRating !== null && m.avgRating >= 4.8 && m.reviewCount >= 5 && <span className="badge badge-pink">Top rated</span>}
+                      <span style={{ marginLeft: "auto" }}><Rating avg={m.avgRating} count={m.reviewCount} /></span>
                     </div>
-                    {seller.credential && <div style={{ fontSize: 16, fontWeight: 600 }}>{seller.credential}</div>}
-                    {seller.bio && (
-                      <p className="text-secondary" style={{ margin: 0, fontSize: 15, lineHeight: 1.5 }}>
-                        {seller.bio.length > 180 ? seller.bio.slice(0, 180) + "…" : seller.bio}
+                    {m.credential && <span className="text-secondary">{m.credential}</span>}
+                    {m.bio && (
+                      <p style={{ fontSize: 16, lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                        {m.bio}
                       </p>
                     )}
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {cats.map((c) => <span key={c} className="tag">{CATEGORY_LABELS[c] || c}</span>)}
+                    {tags.length > 0 && (
+                      <div className="row-wrap" style={{ gap: 6 }}>
+                        {tags.map((t) => <span key={t} className="badge">{t}</span>)}
+                      </div>
+                    )}
+                    <div className="stack-sm" style={{ marginTop: 4 }}>
+                      <span className="text-muted" style={{ fontWeight: 600 }}>{head}</span>
+                      {m.packages.slice(0, 4).map((p) => (
+                        <Link key={p.id} href={`/coaches/${m.id}#pkg-${p.id}`} className="pkg-line">
+                          <span className="stack-sm" style={{ gap: 2, minWidth: 0 }}>
+                            <b style={{ fontSize: 15, fontWeight: 600 }}>{p.title}</b>
+                            <span className="text-muted">
+                              {[labelFor(SERVICES, p.service), labelFor(FORMATS, p.format), labelFor(TURNAROUNDS, p.turnaround)].filter(Boolean).join(" · ")}
+                            </span>
+                          </span>
+                          <b className="nowrap">{money(p.price)}</b>
+                        </Link>
+                      ))}
                     </div>
-                    <div className="text-secondary" style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                      {r ? (
-                        <span><span className="stars">★</span> <b style={{ color: "var(--ink)" }}>{r.avg.toFixed(1)}</b> ({r.count} review{r.count !== 1 ? "s" : ""})</span>
-                      ) : (
-                        <span className="badge badge-brand">New coach</span>
-                      )}
-                      <span>{gigs.length} package{gigs.length !== 1 ? "s" : ""}</span>
-                    </div>
-                  </div>
-                  <div className="coach-row-price">
-                    <div>
-                      <div className="text-secondary">Packages from</div>
-                      <div className="display" style={{ fontSize: 30 }}>${(minPrice / 100).toFixed(0)}</div>
-                    </div>
-                    <Link href={`/coaches/${seller.id}`} className="btn btn-solid">View profile</Link>
                   </div>
                 </article>
               );
             })}
-
-            {sellers.length === 0 && (
-              <div className="card" style={{ textAlign: "center", padding: 40 }}>
-                <p className="text-secondary" style={{ margin: 0, fontSize: 16 }}>
-                  {query || category ? "No coaches matched those filters." : "No coaches have published packages yet."}
-                </p>
-              </div>
-            )}
           </div>
         </div>
       </div>

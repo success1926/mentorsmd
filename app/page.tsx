@@ -1,261 +1,264 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
-import { SearchBar } from "@/components/SearchBar";
-import { TrustpilotWidget } from "@/components/TrustpilotWidget";
-import { FAQ } from "@/components/FAQ";
-import { StudentSpotlight } from "@/components/StudentSpotlight";
-import { Testimonials } from "@/components/Testimonials";
-import { getFeaturedCoaches, CoachCard, VerifiedIcon } from "@/components/MentorSpotlight";
-import { ScrollGrow } from "@/components/ScrollGrow";
-import { Avatar } from "@/components/Avatar";
+import { HomeFeatures } from "@/components/HomeFeatures";
+import { Icon, ICONS, Vetted, Rating, tintFor, initialsOf } from "@/components/ui";
+import { getFeaturedMentors, getReviewStats, getWallReviews } from "@/lib/mentorQueries";
+import { MENTOR_ACCEPTANCE_RATE, MENTOR_SCHOOLS, PHOTOS, TESTIMONIALS } from "@/lib/content";
+import { labelFor, money, STAGES, SERVICES } from "@/lib/options";
 
-export const dynamic = "force-dynamic"; // coach cards and counts read live data
+export const dynamic = "force-dynamic"; // mentor cards and review counts read live data
 
-const SERVICES = [
-  { category: "ESSAY_REVIEW", title: "Essays", desc: "Personal statements and secondaries, from brainstorm to final line edits." },
-  { category: "MOCK_INTERVIEW", title: "Mock interviews", desc: "MMI and traditional formats over video, with honest feedback after." },
-  { category: "APPLICATION_STRATEGY", title: "Application strategy", desc: "School list, timeline, activities, and whether to apply this cycle." },
-  { category: "TUTORING", title: "Tutoring", desc: "MCAT and coursework help from people who scored where you want to be." },
+const QUICK = [
+  { label: "Personal statement", icon: ICONS.pen, href: "/coaches?service=PERSONAL_STATEMENT" },
+  { label: "Secondaries", icon: ICONS.doc, href: "/coaches?service=SECONDARIES" },
+  { label: "Interviews", icon: ICONS.chat, href: "/coaches?service=MMI&service=TRADITIONAL_INTERVIEW" },
+  { label: "MCAT", icon: ICONS.chart, href: "/coaches?service=MCAT" },
+  { label: "Reapplying", icon: ICONS.cycle, href: "/coaches?service=REAPPLICANT&bg=REAPPLICANT" },
 ];
 
-const CHIPS = [
-  { label: "Personal statement", href: "/coaches?q=personal%20statement" },
-  { label: "Secondaries", href: "/coaches?q=secondar" },
-  { label: "Mock interview", href: "/coaches?category=MOCK_INTERVIEW" },
-  { label: "Application strategy", href: "/coaches?category=APPLICATION_STRATEGY" },
-  { label: "MCAT", href: "/coaches?q=MCAT" },
+const PATHS = [
+  {
+    title: "Write a standout application",
+    body: "Personal statement, activities and secondaries, shaped by someone who just wrote theirs.",
+    bg: "linear-gradient(180deg, #CFC4FF 0%, #8E78F0 50%, #2B1F6B 100%)",
+    photo: PHOTOS.pathApplication,
+    href: "/coaches?service=PERSONAL_STATEMENT&service=SECONDARIES&service=ACTIVITIES",
+  },
+  {
+    title: "Ace your interviews",
+    body: "MMI and traditional mock interviews with written feedback after every session.",
+    bg: "linear-gradient(180deg, #F5B9CD 0%, #9A7BE8 50%, #2B1F6B 100%)",
+    photo: PHOTOS.pathInterviews,
+    href: "/coaches?service=MMI&service=TRADITIONAL_INTERVIEW",
+  },
+  {
+    title: "Plan your path",
+    body: "School lists, MCAT strategy, gap years and reapplying, from people who made the same calls.",
+    bg: "linear-gradient(180deg, #E4EEFF 0%, #8E9BF0 50%, #2B1F6B 100%)",
+    photo: PHOTOS.pathPlan,
+    href: "/coaches?service=SCHOOL_LIST&service=MCAT&service=REAPPLICANT",
+  },
 ];
 
-const STEPS = [
-  { title: "Message a coach", desc: "Ask questions for free. Booking unlocks once your coach replies, so you know they can help on your timeline.", tag: "Free", tagClass: "badge-brand" },
-  { title: "Pick a due date & pay", desc: "Your payment is held by MentorsMD, not sent to the coach yet.", tag: "Held safely", tagClass: "badge-warning" },
-  { title: "Get your work back", desc: "Your coach delivers. You have 96 hours to review, ask for a revision, or raise an issue.", tag: "96h review", tagClass: "badge-brand" },
-  { title: "Release payment", desc: "Happy? Release it and your coach gets paid. Then leave a review for the next student.", tag: "Coach paid", tagClass: "badge-success" },
+const VET = [
+  { title: "Verified", body: "Every mentor is confirmed as a current med student or resident.", icon: ICONS.shield },
+  { title: "Reviewed", body: "Our senior team looks at their own application and admissions experience.", icon: ICONS.doc },
+  { title: "Approved", body: "Only mentors with real expertise in what they offer are accepted.", icon: ICONS.check },
+  ...(MENTOR_ACCEPTANCE_RATE !== null
+    ? [{ title: "Selective", body: `Only ${MENTOR_ACCEPTANCE_RATE}% of people who apply to mentor are accepted.`, icon: ICONS.star }]
+    : [{ title: "Invite-only", body: "Nobody can sign up to mentor. Every mentor joins through an invite from our team.", icon: ICONS.star }]),
 ];
 
 export default async function HomePage() {
-  const [featured, coachCount, reviewStats, categoryRows] = await Promise.all([
-    getFeaturedCoaches(3),
-    prisma.user.count({ where: { role: "SELLER", gigs: { some: { active: true } } } }),
-    prisma.review.aggregate({ _avg: { rating: true }, _count: { _all: true } }),
-    prisma.gig.findMany({ where: { active: true }, select: { category: true, sellerId: true }, distinct: ["category", "sellerId"] }),
-  ]);
+  const [mentors, stats, reviews] = await Promise.all([getFeaturedMentors(4), getReviewStats(), getWallReviews(8)]);
 
-  const coachesPerCategory: Record<string, number> = {};
-  for (const row of categoryRows) coachesPerCategory[row.category] = (coachesPerCategory[row.category] || 0) + 1;
-
-  const reviewCount = reviewStats._count._all;
-  const avgRating = reviewStats._avg.rating;
-  const heroCoach = featured[0];
+  const wall = [
+    ...TESTIMONIALS.map((t) => ({ key: `t-${t.name}`, name: t.name, detail: t.detail, quote: t.quote, rating: t.rating ?? 5 })),
+    ...reviews.map((r) => ({
+      key: r.id,
+      name: r.buyer.name.split(" ")[0] + (r.buyer.name.split(" ")[1] ? ` ${r.buyer.name.split(" ")[1][0]}.` : ""),
+      detail: `Worked with ${r.seller.name}`,
+      quote: r.comment || "",
+      rating: r.rating,
+    })),
+  ];
 
   return (
-    // .bleed lets the homepage use the full browser width; the negative
-    // margins cancel the narrow page container's padding.
-    <div className="bleed" style={{ marginTop: -32, marginBottom: -80 }}>
+    <div>
       {/* ---------------- Hero ---------------- */}
-      <section className="hero">
-        <div className="wrap hero-grid">
-          <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
-            <span className="pill">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-3z" />
-                <path d="M9 12l2 2 4-4" />
-              </svg>
-              Every coach is a verified med student or resident
-            </span>
-            <h1 className="hero-title">
-              Get into med school with someone who <em>just did.</em>
-            </h1>
-            <p className="hero-sub">
-              One-on-one help with personal statements, secondaries and interviews. Message a coach first, and only pay once you're happy with the work.
-            </p>
-            <SearchBar target="/coaches" large placeholder="Search by school, specialty, or service" buttonLabel="Find a coach" />
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {CHIPS.map((c) => (
-                <Link key={c.label} href={c.href} className="chip">{c.label}</Link>
-              ))}
-            </div>
-          </div>
+      <section className="home-hero">
+        <div className="blob" style={{ left: -120, top: 420, width: 520, height: 260, background: "rgba(228,238,255,0.9)", filter: "blur(50px)" }} />
+        <div className="blob" style={{ right: -80, top: 300, width: 560, height: 300, background: "rgba(245,185,205,0.45)", filter: "blur(60px)" }} />
+        <div className="blob" style={{ left: "35%", top: 40, width: 520, height: 200, background: "rgba(207,196,255,0.45)", filter: "blur(60px)" }} />
 
-          <div className="hero-visual" aria-hidden="true">
-            <div style={{ position: "absolute", top: 0, right: 0, width: "88%", height: 420, borderRadius: 28, background: "var(--tint)" }} />
-            <div style={{ position: "absolute", top: 20, right: "30%", width: 110, height: 110, borderRadius: "50%", background: "var(--accent)", opacity: 0.7 }} />
-            {heroCoach && (
-              <div className="card" style={{ position: "absolute", top: 64, left: 0, width: "78%", boxShadow: "0 20px 48px rgba(27,24,52,0.12)", display: "flex", flexDirection: "column", gap: 14 }}>
-                <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-                  <Avatar name={heroCoach.name} photoUrl={heroCoach.photoUrl} style={{ width: 60, height: 60, fontSize: 22 }} />
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span className="display" style={{ fontSize: 21 }}>{heroCoach.name}</span>
-                      <VerifiedIcon />
-                    </div>
-                    {heroCoach.credential && <div className="text-secondary">{heroCoach.credential}</div>}
-                  </div>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12, borderTop: "1px solid var(--line)" }}>
-                  <span style={{ fontSize: 15 }}>
-                    {heroCoach.avgRating !== null ? (
-                      <><span className="stars">★</span> <b>{heroCoach.avgRating.toFixed(1)}</b> <span className="text-secondary">({heroCoach.reviewCount})</span></>
-                    ) : (
-                      <span className="badge badge-brand">New coach</span>
-                    )}
-                  </span>
-                  {heroCoach.minPrice !== null && (
-                    <span className="text-secondary" style={{ fontSize: 15 }}>from <b style={{ fontSize: 19, color: "var(--ink)" }}>${(heroCoach.minPrice / 100).toFixed(0)}</b></span>
-                  )}
-                </div>
+        <div className="hero-body">
+          <h1 className="hero-title">Your white coat starts here</h1>
+          <p className="hero-sub">One-on-one help from med students and residents, every one vetted by our senior team.</p>
+          <form action="/coaches" method="get" className="hero-search" role="search">
+            <Icon d={ICONS.search} size={22} />
+            <input name="q" aria-label="Search for help" placeholder="Search for help with your personal statement, MMI, MCAT…" />
+            <button type="submit" aria-label="Search mentors">
+              <Icon d={ICONS.arrow} size={22} />
+            </button>
+          </form>
+          <div className="row-wrap" style={{ justifyContent: "center", gap: 10 }}>
+            {QUICK.map((c) => (
+              <Link key={c.label} href={c.href} className="chip">
+                <Icon d={c.icon} size={17} />
+                {c.label}
+              </Link>
+            ))}
+          </div>
+          {stats.count >= 3 && stats.avg !== null && (
+            <div className="hero-proof">
+              <div className="hero-dots" aria-hidden="true">
+                <span style={{ background: "#F5B9CD" }} />
+                <span style={{ background: "#E4EEFF" }} />
+                <span style={{ background: "#DDD5FF" }} />
+                <span style={{ background: "#FCE4EC" }} />
               </div>
-            )}
-            <div style={{ position: "absolute", bottom: 20, right: 8, width: 290, background: "var(--ink)", color: "#fff", borderRadius: 18, padding: 20, display: "flex", flexDirection: "column", gap: 12, boxShadow: "0 16px 40px rgba(27,24,52,0.25)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600 }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="4" y="10" width="16" height="11" rx="2" />
-                  <path d="M8 10V7a4 4 0 018 0v3" />
-                </svg>
-                Payment held by MentorsMD
-              </div>
-              <div style={{ height: 6, borderRadius: 3, background: "rgba(255,255,255,0.15)" }}>
-                <div style={{ width: "66%", height: "100%", borderRadius: 3, background: "var(--accent)" }} />
-              </div>
-              <div style={{ fontSize: 13, lineHeight: 1.45, color: "rgba(255,255,255,0.75)" }}>
-                Work delivered. You have 96 hours to review or ask for a revision.
+              <div style={{ fontSize: 18 }}>
+                <span className="stars">★★★★★</span> <b>{stats.count} reviews</b> <span style={{ opacity: 0.5 }}>|</span>{" "}
+                <span className="text-secondary" style={{ fontSize: 18 }}>{stats.avg.toFixed(1)} avg</span>
               </div>
             </div>
-          </div>
+          )}
         </div>
+
+        {MENTOR_SCHOOLS.length > 0 && (
+          <div className="school-strip">
+            <span>Our mentors study at</span>
+            {MENTOR_SCHOOLS.map((s) => (
+              <b key={s}>{s}</b>
+            ))}
+          </div>
+        )}
       </section>
 
-      {/* ---------------- Trust strip (real numbers only) ---------------- */}
-      <section className="stat-strip">
-        <div className="wrap" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 32, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", gap: 48, flexWrap: "wrap" }}>
-            {coachCount > 0 && (
-              <div><div className="stat-num">{coachCount}</div><div className="text-secondary">verified coaches</div></div>
-            )}
-            {reviewCount >= 3 && avgRating !== null && (
-              <div><div className="stat-num">{avgRating.toFixed(1)} <span className="stars">★</span></div><div className="text-secondary">from {reviewCount} reviews</div></div>
-            )}
-            <div><div className="stat-num">100%</div><div className="text-secondary">coaches invited &amp; vetted</div></div>
-          </div>
-          <div style={{ minWidth: 260 }}>
-            <TrustpilotWidget />
-          </div>
-        </div>
-      </section>
-
-      {/* ---------------- Services ---------------- */}
-      <section className="section">
+      {/* ---------------- Three paths ---------------- */}
+      <section className="home-section">
         <div className="wrap">
-          <div className="section-head">
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <span className="eyebrow">Services</span>
-              <h2 className="section-title">Help for every stage of the cycle</h2>
-            </div>
-            <Link href="/coaches" style={{ fontWeight: 600, color: "var(--primary-deep)" }}>Browse all coaches →</Link>
+          <div className="center-head">
+            <h2 className="big-title">
+              Getting into med school is hard.
+              <br />
+              You don&apos;t have to do it alone.
+            </h2>
+            <p className="lede" style={{ maxWidth: 880, fontSize: 21 }}>
+              The process is long, competitive and hard to read from the outside. MentorsMD pairs you with people who got in recently and know what works now.
+            </p>
           </div>
-          <ScrollGrow from={0.94}>
-            <div className="grid-4">
-              {SERVICES.map((s, i) => (
-                <Link key={s.category} href={`/coaches?category=${s.category}`} className="card service-card">
-                  <div className="service-num">{i + 1}</div>
-                  <div style={{ fontSize: 19, fontWeight: 600 }}>{s.title}</div>
-                  <div className="text-secondary" style={{ fontSize: 15, lineHeight: 1.5, flex: 1 }}>{s.desc}</div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--primary-deep)" }}>
-                    {coachesPerCategory[s.category]
-                      ? `${coachesPerCategory[s.category]} coach${coachesPerCategory[s.category] === 1 ? "" : "es"} →`
-                      : "See coaches →"}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </ScrollGrow>
+          <div className="grid-3" style={{ marginTop: 56 }}>
+            {PATHS.map((p) => (
+              <div key={p.title} className="path-card" style={{ background: p.bg }}>
+                {p.photo && (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img className="path-photo" src={p.photo} alt="" />
+                    <div className="path-shade" />
+                  </>
+                )}
+                <h3>{p.title}</h3>
+                <p>{p.body}</p>
+                <Link href={p.href} className="btn">Find a mentor</Link>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* ---------------- Featured coaches ---------------- */}
-      {featured.length > 0 && (
-        <section className="section" style={{ paddingTop: 0 }}>
+      {/* ---------------- Vetting ---------------- */}
+      <section id="vetting" style={{ paddingBottom: 120, scrollMarginTop: 100 }}>
+        <div className="wrap stack-lg" style={{ gap: 56 }}>
+          <div className="vet-hero" style={PHOTOS.vetting ? { background: `linear-gradient(180deg, rgba(27,24,52,0.1), rgba(27,24,52,0.7)), url(${PHOTOS.vetting}) center/cover` } : undefined}>
+            <h2>Every mentor, vetted.</h2>
+            <p>
+              Anyone can call themselves an admissions coach. On MentorsMD, nobody mentors until our senior team has reviewed their background and admissions experience. Only people with real expertise get through.
+            </p>
+          </div>
+          <div className="grid-4">
+            {VET.map((v) => (
+              <div key={v.title} className="vet-item">
+                <span className="icon-dot"><Icon d={v.icon} size={22} /></span>
+                <h3 style={{ fontSize: 21, marginTop: 4 }}>{v.title}</h3>
+                <p className="text-secondary" style={{ fontSize: 17 }}>{v.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---------------- Featured mentors ---------------- */}
+      {mentors.length > 0 && (
+        <section style={{ paddingBottom: 130 }}>
           <div className="wrap">
-            <div className="section-head">
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <span className="eyebrow">Featured coaches</span>
-                <h2 className="section-title">They were in your seat a year or two ago</h2>
-              </div>
-              <Link href="/coaches" className="btn">View all coaches</Link>
+            <div className="between" style={{ alignItems: "flex-end", marginBottom: 40, flexWrap: "wrap" }}>
+              <h2 style={{ fontSize: "clamp(34px, 4.4vw, 64px)" }}>Meet a few of our mentors.</h2>
+              <Link href="/coaches" className="link" style={{ fontSize: 18 }}>Browse all mentors →</Link>
             </div>
-            <ScrollGrow from={0.92}>
-              <div className="grid-3">
-                {featured.map((c, i) => (
-                  <CoachCard key={c.id} coach={c} index={i} />
-                ))}
-              </div>
-            </ScrollGrow>
+            <div className="grid-4">
+              {mentors.map((m) => {
+                const firstService = m.packages[0]?.service;
+                return (
+                  <Link key={m.id} href={`/coaches/${m.id}`} className="mentor-tile">
+                    <div className="mentor-tile-photo" style={{ background: tintFor(m.id) }}>
+                      {m.photoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={m.photoUrl} alt={m.name} loading="lazy" />
+                      ) : (
+                        initialsOf(m.name)
+                      )}
+                      <Vetted />
+                    </div>
+                    <div className="stack-sm" style={{ gap: 6 }}>
+                      <div className="between" style={{ alignItems: "baseline" }}>
+                        <b style={{ fontSize: 21, fontWeight: 600 }}>{m.name}</b>
+                        <Rating avg={m.avgRating} count={m.reviewCount} />
+                      </div>
+                      <span className="text-secondary" style={{ fontSize: 16 }}>
+                        {m.credential || labelFor(STAGES, m.mentorStage)}
+                      </span>
+                      {firstService && <span style={{ fontSize: 16 }}>{labelFor(SERVICES, firstService)}</span>}
+                      <span className="text-secondary" style={{ fontSize: 15 }}>
+                        From <b style={{ color: "var(--ink)" }}>{money(m.minPrice)}</b>
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         </section>
       )}
 
-      {/* ---------------- How it works (the escrow story) ---------------- */}
-      <section id="how" style={{ padding: "0 16px", scrollMarginTop: 80 }}>
-        <ScrollGrow from={0.86}>
-          <div className="how-panel wrap" style={{ maxWidth: 1360 }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 14, marginBottom: 44 }}>
-              <span className="eyebrow" style={{ color: "var(--primary-deep)" }}>How it works</span>
-              <h2 className="section-title" style={{ maxWidth: 780 }}>You only pay when you're happy with the work</h2>
-              <p className="hero-sub" style={{ fontSize: 18 }}>
-                Your payment sits safely with MentorsMD until you approve. No guessing whether a coach is a good fit: you talk first.
-              </p>
+      {/* ---------------- Everything you need ---------------- */}
+      <section style={{ paddingBottom: 140 }}>
+        <div className="wrap">
+          <h2 className="big-title" style={{ textAlign: "center", marginBottom: 64 }}>Everything you need to get in.</h2>
+          <HomeFeatures />
+        </div>
+      </section>
+
+      {/* ---------------- Testimonials wall ---------------- */}
+      {wall.length >= 3 && (
+        <section id="reviews" className="wall" style={{ scrollMarginTop: 80 }}>
+          <div className="wrap">
+            <div className="center-head" style={{ marginBottom: 56, gap: 18 }}>
+              <span className="eyebrow" style={{ color: "var(--ink)", fontSize: 18, fontWeight: 500 }}>Testimonials</span>
+              <h2 className="big-title">Don&apos;t just take our word for it.</h2>
             </div>
-            <div className="grid-4">
-              {STEPS.map((s, i) => (
-                <div key={s.title} className="step-card">
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div className="step-num">{i + 1}</div>
-                    <span className={`badge ${s.tagClass}`} style={{ borderRadius: 999 }}>{s.tag}</span>
+            <div className="wall-grid">
+              {wall.map((t, i) => (
+                <div key={t.key}>
+                  <div className="testi">
+                    <div className="row" style={{ gap: 14 }}>
+                      <span className="avatar" style={{ width: 54, height: 54, background: ["#FCE4EC", "#E4EEFF", "#DDD5FF", "#F5B9CD"][i % 4] }}>
+                        {initialsOf(t.name)}
+                      </span>
+                      <span className="stack-sm" style={{ gap: 2 }}>
+                        <b style={{ fontSize: 18 }}>{t.name}</b>
+                        <span className="text-secondary">{t.detail}</span>
+                      </span>
+                    </div>
+                    <span className="stars">{"★".repeat(Math.round(t.rating))}</span>
+                    <p style={{ fontSize: 18, lineHeight: 1.55 }}>{t.quote}</p>
                   </div>
-                  <div style={{ fontSize: 20, fontWeight: 600 }}>{s.title}</div>
-                  <div className="text-secondary" style={{ fontSize: 15, lineHeight: 1.55 }}>{s.desc}</div>
                 </div>
               ))}
             </div>
           </div>
-        </ScrollGrow>
-      </section>
+        </section>
+      )}
 
-      {/* ---------------- Student outcomes + testimonials ---------------- */}
-      <section className="section">
-        <div className="wrap" style={{ display: "flex", flexDirection: "column", gap: 56 }}>
-          <ScrollGrow from={0.94}>
-            <StudentSpotlight />
-          </ScrollGrow>
-          <ScrollGrow from={0.94}>
-            <Testimonials />
-          </ScrollGrow>
-        </div>
-      </section>
-
-      {/* ---------------- Closing CTA ---------------- */}
-      <section style={{ padding: "0 16px" }}>
-        <ScrollGrow from={0.88}>
-          <div className="cta-band wrap" style={{ maxWidth: 1360 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <h2 className="section-title" style={{ maxWidth: 700 }}>
-                Your application deserves a <em>second set of eyes.</em>
-              </h2>
-              <p style={{ margin: 0, fontSize: 18, color: "rgba(255,255,255,0.72)" }}>
-                Message any coach for free. Book only when it feels right.
-              </p>
-            </div>
-            <Link href="/coaches" className="btn btn-lg" style={{ background: "#fff", color: "var(--ink)", border: "none" }}>
-              Find your coach
-            </Link>
-          </div>
-        </ScrollGrow>
-      </section>
-
-      {/* ---------------- FAQ ---------------- */}
-      <section className="section">
-        <div className="wrap" style={{ maxWidth: 820 }}>
-          <FAQ />
+      {/* ---------------- Final CTA ---------------- */}
+      <section className="home-section">
+        <div className="wrap center-head" style={{ gap: 24 }}>
+          <h2 className="big-title">Ready when you are.</h2>
+          <p className="lede" style={{ fontSize: 21 }}>
+            Message any vetted mentor for free. When you book, we hold your payment until you approve the work.
+          </p>
+          <Link href="/coaches" className="btn btn-primary btn-lg" style={{ padding: "20px 38px", fontSize: 19 }}>
+            Get started
+          </Link>
         </div>
       </section>
     </div>

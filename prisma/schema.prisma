@@ -1,5 +1,5 @@
 // Database schema for the invite-gated coaching marketplace.
-// Run: npx prisma migrate dev --name add_reviews_categories_disputes_etc
+// Apply changes to the database with: npx prisma db push
 
 generator client {
   provider = "prisma-client-js"
@@ -27,6 +27,21 @@ enum InviteStatus {
   REDEEMED
   EXPIRED
   REVOKED
+}
+
+// Mentor visibility. PAUSED mentors are hidden from search until their
+// return date (pausedUntil) passes, or until they unpause. REMOVED mentors
+// are hidden entirely. A student REMOVED by an admin can't log in.
+enum ProfileStatus {
+  ACTIVE
+  PAUSED
+  REMOVED
+}
+
+enum CallStatus {
+  BOOKED
+  CANCELLED
+  COMPLETED
 }
 
 enum OrderStatus {
@@ -77,6 +92,24 @@ model User {
   // started before this moment is ended within ~5 minutes (see the jwt
   // callback in lib/auth.ts), which kicks out anyone else who was in.
   passwordChangedAt DateTime?
+
+  // ---- Mentor availability (pause / remove) ----
+  profileStatus  ProfileStatus @default(ACTIVE)
+  pausedUntil    DateTime?     // optional return date; profile shows again after this
+  awayNote       String?       // shown on the profile while paused
+  removedAt      DateTime?
+  removedReason  String?
+  removedByAdmin Boolean       @default(false) // admin removal also blocks login
+
+  // ---- Mentor-level search answers (asked once, used by every package) ----
+  mentorStage String?  // MS1, MS2, MS3, MS4, RESIDENT
+  schoolType  String?  // MD, DO, MD_PHD
+  backgrounds String[] @default([]) // REAPPLICANT, NON_TRADITIONAL, FIRST_GEN, GAP_YEARS, CAREER_CHANGER
+
+  // ---- Calls & calendars ----
+  calLink       String? // mentor's Cal.com page, e.g. https://cal.com/aisha
+  calWebhookSecret String? // per-mentor signing secret for their Cal.com webhook
+  calendarToken String? @unique // secret token for this user's calendar feed (.ics)
 
   accounts Account[] // one row per login method (Google, etc.) linked to this user
   sessions Session[]
@@ -170,6 +203,15 @@ model Gig {
   active      Boolean     @default(true)
   createdAt   DateTime    @default(now())
 
+  // Required search answers. A package missing any of these is hidden
+  // from browse until the mentor fills them in (see lib/mentor.ts).
+  service       String? // PERSONAL_STATEMENT, SECONDARIES, ... (lib/options.ts)
+  format        String? // WRITTEN, WRITTEN_CALL, LIVE
+  turnaround    String? // H48, D3_5, W1_2, SCHEDULED
+  callsIncluded Int     @default(0) // 0 for written-only packages
+  callLength    Int?    // minutes: 30, 45 or 60
+  calEventUrl   String? // optional Cal.com event link just for this package
+
   seller   User   @relation("SellerGigs", fields: [sellerId], references: [id])
   sellerId String
 
@@ -177,6 +219,7 @@ model Gig {
 
   @@index([sellerId, active])
   @@index([active, category, createdAt])
+  @@index([active, service])
 }
 
 model Order {
@@ -251,6 +294,17 @@ model Order {
 
   review Review?
   disputeMessages DisputeMessage[]
+  callBookings    CallBooking[]
+
+  // ---- Unbooked-call rule (see lib/calls.ts) ----
+  callReminderSentAt DateTime? // last "book your call" reminder to the student
+  callHoldAt         DateTime? // due date passed with a call still unbooked: order paused
+  callWaivedAt       DateTime? // student said they don't need the call
+  callForfeitedAt    DateTime? // student didn't book within 48h of the hold
+
+  // ---- Dispute outcome, for the admin's Resolved list ----
+  disputeResolvedAt DateTime?
+  disputeResolution String?   // REFUNDED or RELEASED
 
   // Postgres doesn't index foreign keys automatically. Without these,
   // every "my orders" page and every cron run scans the whole table.
@@ -281,6 +335,28 @@ model DisputeMessage {
   senderId String
 
   @@index([orderId, createdAt])
+}
+
+// One row per call booked on an order - usually created by the Cal.com
+// webhook when the student books through the mentor's Cal.com page, or
+// by the mentor entering an agreed time by hand if they don't use Cal.com.
+model CallBooking {
+  id         String     @id @default(cuid())
+  startTime  DateTime
+  endTime    DateTime
+  status     CallStatus @default(BOOKED)
+  source     String     @default("CAL") // CAL or MANUAL
+  calUid     String?    @unique         // Cal.com booking uid
+  meetingUrl String?    // video link from Cal.com, if it created one
+  reminderSentAt DateTime?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  order   Order  @relation(fields: [orderId], references: [id])
+  orderId String
+
+  @@index([orderId, startTime])
+  @@index([status, startTime])
 }
 
 model Review {

@@ -4,6 +4,13 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { AuthShell, GoogleButton } from "@/components/AuthShell";
+
+// Only allow redirects back into this site.
+function safeCallback() {
+  const cb = new URLSearchParams(window.location.search).get("callbackUrl") || "";
+  return cb.startsWith("/") && !cb.startsWith("//") ? cb : "";
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,36 +24,47 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     const res = await signIn("credentials", { email, password, redirect: false });
-    setLoading(false);
     if (res?.error) {
+      setLoading(false);
       setError("That email or password isn't right. After several failed attempts an account is locked for 15 minutes. Resetting your password unlocks it right away.");
       return;
     }
-    router.push("/");
+    // Send each role to its home.
+    const session = await fetch("/api/auth/session").then((r) => r.json()).catch(() => ({}));
+    const role = session?.user?.role;
+    const cb = safeCallback();
+    router.push(cb || (role === "SELLER" ? "/dashboard" : role === "ADMIN" ? "/admin" : "/coaches"));
     router.refresh();
   }
 
   return (
-    <div className="card-narrow">
-      <h2 style={{ fontSize: 20, marginBottom: 6 }}>Log in</h2>
-      <p className="text-secondary" style={{ marginBottom: 22 }}>Welcome back.</p>
-
-      <button onClick={() => signIn("google", { callbackUrl: "/" })} className="btn" style={{ width: "100%", marginBottom: 16 }}>
-        Continue with Google
-      </button>
-      <div className="text-muted" style={{ textAlign: "center", marginBottom: 16 }}>or</div>
-
-      <form onSubmit={handleSubmit}>
-        <input className="input" placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <input className="input" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        <div style={{ textAlign: "right", marginTop: -4, marginBottom: 12 }}>
-          <Link href="/forgot-password" style={{ fontSize: 14, fontWeight: 600, color: "var(--primary-deep)" }}>Forgot password?</Link>
-        </div>
-        {error && <div role="alert" style={{ color: "#DC2626", fontSize: 13, marginBottom: 12 }}>{error}</div>}
-        <button className="btn-primary" disabled={loading || !email || !password}>
-          {loading ? "Logging in..." : "Log in"}
-        </button>
-      </form>
-    </div>
+    <AuthShell title="Welcome back." body="Pick up where you left off: messages, orders and calls are all in one place.">
+      <div className="stack" style={{ gap: 14 }}>
+        <h1 className="page-title" style={{ fontSize: 40 }}>Log in</h1>
+        <GoogleButton onClick={() => signIn("google", { callbackUrl: "/coaches" })} />
+        <span className="text-muted">Google sign-in is for student accounts. Mentors log in with email.</span>
+        <div className="or-line">or</div>
+        <form onSubmit={handleSubmit} className="stack" style={{ gap: 0 }}>
+          <label className="field">
+            <span className="field-label">Email</span>
+            <input className="input" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </label>
+          <label className="field">
+            <span className="field-label between">
+              Password
+              <Link href="/forgot-password" className="link small">Forgot password?</Link>
+            </span>
+            <input className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          </label>
+          {error && <div role="alert" className="alert alert-danger" style={{ marginBottom: 14 }}>{error}</div>}
+          <button className="btn btn-primary btn-lg btn-block" disabled={loading || !email || !password}>
+            {loading ? "Logging in…" : "Log in"}
+          </button>
+        </form>
+        <span className="text-secondary" style={{ textAlign: "center" }}>
+          New here? <Link href="/signup/buyer" className="link">Create a free student account</Link>
+        </span>
+      </div>
+    </AuthShell>
   );
 }

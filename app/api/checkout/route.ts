@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { parseDate } from "@/lib/validate";
+import { isMentorVisible } from "@/lib/mentor";
 
 // Creates a Stripe Checkout Session for one gig package. Deliberately NOT
 // a Connect "destination charge" - the money lands in OUR Stripe balance
@@ -40,15 +41,18 @@ export async function POST(req: Request) {
   if (!gig || !gig.active) {
     return NextResponse.json({ error: "Package not found" }, { status: 404 });
   }
+  if (!isMentorVisible(gig.seller)) {
+    return NextResponse.json({ error: "This mentor isn't taking new orders right now" }, { status: 400 });
+  }
   if (!gig.seller.stripeAccountId) {
-    return NextResponse.json({ error: "This coach hasn't finished setting up payouts yet" }, { status: 400 });
+    return NextResponse.json({ error: "This mentor hasn't finished setting up payouts yet" }, { status: 400 });
   }
 
   const conversation = await prisma.conversation.findUnique({
     where: { buyerId_sellerId: { buyerId, sellerId: gig.sellerId } },
   });
   if (!conversation) {
-    return NextResponse.json({ error: "Message this coach before booking a due date" }, { status: 400 });
+    return NextResponse.json({ error: "Message this mentor before booking a due date" }, { status: 400 });
   }
 
   const [buyerMessageCount, sellerMessageCount] = await Promise.all([
@@ -57,7 +61,7 @@ export async function POST(req: Request) {
   ]);
   if (buyerMessageCount === 0 || sellerMessageCount === 0) {
     return NextResponse.json(
-      { error: "Wait for the coach to reply to your message before picking a due date" },
+      { error: "Wait for the mentor to reply to your message before picking a due date" },
       { status: 400 }
     );
   }
@@ -88,10 +92,12 @@ export async function POST(req: Request) {
       },
     ],
     metadata: { orderId: order.id },
+    customer_email: session.user.email || undefined,
     // Unpaid sessions expire after 1 hour instead of Stripe's 24h default.
     expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
     success_url: `${process.env.NEXTAUTH_URL}/orders/${order.id}?success=true`,
-    cancel_url: `${process.env.NEXTAUTH_URL}/gigs/${gig.id}?cancelled=true`,
+    // Back to the checkout page (there's no /gigs/[id] page - that was a 404).
+    cancel_url: `${process.env.NEXTAUTH_URL}/gigs/${gig.id}/checkout?cancelled=true`,
   });
 
   await prisma.order.update({

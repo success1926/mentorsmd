@@ -27,7 +27,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="card-narrow">
+    <div className="page-narrow"><div className="card-narrow stack">
       <h1 style={{ fontSize: 28, margin: "0 0 6px" }}>Reset your password</h1>
       {sent ? (
         <>
@@ -37,7 +37,7 @@ export default function ForgotPasswordPage() {
           <p className="text-secondary" style={{ fontSize: 15, lineHeight: 1.6 }}>
             Don't see it? Check your spam folder, or wait a minute and try again.
           </p>
-          <Link href="/login" className="btn" style={{ width: "100%", marginTop: 8 }}>Back to log in</Link>
+          <Link href="/login" className="btn btn-block" style={{ marginTop: 8 }}>Back to log in</Link>
         </>
       ) : (
         <>
@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
             <label htmlFor="email" className="sr-only">Email</label>
             <input id="email" className="input" placeholder="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             {error && <div role="alert" style={{ color: "var(--danger)", fontSize: 14, marginBottom: 12 }}>{error}</div>}
-            <button className="btn-primary" disabled={loading || !email}>
+            <button className="btn btn-primary btn-lg btn-block" disabled={loading || !email}>
               {loading ? "Sending..." : "Send reset link"}
             </button>
           </form>
@@ -57,6 +57,6 @@ export default function ForgotPasswordPage() {
           </p>
         </>
       )}
-    </div>
+    </div></div>
   );
 }

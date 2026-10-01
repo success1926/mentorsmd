@@ -3,13 +3,15 @@
 import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import Link from "next/link";
+import { AuthShell } from "@/components/AuthShell";
 
 // useSearchParams() requires a Suspense boundary around it for Next.js's
 // production build to prerender this page correctly - this wrapper is
 // the fix; all the real logic lives in OnboardCoachForm below, unchanged.
 export default function OnboardCoachPage() {
   return (
-    <Suspense fallback={<p className="text-muted">Loading...</p>}>
+    <Suspense fallback={<div className="page-narrow text-muted">Loading…</div>}>
       <OnboardCoachForm />
     </Suspense>
   );
@@ -31,11 +33,14 @@ function OnboardCoachForm() {
 
   if (!code || !emailFromLink) {
     return (
-      <div className="card-narrow">
-        <h2 style={{ fontSize: 20, marginBottom: 6 }}>Missing invite link</h2>
-        <p className="text-secondary">
-          This page only works from the invite email an admin sends you. Ask them to resend it if you've lost it.
-        </p>
+      <div className="page-narrow">
+        <div className="card-narrow stack">
+          <h1 className="page-title" style={{ fontSize: 34 }}>Missing invite link</h1>
+          <p className="text-secondary">This page only works from the invite email our team sends you. Open the link in that email to set up your profile.</p>
+          <p className="text-secondary">
+            Looking for help with your own application? <Link href="/signup/buyer" className="link">Create a student account</Link>
+          </p>
+        </div>
       </div>
     );
   }
@@ -59,27 +64,34 @@ function OnboardCoachForm() {
     }
 
     await signIn("credentials", { email, password, redirect: false });
-    // First stop for a brand-new coach: add a photo and polish their bio.
-    router.push("/dashboard/profile");
+    // First stop for a brand-new mentor: photo, search answers, calendar.
+    router.push("/account");
     router.refresh();
   }
 
   return (
-    <div className="card-narrow">
-      <h2 style={{ fontSize: 20, marginBottom: 6 }}>Set up your coach profile</h2>
-      <p className="text-secondary" style={{ marginBottom: 22 }}>
-        Invite verified for {email} — welcome. Fill in your details to finish setting up your account.
-      </p>
-      <form onSubmit={handleSubmit}>
-        <input className="input" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
-        <input className="input" placeholder="Credential (e.g. MS3, PGY-2 IM)" value={credential} onChange={(e) => setCredential(e.target.value)} />
-        <textarea className="input" placeholder="Short bio" value={bio} onChange={(e) => setBio(e.target.value)} />
-        <input className="input" placeholder="Set a password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        {error && <div style={{ color: "#DC2626", fontSize: 13, marginBottom: 12 }}>{error}</div>}
-        <button className="btn-primary" disabled={loading || !name || !credential || !password}>
-          {loading ? "Setting up..." : "Create my profile"}
-        </button>
-      </form>
-    </div>
+    <AuthShell title="Welcome to MentorsMD." body="Our senior team vetted you before sending this invite. Set up your profile, then add a photo, your packages and payouts.">
+      <div className="stack" style={{ gap: 14 }}>
+        <div className="stack-sm">
+          <h1 className="page-title" style={{ fontSize: 38 }}>Set up your mentor profile</h1>
+          <span className="badge badge-brand" style={{ alignSelf: "flex-start" }}>Invite for {email}</span>
+        </div>
+        <form onSubmit={handleSubmit} className="stack" style={{ gap: 0 }}>
+          <label className="field"><span className="field-label">Full name</span>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} /></label>
+          <label className="field"><span className="field-label">Credential</span>
+            <input className="input" placeholder="e.g. MS3, PGY-2 IM" value={credential} onChange={(e) => setCredential(e.target.value)} /></label>
+          <label className="field"><span className="field-label">Short bio (optional)</span>
+            <textarea className="input" maxLength={3000} placeholder="Where you are in training, what you help with, and what you went through to get in." value={bio} onChange={(e) => setBio(e.target.value)} /></label>
+          <label className="field"><span className="field-label">Set a password</span>
+            <input className="input" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <span className="field-help">At least 8 characters.</span></label>
+          {error && <div role="alert" className="alert alert-danger" style={{ marginBottom: 14 }}>{error}</div>}
+          <button className="btn btn-primary btn-lg btn-block" disabled={loading || !name || !credential || password.length < 8}>
+            {loading ? "Setting up…" : "Create my profile"}
+          </button>
+        </form>
+      </div>
+    </AuthShell>
   );
 }

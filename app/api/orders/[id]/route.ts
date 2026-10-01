@@ -18,9 +18,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     where: { id: params.id },
     include: {
       gig: true,
-      buyer: { select: { name: true } },
-      seller: { select: { name: true, credential: true } },
+      buyer: { select: { name: true, photoUrl: true } },
+      seller: { select: { name: true, credential: true, photoUrl: true, calLink: true } },
       review: true,
+      callBookings: { orderBy: { startTime: "asc" } },
     },
   });
 
@@ -28,5 +29,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ order });
+  // `viewer` lets the page prefill the Cal.com booking form with the
+  // student's own name and email.
+  return NextResponse.json({
+    order,
+    viewer: { id: userId, role, name: session.user.name ?? "", email: session.user.email ?? "" },
+  });
 }

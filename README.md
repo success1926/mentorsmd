@@ -717,3 +717,20 @@ the next step up - not needed yet.
   after an order completes).
 - Confirm Neon's backup/point-in-time-restore is actually enabled, not
   just assumed.
+
+## Sept 2026 redesign: what changed
+
+New look (Iris colors, Fraunces + Instrument Sans, Leland-style layout) on every page, plus:
+
+- **Browse**: left filter sidebar (service, format, turnaround, price, mentor stage, school type, background, rating), active filter pills, quick links. Mentor cards list the packages that match.
+- **Packages** must answer the search questions (service, format, turnaround, and calls if included). Mentors answer stage / school type / background once on `/account`. Anything missing is hidden from search, and the mentor sees a warning.
+- **Calls**: no always-on video. A package can include 1-3 calls. After payment the student gets "Book a call", which opens the mentor's Cal.com page with the order id attached. Bookings come back through `/api/webhooks/cal?mentor=<id>` (per-mentor secret on `/account#calendar`), or the mentor adds an agreed time by hand. Join opens 10 min before; reschedule/cancel go through Cal.com (24h cutoff). Mentors can't mark work complete until included calls happen, are skipped, or are forfeited.
+- **Unbooked-call rule** (`lib/callRules.ts`, runs with the daily 09:00 cron): reminders, then "on hold" at the due date, then forfeit after 48h if the mentor had a Cal.com page. All timings are constants in `lib/calls.ts`.
+- **Calendar sync**: `/account#calendar` gives every user a private .ics feed (Google / Outlook / Apple).
+- **Mentor side**: `/dashboard` (availability switch, needs-attention list, active/completed orders, messages), `/dashboard/packages`, `/dashboard/payouts` (debug panel removed), `/account` (profile, search answers, Cal.com, calendar, pause / remove).
+- **Messages**: new `/messages` inbox with an order side panel.
+- **Admin**: collapsible Pending/Resolved disputes, Pending/Joined invites, People (mentors/students: view, pause, remove with reason, restore). Discount-code UI removed (the API still exists).
+- **Fixes**: checkout cancel URL 404, mentor shown at checkout, confirm before removing a package, Stripe debug data no longer sent to the browser.
+
+Database: run `npx prisma db push` (or paste `prisma/redesign-2026-09.sql` into the Neon SQL editor) **before** deploying.
+Marketing content (schools strip, testimonials, acceptance rate, photos) lives in `lib/content.ts`; empty items are hidden.

@@ -3,111 +3,99 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { statusBadge, tintFor, initialsOf } from "@/components/ui";
+import { callSummary, fmtDateTime } from "@/lib/calls";
+import { money } from "@/lib/options";
+
+const ACTIVE = ["IN_ESCROW", "COMPLETED"];
+
+// What the viewer should do next on an order, in one line.
+function nextStep(o: any, isSeller: boolean) {
+  const calls = callSummary(o);
+  if (o.disputed && ACTIVE.includes(o.status)) return "An admin is reviewing this order.";
+  if (o.status === "IN_ESCROW") {
+    if (calls.onHold) return isSeller ? "On hold: the student hasn't booked the call." : "Book your call or tell us you don't need it.";
+    if (calls.upcoming[0]) return `Call on ${fmtDateTime(calls.upcoming[0].startTime)}`;
+    if (calls.canBook) return isSeller ? "Waiting for the student to book a call." : "Book your call.";
+    if (o.revisionRequested) return isSeller ? "Revision requested." : "Revision requested. Your mentor is on it.";
+    return isSeller ? "Deliver the work, then mark it complete." : "Your mentor is working on it.";
+  }
+  if (o.status === "COMPLETED") return isSeller ? "Delivered. Waiting for the student to approve." : "Delivered. Review it and release payment.";
+  if (o.status === "RELEASED" && !isSeller && !o.review) return "Leave a review.";
+  return "";
+}
 
 export default function OrdersPage() {
   const { data: session } = useSession();
-  const role = (session?.user as any)?.role;
-  const [view, setView] = useState<"orders" | "messages">("orders");
-  const [orders, setOrders] = useState<any[]>([]);
-  const [conversations, setConversations] = useState<any[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const isSeller = (session?.user as any)?.role === "SELLER";
+  const [orders, setOrders] = useState<any[] | null>(null);
+  const [tab, setTab] = useState<"active" | "done">("active");
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/orders").then((res) => res.json()),
-      fetch("/api/conversations").then((res) => res.json()),
-    ]).then(([ordersData, convosData]) => {
-      setOrders(ordersData.orders || []);
-      setConversations(convosData.conversations || []);
-      setLoaded(true);
-    });
+    fetch("/api/orders")
+      .then((r) => r.json())
+      .then((d) => setOrders((d.orders || []).filter((o: any) => o.status !== "PENDING_PAYMENT" && o.status !== "CANCELLED")))
+      .catch(() => setOrders([]));
   }, []);
 
+  const active = (orders || []).filter((o) => ACTIVE.includes(o.status));
+  const done = (orders || []).filter((o) => !ACTIVE.includes(o.status));
+  const list = tab === "active" ? active : done;
+
   return (
-    <div>
-      <div style={{ display: "flex", border: "1px solid #E7E3EF", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
-        <button
-          onClick={() => setView("orders")}
-          style={{
-            flex: 1,
-            padding: "12px 0",
-            border: "none",
-            cursor: "pointer",
-            fontSize: 14,
-            fontWeight: 600,
-            background: view === "orders" ? "#5536D6" : "#F7F5FB",
-            color: view === "orders" ? "#fff" : "#2E2A45",
-          }}
-        >
-          Orders ({orders.length})
+    <div className="page-mid">
+      <div className="between" style={{ marginBottom: 24, flexWrap: "wrap" }}>
+        <h1 className="page-title">{isSeller ? "Orders" : "My orders"}</h1>
+        {!isSeller && <Link href="/coaches" className="btn btn-primary">Find a mentor</Link>}
+      </div>
+
+      <div className="tabs" role="tablist">
+        <button role="tab" className="tab" aria-selected={tab === "active"} onClick={() => setTab("active")}>
+          In progress <span className="tab-count">{active.length}</span>
         </button>
-        <button
-          onClick={() => setView("messages")}
-          style={{
-            flex: 1,
-            padding: "12px 0",
-            border: "none",
-            borderLeft: "1px solid #E7E3EF",
-            cursor: "pointer",
-            fontSize: 14,
-            fontWeight: 600,
-            background: view === "messages" ? "#5536D6" : "#F7F5FB",
-            color: view === "messages" ? "#fff" : "#2E2A45",
-          }}
-        >
-          Messages ({conversations.length})
+        <button role="tab" className="tab" aria-selected={tab === "done"} onClick={() => setTab("done")}>
+          Completed <span className="tab-count">{done.length}</span>
         </button>
       </div>
 
-      {!loaded && <p className="text-muted">Loading...</p>}
-
-      {loaded && view === "orders" && (
-        <div style={{ display: "grid", gap: 12 }}>
-          {orders.length === 0 && <p className="text-muted">No orders yet.</p>}
-          {orders.map((o: any) => (
-            <Link key={o.id} href={`/orders/${o.id}`} className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <div style={{ fontWeight: 600 }}>{o.gig.title}</div>
-                <div className="text-secondary">{o.buyer?.name} with {o.seller?.name} · ${(o.amount / 100).toFixed(2)}</div>
-              </div>
-              <span className={`badge ${o.status === "RELEASED" ? "badge-success" : "badge-warning"}`}>
-                {o.status === "RELEASED" ? "Released" :
-                 o.status === "REFUNDED" ? "Refunded" :
-                 o.status === "COMPLETED" ? "Awaiting review" :
-                 o.status === "CANCELLED" ? "Cancelled" :
-                 o.status === "PENDING_PAYMENT" ? "Awaiting payment" :
-                 "Pending"}
-              </span>
-            </Link>
-          ))}
+      {orders === null && <p className="text-muted">Loading…</p>}
+      {orders !== null && list.length === 0 && (
+        <div className="empty stack" style={{ alignItems: "center" }}>
+          <span>{tab === "active" ? "No orders in progress." : "No completed orders yet."}</span>
+          {!isSeller && tab === "active" && <Link href="/coaches" className="btn btn-primary">Browse mentors</Link>}
         </div>
       )}
 
-      {loaded && view === "messages" && (
-        <div style={{ display: "grid", gap: 12 }}>
-          {conversations.length === 0 && <p className="text-muted">No conversations yet.</p>}
-          {conversations.map((c: any) => {
-            // The OTHER person in the conversation, not always "seller" -
-            // if I'm the seller here, I want to see the buyer's info.
-            const counterpart = role === "SELLER" ? c.buyer : c.seller;
-            const lastMessage = c.messages?.[0];
-            return (
-              <Link key={c.id} href={`/messages/${c.id}`} className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <div style={{ fontWeight: 600 }}>{counterpart?.name}</div>
-                  {counterpart?.credential && <div className="text-secondary" style={{ marginTop: 2 }}>{counterpart.credential}</div>}
-                  {lastMessage && (
-                    <div className="text-muted" style={{ marginTop: 4, maxWidth: 380, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {lastMessage.body}
-                    </div>
-                  )}
+      <div className="stack">
+        {list.map((o) => {
+          const other = isSeller ? o.buyer : o.seller;
+          const step = nextStep(o, isSeller);
+          return (
+            <Link key={o.id} href={`/orders/${o.id}`} className="card row" style={{ gap: 16, alignItems: "flex-start" }}>
+              {other?.photoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={other.photoUrl} alt="" className="avatar" style={{ objectFit: "cover" }} />
+              ) : (
+                <span className="avatar" style={{ background: tintFor(other?.name || "") }}>{initialsOf(other?.name || "")}</span>
+              )}
+              <div className="grow stack-sm" style={{ gap: 4 }}>
+                <div className="between" style={{ alignItems: "flex-start" }}>
+                  <b style={{ fontSize: 17 }}>{o.gig.title}</b>
+                  <b className="nowrap">{money(o.amount)}</b>
                 </div>
-                <span className="btn">Continue</span>
-              </Link>
-            );
-          })}
-        </div>
-      )}
+                <span className="text-secondary">
+                  {isSeller ? "Student" : "Mentor"}: {other?.name}
+                  {o.dueDate ? ` · Due ${new Date(o.dueDate).toLocaleDateString()}` : ""}
+                </span>
+                <div className="row-wrap" style={{ marginTop: 4 }}>
+                  {statusBadge(o)}
+                  {step && <span className="text-muted">{step}</span>}
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }

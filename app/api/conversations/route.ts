@@ -14,12 +14,12 @@ export async function POST(req: Request) {
   const userId = (session.user as any).id;
 
   if (role !== "BUYER") {
-    return NextResponse.json({ error: "Only buyers can start a conversation with a coach" }, { status: 403 });
+    return NextResponse.json({ error: "Only student accounts can start a conversation with a mentor" }, { status: 403 });
   }
 
   const seller = await prisma.user.findUnique({ where: { id: sellerId } });
-  if (!seller || seller.role !== "SELLER") {
-    return NextResponse.json({ error: "That coach doesn't exist" }, { status: 404 });
+  if (!seller || seller.role !== "SELLER" || seller.profileStatus === "REMOVED") {
+    return NextResponse.json({ error: "That mentor doesn't exist" }, { status: 404 });
   }
 
   const conversation = await prisma.conversation.upsert({
@@ -42,12 +42,18 @@ export async function GET() {
   const conversations = await prisma.conversation.findMany({
     where: role === "SELLER" ? { sellerId: userId } : { buyerId: userId },
     include: {
-      buyer: { select: { id: true, name: true } },
-      seller: { select: { id: true, name: true, credential: true } },
+      buyer: { select: { id: true, name: true, photoUrl: true } },
+      seller: { select: { id: true, name: true, credential: true, photoUrl: true } },
       messages: { orderBy: { createdAt: "desc" }, take: 1 },
     },
     orderBy: { createdAt: "desc" },
+    take: 200,
   });
+
+  // Most recent activity first (a conversation's own createdAt never
+  // changes, so sort by its latest message instead).
+  const last = (c: (typeof conversations)[number]) => (c.messages[0]?.createdAt ?? c.createdAt).getTime();
+  conversations.sort((a, b) => last(b) - last(a));
 
   return NextResponse.json({ conversations });
 }

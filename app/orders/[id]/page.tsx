@@ -1,430 +1,443 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { useSession } from "next-auth/react";
+import Link from "next/link";
 import { useConversation } from "@/lib/hooks/useConversation";
 import { useDisputeThread } from "@/lib/hooks/useDisputeThread";
+import { OrderCalls } from "@/components/Calls";
+import { Icon, ICONS, statusBadge, tintFor, initialsOf } from "@/components/ui";
+import { callSummary, CALL_HOLD_HOURS } from "@/lib/calls";
+import { FORMATS, SERVICES, TURNAROUNDS, labelFor, money } from "@/lib/options";
 
 const AUTO_RELEASE_HOURS = 96;
+const fmt = (d: string | Date) => new Date(d).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+const fmtDay = (d: string | Date) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+
+// Paid -> Held -> Delivered -> Released
+function Tracker({ order }: { order: any }) {
+  if (order.status === "REFUNDED") {
+    return <div className="alert alert-warning">This order was refunded to the student.</div>;
+  }
+  if (order.status === "CANCELLED" || order.status === "PENDING_PAYMENT") return null;
+  const reached =
+    order.status === "RELEASED" ? 4 : order.status === "COMPLETED" ? 3 : order.status === "IN_ESCROW" ? 2 : 0;
+  const steps = [
+    { label: "Paid", note: fmtDay(order.createdAt) },
+    { label: "Held by MentorsMD", note: reached === 2 ? "Work in progress" : "" },
+    { label: "Delivered", note: order.workCompletedAt ? fmtDay(order.workCompletedAt) : "" },
+    { label: "Released", note: order.completedAt && order.status === "RELEASED" ? fmtDay(order.completedAt) : "" },
+  ];
+  return (
+    <div className="tracker" aria-label="Payment progress">
+      {steps.map((s, i) => {
+        const n = i + 1;
+        const cls = n < reached || (n === reached && reached === 4) ? "done" : n === reached ? "done current" : "";
+        return (
+          <div key={s.label} className={`tracker-step ${cls}`}>
+            <div className="tracker-bar" />
+            <span>{s.label}</span>
+            {s.note && <span className="text-muted" style={{ fontWeight: 400 }}>{s.note}</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function OrderDetailPage() {
   const params = useParams();
-  const { data: session } = useSession();
   const orderId = params.id as string;
 
   const [order, setOrder] = useState<any>(null);
-  const [draft, setDraft] = useState("");
-  const [marking, setMarking] = useState(false);
-  const [releasing, setReleasing] = useState(false);
-  const [releaseError, setReleaseError] = useState("");
-  const [videoLoading, setVideoLoading] = useState(false);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [dragOver, setDragOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [showSchedule, setShowSchedule] = useState(false);
-  const [scheduleValue, setScheduleValue] = useState("");
-  const [scheduling, setScheduling] = useState(false);
+  const [viewer, setViewer] = useState<any>(null);
+  const [loadError, setLoadError] = useState("");
+  const [justPaid, setJustPaid] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [actionError, setActionError] = useState("");
 
   const [showDueDate, setShowDueDate] = useState(false);
   const [dueDateValue, setDueDateValue] = useState("");
-  const [savingDueDate, setSavingDueDate] = useState(false);
-
   const [showRevision, setShowRevision] = useState(false);
   const [revisionNote, setRevisionNote] = useState("");
-  const [requestingRevision, setRequestingRevision] = useState(false);
-
   const [showDispute, setShowDispute] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
-  const [disputing, setDisputing] = useState(false);
-
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
-  const [submittingReview, setSubmittingReview] = useState(false);
 
-  function loadOrder() {
+  const [draft, setDraft] = useState("");
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [disputeDraft, setDisputeDraft] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const loadOrder = useCallback(() => {
     fetch(`/api/orders/${orderId}`)
-      .then((res) => res.json())
-      .then((data) => setOrder(data.order));
-  }
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) setLoadError(data.error || "Order not found");
+        else {
+          setOrder(data.order);
+          setViewer(data.viewer);
+        }
+      })
+      .catch(() => setLoadError("Couldn't load this order"));
+  }, [orderId]);
 
-  useEffect(loadOrder, [orderId]);
+  useEffect(() => {
+    loadOrder();
+    setJustPaid(new URLSearchParams(window.location.search).get("success") === "true");
+  }, [loadOrder]);
 
   const { messages, sendMessage } = useConversation(order?.conversationId || "");
   const { messages: disputeMessages, sendMessage: sendDisputeMessage } = useDisputeThread(order?.disputed ? orderId : "");
-  const [disputeDraft, setDisputeDraft] = useState("");
 
-  async function handleSendDisputeMessage() {
-    if (!disputeDraft.trim()) return;
-    await sendDisputeMessage(disputeDraft);
-    setDisputeDraft("");
+  // Generic POST helper for the order actions.
+  async function act(key: string, path: string, body?: any, confirmText?: string) {
+    if (confirmText && !confirm(confirmText)) return false;
+    setBusy(key);
+    setActionError("");
+    const res = await fetch(`/api/orders/${orderId}/${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json().catch(() => ({}));
+    setBusy(null);
+    if (!res.ok) {
+      setActionError(data.error || "Something went wrong.");
+      return false;
+    }
+    loadOrder();
+    return true;
   }
 
   async function handleSend() {
     if (!draft.trim() && !pendingFile) return;
-    await sendMessage(draft, pendingFile || undefined);
-    setDraft("");
-    setPendingFile(null);
+    try {
+      await sendMessage(draft, pendingFile || undefined);
+      setDraft("");
+      setPendingFile(null);
+    } catch {}
   }
 
-  async function handleMarkComplete() {
-    setMarking(true);
-    const res = await fetch(`/api/orders/${orderId}/mark-complete`, { method: "POST" });
-    if (res.ok) loadOrder();
-    setMarking(false);
-  }
+  if (loadError) return <div className="page-narrow"><div className="alert alert-danger">{loadError}</div></div>;
+  if (!order || !viewer) return <div className="page-narrow text-muted">Loading…</div>;
 
-  async function handleRelease() {
-    setReleasing(true);
-    setReleaseError("");
-    const res = await fetch(`/api/orders/${orderId}/release`, { method: "POST" });
-    if (res.ok) {
-      setOrder((prev: any) => ({ ...prev, status: "RELEASED" }));
-    } else {
-      const data = await res.json();
-      setReleaseError(data.error || "Something went wrong.");
-    }
-    setReleasing(false);
-  }
-
-  async function handleVideoCall() {
-    setVideoLoading(true);
-    const res = await fetch("/api/video/room", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ conversationId: order.conversationId }),
-    });
-    const data = await res.json();
-    setVideoLoading(false);
-    if (data.url) window.open(data.url, "_blank");
-  }
-
-  async function handleSchedule() {
-    if (!scheduleValue) return;
-    setScheduling(true);
-    const res = await fetch(`/api/orders/${orderId}/schedule-call`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ scheduledCallTime: scheduleValue }),
-    });
-    if (res.ok) { setShowSchedule(false); loadOrder(); }
-    setScheduling(false);
-  }
-
-  async function handleChangeDueDate() {
-    if (!dueDateValue) return;
-    setSavingDueDate(true);
-    const res = await fetch(`/api/orders/${orderId}/due-date`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dueDate: dueDateValue }),
-    });
-    if (res.ok) { setShowDueDate(false); loadOrder(); }
-    setSavingDueDate(false);
-  }
-
-  async function handleRequestRevision() {
-    if (!revisionNote.trim()) return;
-    setRequestingRevision(true);
-    const res = await fetch(`/api/orders/${orderId}/request-revision`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ note: revisionNote }),
-    });
-    if (res.ok) { setShowRevision(false); setRevisionNote(""); loadOrder(); }
-    setRequestingRevision(false);
-  }
-
-  async function handleDispute() {
-    if (!disputeReason.trim()) return;
-    setDisputing(true);
-    const res = await fetch(`/api/orders/${orderId}/dispute`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason: disputeReason }),
-    });
-    if (res.ok) { setShowDispute(false); setDisputeReason(""); loadOrder(); }
-    setDisputing(false);
-  }
-
-  async function handleSubmitReview() {
-    if (!reviewRating) return;
-    setSubmittingReview(true);
-    const res = await fetch(`/api/orders/${orderId}/review`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rating: reviewRating, comment: reviewComment || undefined }),
-    });
-    if (res.ok) loadOrder();
-    setSubmittingReview(false);
-  }
-
-  if (!order) return <p className="text-muted">Loading...</p>;
-
-  const userId = (session?.user as any)?.id;
-  const isBuyer = order.buyer && userId === order.buyerId;
-  const isSeller = order.seller && userId === order.sellerId;
-  const canDiscuss = ["IN_ESCROW", "COMPLETED"].includes(order.status); // messaging/video/revisions/disputes all live here
-
-  const dueLabel = order.dueDate
-    ? new Date(order.dueDate).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
-    : null;
-  const scheduledLabel = order.scheduledCallTime
-    ? new Date(order.scheduledCallTime).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
-    : null;
-  const autoReleaseAt = order.workCompletedAt
-    ? new Date(new Date(order.workCompletedAt).getTime() + AUTO_RELEASE_HOURS * 60 * 60 * 1000)
-    : null;
-
-  const statusLabel =
-    order.status === "RELEASED" ? "Released" :
-    order.status === "REFUNDED" ? "Refunded" :
-    order.status === "COMPLETED" ? "Awaiting your review" :
-    order.status === "CANCELLED" ? "Cancelled" :
-    order.status === "PENDING_PAYMENT" ? "Awaiting payment" :
-    "Pending";
+  const isBuyer = viewer.id === order.buyerId;
+  const isSeller = viewer.id === order.sellerId;
+  const isAdmin = viewer.role === "ADMIN";
+  const active = ["IN_ESCROW", "COMPLETED"].includes(order.status);
+  const calls = callSummary(order);
+  const other = isSeller ? order.buyer : order.seller;
+  const autoReleaseAt = order.workCompletedAt ? new Date(new Date(order.workCompletedAt).getTime() + AUTO_RELEASE_HOURS * 3600_000) : null;
+  const holdEndsAt = order.callHoldAt ? new Date(new Date(order.callHoldAt).getTime() + CALL_HOLD_HOURS * 3600_000) : null;
 
   return (
-    <div>
-      <div className="card" style={{ marginBottom: 14 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: 15 }}>{order.gig?.title}</div>
-            <div className="text-secondary" style={{ marginTop: 2 }}>
-              {order.seller?.name} · ${(order.amount / 100).toFixed(2)} paid
-            </div>
-            {dueLabel && <div className="text-muted" style={{ marginTop: 6 }}>Due {dueLabel}</div>}
-            {isSeller && ["IN_ESCROW", "COMPLETED"].includes(order.status) && (
-              <button
-                onClick={() => setShowDueDate(!showDueDate)}
-                className="btn"
-                style={{ padding: "2px 8px", fontSize: 11, marginTop: 6 }}
-              >
-                Change due date
-              </button>
-            )}
-            {scheduledLabel && <div className="text-muted" style={{ marginTop: 2 }}>📅 Call scheduled for {scheduledLabel}</div>}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
-            <span className={`badge ${order.status === "RELEASED" ? "badge-success" : "badge-warning"}`}>{statusLabel}</span>
-            {order.revisionRequested && <span className="badge badge-warning">Revision requested</span>}
-            {order.disputed && <span className="badge" style={{ background: "#F3D0D0", color: "#DC2626" }}>Disputed</span>}
+    <div className="page">
+      <Link href={isSeller ? "/dashboard" : isAdmin ? "/admin" : "/orders"} className="link small" style={{ display: "inline-block", marginBottom: 20 }}>
+        ← {isSeller ? "Dashboard" : isAdmin ? "Admin" : "My orders"}
+      </Link>
+
+      <div className="between" style={{ alignItems: "flex-start", marginBottom: 24, flexWrap: "wrap" }}>
+        <div className="stack-sm">
+          <h1 className="page-title" style={{ fontSize: "clamp(30px, 3.4vw, 42px)" }}>{order.gig.title}</h1>
+          <div className="row-wrap">
+            {statusBadge(order)}
+            {order.revisionRequested && active && <span className="badge badge-warning">Revision requested</span>}
           </div>
         </div>
-
         {order.conversationId && (
-          <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
-            <button onClick={() => setShowSchedule(!showSchedule)} className="btn" style={{ flex: 1 }}>
-              Schedule a call
-            </button>
-          </div>
-        )}
-
-        {showSchedule && (
-          <div style={{ marginTop: 12, borderTop: "1px solid #E7E3EF", paddingTop: 12 }}>
-            <input type="datetime-local" className="input" value={scheduleValue} onChange={(e) => setScheduleValue(e.target.value)} />
-            <button onClick={handleSchedule} disabled={scheduling || !scheduleValue} className="btn" style={{ background: "#5536D6", border: "none", color: "#fff" }}>
-              {scheduling ? "Saving..." : "Confirm time"}
-            </button>
-          </div>
-        )}
-
-        {showDueDate && (
-          <div style={{ marginTop: 12, borderTop: "1px solid #E7E3EF", paddingTop: 12 }}>
-            <p className="text-muted" style={{ marginTop: 0, marginBottom: 8 }}>
-              A revision request automatically sets the due date to 7 days out - use this if you need more time than that.
-            </p>
-            <input type="date" className="input" value={dueDateValue} onChange={(e) => setDueDateValue(e.target.value)} />
-            <button onClick={handleChangeDueDate} disabled={savingDueDate || !dueDateValue} className="btn" style={{ background: "#5536D6", border: "none", color: "#fff" }}>
-              {savingDueDate ? "Saving..." : "Update due date"}
-            </button>
-          </div>
+          <Link href={`/messages/${order.conversationId}`} className="btn">
+            <Icon d={ICONS.chat} size={18} /> Message {other?.name?.split(" ")[0]}
+          </Link>
         )}
       </div>
 
-      {order.disputed && (
-        <div className="card" style={{ marginBottom: 14, borderColor: "#F3D0D0" }}>
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>Dispute conversation with the admin team</div>
-          <p className="text-secondary" style={{ marginBottom: 12 }}>
-            Payment is on hold until an admin reviews this and makes a decision - reply here if they ask for more details.
-          </p>
-          <div className="msg-thread" style={{ marginBottom: 12 }}>
-            {disputeMessages.length === 0 && <p className="text-muted">Loading...</p>}
-            {disputeMessages.map((m: any) => (
-              <div key={m.id} className={`msg-bubble ${m.sender?.role === "ADMIN" ? "msg-seller" : "msg-buyer"}`}>
-                <div style={{ fontSize: 11, opacity: 0.75, marginBottom: 2 }}>{m.sender?.name}{m.sender?.role === "ADMIN" ? " (Admin)" : ""}</div>
-                {m.body}
-              </div>
-            ))}
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input
-              className="input"
-              style={{ marginBottom: 0, flex: 1 }}
-              placeholder="Reply to the admin..."
-              value={disputeDraft}
-              onChange={(e) => setDisputeDraft(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSendDisputeMessage()}
-            />
-            <button onClick={handleSendDisputeMessage} className="btn">Send</button>
-          </div>
-        </div>
-      )}
+      <div className="order-grid">
+        <div className="stack-lg" style={{ gap: 20 }}>
+          <div className="card"><Tracker order={order} /></div>
 
-      {order.conversationId && (
-        <>
-          <div
-            className="msg-thread"
-            style={{ marginBottom: 14, borderColor: dragOver ? "#5536D6" : undefined, borderStyle: dragOver ? "dashed" : undefined, borderWidth: dragOver ? 2 : undefined }}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragOver(false);
-              const file = e.dataTransfer.files?.[0];
-              if (file) setPendingFile(file);
-            }}
-          >
-            {messages.length === 0 && <p className="text-muted">No messages yet.</p>}
-            {messages.map((m: any) => (
-              <div key={m.id} className={`msg-bubble ${m.senderId === userId ? "msg-buyer" : "msg-seller"}`}>
-                {m.body}
-                {m.attachmentUrl && (
-                  <div style={{ marginTop: m.body ? 6 : 0 }}>
-                    <a href={`${m.attachmentUrl}?download=1`} download={m.attachmentName} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline", fontSize: 13 }}>
-                      📎 {m.attachmentName || "Attachment"}
-                    </a>
+          {justPaid && order.status === "IN_ESCROW" && (
+            <div className="alert alert-success">
+              Payment received. MentorsMD is holding it until you approve the work.
+              {calls.canBook ? " Next: book your call below." : ""}
+            </div>
+          )}
+          {justPaid && order.status === "PENDING_PAYMENT" && (
+            <div className="alert">Confirming your payment with Stripe… refresh in a few seconds.</div>
+          )}
+
+          {order.revisionRequested && order.revisionNote && active && (
+            <div className="card stack-sm" style={{ borderColor: "#F5DDA8" }}>
+              <b>Revision requested</b>
+              <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{order.revisionNote}</p>
+              {order.dueDate && <span className="text-muted">New due date: {fmtDay(order.dueDate)}</span>}
+            </div>
+          )}
+
+          {/* Unbooked call: order on hold */}
+          {calls.onHold && !order.disputed && (
+            <div className="card stack" style={{ borderColor: "#F5DDA8", background: "#FFFBF2" }}>
+              <b className="row"><Icon d={ICONS.pause} size={18} /> On hold: the included call isn&apos;t booked</b>
+              {isBuyer ? (
+                <>
+                  <span className="text-secondary">
+                    The due date passed before the call was booked. Book it now, or tell us you don&apos;t need it.
+                    {holdEndsAt && ` If nothing happens by ${fmt(holdEndsAt)}, the call may be forfeited and your mentor can complete the order.`}
+                  </span>
+                  <button className="btn btn-sm" style={{ alignSelf: "flex-start" }} disabled={busy === "skip"}
+                    onClick={() => act("skip", "skip-call", undefined, "Skip the call? Your mentor can then complete the order without it.")}>
+                    I don&apos;t need the call
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="text-secondary">
+                    The student has until {holdEndsAt ? fmt(holdEndsAt) : "soon"} to book or skip. You can give them more time, message them, or ask us to step in.
+                  </span>
+                  {isSeller && (
+                    <div className="row-wrap">
+                      <button className="btn btn-sm" onClick={() => setShowDueDate(true)}>Extend due date</button>
+                      {order.conversationId && <Link href={`/messages/${order.conversationId}`} className="btn btn-sm">Message student</Link>}
+                      <Link href="/contact" className="btn btn-sm">Ask admin</Link>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Calls */}
+          {calls.included > 0 && order.status !== "PENDING_PAYMENT" && (
+            <div className="card">
+              <OrderCalls order={order} viewer={viewer} isBuyer={isBuyer} isSeller={isSeller} onChanged={loadOrder} />
+              {isBuyer && calls.canBook && !calls.onHold && !order.disputed && (
+                <button className="btn btn-ghost btn-sm" style={{ marginTop: 8, color: "var(--muted)" }} disabled={busy === "skip"}
+                  onClick={() => act("skip", "skip-call", undefined, "Skip the call? Your mentor can then complete the order without it.")}>
+                  I don&apos;t need the call
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Dispute thread */}
+          {order.disputed && (
+            <div className="card stack" style={{ borderColor: "#F3D0D0" }}>
+              <b>Dispute: conversation with the MentorsMD team</b>
+              <span className="text-secondary">
+                {active
+                  ? "Payment stays on hold until an admin reviews this and decides. Reply here if they ask for more details."
+                  : `Resolved: ${order.status === "REFUNDED" ? "refunded to the student" : "released to the mentor"}.`}
+              </span>
+              <div className="msg-thread">
+                {disputeMessages.length === 0 && <p className="text-muted">Loading…</p>}
+                {disputeMessages.map((m: any) => (
+                  <div key={m.id} className={`msg-bubble ${m.sender?.role === "ADMIN" ? "msg-theirs" : "msg-mine"}`}>
+                    <div style={{ fontSize: 11, opacity: 0.75, marginBottom: 2 }}>{m.sender?.name}{m.sender?.role === "ADMIN" ? " (Admin)" : ""}</div>
+                    {m.body}
                   </div>
-                )}
+                ))}
               </div>
-            ))}
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                type="file"
-                ref={fileInputRef}
-                style={{ display: "none" }}
-                onChange={(e) => setPendingFile(e.target.files?.[0] || null)}
-              />
-              <button onClick={() => fileInputRef.current?.click()} className="btn" title="Attach a file">📎</button>
-              <input className="input" style={{ marginBottom: 0, flex: 1 }} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSend()} placeholder="Write a message..." />
-              <button onClick={handleVideoCall} disabled={videoLoading} className="btn" title="Start a video call">
-                {videoLoading ? "..." : "🎥"}
-              </button>
-              <button onClick={handleSend} className="btn">Send</button>
-            </div>
-            {pendingFile && (
-              <div className="text-muted" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
-                📎 {pendingFile.name}
-                <button onClick={() => setPendingFile(null)} className="btn" style={{ padding: "2px 8px", fontSize: 11 }}>Remove</button>
-              </div>
-            )}
-          </div>
-          <p className="text-muted" style={{ marginBottom: 14 }}>
-            Messaging and video are always available here, no matter what stage the order is at. Drag a file anywhere in the box above to attach it.
-          </p>
-        </>
-      )}
-
-      {/* SELLER: mark complete, while still IN_ESCROW */}
-      {isSeller && order.status === "IN_ESCROW" && (
-        <button onClick={handleMarkComplete} disabled={marking} className="btn-success" style={{ marginBottom: 14 }}>
-          {marking ? "Marking complete..." : "Mark work as complete"}
-        </button>
-      )}
-      {isSeller && order.status === "IN_ESCROW" && (
-        <p className="text-muted" style={{ textAlign: "center", marginBottom: 14, marginTop: -8 }}>
-          Once you mark this complete, the buyer has {AUTO_RELEASE_HOURS} hours to review - payment releases to you automatically either way.
-        </p>
-      )}
-      {isSeller && order.status === "COMPLETED" && (
-        <p className="text-secondary" style={{ textAlign: "center", marginBottom: 14 }}>
-          Waiting on the buyer's {AUTO_RELEASE_HOURS}-hour review window
-          {autoReleaseAt && <> - payment releases automatically by {autoReleaseAt.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} either way</>}.
-        </p>
-      )}
-
-      {/* BUYER: revision/dispute available anytime work is being discussed */}
-      {isBuyer && canDiscuss && (
-        <div style={{ display: "grid", gap: 8, marginBottom: 14 }}>
-          {!showRevision ? (
-            <button onClick={() => setShowRevision(true)} className="btn" style={{ width: "100%" }}>Request a revision</button>
-          ) : (
-            <div className="card">
-              <textarea className="input" placeholder="What needs to change?" value={revisionNote} onChange={(e) => setRevisionNote(e.target.value)} />
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={handleRequestRevision} disabled={requestingRevision} className="btn" style={{ background: "#5536D6", border: "none", color: "#fff" }}>
-                  {requestingRevision ? "Sending..." : "Send request"}
-                </button>
-                <button onClick={() => setShowRevision(false)} className="btn">Cancel</button>
-              </div>
-            </div>
-          )}
-
-          {!showDispute ? (
-            <button onClick={() => setShowDispute(true)} className="btn" style={{ width: "100%" }}>Open a dispute</button>
-          ) : (
-            <div className="card">
-              <textarea className="input" placeholder="Describe the issue - an admin will review this" value={disputeReason} onChange={(e) => setDisputeReason(e.target.value)} />
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={handleDispute} disabled={disputing} className="btn" style={{ background: "#DC2626", border: "none", color: "#fff" }}>
-                  {disputing ? "Submitting..." : "Submit dispute"}
-                </button>
-                <button onClick={() => setShowDispute(false)} className="btn">Cancel</button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* BUYER: confirm early once seller has marked it complete */}
-      {isBuyer && order.status === "COMPLETED" && (
-        <>
-          <button onClick={handleRelease} disabled={releasing} className="btn-success">
-            {releasing ? "Releasing..." : "Release payment now"}
-          </button>
-          {releaseError && (
-            <p style={{ color: "#92700F", fontSize: 13, textAlign: "center", marginTop: 8 }}>{releaseError}</p>
-          )}
-          <p className="text-muted" style={{ textAlign: "center", marginTop: 8 }}>
-            No rush - if you don't do anything, this releases automatically
-            {autoReleaseAt && <> at {autoReleaseAt.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</>}.
-          </p>
-        </>
-      )}
-
-      {order.status === "RELEASED" && (
-        <>
-          <div style={{ textAlign: "center", color: "#15803D", fontSize: 14, marginBottom: 16 }}>Payment released to {order.seller?.name}.</div>
-          {isBuyer && (
-            order.review ? (
-              <div className="card" style={{ textAlign: "center" }}>
-                <div style={{ marginBottom: order.review.comment ? 6 : 0 }}>
-                  {"★".repeat(order.review.rating)}{"☆".repeat(5 - order.review.rating)}
+              {active && (
+                <div className="row">
+                  <input className="input grow" style={{ marginBottom: 0 }} placeholder="Reply…" value={disputeDraft}
+                    onChange={(e) => setDisputeDraft(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && disputeDraft.trim()) { sendDisputeMessage(disputeDraft); setDisputeDraft(""); } }} />
+                  <button className="btn" onClick={() => { if (disputeDraft.trim()) { sendDisputeMessage(disputeDraft); setDisputeDraft(""); } }}>Send</button>
                 </div>
-                {order.review.comment && <p className="text-secondary" style={{ margin: 0 }}>{order.review.comment}</p>}
+              )}
+            </div>
+          )}
+
+          {/* Messages */}
+          {order.conversationId && (isBuyer || isSeller) && (
+            <div className="card stack" style={{ gap: 12 }}>
+              <div className="between">
+                <b>Messages with {other?.name}</b>
+                <Link href={`/messages/${order.conversationId}`} className="link small">Open in Messages</Link>
+              </div>
+              <div className="msg-thread" style={{ maxHeight: 380, overflowY: "auto", border: "none", padding: 0 }}>
+                {messages.length === 0 && <p className="text-muted">No messages yet.</p>}
+                {messages.slice(-30).map((m: any) => (
+                  <div key={m.id} className={`msg-bubble ${m.senderId === viewer.id ? "msg-mine" : "msg-theirs"}`}>
+                    {m.body}
+                    {m.attachmentUrl && (
+                      <div style={{ marginTop: m.body ? 6 : 0 }}>
+                        <a href={`${m.attachmentUrl}?download=1`} download={m.attachmentName} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline", fontSize: 13 }}>
+                          📎 {m.attachmentName || "Attachment"}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {pendingFile && (
+                <div className="between text-muted">📎 {pendingFile.name}<button onClick={() => setPendingFile(null)} className="btn btn-sm">Remove</button></div>
+              )}
+              <div className="row">
+                <input type="file" ref={fileInputRef} style={{ display: "none" }} onChange={(e) => setPendingFile(e.target.files?.[0] || null)} />
+                <button onClick={() => fileInputRef.current?.click()} className="btn btn-ghost" aria-label="Attach a file">📎</button>
+                <input className="input grow" style={{ marginBottom: 0 }} value={draft} onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSend()} placeholder="Write a message…" aria-label="Message" />
+                <button onClick={handleSend} className="btn btn-primary">Send</button>
+              </div>
+            </div>
+          )}
+
+          {/* Review */}
+          {order.status === "RELEASED" && isBuyer && (
+            order.review ? (
+              <div className="card stack-sm">
+                <b>Your review</b>
+                <span className="stars">{"★".repeat(order.review.rating)}{"☆".repeat(5 - order.review.rating)}</span>
+                {order.review.comment && <p className="text-secondary">{order.review.comment}</p>}
               </div>
             ) : (
-              <div className="card">
-                <div style={{ fontWeight: 600, marginBottom: 10 }}>Leave a review</div>
-                <div style={{ display: "flex", gap: 4, marginBottom: 10, fontSize: 24 }}>
+              <div className="card stack">
+                <b>Leave a review for {order.seller?.name?.split(" ")[0]}</b>
+                <div className="row" style={{ gap: 4, fontSize: 28 }} role="radiogroup" aria-label="Rating">
                   {[1, 2, 3, 4, 5].map((n) => (
-                    <span key={n} onClick={() => setReviewRating(n)} style={{ cursor: "pointer", color: n <= reviewRating ? "#5536D6" : "#E7E3EF" }}>★</span>
+                    <button key={n} role="radio" aria-checked={reviewRating === n} aria-label={`${n} star${n > 1 ? "s" : ""}`} onClick={() => setReviewRating(n)}
+                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: 28, color: n <= reviewRating ? "var(--primary)" : "var(--line)", padding: 0 }}>
+                      ★
+                    </button>
                   ))}
                 </div>
-                <textarea className="input" placeholder="Optional comment" value={reviewComment} onChange={(e) => setReviewComment(e.target.value)} />
-                <button onClick={handleSubmitReview} disabled={submittingReview || !reviewRating} className="btn" style={{ background: "#5536D6", border: "none", color: "#fff" }}>
-                  {submittingReview ? "Submitting..." : "Submit review"}
+                <textarea className="input" style={{ marginBottom: 0 }} placeholder="What was it like working together? (optional)" value={reviewComment} onChange={(e) => setReviewComment(e.target.value)} />
+                <button className="btn btn-primary" style={{ alignSelf: "flex-start" }} disabled={!reviewRating || busy === "review"}
+                  onClick={() => act("review", "review", { rating: reviewRating, comment: reviewComment || undefined })}>
+                  Submit review
                 </button>
               </div>
             )
           )}
-        </>
-      )}
+        </div>
 
-      {order.status === "REFUNDED" && (
-        <div style={{ textAlign: "center", color: "#DC2626", fontSize: 14 }}>This order was refunded.</div>
-      )}
+        {/* ---------- Side ---------- */}
+        <aside className="sticky-side">
+          <div className="card stack" style={{ gap: 14 }}>
+            <div className="row">
+              {other?.photoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={other.photoUrl} alt="" className="avatar" style={{ objectFit: "cover" }} />
+              ) : (
+                <span className="avatar" style={{ background: tintFor(other?.name || "") }}>{initialsOf(other?.name || "")}</span>
+              )}
+              <div className="stack-sm" style={{ gap: 0 }}>
+                <span className="text-muted">{isSeller ? "Student" : "Mentor"}</span>
+                <b>{other?.name}</b>
+              </div>
+            </div>
+            <hr className="divider" />
+            <div className="stack-sm small">
+              <div className="between"><span className="text-secondary">Amount</span><b>{money(order.amount)}</b></div>
+              {order.gig.service && <div className="between"><span className="text-secondary">Service</span><span>{labelFor(SERVICES, order.gig.service)}</span></div>}
+              {order.gig.format && <div className="between"><span className="text-secondary">Format</span><span>{labelFor(FORMATS, order.gig.format)}</span></div>}
+              {order.gig.turnaround && <div className="between"><span className="text-secondary">Turnaround</span><span>{labelFor(TURNAROUNDS, order.gig.turnaround)}</span></div>}
+              {order.dueDate && <div className="between"><span className="text-secondary">Due</span><b>{fmtDay(order.dueDate)}</b></div>}
+            </div>
+            {isSeller && active && (
+              showDueDate ? (
+                <div className="stack-sm">
+                  <span className="text-muted">A revision request sets the due date to 7 days out. Use this if you need longer, or to give the student more time to book a call.</span>
+                  <input type="date" className="input" style={{ marginBottom: 0 }} value={dueDateValue} onChange={(e) => setDueDateValue(e.target.value)} />
+                  <div className="row">
+                    <button className="btn btn-soft btn-sm" disabled={!dueDateValue || busy === "due"}
+                      onClick={async () => { if (await act("due", "due-date", { dueDate: dueDateValue })) setShowDueDate(false); }}>
+                      Save due date
+                    </button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setShowDueDate(false)}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <button className="btn btn-sm" onClick={() => setShowDueDate(true)}>Change due date</button>
+              )
+            )}
+          </div>
+
+          {actionError && <div role="alert" className="alert alert-danger">{actionError}</div>}
+
+          {/* Mentor actions */}
+          {isSeller && order.status === "IN_ESCROW" && !order.disputed && (
+            <div className="card stack-sm">
+              <button className="btn btn-deep btn-block" disabled={busy === "complete" || !calls.satisfied}
+                onClick={() => act("complete", "mark-complete", undefined, "Mark this work as complete? The student gets 96 hours to review it.")}>
+                Mark work as complete
+              </button>
+              <span className="text-muted">
+                {calls.satisfied
+                  ? `The student then has ${AUTO_RELEASE_HOURS} hours to review. Payment releases to you automatically after that.`
+                  : "Available once the included call has happened (or the student skips it)."}
+              </span>
+            </div>
+          )}
+          {isSeller && order.status === "COMPLETED" && !order.disputed && (
+            <div className="alert">
+              Delivered. The student is reviewing it{autoReleaseAt ? `; payment releases automatically by ${fmt(autoReleaseAt)}` : ""}.
+            </div>
+          )}
+
+          {/* Student actions */}
+          {isBuyer && order.status === "COMPLETED" && !order.disputed && (
+            <div className="card stack-sm">
+              <button className="btn btn-primary btn-block" disabled={busy === "release"}
+                onClick={() => act("release", "release", undefined, `Release ${money(order.amount)} to ${order.seller?.name}? This can't be undone.`)}>
+                Approve and release payment
+              </button>
+              <span className="text-muted">
+                No rush. If you do nothing, it releases automatically{autoReleaseAt ? ` on ${fmt(autoReleaseAt)}` : ""}.
+              </span>
+            </div>
+          )}
+
+          {isBuyer && active && !order.disputed && (
+            <div className="card stack-sm">
+              {!showRevision ? (
+                <button className="btn btn-block" onClick={() => setShowRevision(true)}>Request a revision</button>
+              ) : (
+                <>
+                  <textarea className="input" style={{ marginBottom: 0 }} placeholder="What needs to change?" value={revisionNote} onChange={(e) => setRevisionNote(e.target.value)} />
+                  <span className="text-muted">This gives your mentor 7 more days and pauses auto-release.</span>
+                  <div className="row">
+                    <button className="btn btn-soft btn-sm" disabled={!revisionNote.trim() || busy === "revision"}
+                      onClick={async () => { if (await act("revision", "request-revision", { note: revisionNote })) { setShowRevision(false); setRevisionNote(""); } }}>
+                      Send request
+                    </button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setShowRevision(false)}>Cancel</button>
+                  </div>
+                </>
+              )}
+              {!showDispute ? (
+                <button className="btn btn-ghost btn-block" style={{ color: "var(--muted)" }} onClick={() => setShowDispute(true)}>Report a problem</button>
+              ) : (
+                <>
+                  <textarea className="input" style={{ marginBottom: 0 }} placeholder="Describe the issue. An admin will review it and payment stays on hold." value={disputeReason} onChange={(e) => setDisputeReason(e.target.value)} />
+                  <div className="row">
+                    <button className="btn btn-danger btn-sm" disabled={!disputeReason.trim() || busy === "dispute"}
+                      onClick={async () => { if (await act("dispute", "dispute", { reason: disputeReason })) { setShowDispute(false); setDisputeReason(""); } }}>
+                      Open a dispute
+                    </button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setShowDispute(false)}>Cancel</button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Admin resolution */}
+          {isAdmin && active && (
+            <div className="card stack-sm">
+              <b>Admin</b>
+              <button className="btn btn-danger btn-block" disabled={!!busy}
+                onClick={() => act("refund", "refund", undefined, "Refund the student in full?")}>Refund student</button>
+              <button className="btn btn-block" disabled={!!busy}
+                onClick={() => act("release", "release", undefined, "Release payment to the mentor?")}>Release to mentor</button>
+            </div>
+          )}
+
+          {order.status === "RELEASED" && <div className="alert alert-success">Payment released to {order.seller?.name}.</div>}
+        </aside>
+      </div>
     </div>
   );
 }

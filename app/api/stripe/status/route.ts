@@ -40,7 +40,8 @@ export async function GET() {
     const account = await res.json();
 
     if (!res.ok) {
-      return NextResponse.json({ connected: false, started: true, error: account.error?.message, rawAccount: account });
+      console.error("Stripe account lookup failed:", account);
+      return NextResponse.json({ connected: false, started: true, error: account.error?.message });
     }
 
     // v2's requirements format is different from the older v1 system:
@@ -52,10 +53,7 @@ export async function GET() {
       .filter((entry) => entry.status === "currently_due")
       .map((entry) => entry.requirement || entry.field || entry.reason || JSON.stringify(entry));
 
-    // rawAccount is returned unconditionally (not just when something
-    // looks wrong) so the frontend can always show exactly what Stripe
-    // sent, however this eventually gets resolved.
-    return NextResponse.json({ connected: outstandingItems.length === 0, started: true, outstandingItems, rawAccount: account });
+    return NextResponse.json({ connected: outstandingItems.length === 0, started: true, outstandingItems });
   } catch (err: any) {
     console.error("Failed to check Stripe account status:", err);
     return NextResponse.json({ connected: false, started: true, error: "Couldn't check status" });

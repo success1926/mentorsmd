@@ -16,7 +16,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
   if (order.sellerId !== (session.user as any).id) {
-    return NextResponse.json({ error: "Only the coach on this order can change the due date" }, { status: 403 });
+    return NextResponse.json({ error: "Only the mentor on this order can change the due date" }, { status: 403 });
   }
   if (!["IN_ESCROW", "COMPLETED"].includes(order.status)) {
     return NextResponse.json({ error: "Can't change the due date on a finished order" }, { status: 400 });
@@ -28,7 +28,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const updated = await prisma.order.update({
     where: { id: params.id },
-    data: { dueDate: parsed },
+    // A new due date also lifts the "call not booked" hold, giving the
+    // student until the new date to book.
+    data: { dueDate: parsed, ...(parsed > new Date() ? { callHoldAt: null } : {}) },
   });
 
   return NextResponse.json({ order: updated });

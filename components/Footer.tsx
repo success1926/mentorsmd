@@ -1,38 +1,39 @@
 import Link from "next/link";
+import { LogoMark } from "./TopNav";
 
 export function Footer() {
   return (
     <footer className="site-footer">
-      <div className="wrap" style={{ display: "flex", justifyContent: "space-between", gap: 40, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 320 }}>
-          <span className="logo" style={{ fontSize: 20 }}>
-            <span>
-              Mentors<span className="logo-md">MD</span>
+      <div className="wrap stack-lg" style={{ gap: 48 }}>
+        <div className="footer-grid">
+          <div className="footer-col" style={{ gap: 14 }}>
+            <span className="logo">
+              <LogoMark />
+              MentorsMD
             </span>
-          </span>
-          <span className="text-secondary" style={{ fontSize: 15, lineHeight: 1.5 }}>
-            Coaching from the people who just got in.
-          </span>
-          <span className="text-muted">© {new Date().getFullYear()} MentorsMD</span>
-        </div>
-        <div className="footer-cols">
-          <div>
+            <span className="text-secondary" style={{ fontSize: 17 }}>Vetted mentors for the road to medical school.</span>
+          </div>
+          <div className="footer-col">
             <b>Students</b>
-            <Link href="/coaches">Find a coach</Link>
-            <Link href="/#how">How it works</Link>
+            <Link href="/coaches">Browse mentors</Link>
+            <Link href="/#vetting">How we vet mentors</Link>
+            <Link href="/#reviews">Reviews</Link>
             <Link href="/signup/buyer">Create an account</Link>
           </div>
-          <div>
+          <div className="footer-col">
+            <b>Mentors</b>
+            <Link href="/become-a-mentor">Become a mentor</Link>
+            <Link href="/login">Mentor login</Link>
+          </div>
+          <div className="footer-col">
             <b>Company</b>
             <Link href="/founders">About</Link>
             <Link href="/contact">Contact us</Link>
-          </div>
-          <div>
-            <b>Legal</b>
             <Link href="/terms">Terms of Service</Link>
             <Link href="/privacy">Privacy Policy</Link>
           </div>
         </div>
+        <span className="text-secondary" style={{ fontSize: 14 }}>© {new Date().getFullYear()} MentorsMD</span>
       </div>
     </footer>
   );

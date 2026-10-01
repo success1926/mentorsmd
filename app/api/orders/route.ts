@@ -14,9 +14,10 @@ export async function GET() {
     where: role === "SELLER" ? { sellerId: userId } : { buyerId: userId },
     include: {
       gig: true,
-      buyer: { select: { name: true } },
-      seller: { select: { name: true, credential: true } },
+      buyer: { select: { name: true, photoUrl: true } },
+      seller: { select: { name: true, credential: true, photoUrl: true, calLink: true } },
       review: true,
+      callBookings: { orderBy: { startTime: "asc" } },
     },
     orderBy: { createdAt: "desc" },
   });
