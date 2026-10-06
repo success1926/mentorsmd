@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     },
   });
 
-  const inviteUrl = `${process.env.NEXTAUTH_URL}/onboard-coach?code=${code}&email=${encodeURIComponent(email)}`;
+  const inviteUrl = `${process.env.NEXTAUTH_URL}/become-a-mentor/join?code=${code}&email=${encodeURIComponent(email)}`;
 
   try {
     await sendSellerInviteEmail(email, inviteUrl);

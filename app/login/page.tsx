@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AuthShell, GoogleButton } from "@/components/AuthShell";
 
@@ -13,11 +13,22 @@ function safeCallback() {
 }
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // ?reason=idle when a login ran out, ?reason=ended when it was ended
+  // elsewhere (e.g. a password change on another device).
+  const reason = useSearchParams()?.get("reason") || "";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,7 +44,7 @@ export default function LoginPage() {
     const session = await fetch("/api/auth/session").then((r) => r.json()).catch(() => ({}));
     const role = session?.user?.role;
     const cb = safeCallback();
-    router.push(cb || (role === "SELLER" ? "/dashboard" : role === "ADMIN" ? "/admin" : "/coaches"));
+    router.push(cb || (role === "SELLER" ? "/dashboard" : role === "ADMIN" ? "/admin" : "/mentors"));
     router.refresh();
   }
 
@@ -41,7 +52,17 @@ export default function LoginPage() {
     <AuthShell title="Welcome back." body="Pick up where you left off: messages, orders and calls are all in one place.">
       <div className="stack" style={{ gap: 14 }}>
         <h1 className="page-title" style={{ fontSize: 40 }}>Log in</h1>
-        <GoogleButton onClick={() => signIn("google", { callbackUrl: "/coaches" })} />
+        {reason === "idle" && (
+          <div role="status" className="alert alert-warning">
+            You were logged out due to inactivity. Log in to pick up where you left off.
+          </div>
+        )}
+        {reason === "ended" && (
+          <div role="status" className="alert alert-warning">
+            Your session ended. Please log in again.
+          </div>
+        )}
+        <GoogleButton onClick={() => signIn("google", { callbackUrl: safeCallback() || "/mentors" })} />
         <span className="text-muted">Google sign-in is for student accounts. Mentors log in with email.</span>
         <div className="or-line">or</div>
         <form onSubmit={handleSubmit} className="stack" style={{ gap: 0 }}>
@@ -62,7 +83,7 @@ export default function LoginPage() {
           </button>
         </form>
         <span className="text-secondary" style={{ textAlign: "center" }}>
-          New here? <Link href="/signup/buyer" className="link">Create a free student account</Link>
+          New here? <Link href="/signup" className="link">Create a free student account</Link>
         </span>
       </div>
     </AuthShell>

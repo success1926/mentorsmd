@@ -59,6 +59,7 @@ export type MentorCardData = {
     title: string;
     price: number;
     service: string | null;
+    serviceOther: string | null;
     format: string | null;
     turnaround: string | null;
     callsIncluded: number;
@@ -84,6 +85,7 @@ const gigSelect = {
   title: true,
   price: true,
   service: true,
+  serviceOther: true,
   format: true,
   turnaround: true,
   callsIncluded: true,
@@ -117,7 +119,19 @@ export async function searchMentors(f: BrowseFilters): Promise<MentorCardData[]>
         { name: { contains: f.q, mode: "insensitive" } },
         { credential: { contains: f.q, mode: "insensitive" } },
         { bio: { contains: f.q, mode: "insensitive" } },
-        { gigs: { some: { active: true, OR: [{ title: { contains: f.q, mode: "insensitive" } }, { description: { contains: f.q, mode: "insensitive" } }] } } },
+        {
+          gigs: {
+            some: {
+              ...searchableGigWhere,
+              OR: [
+                { title: { contains: f.q, mode: "insensitive" } },
+                { description: { contains: f.q, mode: "insensitive" } },
+                // custom "Other" service names, e.g. "CASPer prep"
+                { serviceOther: { contains: f.q, mode: "insensitive" } },
+              ],
+            },
+          },
+        },
       ],
     });
   }

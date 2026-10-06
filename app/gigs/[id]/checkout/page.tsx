@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Icon, ICONS, Vetted, tintFor, initialsOf } from "@/components/ui";
-import { FORMATS, SERVICES, TURNAROUNDS, labelFor, money } from "@/lib/options";
+import { FORMATS, TURNAROUNDS, labelFor, money, serviceLabel } from "@/lib/options";
 
 export default function CheckoutPage() {
   const params = useParams();
@@ -58,7 +58,7 @@ export default function CheckoutPage() {
       <div className="page-narrow">
         <div className="empty stack" style={{ alignItems: "center" }}>
           <b style={{ color: "var(--ink)" }}>This package isn&apos;t available anymore.</b>
-          <Link href="/coaches" className="btn btn-primary">Browse mentors</Link>
+          <Link href="/mentors" className="btn btn-primary">Browse mentors</Link>
         </div>
       </div>
     );
@@ -97,14 +97,14 @@ export default function CheckoutPage() {
               </div>
               {seller.credential && <span className="text-secondary">{seller.credential}</span>}
             </div>
-            <Link href={`/coaches/${seller.id}`} className="link small">View profile</Link>
+            <Link href={`/mentors/${seller.id}`} className="link small">View profile</Link>
           </div>
 
           {/* Package */}
           <div className="card stack">
             <b style={{ fontSize: 19 }}>{gig.title}</b>
             <div className="pkg-meta">
-              {gig.service && <span className="badge badge-brand">{labelFor(SERVICES, gig.service)}</span>}
+              {gig.service && <span className="badge badge-brand">{serviceLabel(gig.service, gig.serviceOther)}</span>}
               {gig.format && <span className="badge badge-blue">{labelFor(FORMATS, gig.format)}</span>}
               {gig.turnaround && <span className="badge">{labelFor(TURNAROUNDS, gig.turnaround)}</span>}
             </div>

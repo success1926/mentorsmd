@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { PRICE_MAX_CENTS, PRICE_MIN_CENTS, isPriceInRange } from "@/lib/options";
 
 // Who shows up in browse, on the homepage and can be booked.
 //   ACTIVE                              -> visible
@@ -20,10 +21,18 @@ export function isMentorVisible(
   return false;
 }
 
+// Packages students can see and book: active and priced inside the
+// current limits. Packages priced outside the limits (made before they
+// changed) stay hidden until the mentor updates the price.
+export const bookableGigWhere: Prisma.GigWhereInput = {
+  active: true,
+  price: { gte: PRICE_MIN_CENTS, lte: PRICE_MAX_CENTS },
+};
+
 // A package only appears in search once the mentor has answered every
 // required search question - on the package and on their profile.
 export const searchableGigWhere: Prisma.GigWhereInput = {
-  active: true,
+  ...bookableGigWhere,
   service: { not: null },
   format: { not: null },
   turnaround: { not: null },
@@ -36,6 +45,7 @@ export const searchableSellerWhere: Prisma.UserWhereInput = {
 
 export function missingGigAnswers(g: {
   service: string | null;
+  serviceOther?: string | null;
   format: string | null;
   turnaround: string | null;
   callsIncluded: number;
@@ -43,6 +53,7 @@ export function missingGigAnswers(g: {
 }) {
   const missing: string[] = [];
   if (!g.service) missing.push("Service");
+  if (g.service === "OTHER" && !g.serviceOther) missing.push("Service name");
   if (!g.format) missing.push("Format");
   if (!g.turnaround) missing.push("Turnaround");
   if ((g.format === "WRITTEN_CALL" || g.format === "LIVE") && (!g.callsIncluded || !g.callLength)) {
@@ -56,4 +67,8 @@ export function missingMentorAnswers(u: { mentorStage: string | null; schoolType
   if (!u.mentorStage) missing.push("Your stage");
   if (!u.schoolType) missing.push("School type");
   return missing;
+}
+
+export function gigPriceOutOfRange(g: { price: number }) {
+  return !isPriceInRange(g.price);
 }

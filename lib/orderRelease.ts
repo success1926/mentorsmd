@@ -44,7 +44,7 @@ export class OrderStateChangedError extends Error {
 export async function releaseOrder(orderId: string, claimWhere: Prisma.OrderWhereInput) {
   const order = await prisma.order.findUnique({ where: { id: orderId }, include: { seller: true, gig: true } });
   if (!order) throw new Error("Order not found");
-  if (!order.seller.stripeAccountId) throw new Error("Seller has no connected payout account");
+  if (!order.seller.stripeAccountId) throw new Error("Mentor has no connected payout account");
 
   // fundsAvailableAt is the real timestamp Stripe calculated for this
   // charge (set by the webhook). If it's in the future, a Transfer would

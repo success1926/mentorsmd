@@ -41,7 +41,7 @@ async function stripeV2Request(path: string, body: object) {
 export async function POST() {
   const session = await getServerSession(authOptions);
   if (!session?.user || (session.user as any).role !== "SELLER") {
-    return NextResponse.json({ error: "Only seller accounts can connect payouts" }, { status: 403 });
+    return NextResponse.json({ error: "Only mentor accounts can connect payouts" }, { status: 403 });
   }
 
   const userId = (session.user as any).id;

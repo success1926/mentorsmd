@@ -7,15 +7,24 @@ import PusherClient from "pusher-js";
 // useConversation(conversationId). It loads history once, then keeps the
 // list updated in real time as new messages arrive over Pusher - no
 // polling, no manual refresh.
+// Tells the top bar to refresh its unread badge.
+export function notifyUnreadChanged() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("mmd:unread-changed"));
+}
+
 export function useConversation(conversationId: string) {
   const [messages, setMessages] = useState<any[]>([]);
 
   useEffect(() => {
     if (!conversationId) return;
 
+    // Loading the thread also marks it read on the server.
     fetch(`/api/conversations/${conversationId}/messages`)
       .then((res) => res.json())
-      .then((data) => setMessages(data.messages || []));
+      .then((data) => {
+        setMessages(data.messages || []);
+        notifyUnreadChanged();
+      });
 
     const pusherClient = new PusherClient(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
       cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
@@ -25,6 +34,12 @@ export function useConversation(conversationId: string) {
     const channel = pusherClient.subscribe(`private-conversation-${conversationId}`);
     channel.bind("new-message", (message: any) => {
       setMessages((prev) => [...prev, message]);
+      // The thread is open on screen, so this message counts as read.
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        fetch(`/api/conversations/${conversationId}/read`, { method: "POST" })
+          .then(notifyUnreadChanged)
+          .catch(() => {});
+      }
     });
 
     return () => {

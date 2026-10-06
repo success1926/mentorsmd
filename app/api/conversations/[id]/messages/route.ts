@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { pusher, conversationChannel } from "@/lib/pusher";
 import { sendNewMessageEmail, SITE_URL } from "@/lib/email";
 import { LIMITS, isOurBlobUrl } from "@/lib/validate";
+import { markRead } from "@/lib/unread";
 
 // Most recent N messages returned when a thread opens. Keeps long-running
 // threads fast; older history can be paged in with ?before=<messageId>.
@@ -35,6 +36,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   if (!convo) return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
 
   const before = new URL(req.url).searchParams.get("before");
+
+  // Opening the thread (first page) marks it read for this person.
+  if (!before) await markRead(convo, (session.user as any).id);
   const beforeMsg = before ? await prisma.message.findUnique({ where: { id: before }, select: { createdAt: true } }) : null;
 
   // Newest PAGE_SIZE, then flipped back to oldest-first for display.
@@ -77,6 +81,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       senderId,
     },
     include: { sender: { select: { id: true, name: true, role: true } } },
+  });
+
+  // One more unread message for the other person.
+  await prisma.conversation.update({
+    where: { id: params.id },
+    data: convo.buyerId === senderId ? { sellerUnread: { increment: 1 } } : { buyerUnread: { increment: 1 } },
   });
 
   // Instant delivery for whoever's on the site right now. The message is

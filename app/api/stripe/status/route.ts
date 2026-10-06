@@ -13,7 +13,7 @@ const STRIPE_VERSION = "2026-08-26.preview";
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user || (session.user as any).role !== "SELLER") {
-    return NextResponse.json({ error: "Only seller accounts have payout status" }, { status: 403 });
+    return NextResponse.json({ error: "Only mentor accounts have payouts" }, { status: 403 });
   }
 
   const userId = (session.user as any).id;

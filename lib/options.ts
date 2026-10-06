@@ -14,7 +14,19 @@ export const SERVICES: Option[] = [
   { value: "SCHOOL_LIST", label: "School list & strategy" },
   { value: "MCAT", label: "MCAT tutoring" },
   { value: "REAPPLICANT", label: "Reapplicant review" },
+  // "Other" packages carry their own short service name (Gig.serviceOther),
+  // which is shown everywhere in place of the word "Other".
+  { value: "OTHER", label: "Other" },
 ];
+
+export const SERVICE_OTHER_MIN = 3;
+export const SERVICE_OTHER_MAX = 40;
+
+// The service name to show for a package: its custom name for "Other".
+export function serviceLabel(service: string | null | undefined, serviceOther?: string | null) {
+  if (service === "OTHER") return serviceOther?.trim() || "Other";
+  return labelFor(SERVICES, service);
+}
 
 export const FORMATS: Option[] = [
   { value: "WRITTEN", label: "Written feedback" },
@@ -51,13 +63,23 @@ export const BACKGROUNDS: Option[] = [
   { value: "CAREER_CHANGER", label: "Career changer" },
 ];
 
+// Package price limits, in cents. Enforced on the package form, the
+// package API and checkout. Packages outside this range (made before the
+// limits changed) are hidden from search until the mentor updates them.
+export const PRICE_MIN_CENTS = 5_000; // $50
+export const PRICE_MAX_CENTS = 500_000; // $5,000
+export const PRICE_RULE = "Price must be between $50 and $5,000";
+
+export function isPriceInRange(cents: number) {
+  return cents >= PRICE_MIN_CENTS && cents <= PRICE_MAX_CENTS;
+}
+
 // Price bands for the browse filter, in cents. max is exclusive.
-// (Open question: final bands - see the open-questions doc.)
 export const PRICE_BANDS: { value: string; label: string; min: number; max: number | null }[] = [
-  { value: "u50", label: "Under $50", min: 0, max: 5000 },
-  { value: "50-100", label: "$50 to $100", min: 5000, max: 10000 },
-  { value: "100-200", label: "$100 to $200", min: 10000, max: 20000 },
-  { value: "200p", label: "$200 and up", min: 20000, max: null },
+  { value: "50-100", label: "$50 to $100", min: 5000, max: 10001 },
+  { value: "100-250", label: "$100 to $250", min: 10001, max: 25001 },
+  { value: "250-500", label: "$250 to $500", min: 25001, max: 50001 },
+  { value: "500p", label: "$500 and up", min: 50001, max: null },
 ];
 
 export const RATINGS: Option[] = [
@@ -67,6 +89,13 @@ export const RATINGS: Option[] = [
 
 export const CALL_LENGTHS = [30, 45, 60];
 export const MAX_CALLS = 3;
+
+export function countWords(text: string) {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+// Minimum length for a package description, in words.
+export const GIG_DESCRIPTION_MIN_WORDS = 30;
 
 export function labelFor(list: Option[], value: string | null | undefined) {
   if (!value) return "";

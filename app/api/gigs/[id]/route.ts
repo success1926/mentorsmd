@@ -3,13 +3,15 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { LIMITS, isNonEmptyString, parsePriceToCents } from "@/lib/validate";
+import { GIG_DESCRIPTION_MIN_WORDS, PRICE_RULE, countWords } from "@/lib/options";
 import { parseGigSearchFields } from "@/lib/gigInput";
+import { bookableGigWhere } from "@/lib/mentor";
 
 // Public: a single package, used by the checkout page (which previously
 // downloaded every gig on the site just to find this one).
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const gig = await prisma.gig.findFirst({
-    where: { id: params.id, active: true },
+    where: { id: params.id, ...bookableGigWhere },
     include: { seller: { select: { id: true, name: true, credential: true, photoUrl: true } } },
   });
   if (!gig) return NextResponse.json({ error: "Package not found" }, { status: 404 });
@@ -40,9 +42,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (body.description !== undefined && !isNonEmptyString(body.description, LIMITS.gigDescription)) {
     return NextResponse.json({ error: `Description is required (max ${LIMITS.gigDescription} chars)` }, { status: 400 });
   }
+  if (body.description !== undefined && countWords(body.description) < GIG_DESCRIPTION_MIN_WORDS) {
+    return NextResponse.json({ error: `Describe the package in at least ${GIG_DESCRIPTION_MIN_WORDS} words` }, { status: 400 });
+  }
   // Search answers are validated as a whole (e.g. switching the format to
   // "Written feedback" drops the call fields).
-  const touchesSearch = ["service", "format", "turnaround", "callsIncluded", "callLength", "calEventUrl"].some(
+  const touchesSearch = ["service", "serviceOther", "format", "turnaround", "callsIncluded", "callLength", "calEventUrl"].some(
     (k) => body[k] !== undefined
   );
   let searchData = {};
@@ -54,7 +59,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   let price = gig.price;
   if (body.price !== undefined) {
     const cents = parsePriceToCents(body.price);
-    if (cents === null) return NextResponse.json({ error: "Price must be between $5 and $10,000" }, { status: 400 });
+    if (cents === null) return NextResponse.json({ error: PRICE_RULE }, { status: 400 });
     price = cents;
   }
 

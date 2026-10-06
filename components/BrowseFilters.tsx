@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { FILTER_GROUPS } from "@/lib/options";
 
-// The left-hand filter sidebar on /coaches. Every change updates the URL
+// The left-hand filter sidebar on /mentors. Every change updates the URL
 // (so results are shareable and the back button works); the page itself
 // is rendered on the server from those URL params.
 function useFilterNav() {
@@ -11,7 +11,7 @@ function useFilterNav() {
   const params = useSearchParams();
   function go(next: URLSearchParams) {
     const qs = next.toString();
-    router.push(qs ? `/coaches?${qs}` : "/coaches", { scroll: false });
+    router.push(qs ? `/mentors?${qs}` : "/mentors", { scroll: false });
   }
   return { params, go };
 }

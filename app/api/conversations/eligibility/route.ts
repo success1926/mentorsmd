@@ -13,7 +13,7 @@ export async function GET(req: Request) {
 
   const session = await getServerSession(authOptions);
   if (!session?.user || (session.user as any).role !== "BUYER") {
-    return NextResponse.json({ error: "Not authenticated as a buyer" }, { status: 401 });
+    return NextResponse.json({ error: "Log in with a student account" }, { status: 401 });
   }
   const buyerId = (session.user as any).id;
 

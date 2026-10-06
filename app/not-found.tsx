@@ -8,7 +8,7 @@ export default function NotFound() {
         <p className="lede">It may have moved, or the link might be old.</p>
         <div className="row-wrap" style={{ justifyContent: "center" }}>
           <Link href="/" className="btn btn-primary">Go home</Link>
-          <Link href="/coaches" className="btn">Browse mentors</Link>
+          <Link href="/mentors" className="btn">Browse mentors</Link>
         </div>
       </div>
     </div>
