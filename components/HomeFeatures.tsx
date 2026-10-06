@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { RoleCta } from "@/components/RoleCta";
 
 const FEATURES = [
   {
     title: "Work 1-on-1 with a vetted mentor",
     body: "Message any mentor for free, then book help with one specific task, on your timeline.",
     cta: "Browse mentors",
-    href: "/coaches",
+    href: "/mentors",
     tag: "MESSAGING",
     screen: "Message a mentor, ask questions, and book once they reply.",
   },
@@ -16,7 +17,7 @@ const FEATURES = [
     title: "Get your essays reviewed",
     body: "Personal statements, activities and secondaries, with line edits and written feedback from someone who wrote winning ones.",
     cta: "Find an essay mentor",
-    href: "/coaches?service=PERSONAL_STATEMENT&service=SECONDARIES&service=ACTIVITIES",
+    href: "/mentors?service=PERSONAL_STATEMENT&service=SECONDARIES&service=ACTIVITIES",
     tag: "ESSAY REVIEW",
     screen: "Line edits and written feedback, delivered on your due date.",
   },
@@ -24,7 +25,7 @@ const FEATURES = [
     title: "Practice your interviews",
     body: "MMI and traditional mock interviews over video, with written feedback after every session. Book the call on your mentor's calendar once you've paid.",
     cta: "Book a mock interview",
-    href: "/coaches?service=MMI&service=TRADITIONAL_INTERVIEW",
+    href: "/mentors?service=MMI&service=TRADITIONAL_INTERVIEW",
     tag: "MOCK MMI",
     screen: "Pick a time on your mentor's calendar and join from your order.",
   },
@@ -32,7 +33,7 @@ const FEATURES = [
     title: "Payment held until you approve",
     body: "You pay when you book, and MentorsMD holds the payment, not the mentor. It is released when you approve the work, or automatically 96 hours after it is delivered.",
     cta: "Get started",
-    href: "/signup/buyer",
+    href: "/signup",
     tag: "PAYMENT HELD",
     screen: "Paid → Held by MentorsMD → Delivered → Released",
   },
@@ -56,17 +57,19 @@ export function HomeFeatures() {
               {open === i && (
                 <div className="acc-body">
                   <p>{item.body}</p>
-                  <Link href={item.href} className="btn btn-soft" style={{ alignSelf: "flex-start", padding: "14px 24px" }}>
-                    {item.cta}
-                  </Link>
+                  {item.href === "/signup" ? (
+                    <RoleCta href={item.href} label={item.cta} className="btn btn-soft" style={{ alignSelf: "flex-start", padding: "14px 24px" }} />
+                  ) : (
+                    <Link href={item.href} className="btn btn-soft" style={{ alignSelf: "flex-start", padding: "14px 24px" }}>
+                      {item.cta}
+                    </Link>
+                  )}
                 </div>
               )}
             </div>
           ))}
         </div>
-        <Link href="/coaches" className="btn btn-primary btn-lg" style={{ marginTop: 40 }}>
-          Get started
-        </Link>
+        <RoleCta href="/mentors" label="Get started" className="btn btn-primary btn-lg" style={{ marginTop: 40 }} />
       </div>
       <div className="feature-media" aria-hidden="true">
         <div className="feature-screen">

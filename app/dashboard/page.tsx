@@ -95,7 +95,7 @@ export default function MentorDashboard() {
   const attn: Attn[] = [];
   if (payouts === false) attn.push({ key: "payouts", tone: "danger", text: "Connect payouts so students can book you.", href: "/dashboard/payouts", cta: "Connect" });
   if (profile && (!profile.mentorStage || !profile.schoolType)) attn.push({ key: "q", tone: "warn", text: "Answer the mentor questions. Your packages are hidden from search until you do.", href: "/account#search", cta: "Answer" });
-  if (gigs.length === 0) attn.push({ key: "gigs", tone: "warn", text: "Create your first package.", href: "/dashboard/packages", cta: "Create" });
+  if (gigs.length === 0) attn.push({ key: "gigs", tone: "warn", text: "Create your first package.", href: "/dashboard/packages?new=1", cta: "Add package" });
   if (profile && !profile.calLink && gigs.some((g) => formatHasCall(g.format))) attn.push({ key: "cal", tone: "", text: "Connect Cal.com so students can book the calls in your packages.", href: "/account#calendar", cta: "Connect" });
   for (const o of active) {
     const c = callSummary(o);
@@ -114,6 +114,10 @@ export default function MentorDashboard() {
         <div className="stack-sm">
           <h1 className="page-title">Hi{first ? `, ${first}` : ""}</h1>
           <p className="lede">Here&apos;s what&apos;s happening with your mentoring.</p>
+          <div className="row" style={{ marginTop: 6 }}>
+            <Link href="/dashboard/packages?new=1" className="btn btn-primary btn-sm">+ Add package</Link>
+            {gigs.length > 0 && <Link href="/dashboard/packages" className="btn btn-sm">My packages</Link>}
+          </div>
         </div>
         <div className="card row" style={{ padding: "14px 18px", gap: 14 }}>
           <label className="switch">
@@ -188,14 +192,15 @@ export default function MentorDashboard() {
           {convos.slice(0, 8).map((c) => {
             const last = c.messages?.[0];
             const unanswered = last && last.senderId !== (session?.user as any)?.id;
+            const unread = c.sellerUnread || 0;
             return (
               <Link key={c.id} href={`/messages/${c.id}`} className="list-row" style={{ padding: "12px 0" }}>
                 <span className="avatar" style={{ background: tintFor(c.buyer?.id || ""), width: 38, height: 38, fontSize: 14 }}>{initialsOf(c.buyer?.name || "")}</span>
                 <div className="grow stack-sm" style={{ gap: 0, minWidth: 0 }}>
-                  <b style={{ fontSize: 15 }}>{c.buyer?.name}</b>
+                  <b style={{ fontSize: 15, fontWeight: unread ? 700 : undefined }}>{c.buyer?.name}</b>
                   <span className="text-muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{last ? last.body || "Attachment" : "No messages yet"}</span>
                 </div>
-                {unanswered && <span className="attn-dot" aria-label="Waiting on your reply" />}
+                {unread > 0 ? <span className="count-badge" aria-label={`${unread} unread`}>{unread}</span> : unanswered && <span className="attn-dot" aria-label="Waiting on your reply" />}
               </Link>
             );
           })}

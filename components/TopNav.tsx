@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { markLoggedOutOnPurpose } from "@/components/SessionWatcher";
 
 export function LogoMark({ size = 32 }: { size?: number }) {
   return (
@@ -57,6 +58,7 @@ const MENU: Record<string, NavLink[]> = {
   ],
   SELLER: [
     { label: "Dashboard", href: "/dashboard" },
+    { label: "Messages", href: "/messages" },
     { label: "Edit profile & photo", href: "/account" },
     { label: "Calendar & calls", href: "/account#calendar" },
     { label: "Pause or remove profile", href: "/account#availability" },
@@ -80,6 +82,24 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+function LogoutIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="M16 17l5-5-5-5" />
+      <path d="M21 12H9" />
+    </svg>
+  );
+}
+
+// A deliberate log out (as opposed to timing out). Clears the "was
+// logged in" marker first so no tab shows the inactivity message, and
+// next-auth tells the other open tabs to log out too.
+export function logOut(callbackUrl: string = "/") {
+  markLoggedOutOnPurpose();
+  signOut({ callbackUrl });
+}
+
 function Chevron() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -96,6 +116,29 @@ export function TopNav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [navInfo, setNavInfo] = useState<{ unread: number; packageCount: number | null }>({ unread: 0, packageCount: null });
+
+  // Unread badge + package count. Refreshes on page change, every minute,
+  // when the tab regains focus, and right after a thread is read.
+  useEffect(() => {
+    if (status !== "authenticated" || role === "ADMIN") return;
+    let alive = true;
+    const load = () =>
+      fetch("/api/me/nav")
+        .then((r) => r.json())
+        .then((d) => alive && setNavInfo({ unread: d.unread || 0, packageCount: typeof d.packageCount === "number" ? d.packageCount : null }))
+        .catch(() => {});
+    load();
+    const timer = setInterval(load, 60_000);
+    window.addEventListener("focus", load);
+    window.addEventListener("mmd:unread-changed", load);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+      window.removeEventListener("focus", load);
+      window.removeEventListener("mmd:unread-changed", load);
+    };
+  }, [status, role, pathname]);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -123,7 +166,14 @@ export function TopNav() {
 
   const isHome = pathname === "/";
   const marketing = !session || role === "BUYER";
-  const right = role ? RIGHT_LINKS[role] || [] : [];
+  // Mentors with no packages yet see "+ Add package" instead of "My packages".
+  const right = (role ? RIGHT_LINKS[role] || [] : []).map((l) =>
+    l.href === "/dashboard/packages" && navInfo.packageCount === 0 ? { label: "+ Add package", href: "/dashboard/packages?new=1" } : l
+  );
+  const badge = (href: string) =>
+    href === "/messages" && navInfo.unread > 0 ? (
+      <span className="count-badge" aria-label={`${navInfo.unread} unread`}>{navInfo.unread > 99 ? "99+" : navInfo.unread}</span>
+    ) : null;
   const menu = role ? MENU[role] || [] : [];
   const active = (href: string): "page" | undefined => (href === pathname || (href !== "/" && pathname.startsWith(href) && href !== "/dashboard") || (href === "/dashboard" && pathname === "/dashboard") ? "page" : undefined);
 
@@ -132,7 +182,7 @@ export function TopNav() {
       <div className="nav-inner">
         <Logo />
         <nav aria-label="Main" className="nav-links">
-          <Link href="/coaches" aria-current={pathname.startsWith("/coaches") ? "page" : undefined} className="row" style={{ gap: 6 }}>
+          <Link href="/mentors" aria-current={pathname.startsWith("/mentors") ? "page" : undefined} className="row" style={{ gap: 6 }}>
             Browse mentors <Chevron />
           </Link>
           {marketing && MARKETING.map((l) => <Link key={l.href} href={l.href}>{l.label}</Link>)}
@@ -140,15 +190,16 @@ export function TopNav() {
 
         <div className="nav-right">
           {right.map((l) => (
-            <Link key={l.href} href={l.href} className="hide-tablet" aria-current={active(l.href)} style={{ fontWeight: active(l.href) ? 600 : 400, color: active(l.href) ? "var(--primary)" : undefined }}>
+            <Link key={l.href} href={l.href} className="hide-tablet" aria-current={active(l.href)} style={{ fontWeight: active(l.href) ? 600 : 400, color: active(l.href) ? "var(--primary)" : undefined, display: "inline-flex", alignItems: "center" }}>
               {l.label}
+              {badge(l.href)}
             </Link>
           ))}
 
           {status !== "loading" && !session && (
             <>
               <Link href="/login" className="hide-tablet">Log in</Link>
-              <Link href="/signup/buyer" className="btn btn-primary hide-tablet" style={{ padding: "14px 26px", fontSize: 16 }}>
+              <Link href="/signup" className="btn btn-primary hide-tablet" style={{ padding: "14px 26px", fontSize: 16 }}>
                 Get started
               </Link>
             </>
@@ -167,9 +218,10 @@ export function TopNav() {
                     <span className="text-secondary" style={{ fontSize: 14 }}>{ROLE_LABEL[role || ""] || ""}</span>
                   </div>
                   {menu.map((m) => (
-                    <Link key={m.href + m.label} href={m.href}>{m.label}</Link>
+                    <Link key={m.href + m.label} href={m.href} style={{ display: "flex", alignItems: "center" }}>{m.label}{badge(m.href)}</Link>
                   ))}
-                  <button onClick={() => signOut({ callbackUrl: "/" })} style={{ borderTop: "1px solid var(--line)", marginTop: 6, color: "var(--muted)" }}>
+                  <button onClick={() => logOut()} className="logout-item">
+                    <LogoutIcon />
                     Log out
                   </button>
                 </div>
@@ -195,19 +247,20 @@ export function TopNav() {
               </svg>
             </button>
           </div>
-          <Link href="/coaches">Browse mentors</Link>
+          <Link href="/mentors">Browse mentors</Link>
           {marketing && MARKETING.map((l) => <Link key={l.href} href={l.href}>{l.label}</Link>)}
-          {right.map((l) => <Link key={"r" + l.href} href={l.href}>{l.label}</Link>)}
+          {right.map((l) => <Link key={"r" + l.href} href={l.href} style={{ display: "flex", alignItems: "center" }}>{l.label}{badge(l.href)}</Link>)}
           {menu
             .filter((m) => !right.some((r) => r.href === m.href))
             .map((m) => <Link key={"m" + m.href + m.label} href={m.href}>{m.label}</Link>)}
           {!session ? (
             <div className="stack" style={{ marginTop: 24 }}>
-              <Link href="/signup/buyer" className="btn btn-primary btn-lg" style={{ borderBottom: "none" }}>Get started</Link>
+              <Link href="/signup" className="btn btn-primary btn-lg" style={{ borderBottom: "none" }}>Get started</Link>
               <Link href="/login" className="btn btn-lg" style={{ borderBottom: "1px solid var(--line)" }}>Log in</Link>
             </div>
           ) : (
-            <button className="drawer-link" onClick={() => signOut({ callbackUrl: "/" })} style={{ color: "var(--muted)" }}>
+            <button className="drawer-link" onClick={() => logOut()} style={{ color: "var(--danger)", fontWeight: 600, display: "flex", alignItems: "center", gap: 10 }}>
+              <LogoutIcon />
               Log out
             </button>
           )}

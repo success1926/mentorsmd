@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LogoMark } from "./TopNav";
+import { FooterAccountLink } from "./RoleCta";
 
 export function Footer() {
   return (
@@ -15,15 +16,15 @@ export function Footer() {
           </div>
           <div className="footer-col">
             <b>Students</b>
-            <Link href="/coaches">Browse mentors</Link>
+            <Link href="/mentors">Browse mentors</Link>
             <Link href="/#vetting">How we vet mentors</Link>
             <Link href="/#reviews">Reviews</Link>
-            <Link href="/signup/buyer">Create an account</Link>
+            <FooterAccountLink kind="student" />
           </div>
           <div className="footer-col">
             <b>Mentors</b>
             <Link href="/become-a-mentor">Become a mentor</Link>
-            <Link href="/login">Mentor login</Link>
+            <FooterAccountLink kind="mentor" />
           </div>
           <div className="footer-col">
             <b>Company</b>

@@ -8,7 +8,7 @@ import { useDisputeThread } from "@/lib/hooks/useDisputeThread";
 import { OrderCalls } from "@/components/Calls";
 import { Icon, ICONS, statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { callSummary, CALL_HOLD_HOURS } from "@/lib/calls";
-import { FORMATS, SERVICES, TURNAROUNDS, labelFor, money } from "@/lib/options";
+import { FORMATS, TURNAROUNDS, labelFor, money, serviceLabel } from "@/lib/options";
 
 const AUTO_RELEASE_HOURS = 96;
 const fmt = (d: string | Date) => new Date(d).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -331,7 +331,7 @@ export default function OrderDetailPage() {
             <hr className="divider" />
             <div className="stack-sm small">
               <div className="between"><span className="text-secondary">Amount</span><b>{money(order.amount)}</b></div>
-              {order.gig.service && <div className="between"><span className="text-secondary">Service</span><span>{labelFor(SERVICES, order.gig.service)}</span></div>}
+              {order.gig.service && <div className="between"><span className="text-secondary">Service</span><span>{serviceLabel(order.gig.service, order.gig.serviceOther)}</span></div>}
               {order.gig.format && <div className="between"><span className="text-secondary">Format</span><span>{labelFor(FORMATS, order.gig.format)}</span></div>}
               {order.gig.turnaround && <div className="between"><span className="text-secondary">Turnaround</span><span>{labelFor(TURNAROUNDS, order.gig.turnaround)}</span></div>}
               {order.dueDate && <div className="between"><span className="text-secondary">Due</span><b>{fmtDay(order.dueDate)}</b></div>}

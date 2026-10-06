@@ -30,7 +30,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
   if (order.buyerId !== (session.user as any).id) {
-    return NextResponse.json({ error: "Only the buyer can request a revision" }, { status: 403 });
+    return NextResponse.json({ error: "Only the student on this order can request a revision" }, { status: 403 });
   }
   if (!["IN_ESCROW", "COMPLETED"].includes(order.status)) {
     return NextResponse.json({ error: "Revisions can only be requested on a pending or just-completed order" }, { status: 400 });
