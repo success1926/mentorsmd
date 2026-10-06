@@ -3,10 +3,10 @@
 Moved here from the "MentorsMD To-Do" checklist (claude.ai artifact, Oct 5, 2026). Tick items by changing `[ ]` to `[x]`.
 **Tabo** = Tabo does it. **Claude** = Claude builds it. Bracketed numbers match the change list in `docs/change-list.md`.
 
-Status on Oct 6, 2026: Phase 1 is built but not deployed. `main` on GitHub has none of the Phase 1 changes yet (it still has `app/coaches`, `app/onboard-coach` and `app/signup/buyer`). The `mentorsmd-phase1.zip` from the Oct 1 session isn't in Downloads, so Phase 1 has to be recovered or rebuilt onto a `phase-1` branch first.
+Status on Oct 6, 2026: Phase 1 is on the `phase-1` branch on GitHub (from `mentorsmd-phase1.zip`, build checked) but not live yet.
 
 ## Now: Deploy Phase 1 to a preview
-- [ ] Get the Phase 1 code onto a `phase-1` branch on GitHub (**Claude**, now that the repo is connected)
+- [x] Get the Phase 1 code onto a `phase-1` branch on GitHub (**Claude**, Oct 6)
 - [ ] Make a Neon backup branch named `backup-before-phase-1` (**Tabo**)
 - [ ] Run `prisma/phase1-2026-10.sql` in the Neon SQL Editor on main. The check query should return 3 rows (**Tabo**)
 - [ ] Put the `-git-phase-1-` preview domain in the Preview-only `NEXTAUTH_URL` on Vercel, then redeploy (**Tabo**)
