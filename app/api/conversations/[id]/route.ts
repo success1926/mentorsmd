@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { blockBetween } from "@/lib/blocks";
+import { isEmailConfirmed } from "@/lib/emailVerification";
 
 // One conversation plus the orders between these two people, for the
 // side panel on the message thread (order status, and "Book a call" when
@@ -31,8 +33,13 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     take: 20,
   });
 
+  const otherId = conversation.buyerId === userId ? conversation.sellerId : conversation.buyerId;
+  const me = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true, emailVerified: true, safetyHoldAt: true } });
+  const [blocks, emailConfirmed] = await Promise.all([blockBetween(userId, otherId), me ? isEmailConfirmed(me) : Promise.resolve(true)]);
+
   return NextResponse.json({
     conversation,
+    safety: { ...blocks, emailConfirmed, onHold: !!me?.safetyHoldAt && me.role === "BUYER" },
     orders,
     viewer: { id: userId, name: session.user.name ?? "", email: session.user.email ?? "" },
   });

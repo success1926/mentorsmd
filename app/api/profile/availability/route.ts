@@ -26,6 +26,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Your profile was removed by MentorsMD. Contact us to discuss it." }, { status: 403 });
   }
 
+  // Paused by MentorsMD pending a safety review: only an admin can undo it.
+  if (user.safetyHoldAt && action !== "remove") {
+    return NextResponse.json({ error: "Your profile is paused while our team reviews your account. Contact us if you have questions." }, { status: 403 });
+  }
+
   let data: Record<string, any>;
   switch (action) {
     case "pause": {

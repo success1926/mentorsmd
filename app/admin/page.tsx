@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useDisputeThread } from "@/lib/hooks/useDisputeThread";
-import { statusBadge, tintFor, initialsOf } from "@/components/ui";
+import { StaffBadge, statusBadge, tintFor, initialsOf } from "@/components/ui";
+import { ActionLog, FlagsAdmin, SEVERITY, kindLabel } from "@/components/admin/Flags";
 import { DeliveryCard } from "@/components/Deliveries";
 import { Attendance, Recordings } from "@/components/Calls";
 import { BACKGROUNDS, SCHOOL_TYPES, STAGES, labelFor, money } from "@/lib/options";
@@ -73,7 +74,7 @@ export default function AdminPage() {
     <div className="page stack-lg" style={{ gap: 36 }}>
       <div className="stack-sm">
         <h1 className="page-title">Admin</h1>
-        <p className="lede">Disputes, calls, mentor applications, invites and people.</p>
+        <p className="lede">Flags, disputes, calls, mentor applications, invites and people.</p>
       </div>
 
       {earnings && (
@@ -94,8 +95,11 @@ export default function AdminPage() {
 
       {notice && <div role="status" className={`alert ${notice.ok ? "alert-success" : "alert-danger"}`}>{notice.text}</div>}
 
+      {/* ---------- Flags: reports, disputes, automatic flags ---------- */}
+      <FlagsAdmin onChanged={loadDisputes} />
+
       {/* ---------- Disputes ---------- */}
-      <section className="stack-sm">
+      <section className="stack-sm" id="disputes">
         <h2 style={{ fontSize: 30 }}>Disputes</h2>
         <details className="collapse" open={disputes.open.length > 0}>
           <summary>
@@ -192,6 +196,9 @@ export default function AdminPage() {
 
       {/* ---------- Custom "Other" services ---------- */}
       <CustomServices />
+
+      {/* ---------- Action log ---------- */}
+      <ActionLog />
     </div>
   );
 }
@@ -432,7 +439,13 @@ function People() {
       if (r === null) return;
       if (!r.trim()) return alert("A reason is required.");
       reason = r;
-    } else if (action === "pause" && !confirm(`Pause ${u.name}? They'll be hidden from search until unpaused.`)) return;
+    } else if (action === "pause") {
+      const r = prompt(
+        `Pause ${u.name} pending review? ${u.role === "SELLER" ? "They'll be hidden from search and can't unpause themselves." : "They won't be able to send messages."} They get an email. Reason (kept on record):`
+      );
+      if (r === null) return;
+      reason = r.trim() || undefined;
+    }
     const res = await fetch(`/api/admin/users/${u.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -477,14 +490,22 @@ function People() {
                   {role === "SELLER" ? ` · ${u._count.gigs} package${u._count.gigs === 1 ? "" : "s"} · ${u._count.sellerOrders} orders` : ` · ${u._count.buyerOrders} orders`}
                 </span>
               </div>
-              {u.profileStatus === "ACTIVE" && <span className="badge badge-success">Active</span>}
-              {u.profileStatus === "PAUSED" && <span className="badge badge-warning">Paused</span>}
+              {u.health && <span className={`badge ${u.health === "Good" ? "badge-success" : u.health === "Watch" ? "badge-warning" : "badge-danger"}`} title="Health: open, high-severity and upheld flags">{u.health}</span>}
+              {u.flags?.openFlags > 0 && <span className="badge badge-warning">{u.flags.openFlags} open flag{u.flags.openFlags === 1 ? "" : "s"}</span>}
+              {u.flags?.upheld90 > 0 && <span className="badge badge-danger">{u.flags.upheld90} upheld (90 days)</span>}
+              {u.safetyHoldAt && <span className="badge badge-danger">On hold</span>}
+              {u.profileStatus === "ACTIVE" && !u.safetyHoldAt && <span className="badge badge-success">Active</span>}
+              {u.profileStatus === "PAUSED" && !u.safetyHoldAt && <span className="badge badge-warning">Paused</span>}
               {u.profileStatus === "REMOVED" && <span className="badge badge-danger">{u.removedByAdmin ? "Removed by admin" : "Removed by mentor"}</span>}
               {role === "SELLER" && !u.payoutsConnected && <span className="badge">No payouts</span>}
               <div className="row" style={{ gap: 6 }}>
                 <button className="btn btn-sm" onClick={() => setViewing(viewing === u.id ? null : u.id)} aria-expanded={viewing === u.id}>View</button>
-                {role === "SELLER" && u.profileStatus === "ACTIVE" && <button className="btn btn-sm" onClick={() => act(u, "pause")}>Pause</button>}
-                {u.profileStatus === "PAUSED" && <button className="btn btn-sm" onClick={() => act(u, "unpause")}>Unpause</button>}
+                {u.profileStatus !== "REMOVED" && !u.safetyHoldAt && (role === "BUYER" || u.profileStatus === "ACTIVE") && (
+                  <button className="btn btn-sm" onClick={() => act(u, "pause")}>Pause</button>
+                )}
+                {(u.safetyHoldAt || (role === "SELLER" && u.profileStatus === "PAUSED")) && u.profileStatus !== "REMOVED" && (
+                  <button className="btn btn-sm" onClick={() => act(u, "unpause")}>Unpause</button>
+                )}
                 {u.profileStatus !== "REMOVED" ? (
                   <button className="btn btn-sm btn-danger" onClick={() => act(u, "remove")}>Remove</button>
                 ) : (
@@ -513,6 +534,10 @@ function PersonDetail({ id }: { id: string }) {
       {u.profileStatus === "REMOVED" && u.removedReason && (
         <div className="alert alert-danger small">Removed {u.removedAt ? fmtDay(u.removedAt) : ""}: {u.removedReason}</div>
       )}
+      {u.safetyHoldAt && (
+        <div className="alert alert-warning small">On hold since {fmtDay(u.safetyHoldAt)}{u.safetyHoldReason ? `: ${u.safetyHoldReason}` : ""}. Use Unpause once reviewed.</div>
+      )}
+      <HealthCard d={d} />
       {isMentor && (
         <>
           <div className="row-wrap small">
@@ -539,6 +564,76 @@ function PersonDetail({ id }: { id: string }) {
           {statusBadge(o)}
         </Link>
       ))}
+    </div>
+  );
+}
+
+// Health scorecard (#89): flags, performance numbers and flag history.
+function HealthCard({ d }: { d: any }) {
+  const h = d.health;
+  const u = d.user;
+  if (!h) return null;
+  const m = h.metrics;
+  const cls = h.label === "Good" ? "badge-success" : h.label === "Watch" ? "badge-warning" : "badge-danger";
+  return (
+    <div className="stack-sm">
+      <div className="row-wrap small">
+        <b>Health</b> <span className={`badge ${cls}`}>{h.label}</span>
+        <span>{h.openFlags} open flag{h.openFlags === 1 ? "" : "s"}{h.highOpen ? ` (${h.highOpen} high)` : ""}</span>
+        <span>· {h.upheld90} upheld in 90 days</span>
+        {u.role === "BUYER" && <span>· email {u.emailVerified ? "confirmed" : "not confirmed"}</span>}
+        {u.role === "SELLER" && <span>· agreement {u.mentorAgreementVersion ? `v${u.mentorAgreementVersion}${u.mentorAgreementAt ? `, accepted ${fmtDay(u.mentorAgreementAt)}` : ""}` : "not accepted yet"}</span>}
+        <span>· last active {u.lastActiveAt ? fmtDay(u.lastActiveAt) : "unknown"}</span>
+      </div>
+      {m && (
+        <div className="kv-grid">
+          <div><span>Avg reply (30 days)</span>{m.avgReplyHours === null ? "-" : `${m.avgReplyHours.toFixed(1)} h`}</div>
+          <div><span>Unanswered 48h+</span>{m.unanswered.length}</div>
+          <div><span>Late / overdue (60 days)</span>{m.overdue60}</div>
+          <div><span>Call no-shows (60 days)</span>{m.noShows60}</div>
+          <div><span>Late cancels (60 days)</span>{m.lateCancels60}</div>
+          <div><span>Revision / dispute / refund</span>{m.problemRate === null ? "-" : `${Math.round(m.problemRate * 100)}% of ${m.orders90}`}</div>
+          <div><span>Rating</span>{m.ratingAvg === null ? "-" : `${m.ratingAvg.toFixed(1)} (${m.ratingCount})`}{m.oneStar60 ? ` · ${m.oneStar60}× 1-star` : ""}</div>
+          <div><span>Conversations → orders (60 days)</span>{m.convertedConversations60} / {m.conversations60}</div>
+        </div>
+      )}
+      {h.issues.length > 0 && (
+        <ul className="small text-secondary" style={{ paddingLeft: 18, margin: 0 }}>
+          {h.issues.map((i: any) => <li key={i.key}><b>{i.reason}:</b> {i.details}</li>)}
+        </ul>
+      )}
+      {d.flags?.length > 0 && (
+        <details className="collapse">
+          <summary><span className="row" style={{ gap: 8 }}>Flag history <span className="tab-count">{d.flags.length}</span></span></summary>
+          <div className="collapse-body" style={{ gap: 0 }}>
+            {d.flags.map((f: any) => (
+              <div key={f.id} className="list-row small" style={{ flexWrap: "wrap" }}>
+                <span className="text-muted nowrap">{fmtDay(f.createdAt)}</span>
+                <span className={`badge ${(SEVERITY[f.severity] || SEVERITY[1]).cls}`}>{(SEVERITY[f.severity] || SEVERITY[1]).label}</span>
+                <span className="badge badge-brand">{kindLabel(f.kind)}</span>
+                <span className="grow">{f.reason}</span>
+                <span className={`badge ${f.status === "UPHELD" ? "badge-danger" : f.status === "OPEN" ? "badge-warning" : ""}`}>
+                  {f.status === "OPEN" ? "Open" : f.status === "UPHELD" ? `Upheld${f.action ? ` (${f.action.toLowerCase()})` : ""}` : "Dismissed"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+      {d.actions?.length > 0 && (
+        <details className="collapse">
+          <summary><span className="row" style={{ gap: 8 }}>Admin actions <span className="tab-count">{d.actions.length}</span></span></summary>
+          <div className="collapse-body" style={{ gap: 0 }}>
+            {d.actions.map((a: any) => (
+              <div key={a.id} className="list-row small">
+                <span className="text-muted nowrap">{fmtDay(a.createdAt)}</span>
+                <span className="grow">{a.summary}</span>
+                <span className="badge">{a.admin?.name || "System"}</span>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }
@@ -597,7 +692,7 @@ function DisputeCard({ order, onResolved }: { order: any; onResolved: () => void
           {messages.length === 0 && <p className="text-muted">Loading…</p>}
           {messages.map((m: any) => (
             <div key={m.id} className={`msg-bubble ${m.sender?.role === "ADMIN" ? "msg-mine" : "msg-theirs"}`}>
-              <div style={{ fontSize: 11, opacity: 0.75, marginBottom: 2 }}>{m.sender?.name} ({m.sender?.role === "SELLER" ? "mentor" : m.sender?.role === "BUYER" ? "student" : "admin"})</div>
+              <div style={{ fontSize: 11, opacity: 0.85, marginBottom: 2 }}>{m.sender?.name} {m.sender?.role === "ADMIN" ? <StaffBadge /> : `(${m.sender?.role === "SELLER" ? "mentor" : "student"})`}</div>
               {m.body}
             </div>
           ))}

@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Icon, ICONS, Vetted, Rating, tintFor, initialsOf } from "@/components/ui";
+import { ConfirmEmailNotice, ReportDialog, SendWarnings, setBlocked, type SendWarning } from "@/components/Safety";
 import { BACKGROUNDS, FORMATS, SCHOOL_TYPES, STAGES, TURNAROUNDS, labelFor, money, serviceLabel } from "@/lib/options";
 
 type Gig = {
@@ -30,6 +31,28 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
   const [elig, setElig] = useState<{ canPickDueDate: boolean; reason?: string } | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [warnings, setWarnings] = useState<SendWarning[] | null>(null);
+  const [needsEmail, setNeedsEmail] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [blocked, setBlockedState] = useState<{ iBlocked: boolean; theyBlocked: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!session) return;
+    fetch(`/api/blocks?userId=${seller.id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setBlockedState({ iBlocked: !!d.iBlocked, theyBlocked: !!d.theyBlocked }))
+      .catch(() => {});
+  }, [session, seller.id]);
+
+  async function toggleBlock(block: boolean) {
+    if (block && !confirm(`Block ${seller.name}? Neither of you will be able to message the other.`)) return;
+    try {
+      await setBlocked(seller.id, block);
+      setBlockedState({ iBlocked: block, theyBlocked: blocked?.theyBlocked || false });
+    } catch (e: any) {
+      alert(e.message);
+    }
+  }
 
   useEffect(() => {
     if (!isBuyer) return;
@@ -43,7 +66,7 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
   const avg = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : null;
   const tags = [labelFor(STAGES, seller.mentorStage), labelFor(SCHOOL_TYPES, seller.schoolType), ...(seller.backgrounds || []).map((b: string) => labelFor(BACKGROUNDS, b))].filter(Boolean);
 
-  async function openThread(firstMessage?: string) {
+  async function openThread(firstMessage?: string, acknowledgeWarnings = false) {
     setSending(true);
     try {
       const res = await fetch("/api/conversations", {
@@ -58,9 +81,23 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
         const sent = await fetch(`/api/conversations/${id}/messages`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ body: firstMessage }),
+          body: JSON.stringify({ body: firstMessage, acknowledgeWarnings }),
         });
-        if (!sent.ok) throw new Error((await sent.json().catch(() => ({}))).error || "Message failed to send");
+        if (!sent.ok) {
+          const d = await sent.json().catch(() => ({}));
+          // Shown on the page instead of a pop-up.
+          if (d.code === "WARNING") {
+            setWarnings(d.warnings || []);
+            setSending(false);
+            return;
+          }
+          if (d.code === "EMAIL_UNVERIFIED") {
+            setNeedsEmail(true);
+            setSending(false);
+            return;
+          }
+          throw new Error(d.error || "Message failed to send");
+        }
       }
       router.push(`/messages/${id}`);
     } catch (e: any) {
@@ -195,9 +232,17 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                   />
-                  <button className="btn btn-primary btn-block" disabled={sending} onClick={() => openThread(draft)}>
-                    {sending ? "Sending…" : draft.trim() ? "Send message" : "Open conversation"}
-                  </button>
+                  {warnings && (
+                    <SendWarnings warnings={warnings} busy={sending} onEdit={() => setWarnings(null)} onSendAnyway={() => openThread(draft, true)} />
+                  )}
+                  {needsEmail && <ConfirmEmailNotice />}
+                  {blocked?.iBlocked || blocked?.theyBlocked ? (
+                    <span className="text-secondary">{blocked.iBlocked ? `You blocked ${first}.` : `You can't message ${first}.`}</span>
+                  ) : (
+                    <button className="btn btn-primary btn-block" disabled={sending} onClick={() => openThread(draft)}>
+                      {sending ? "Sending…" : draft.trim() ? "Send message" : "Open conversation"}
+                    </button>
+                  )}
                 </>
               ) : (
                 <span className="text-secondary">{first} isn&apos;t taking new messages while away.</span>
@@ -232,6 +277,26 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
               ))}
             </div>
           )}
+
+          {session && (role === "BUYER" || role === "SELLER") && (session.user as any)?.id !== seller.id && (
+            <div className="row-wrap small" style={{ justifyContent: "center" }}>
+              <button type="button" className="link-btn" onClick={() => setReportOpen(true)}>Report {first}</button>
+              <span className="text-muted">·</span>
+              {blocked?.iBlocked ? (
+                <button type="button" className="link-btn" onClick={() => toggleBlock(false)}>Unblock</button>
+              ) : (
+                <button type="button" className="link-btn" onClick={() => toggleBlock(true)}>Block</button>
+              )}
+              <span className="text-muted">·</span>
+              <Link href="/safety" className="link">Safety tips</Link>
+            </div>
+          )}
+          <ReportDialog
+            open={reportOpen}
+            onClose={() => setReportOpen(false)}
+            subject={{ id: seller.id, name: seller.name }}
+            onDone={(b) => b && setBlockedState({ iBlocked: true, theyBlocked: blocked?.theyBlocked || false })}
+          />
 
           <div className="card card-tint stack-sm">
             <span className="row strong"><Icon d={ICONS.lock} size={18} /> Payment held until you approve</span>

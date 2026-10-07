@@ -3,6 +3,10 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendPasswordResetEmail, SITE_URL } from "@/lib/email";
 import { normalizeEmail } from "@/lib/validate";
+import { isBot } from "@/lib/honeypot";
+import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
+import { clientIp, ipKey } from "@/lib/request";
+import { RECAPTCHA_FAILED, verifyRecaptcha } from "@/lib/recaptcha";
 
 const TOKEN_TTL_MINUTES = 60;
 const MAX_REQUESTS_PER_HOUR = 3;
@@ -22,9 +26,16 @@ async function respond(startedAt: number) {
 
 export async function POST(req: Request) {
   const startedAt = Date.now();
-  const { email: rawEmail } = await req.json().catch(() => ({}));
-  const email = normalizeEmail(rawEmail);
+  const body = await req.json().catch(() => ({}));
+  const email = normalizeEmail(body.email);
   if (!email) return NextResponse.json({ error: "Enter a valid email address" }, { status: 400 });
+  // Bots get the normal answer and nothing is sent.
+  if (isBot(body)) return respond(startedAt);
+  const limit = await rateLimit(RATE_LIMITS.forgotPerIp, ipKey(req));
+  if (!limit.ok) return tooMany(limit.retryAfterSec, "Too many reset requests from this connection. Please try again later.");
+  if (!(await verifyRecaptcha(body.recaptchaToken, "forgot_password", clientIp(req)))) {
+    return NextResponse.json({ error: RECAPTCHA_FAILED }, { status: 400 });
+  }
 
   const user = await prisma.user.findFirst({
     where: { email: { equals: email, mode: "insensitive" } },

@@ -6,6 +6,9 @@ import { LIMITS, isNonEmptyString, parsePriceToCents } from "@/lib/validate";
 import { GIG_DESCRIPTION_MIN_WORDS, PRICE_RULE, countWords } from "@/lib/options";
 import { parseGigSearchFields } from "@/lib/gigInput";
 import { bookableGigWhere } from "@/lib/mentor";
+import { MENTOR_AGREEMENT_VERSION, acceptedAgreement } from "@/lib/agreement";
+import { checkText } from "@/lib/moderation";
+import { createFlagsForFindings } from "@/lib/flags";
 
 // Public: a single package, used by the checkout page (which previously
 // downloaded every gig on the site just to find this one).
@@ -35,6 +38,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (!gig) return NextResponse.json({ error: "Package not found or not yours" }, { status: 404 });
 
   const body = await req.json();
+  if (!acceptedAgreement(body.agreement)) {
+    return NextResponse.json({ error: "Please tick the box to accept the mentor agreement before saving" }, { status: 400 });
+  }
 
   if (body.title !== undefined && !isNonEmptyString(body.title, LIMITS.gigTitle)) {
     return NextResponse.json({ error: `Title is required (max ${LIMITS.gigTitle} chars)` }, { status: 400 });
@@ -72,8 +78,22 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       description: body.description?.trim() ?? gig.description,
       price,
       ...searchData,
+      agreementVersion: MENTOR_AGREEMENT_VERSION,
+      agreementAt: new Date(),
     },
   });
+  await prisma.user.update({
+    where: { id: gig.sellerId },
+    data: { mentorAgreementVersion: MENTOR_AGREEMENT_VERSION, mentorAgreementAt: new Date() },
+  });
+  if (body.title !== undefined || body.description !== undefined) {
+    await createFlagsForFindings(checkText(`${updated.title}\n${updated.description}`).findings, {
+      evidence: `${updated.title}\n${updated.description}`,
+      subjectUserId: gig.sellerId,
+      gigId: gig.id,
+      dedupeKey: `gig:${gig.id}:${updated.description.length}`,
+    });
+  }
 
   return NextResponse.json({ gig: updated });
 }

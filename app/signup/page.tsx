@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AuthShell, GoogleButton } from "@/components/AuthShell";
 import { browserTimeZone } from "@/lib/tz";
+import { Honeypot, useRecaptcha } from "@/components/FormGuards";
 
 export default function StudentSignupPage() {
   const router = useRouter();
@@ -14,6 +15,8 @@ export default function StudentSignupPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [trap, setTrap] = useState("");
+  const recaptcha = useRecaptcha();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -22,7 +25,7 @@ export default function StudentSignupPage() {
     const res = await fetch("/api/signup/buyer", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, timeZone: browserTimeZone() }),
+      body: JSON.stringify({ name, email, password, timeZone: browserTimeZone(), website: trap, recaptchaToken: await recaptcha("signup") }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -30,7 +33,7 @@ export default function StudentSignupPage() {
       setLoading(false);
       return;
     }
-    await signIn("credentials", { email, password, redirect: false });
+    await signIn("credentials", { email, password, recaptchaToken: (await recaptcha("login")) || "", redirect: false });
     router.push("/mentors");
     router.refresh();
   }
@@ -58,13 +61,15 @@ export default function StudentSignupPage() {
             <input className="input" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
             <span className="field-help">At least 8 characters.</span>
           </label>
+          <Honeypot value={trap} onChange={setTrap} />
           {error && <div role="alert" className="alert alert-danger" style={{ marginBottom: 14 }}>{error}</div>}
           <button className="btn btn-primary btn-lg btn-block" disabled={loading || !name || !email || password.length < 8}>
             {loading ? "Creating account…" : "Create account"}
           </button>
         </form>
         <span className="text-muted" style={{ textAlign: "center" }}>
-          By creating an account you agree to our <Link href="/terms" className="link">Terms</Link> and <Link href="/privacy" className="link">Privacy Policy</Link>.
+          By creating an account you agree to our <Link href="/terms" className="link">Terms</Link>, <Link href="/privacy" className="link">Privacy Policy</Link> and{" "}
+          <Link href="/community-guidelines" className="link">Community Guidelines</Link>. New here? Read our <Link href="/safety" className="link">safety tips</Link>.
         </span>
         <span className="text-secondary" style={{ textAlign: "center" }}>
           Already have an account? <Link href="/login" className="link">Log in</Link>

@@ -37,20 +37,30 @@ export default function TermsPage() {
           </p>
         </div>
         <div>
-          <h2 style={{ fontSize: 22, marginBottom: 6 }}>4. Account responsibilities</h2>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>4. Safety reviews of messages</h2>
+          <p className="text-secondary">
+            To keep MentorsMD safe and honest, messages, file names, package descriptions and delivery notes are checked automatically
+            (including by an AI service) for things like threats, slurs, payment outside MentorsMD, ghostwriting and requests for passwords.
+            Messages with slurs or threats may not be delivered. When something is flagged or reported, the MentorsMD team may read the
+            conversation and the files involved. Breaking the <a href="/community-guidelines" style={{ textDecoration: "underline" }}>Community Guidelines</a> can
+            lead to a warning, a paused account or removal. Mentors also accept the mentor agreement described there. [Placeholder - have a lawyer review.]
+          </p>
+        </div>
+        <div>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>5. Account responsibilities</h2>
           <p className="text-secondary">
             Users are responsible for the accuracy of information they provide and for maintaining the security of
             their account credentials. [Placeholder.]
           </p>
         </div>
         <div>
-          <h2 style={{ fontSize: 22, marginBottom: 6 }}>5. Limitation of liability</h2>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>6. Limitation of liability</h2>
           <p className="text-secondary">
             [Placeholder - this section typically needs the most careful legal drafting of any section here.]
           </p>
         </div>
         <div>
-          <h2 style={{ fontSize: 22, marginBottom: 6 }}>6. Changes to these terms</h2>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>7. Changes to these terms</h2>
           <p className="text-secondary">
             [Placeholder - describe how and when you'll notify users of changes.]
           </p>

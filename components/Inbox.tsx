@@ -4,9 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useConversation } from "@/lib/hooks/useConversation";
+import { useConversation, SendError } from "@/lib/hooks/useConversation";
 import { OrderCalls } from "@/components/Calls";
-import { Icon, ICONS, Vetted, statusBadge, tintFor, initialsOf } from "@/components/ui";
+import { Icon, ICONS, StaffBadge, Vetted, statusBadge, tintFor, initialsOf } from "@/components/ui";
+import { ConfirmEmailNotice, IntegrityBanner, MessageText, ReportDialog, SendWarnings, setBlocked, type SendWarning } from "@/components/Safety";
 import { money } from "@/lib/options";
 
 function PersonAvatar({ person, size = 44 }: { person: any; size?: number }) {
@@ -118,6 +119,12 @@ function Thread({ conversationId }: { conversationId: string }) {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const [showSide, setShowSide] = useState(false);
+  // Safety: warnings to confirm, "confirm your email", report / block.
+  const [warnings, setWarnings] = useState<SendWarning[] | null>(null);
+  const [needsEmail, setNeedsEmail] = useState(false);
+  const [sendError, setSendError] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [report, setReport] = useState<{ messageId?: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const { messages, sendMessage } = useConversation(conversationId);
@@ -158,24 +165,47 @@ function Thread({ conversationId }: { conversationId: string }) {
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight });
   }, [messages.length, refreshEligibility]);
 
-  async function handleSend() {
+  async function handleSend(acknowledgeWarnings = false) {
     if ((!draft.trim() && !pendingFile) || sending) return;
     setSending(true);
+    setSendError("");
     try {
-      await sendMessage(draft, pendingFile || undefined);
+      await sendMessage(draft, pendingFile || undefined, { acknowledgeWarnings });
       setDraft("");
       setPendingFile(null);
-    } catch {
-      // the hook already told the user; keep the draft
+      setWarnings(null);
+    } catch (err) {
+      // Keep the draft. Inline problems are shown above the box; anything
+      // else the hook already showed.
+      if (err instanceof SendError) {
+        const code = err.data?.code;
+        if (code === "WARNING") setWarnings(err.data.warnings || []);
+        else if (code === "EMAIL_UNVERIFIED") setNeedsEmail(true);
+        else if (code === "BLOCKED_USER") loadCtx();
+        else setSendError(err.message);
+      }
     }
     setSending(false);
   }
+
+  async function toggleBlock(block: boolean) {
+    setMenuOpen(false);
+    if (block && !confirm(`Block ${other?.name}? Neither of you will be able to message the other. You can unblock any time.`)) return;
+    try {
+      await setBlocked(other.id, block);
+      loadCtx();
+    } catch (e: any) {
+      alert(e.message);
+    }
+  }
+
+  const other = ctx ? (role === "SELLER" ? ctx.conversation.buyer : ctx.conversation.seller) : null;
 
   if (error) return <div className="thread" style={{ padding: 24 }}><div className="alert alert-danger">{error}</div></div>;
   if (!ctx) return <div className="thread" style={{ padding: 24 }}><span className="text-muted">Loading…</span></div>;
 
   const convo = ctx.conversation;
-  const other = role === "SELLER" ? convo.buyer : convo.seller;
+  const safety = ctx.safety || {};
   const orders: any[] = (ctx.orders || []).map((o: any) => ({ ...o, seller: convo.seller }));
   const activeOrders = orders.filter((o) => ["IN_ESCROW", "COMPLETED"].includes(o.status));
   const pastOrders = orders.filter((o) => !["IN_ESCROW", "COMPLETED"].includes(o.status));
@@ -196,7 +226,21 @@ function Thread({ conversationId }: { conversationId: string }) {
           <button className="btn btn-sm" onClick={() => setShowSide((s) => !s)} aria-expanded={showSide}>
             Orders{activeOrders.length ? ` (${activeOrders.length})` : ""}
           </button>
+          <div className="menu-wrap">
+            <button className="btn btn-sm btn-ghost" aria-label="Report or block" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>⋯</button>
+            {menuOpen && (
+              <div className="menu-pop" role="menu" onMouseLeave={() => setMenuOpen(false)}>
+                <button role="menuitem" onClick={() => { setMenuOpen(false); setReport({}); }}>Report {other?.name.split(" ")[0]}</button>
+                {safety.iBlocked ? (
+                  <button role="menuitem" onClick={() => toggleBlock(false)}>Unblock</button>
+                ) : (
+                  <button role="menuitem" onClick={() => toggleBlock(true)}>Block</button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
+        <IntegrityBanner />
 
         <div
           className="thread-body"
@@ -215,12 +259,20 @@ function Thread({ conversationId }: { conversationId: string }) {
           )}
           {messages.map((m: any) => (
             <div key={m.id} className={`msg-bubble ${m.senderId === userId ? "msg-mine" : "msg-theirs"}`}>
-              {m.body}
+              {m.sender?.role === "ADMIN" && (
+                <div style={{ marginBottom: 4 }}><StaffBadge /></div>
+              )}
+              <MessageText text={m.body} />
               {m.attachmentUrl && (
                 <div style={{ marginTop: m.body ? 6 : 0 }}>
                   <a href={`${m.attachmentUrl}?download=1`} download={m.attachmentName} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline", fontSize: 13 }}>
                     📎 {m.attachmentName || "Attachment"}
                   </a>
+                </div>
+              )}
+              {m.senderId !== userId && m.sender?.role !== "ADMIN" && (
+                <div className="msg-actions">
+                  <button type="button" className="msg-report" onClick={() => setReport({ messageId: m.id })}>Report</button>
                 </div>
               )}
             </div>
@@ -233,6 +285,21 @@ function Thread({ conversationId }: { conversationId: string }) {
             <button onClick={() => setPendingFile(null)} className="btn btn-sm">Remove</button>
           </div>
         )}
+        {warnings && (
+          <SendWarnings warnings={warnings} busy={sending} onEdit={() => setWarnings(null)} onSendAnyway={() => handleSend(true)} />
+        )}
+        {(needsEmail || safety.emailConfirmed === false) && isBuyer && <ConfirmEmailNotice />}
+        {sendError && <div role="alert" className="alert alert-danger send-warning">{sendError}</div>}
+        {safety.iBlocked ? (
+          <div className="thread-compose between" style={{ flexWrap: "wrap" }}>
+            <span className="text-secondary">You blocked {other?.name}. Neither of you can send messages.</span>
+            <button className="btn btn-sm" onClick={() => toggleBlock(false)}>Unblock</button>
+          </div>
+        ) : safety.theyBlocked ? (
+          <div className="thread-compose"><span className="text-secondary">You can&apos;t send messages in this conversation.</span></div>
+        ) : safety.onHold ? (
+          <div className="thread-compose"><span className="text-secondary">Your account is paused while our team reviews it, so you can&apos;t send messages right now.</span></div>
+        ) : (
         <div className="thread-compose">
           <input type="file" ref={fileInputRef} style={{ display: "none" }} onChange={(e) => setPendingFile(e.target.files?.[0] || null)} />
           <button onClick={() => fileInputRef.current?.click()} className="btn btn-ghost" title="Attach a file" aria-label="Attach a file">📎</button>
@@ -251,9 +318,20 @@ function Thread({ conversationId }: { conversationId: string }) {
             placeholder="Write a message…"
             aria-label="Message"
           />
-          <button onClick={handleSend} disabled={sending} className="btn btn-primary">Send</button>
+          <button onClick={() => handleSend()} disabled={sending} className="btn btn-primary">Send</button>
         </div>
+        )}
       </div>
+      {report && other && (
+        <ReportDialog
+          open
+          onClose={() => setReport(null)}
+          subject={{ id: other.id, name: other.name }}
+          conversationId={conversationId}
+          messageId={report.messageId}
+          onDone={(blocked) => blocked && loadCtx()}
+        />
+      )}
 
       <aside className={`thread-side ${showSide ? "show" : ""}`}>
         <div className="stack-sm" style={{ alignItems: "center", textAlign: "center", paddingBottom: 12, borderBottom: "1px solid var(--line)" }}>

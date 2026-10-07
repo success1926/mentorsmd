@@ -6,6 +6,7 @@ import { LIMITS, isNonEmptyString } from "@/lib/validate";
 import { BACKGROUNDS, SCHOOL_TYPES, STAGES, isValue } from "@/lib/options";
 import { hasAvailability } from "@/lib/schedule";
 import { isValidTimeZone } from "@/lib/tz";
+import { RESERVED_NAME_ERROR, isReservedName } from "@/lib/reservedNames";
 
 function safeHost(url: string) {
   try {
@@ -81,6 +82,10 @@ export async function PATCH(req: Request) {
   if (body.name !== undefined) {
     if (!isNonEmptyString(body.name, LIMITS.name)) {
       return NextResponse.json({ error: `Name is required (max ${LIMITS.name} characters)` }, { status: 400 });
+    }
+    // Admins may use any name; nobody else can pose as staff.
+    if ((session.user as any).role !== "ADMIN" && isReservedName(body.name)) {
+      return NextResponse.json({ error: RESERVED_NAME_ERROR }, { status: 400 });
     }
     data.name = body.name.trim();
   }

@@ -7,6 +7,8 @@ import { logOut } from "@/components/TopNav";
 import Link from "next/link";
 import { AuthShell } from "@/components/AuthShell";
 import { browserTimeZone } from "@/lib/tz";
+import { Honeypot, useRecaptcha } from "@/components/FormGuards";
+import { MentorAgreement } from "@/components/MentorAgreement";
 
 // useSearchParams() requires a Suspense boundary around it for Next.js's
 // production build to prerender this page correctly - this wrapper is
@@ -33,6 +35,9 @@ function OnboardCoachForm() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { data: session, status } = useSession();
+  const [trap, setTrap] = useState("");
+  const [agreed, setAgreed] = useState(false);
+  const recaptcha = useRecaptcha();
 
   // Someone is already logged in on this browser (often the admin who sent
   // the invite, testing it). They need to log out to create the mentor account.
@@ -76,9 +81,12 @@ function OnboardCoachForm() {
     const res = await fetch("/api/signup/seller", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, email, password, name, credential, bio, timeZone: browserTimeZone() }),
+      body: JSON.stringify({
+        code, email, password, name, credential, bio, timeZone: browserTimeZone(),
+        agreement: agreed, website: trap, recaptchaToken: await recaptcha("mentor_signup"),
+      }),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
       setError(data.error || "Something went wrong");
@@ -86,7 +94,7 @@ function OnboardCoachForm() {
       return;
     }
 
-    await signIn("credentials", { email, password, redirect: false });
+    await signIn("credentials", { email, password, recaptchaToken: (await recaptcha("login")) || "", redirect: false });
     // First stop for a brand-new mentor: photo, search answers, calendar.
     router.push("/account");
     router.refresh();
@@ -109,8 +117,10 @@ function OnboardCoachForm() {
           <label className="field"><span className="field-label">Set a password</span>
             <input className="input" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
             <span className="field-help">At least 8 characters.</span></label>
+          <MentorAgreement checked={agreed} onChange={setAgreed} />
+          <Honeypot value={trap} onChange={setTrap} />
           {error && <div role="alert" className="alert alert-danger" style={{ marginBottom: 14 }}>{error}</div>}
-          <button className="btn btn-primary btn-lg btn-block" disabled={loading || !name || !credential || password.length < 8}>
+          <button className="btn btn-primary btn-lg btn-block" disabled={loading || !name || !credential || password.length < 8 || !agreed}>
             {loading ? "Setting up…" : "Create my profile"}
           </button>
         </form>

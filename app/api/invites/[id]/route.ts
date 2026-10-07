@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logAdminAction } from "@/lib/adminLog";
 
 // Cancel an invite. Deletes the row, so the emailed link stops working
 // immediately (signup looks the code up and won't find it). The delete is
@@ -13,6 +14,7 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
 
+  const before = await prisma.invite.findUnique({ where: { id: params.id }, select: { email: true } });
   const result = await prisma.invite.deleteMany({
     where: { id: params.id, status: { not: "REDEEMED" } },
   });
@@ -24,5 +26,6 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     );
   }
 
+  await logAdminAction({ adminId: (session.user as any).id, action: "INVITE_CANCELLED", summary: `Cancelled the mentor invite for ${before?.email || "an applicant"}`, targetType: "INVITE", targetId: params.id });
   return NextResponse.json({ success: true });
 }

@@ -30,6 +30,8 @@ export function Footer() {
             <b>Company</b>
             <Link href="/founders">About</Link>
             <Link href="/contact">Contact us</Link>
+            <Link href="/community-guidelines">Community Guidelines</Link>
+            <Link href="/safety">Safety tips</Link>
             <Link href="/terms">Terms of Service</Link>
             <Link href="/privacy">Privacy Policy</Link>
           </div>

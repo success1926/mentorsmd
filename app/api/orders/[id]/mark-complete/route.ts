@@ -5,6 +5,10 @@ import { prisma } from "@/lib/prisma";
 import { sendWorkCompleteEmail, SITE_URL } from "@/lib/email";
 import { callSummary } from "@/lib/calls";
 import { parseDelivery } from "@/lib/deliveries";
+import { checkText } from "@/lib/moderation";
+import { createFlagsForFindings } from "@/lib/flags";
+import { aiCheckAndFlag } from "@/lib/messageSafety";
+import { runAfterResponse } from "@/lib/request";
 
 // This is now the ONLY way an order moves out of IN_ESCROW under normal
 // circumstances - the seller says the work is done, which starts the
@@ -77,6 +81,20 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "This order changed - refresh the page" }, { status: 409 });
   }
   const updated = await prisma.order.findUnique({ where: { id: params.id } });
+
+  // Safety: the word checks on the note and file names (flags only), then
+  // the optional AI check in the background. Never blocks the delivery.
+  const findings = [
+    ...checkText(parsed.description, "delivery").findings,
+    ...parsed.files.flatMap((f) => checkText(f.name, "filename").findings),
+  ];
+  await createFlagsForFindings(findings, {
+    evidence: [parsed.description, ...parsed.files.map((f) => `[file: ${f.name}]`)].join("\n"),
+    subjectUserId: order.sellerId,
+    orderId: order.id,
+    conversationId: order.conversationId,
+  });
+  runAfterResponse(() => aiCheckAndFlag(parsed.description, "delivery", { subjectUserId: order.sellerId, orderId: order.id }));
 
   try {
     await sendWorkCompleteEmail(order.buyer.email, order.gig.title, `${SITE_URL}/orders/${order.id}`, {

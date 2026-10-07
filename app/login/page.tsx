@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AuthShell, GoogleButton } from "@/components/AuthShell";
+import { Honeypot, useRecaptcha } from "@/components/FormGuards";
 
 // Only allow redirects back into this site.
 function safeCallback() {
@@ -26,6 +27,8 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [trap, setTrap] = useState("");
+  const recaptcha = useRecaptcha();
   // ?reason=idle when a login ran out, ?reason=ended when it was ended
   // elsewhere (e.g. a password change on another device).
   const reason = useSearchParams()?.get("reason") || "";
@@ -34,10 +37,10 @@ function LoginForm() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const res = await signIn("credentials", { email, password, redirect: false });
+    const res = await signIn("credentials", { email, password, website: trap, recaptchaToken: (await recaptcha("login")) || "", redirect: false });
     if (res?.error) {
       setLoading(false);
-      setError("That email or password isn't right. After several failed attempts an account is locked for 15 minutes. Resetting your password unlocks it right away.");
+      setError("That email or password isn't right. After several failed attempts, logging in is paused for 15 minutes. Resetting your password unlocks your account right away.");
       return;
     }
     // Send each role to its home.
@@ -77,6 +80,7 @@ function LoginForm() {
             </span>
             <input className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </label>
+          <Honeypot value={trap} onChange={setTrap} />
           {error && <div role="alert" className="alert alert-danger" style={{ marginBottom: 14 }}>{error}</div>}
           <button className="btn btn-primary btn-lg btn-block" disabled={loading || !email || !password}>
             {loading ? "Logging in…" : "Log in"}

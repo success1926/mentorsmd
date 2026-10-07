@@ -6,6 +6,9 @@ import { LIMITS, isNonEmptyString, parsePriceToCents } from "@/lib/validate";
 import { GIG_DESCRIPTION_MIN_WORDS, PRICE_RULE, countWords } from "@/lib/options";
 import { parseGigSearchFields } from "@/lib/gigInput";
 import { bookableGigWhere } from "@/lib/mentor";
+import { MENTOR_AGREEMENT_VERSION, acceptedAgreement } from "@/lib/agreement";
+import { checkText } from "@/lib/moderation";
+import { createFlagsForFindings } from "@/lib/flags";
 
 // Public: anyone (even logged out) can browse gigs.
 //   ?mine=true      (mentor session) the mentor's own packages, including
@@ -53,6 +56,9 @@ export async function POST(req: Request) {
   if (countWords(description) < GIG_DESCRIPTION_MIN_WORDS) {
     return NextResponse.json({ error: `Describe the package in at least ${GIG_DESCRIPTION_MIN_WORDS} words` }, { status: 400 });
   }
+  if (!acceptedAgreement(body.agreement)) {
+    return NextResponse.json({ error: "Please tick the box to accept the mentor agreement before publishing" }, { status: 400 });
+  }
   const priceCents = parsePriceToCents(price);
   if (priceCents === null) {
     return NextResponse.json({ error: PRICE_RULE }, { status: 400 });
@@ -69,7 +75,19 @@ export async function POST(req: Request) {
       price: priceCents,
       ...parsed.data,
       sellerId: (session.user as any).id,
+      agreementVersion: MENTOR_AGREEMENT_VERSION,
+      agreementAt: new Date(),
     },
+  });
+  await prisma.user.update({
+    where: { id: (session.user as any).id },
+    data: { mentorAgreementVersion: MENTOR_AGREEMENT_VERSION, mentorAgreementAt: new Date() },
+  });
+  // Contact details or "pay me outside" in a package: flagged for review.
+  await createFlagsForFindings(checkText(`${gig.title}\n${gig.description}`).findings, {
+    evidence: `${gig.title}\n${gig.description}`,
+    subjectUserId: gig.sellerId,
+    gigId: gig.id,
   });
 
   return NextResponse.json({ gig });

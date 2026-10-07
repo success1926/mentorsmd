@@ -7,7 +7,7 @@ import { useConversation } from "@/lib/hooks/useConversation";
 import { useDisputeThread } from "@/lib/hooks/useDisputeThread";
 import { OrderCalls } from "@/components/Calls";
 import { DeliverWorkModal, DeliveryCard } from "@/components/Deliveries";
-import { Icon, ICONS, statusBadge, tintFor, initialsOf } from "@/components/ui";
+import { Icon, ICONS, StaffBadge, statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { callSummary, CALL_HOLD_HOURS } from "@/lib/calls";
 import { FORMATS, TURNAROUNDS, labelFor, money, serviceLabel } from "@/lib/options";
 
@@ -312,7 +312,7 @@ export default function OrderDetailPage() {
                 {disputeMessages.length === 0 && <p className="text-muted">Loading…</p>}
                 {disputeMessages.map((m: any) => (
                   <div key={m.id} className={`msg-bubble ${m.sender?.role === "ADMIN" ? "msg-theirs" : "msg-mine"}`}>
-                    <div style={{ fontSize: 11, opacity: 0.75, marginBottom: 2 }}>{m.sender?.name}{m.sender?.role === "ADMIN" ? " (Admin)" : ""}</div>
+                    <div style={{ fontSize: 11, opacity: 0.85, marginBottom: 2 }}>{m.sender?.name} {m.sender?.role === "ADMIN" && <StaffBadge />}</div>
                     {m.body}
                   </div>
                 ))}

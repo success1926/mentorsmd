@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { put } from "@vercel/blob";
 import { authOptions } from "@/lib/auth";
+import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
 
 // Used for attaching files (essay drafts, PDFs, images) to a message.
 // A 10MB cap keeps this from being used to upload huge files by mistake;
@@ -20,6 +21,9 @@ const ALLOWED_EXTENSIONS = new Set([
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  const limit = await rateLimit(RATE_LIMITS.uploadsPerHour, (session.user as any).id);
+  if (!limit.ok) return tooMany(limit.retryAfterSec, "You've uploaded a lot of files in the last hour. Please try again later.");
 
   const formData = await req.formData();
   const file = formData.get("file");
