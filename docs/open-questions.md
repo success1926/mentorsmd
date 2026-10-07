@@ -13,15 +13,14 @@ Each question has Claude's recommended answer. The new code already uses these r
        - The mentor sees: Extend due date / Message student / Ask admin.
        - The student sees: Book now / I don't need the call.
      - After 48 hours on hold:
-       - If the mentor had a Cal.com page (the student could have booked), the call is **forfeited**, and the mentor can mark the work complete and get paid.
-       - If the mentor had no Cal.com page, the order stays on hold for an admin to decide.
+       - If the mentor had call hours set (the student could have booked), the call is **forfeited**, and the mentor can mark the work complete and get paid.
+       - If the mentor had no call hours set, the order stays on hold for an admin to decide.
      - The mentor can never mark complete while an included call is still owed.
    - Why: this is your idea (48h warning, mentor blocked), but the outcome depends on who caused the delay, so mentors aren't punished for a student going quiet.
 2. **Cancel / reschedule cutoff.**
    - Recommended (built in, `CANCEL_CUTOFF_HOURS` in `lib/calls.ts`):
-     - Up to **24 hours** before the call, Reschedule and Cancel open Cal.com's own screens.
+     - Up to **24 hours** before the call, Reschedule and Cancel work on the site (Phase 3 built-in calendar).
      - Inside 24 hours the buttons disappear. The page says to message the other person or contact us.
-     - Set the same 24h minimum notice inside Cal.com so the two agree.
 3. **When Join opens.** Recommended: **10 minutes before**, staying open until 30 minutes after the scheduled end (built in).
 4. **No-shows.**
    - Recommended:
@@ -38,7 +37,7 @@ Each question has Claude's recommended answer. The new code already uses these r
    - Built:
      - Every user gets a private calendar link on Account → Calendar & calls, with one-click Google / Outlook / Apple buttons.
      - It shows their booked calls, and due dates for mentors, and updates on its own.
-     - Mentors' real availability comes from Cal.com, which syncs with their own calendar.
+     - Mentors set weekly call hours and busy dates on the site, and can paste a private Google/iCloud calendar link so their busy times are hidden from students (Phase 3).
    - Recommended: stop there. Full Google/Outlook two-way connection needs Google app verification and isn't worth it yet.
 
 ## Payments and orders
@@ -96,8 +95,8 @@ Each question has Claude's recommended answer. The new code already uses these r
 
 21. **Existing packages are hidden from search** until each mentor answers the new search questions, because packages missing answers are hidden by design.
     - Recommended: email your current mentors before deploying, and ask them to open My packages and Account after launch.
-22. **Mentors connecting Cal.com.** Each mentor pastes their Cal.com link, plus an optional webhook so bookings show up on the order automatically.
-    - Recommended: send mentors a short how-to. It's the steps on Account → Calendar & calls.
+22. **Mentors setting call hours.** Phase 3 replaced Cal.com with a built-in calendar. Each mentor sets weekly call hours (and optionally pastes a private calendar link) on Account, or students can't book calls.
+    - Recommended: send mentors a short how-to after Phase 3 goes live. The dashboard also shows a "Set your call hours" prompt.
 
 ## Decided
 - Colors: Iris purple with pink and blue accents, on a white background.
@@ -113,5 +112,5 @@ Each question has Claude's recommended answer. The new code already uses these r
   - Mentor-level answers (stage, school type, background) are given once on the profile.
 - Calls:
   - Only available once a package that includes a call has been paid for.
-  - Booked through the mentor's Cal.com.
+  - Booked on MentorsMD's built-in calendar (Phase 3; Cal.com is removed).
   - No always-on video button.
