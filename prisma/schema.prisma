@@ -155,6 +155,33 @@ model User {
   mentorAgreementVersion String?
   mentorAgreementAt      DateTime?
 
+  // ---- Legal, minors and admin team (Phase 5) ----
+  // Date of birth (asked at signup; students who signed up earlier are
+  // asked once). Under 13 can't have an account.
+  dateOfBirth        DateTime? @db.Date
+  // Students under 18: PENDING (waiting for a parent or guardian to
+  // consent), CONSENTED, WITHDRAWN (parent withdrew or declined). Null for
+  // adults; cleared automatically on the 18th birthday (becameAdultAt).
+  minorStatus        String?
+  becameAdultAt      DateTime?
+  // Mentors: false = "I only work with students 18 and over".
+  acceptsMinors      Boolean   @default(true)
+  // Admin team: OWNER (manages the team) or ADMIN. Null on an admin = ADMIN.
+  adminRole          String?
+  adminDisabledAt    DateTime? // disabled admins can't log in
+  sessionsRevokedAt  DateTime? // every login started before this is ended
+  // Required 2-step verification for admins: TOTP (authenticator app) or EMAIL.
+  twoFactorMethod    String?
+  totpSecret         String? // encrypted (lib/totp.ts)
+  totpLastStep       Int? // last code used, so a code can't be used twice
+  twoFactorEnabledAt DateTime?
+
+  legalAcceptances LegalAcceptance[]
+  legalDocsCreated LegalDocument[]   @relation("LegalDocsCreatedBy")
+  parentConsents   ParentConsent[]
+  adminInvitesSent AdminInvite[]     @relation("AdminInvitesSent")
+  adminMfaTokens   AdminMfaToken[]
+
   emailVerificationTokens EmailVerificationToken[]
   flagsAbout              Flag[]                   @relation("FlagsAbout")
   flagsReported           Flag[]                   @relation("FlagsReported")
@@ -714,4 +741,125 @@ model AdminAction {
 
   @@index([createdAt])
   @@index([targetUserId, createdAt])
+}
+
+// ---------------- Legal, minors and admin team (Phase 5) ----------------
+
+// A version of one legal document, edited in Admin -> Legal. Drafts have
+// no version number; publishing gives the next number (1, 2, 3...).
+// changeType MAJOR = everyone must accept it again (blocking screen);
+// MINOR = small fix, earlier acceptances still count. Version 1 is always
+// treated as MAJOR: publishing it switches the requirement on.
+model LegalDocument {
+  id          String    @id @default(cuid())
+  kind        String // TERMS, PRIVACY, MENTOR_AGREEMENT, COMMUNITY_GUIDELINES, PARENTAL_CONSENT
+  version     Int?
+  status      String    @default("DRAFT") // DRAFT, PUBLISHED
+  title       String
+  body        String
+  changeType  String    @default("MAJOR") // MAJOR, MINOR
+  changeNote  String? // "What changed", shown on the blocking screen
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  publishedAt DateTime?
+
+  createdBy     User?   @relation("LegalDocsCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById   String?
+  publishedById String?
+
+  acceptances LegalAcceptance[]
+
+  @@unique([kind, version])
+  @@index([kind, status, publishedAt])
+}
+
+// One row each time someone accepts a legal document (or a parent signs
+// the parental consent form): which version, when, from which IP and
+// browser. version 0 = the built-in text, before any version was published.
+model LegalAcceptance {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  kind       String
+  version    Int
+  context    String // SIGNUP, GOOGLE_SIGNUP, PROMPT, MENTOR_JOIN, PARENT_CONSENT
+  email      String // the account's email at the time (the parent's, for PARENT_CONSENT)
+  signerName String? // typed signature (parent consent)
+  ip         String?
+  userAgent  String?
+
+  user       User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId     String?
+  document   LegalDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  documentId String?
+
+  @@index([userId, kind, version])
+  @@index([kind, version, createdAt])
+  @@index([createdAt])
+}
+
+// Consent from a parent or guardian for a student aged 13-17. The link
+// emailed to the parent works for 7 days (only its hash is stored;
+// reminders send a fresh link with the same expiry). viewToken is the
+// parent's private link to order and call history.
+model ParentConsent {
+  id                 String    @id @default(cuid())
+  createdAt          DateTime  @default(now())
+  status             String    @default("PENDING") // PENDING, CONSENTED, DECLINED, EXPIRED, WITHDRAWN, REPLACED
+  parentName         String
+  parentEmail        String
+  parentPhone        String
+  tokenHash          String    @unique
+  expiresAt          DateTime
+  lastSentAt         DateTime?
+  remindersSent      Int       @default(0)
+  consentedAt        DateTime?
+  signatureName      String?
+  ip                 String?
+  userAgent          String?
+  termsVersion       Int?
+  consentFormVersion Int?
+  viewToken          String?   @unique
+  withdrawnAt        DateTime?
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@index([userId, createdAt])
+  @@index([status, expiresAt])
+}
+
+// Admin -> Team invites. The invitee opens the emailed link, picks a name
+// and password, and becomes an admin. Only the hash of the link is stored.
+model AdminInvite {
+  id             String    @id @default(cuid())
+  email          String
+  adminRole      String    @default("ADMIN") // OWNER or ADMIN
+  tokenHash      String    @unique
+  createdAt      DateTime  @default(now())
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  revokedAt      DateTime?
+  acceptedUserId String?
+
+  invitedBy   User?   @relation("AdminInvitesSent", fields: [invitedById], references: [id], onDelete: SetNull)
+  invitedById String?
+
+  @@index([createdAt])
+}
+
+// Admin 2-step verification: emailed codes (EMAIL_CODE) and the one-time
+// ticket that upgrades a login once the code is right (SESSION).
+model AdminMfaToken {
+  id        String    @id @default(cuid())
+  kind      String // EMAIL_CODE, SESSION
+  tokenHash String
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+  attempts  Int       @default(0)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@index([userId, kind, createdAt])
 }

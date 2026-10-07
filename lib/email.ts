@@ -503,4 +503,135 @@ export async function sendAccountPausedEmail(toEmail: string, name: string, isMe
   });
 }
 
+// ---- Minors and parental consent (Phase 5) ----
+
+// To a parent or guardian: please consent (also used for the reminders).
+export async function sendParentConsentEmail(
+  toEmail: string,
+  parentName: string,
+  studentName: string,
+  consentUrl: string,
+  expiresAt: Date,
+  reminder = false
+) {
+  await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    subject: subj(`${reminder ? "Reminder: " : ""}${studentName} needs your consent to use MentorsMD`),
+    html: `
+      <p>Hi ${esc(parentName.split(" ")[0])},</p>
+      <p><strong>${esc(studentName)}</strong> created a student account on MentorsMD, where students applying to medical school get one-on-one help from vetted medical students and residents.</p>
+      <p>Because ${esc(studentName.split(" ")[0])} is under 18, their account stays paused until a parent or guardian reads our Terms and the Parental Consent form and consents.</p>
+      <p><a href="${esc(consentUrl)}" style="display:inline-block;background:#5536D6;color:#fff;padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:600;">Review and give consent</a></p>
+      <p style="color:#555;">This link expires on ${esc(expiresAt.toDateString())}. If you don't know this student, or don't want them to use MentorsMD, you can ignore this email or choose "I don't consent" on the page.</p>
+    `,
+  });
+}
+
+// To the parent once they've consented: their private parent link.
+export async function sendParentConsentConfirmedEmail(toEmail: string, parentName: string, studentName: string, parentUrl: string) {
+  await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    subject: subj(`Consent recorded for ${studentName}`),
+    html: `
+      <p>Hi ${esc(parentName.split(" ")[0])},</p>
+      <p>Thank you. Your consent for <strong>${esc(studentName)}</strong> to use MentorsMD is recorded, and their account is now active.</p>
+      <p>You'll get a receipt by email for every order. You can see their orders and calls at any time, or withdraw your consent, from your private parent page:</p>
+      <p><a href="${esc(parentUrl)}">Open your parent page</a></p>
+      <p style="color:#555;">Keep this link private: anyone with it can see the order history. It stops working when ${esc(studentName.split(" ")[0])} turns 18.</p>
+    `,
+  });
+}
+
+// To the parent: a receipt for each order the student pays for.
+export async function sendParentReceiptEmail(
+  toEmail: string,
+  parentName: string,
+  studentName: string,
+  order: { gigTitle: string; mentorName: string; amountCents: number; paidAt: Date; dueDate: Date | null },
+  parentUrl: string
+) {
+  await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    subject: subj(`Receipt: ${studentName} booked ${order.gigTitle}`),
+    html: `
+      <p>Hi ${esc(parentName.split(" ")[0])},</p>
+      <p><strong>${esc(studentName)}</strong> booked a package on MentorsMD.</p>
+      <p>
+        <strong>Package:</strong> ${esc(order.gigTitle)}<br/>
+        <strong>Mentor:</strong> ${esc(order.mentorName)}<br/>
+        <strong>Amount paid:</strong> $${(order.amountCents / 100).toFixed(2)}<br/>
+        <strong>Date:</strong> ${esc(order.paidAt.toDateString())}
+        ${order.dueDate ? `<br/><strong>Due:</strong> ${esc(order.dueDate.toDateString())}` : ""}
+      </p>
+      <p>Payment held until you approve: the money is only released to the mentor after the work is delivered and approved (or the review window passes).</p>
+      <p><a href="${esc(parentUrl)}">See all orders and calls</a></p>
+    `,
+  });
+}
+
+// To the student when their minor status changes.
+export async function sendMinorStatusEmail(toEmail: string, name: string, kind: "CONSENTED" | "DECLINED" | "WITHDRAWN" | "ADULT") {
+  const first = esc(name.split(" ")[0]);
+  const text = {
+    CONSENTED: { subject: "Your MentorsMD account is ready", body: "Your parent or guardian gave their consent, so your account is now active. You can message mentors and book packages." },
+    DECLINED: { subject: "Your parent or guardian didn't give consent", body: "Your parent or guardian chose not to give consent, so your MentorsMD account stays paused. If this was a mistake, you can send them a new request after logging in." },
+    WITHDRAWN: { subject: "Your MentorsMD account is paused", body: "Your parent or guardian withdrew their consent, so your account is paused. Our team will contact your parent or guardian about any open orders." },
+    ADULT: { subject: "Happy birthday from MentorsMD", body: "You're 18 now, so your account is a regular account: parental consent is no longer needed, and your parent's link to your orders has stopped working." },
+  }[kind];
+  await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    subject: text.subject,
+    html: `
+      <p>Hi ${first},</p>
+      <p>${text.body}</p>
+      <p><a href="${esc(SITE_URL)}">Go to MentorsMD</a></p>
+    `,
+  });
+}
+
+// ---- Admin team (Phase 5) ----
+
+export async function sendAdminInviteEmail(toEmail: string, inviterName: string, roleLabel: string, inviteUrl: string) {
+  await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    subject: "You're invited to the MentorsMD admin team",
+    html: `
+      <p>${esc(inviterName)} invited you to join the MentorsMD team as ${esc(roleLabel)}.</p>
+      <p><a href="${esc(inviteUrl)}">Accept the invite and set your password</a></p>
+      <p style="color:#555;">This link expires in 7 days and can only be used once. When you first log in you'll set up 2-step verification (an authenticator app or email codes).</p>
+    `,
+  });
+}
+
+export async function sendAdminCodeEmail(toEmail: string, code: string) {
+  await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    subject: subj(`Your MentorsMD admin code: ${code}`),
+    html: `
+      <p>Your MentorsMD admin login code is:</p>
+      <p style="font-size:28px;letter-spacing:6px;"><strong>${esc(code)}</strong></p>
+      <p style="color:#555;">It expires in 10 minutes. If you didn't just try to log in, change your password and tell the team Owner.</p>
+    `,
+  });
+}
+
+export async function sendTeamAccessChangedEmail(toEmail: string, name: string, text: string) {
+  await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    subject: "Your MentorsMD admin access changed",
+    html: `
+      <p>Hi ${esc(name.split(" ")[0])},</p>
+      <p>${esc(text)}</p>
+      <p style="color:#555;">If you have questions, contact the MentorsMD team Owner.</p>
+    `,
+  });
+}
+
 export { SITE_URL };

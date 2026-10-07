@@ -1,6 +1,25 @@
+import { currentDoc } from "@/lib/legal";
+import { LegalBody, LegalHeader } from "@/components/LegalBody";
 import { RECORDING_RETENTION_DAYS } from "@/lib/calls";
 
-export default function TermsPage() {
+// Once a version is published in Admin -> Legal, it replaces the built-in
+// text below (#99, #103).
+export const dynamic = "force-dynamic";
+
+export default async function TermsPage() {
+  const doc = await currentDoc("TERMS");
+  if (doc) {
+    return (
+      <div className="page-narrow">
+        <LegalHeader title={doc.title} version={doc.version} publishedAt={doc.publishedAt} />
+        <LegalBody body={doc.body} />
+      </div>
+    );
+  }
+  return <BuiltInTermsPage />;
+}
+
+function BuiltInTermsPage() {
   return (
     <div className="page-narrow">
       <h1 className="page-title" style={{ marginBottom: 12, textAlign: "left" }}>Terms of Service</h1>
@@ -44,6 +63,15 @@ export default function TermsPage() {
             Messages with slurs or threats may not be delivered. When something is flagged or reported, the MentorsMD team may read the
             conversation and the files involved. Breaking the <a href="/community-guidelines" style={{ textDecoration: "underline" }}>Community Guidelines</a> can
             lead to a warning, a paused account or removal. Mentors also accept the mentor agreement described there. [Placeholder - have a lawyer review.]
+          </p>
+        </div>
+        <div>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>4a. Age and students under 18</h2>
+          <p className="text-secondary">
+            You must be at least 13 to use MentorsMD. Students aged 13 to 17 need a parent or legal guardian to consent (see the{" "}
+            <a href="/parental-consent" style={{ textDecoration: "underline" }}>Parental Consent form</a>) before they can message mentors or book packages.
+            Their parent or guardian receives a receipt for every order and can see their order and call history. Mentors can see that a student is under 18
+            and may choose not to work with students under 18. [Placeholder - have a lawyer review.]
           </p>
         </div>
         <div>

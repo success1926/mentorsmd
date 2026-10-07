@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { statusBadge, tintFor, initialsOf } from "@/components/ui";
+import { MinorBadge, statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { callSummary, fmtDateTime } from "@/lib/calls";
 import { formatHasCall, money } from "@/lib/options";
 
@@ -25,6 +25,7 @@ function OrderRow({ o }: { o: any }) {
           {o.dueDate && ACTIVE.includes(o.status) ? ` · Due ${new Date(o.dueDate).toLocaleDateString()}` : ""}
         </span>
       </div>
+      <MinorBadge person={o.buyer} />
       {statusBadge(o)}
       <div className="row" style={{ gap: 6 }}>
         {o.conversationId && <Link href={`/messages/${o.conversationId}`} className="btn btn-sm">Message</Link>}
@@ -197,7 +198,10 @@ export default function MentorDashboard() {
               <Link key={c.id} href={`/messages/${c.id}`} className="list-row" style={{ padding: "12px 0" }}>
                 <span className="avatar" style={{ background: tintFor(c.buyer?.id || ""), width: 38, height: 38, fontSize: 14 }}>{initialsOf(c.buyer?.name || "")}</span>
                 <div className="grow stack-sm" style={{ gap: 0, minWidth: 0 }}>
-                  <b style={{ fontSize: 15, fontWeight: unread ? 700 : undefined }}>{c.buyer?.name}</b>
+                  <span className="row" style={{ gap: 6 }}>
+                    <b style={{ fontSize: 15, fontWeight: unread ? 700 : undefined }}>{c.buyer?.name}</b>
+                    <MinorBadge person={c.buyer} />
+                  </span>
                   <span className="text-muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{last ? last.body || "Attachment" : "No messages yet"}</span>
                 </div>
                 {unread > 0 ? <span className="count-badge" aria-label={`${unread} unread`}>{unread}</span> : unanswered && <span className="attn-dot" aria-label="Waiting on your reply" />}
