@@ -36,6 +36,12 @@ function BuiltInPrivacyPage() {
             Account information (name, email), messages sent through the site, and booking/payment records.
             Payment card details are handled entirely by Stripe and never touch our servers directly.
           </p>
+          <p className="text-secondary">
+            To understand how the site is used, we keep a private log of visits, which mentor profiles are viewed and what is searched
+            on Find a mentor, and we note how you first found us (for example the website that linked to us). This uses two of our own
+            cookies (a random browser id and the first-visit source), no advertising or outside tracking services, and only the
+            MentorsMD team can see it. Entries are deleted after about 13 months.
+          </p>
         </div>
         <div>
           <h2 style={{ fontSize: 22, marginBottom: 6 }}>2. Third-party services we use</h2>

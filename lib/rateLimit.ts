@@ -35,6 +35,9 @@ export const RATE_LIMITS = {
   adminCodePerHour: { name: "admin-code-h", max: 5, windowSec: 3600 },
   admin2faTries: { name: "admin-2fa", max: 10, windowSec: 900 },
   teamInvitePerHour: { name: "team-invite-h", max: 20, windowSec: 3600 },
+  // Phase 6
+  invitePrefillPerIpHour: { name: "invite-prefill-ip", max: 30, windowSec: 3600 },
+  trackPerIpHour: { name: "track-ip", max: 300, windowSec: 3600 },
 } satisfies Record<string, Limit>;
 
 function upstash() {

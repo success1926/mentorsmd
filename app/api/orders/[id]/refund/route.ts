@@ -41,6 +41,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     where: { id: order.id, status: order.status },
     data: {
       status: "REFUNDED",
+      refundedAt: new Date(),
       ...(order.disputed ? { disputeResolvedAt: new Date(), disputeResolution: "REFUNDED" } : {}),
     },
   });
@@ -59,7 +60,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       // Stripe refused - no money moved, so the order goes back to escrow.
       await prisma.order.updateMany({
         where: { id: order.id, status: "REFUNDED" },
-        data: { status: order.status, disputeResolvedAt: null, disputeResolution: null },
+        data: { status: order.status, refundedAt: null, disputeResolvedAt: null, disputeResolution: null },
       });
       return NextResponse.json({ error: err.message || "Refund failed" }, { status: 502 });
     }

@@ -7,6 +7,7 @@ import { Avatar } from "@/components/Avatar";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 import { Icon, ICONS } from "@/components/ui";
 import { BACKGROUNDS, SCHOOL_TYPES, STAGES } from "@/lib/options";
+import { MedicalSchoolPicker } from "@/components/MedicalSchoolPicker";
 import { BusyDatesCard, CallHoursCard, ExternalCalendarCard, TimeZoneCard } from "@/components/AvailabilitySettings";
 
 const LIMITS = { name: 100, credential: 200, bio: 3000, awayNote: 300 };
@@ -86,6 +87,7 @@ export default function AccountPage() {
   const [stage, setStage] = useState("");
   const [school, setSchool] = useState("");
   const [bgs, setBgs] = useState<string[]>([]);
+  const [medSchool, setMedSchool] = useState("");
   const [searchMsg, setSearchMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   // calendar
@@ -115,6 +117,7 @@ export default function AccountPage() {
         setStage(profile.mentorStage || "");
         setSchool(profile.schoolType || "");
         setBgs(profile.backgrounds || []);
+        setMedSchool(profile.medicalSchool || "");
         setAwayNote(profile.awayNote || "");
         setReturnDate(profile.pausedUntil ? String(profile.pausedUntil).slice(0, 10) : "");
         if (profile.role === "SELLER") {
@@ -284,6 +287,7 @@ export default function AccountPage() {
             <h2 style={{ fontSize: 26 }}>About you (for search)</h2>
             <span className="text-secondary">Asked once and used for all your packages. Stage and school type are required for your packages to show in search.</span>
           </div>
+          <MedicalSchoolPicker value={medSchool} onChange={setMedSchool} required help="Shown on your profile. Start typing and pick your school; not listed? Type its full name." />
           <div className="field">
             <span className="field-label">Your stage</span>
             <div className="seg">
@@ -319,8 +323,8 @@ export default function AccountPage() {
           <button
             className="btn btn-primary"
             style={{ alignSelf: "flex-start" }}
-            disabled={!stage || !school}
-            onClick={() => patchProfile({ mentorStage: stage, schoolType: school, backgrounds: bgs }, setSearchMsg, "Saved. Your packages can now show in search.")}
+            disabled={!stage || !school || !medSchool.trim()}
+            onClick={() => patchProfile({ mentorStage: stage, schoolType: school, backgrounds: bgs, medicalSchool: medSchool }, setSearchMsg, "Saved. Your packages can now show in search.")}
           >
             Save answers
           </button>

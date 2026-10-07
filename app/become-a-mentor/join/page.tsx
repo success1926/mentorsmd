@@ -9,6 +9,7 @@ import { AuthShell } from "@/components/AuthShell";
 import { browserTimeZone } from "@/lib/tz";
 import { Honeypot, useRecaptcha } from "@/components/FormGuards";
 import { MentorAgreement } from "@/components/MentorAgreement";
+import { MedicalSchoolPicker } from "@/components/MedicalSchoolPicker";
 
 // useSearchParams() requires a Suspense boundary around it for Next.js's
 // production build to prerender this page correctly - this wrapper is
@@ -32,6 +33,7 @@ function OnboardCoachForm() {
   const [name, setName] = useState("");
   const [credential, setCredential] = useState("");
   const [bio, setBio] = useState("");
+  const [medicalSchool, setMedicalSchool] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { data: session, status } = useSession();
@@ -40,6 +42,14 @@ function OnboardCoachForm() {
   const recaptcha = useRecaptcha();
   // The published Mentor Agreement (Admin -> Legal), if there is one.
   const [agreementDoc, setAgreementDoc] = useState<any>(null);
+  // Medical school from their application, when there is one (#85).
+  useEffect(() => {
+    if (!code || !emailFromLink) return;
+    fetch(`/api/invites/prefill?${new URLSearchParams({ code, email: emailFromLink })}`)
+      .then((r) => r.json())
+      .then((d) => d.medicalSchool && setMedicalSchool((cur) => cur || d.medicalSchool))
+      .catch(() => {});
+  }, [code, emailFromLink]);
   useEffect(() => {
     fetch("/api/legal/current").then((r) => r.json()).then((d) => setAgreementDoc(d.mentorAgreement || null)).catch(() => {});
   }, []);
@@ -87,7 +97,7 @@ function OnboardCoachForm() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        code, email, password, name, credential, bio, timeZone: browserTimeZone(),
+        code, email, password, name, credential, bio, medicalSchool, timeZone: browserTimeZone(),
         agreement: agreed, website: trap, recaptchaToken: await recaptcha("mentor_signup"),
       }),
     });
@@ -117,6 +127,7 @@ function OnboardCoachForm() {
             <input className="input" value={name} onChange={(e) => setName(e.target.value)} /></label>
           <label className="field"><span className="field-label">Credential</span>
             <input className="input" placeholder="e.g. MS3, PGY-2 IM" value={credential} onChange={(e) => setCredential(e.target.value)} /></label>
+          <MedicalSchoolPicker value={medicalSchool} onChange={setMedicalSchool} required help="Filled in from your application when we have it. Start typing to pick from the list; not listed? Type its full name." />
           <label className="field"><span className="field-label">Short bio (optional)</span>
             <textarea className="input" maxLength={3000} placeholder="Where you are in training, what you help with, and what you went through to get in." value={bio} onChange={(e) => setBio(e.target.value)} /></label>
           <label className="field"><span className="field-label">Set a password</span>
@@ -125,7 +136,7 @@ function OnboardCoachForm() {
           <MentorAgreement checked={agreed} onChange={setAgreed} doc={agreementDoc} />
           <Honeypot value={trap} onChange={setTrap} />
           {error && <div role="alert" className="alert alert-danger" style={{ marginBottom: 14 }}>{error}</div>}
-          <button className="btn btn-primary btn-lg btn-block" disabled={loading || !name || !credential || password.length < 8 || !agreed}>
+          <button className="btn btn-primary btn-lg btn-block" disabled={loading || !name || !credential || !medicalSchool.trim() || password.length < 8 || !agreed}>
             {loading ? "Setting up…" : "Create my profile"}
           </button>
         </form>

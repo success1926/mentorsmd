@@ -22,6 +22,7 @@ export default async function MentorProfilePage({ params }: { params: { id: stri
       photoUrl: true,
       mentorStage: true,
       schoolType: true,
+      medicalSchool: true,
       backgrounds: true,
       profileStatus: true,
       pausedUntil: true,

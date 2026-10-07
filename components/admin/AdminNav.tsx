@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 // Tabs across the admin pages.
 const LINKS = [
   { href: "/admin", label: "Overview" },
+  { href: "/admin/insights", label: "Insights" },
   { href: "/admin/legal", label: "Legal" },
   { href: "/admin/minors", label: "Under 18" },
   { href: "/admin/team", label: "Team" },

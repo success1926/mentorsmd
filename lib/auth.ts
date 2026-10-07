@@ -11,6 +11,7 @@ import { verifyRecaptcha } from "./recaptcha";
 import { isBot } from "./honeypot";
 import { isReservedName } from "./reservedNames";
 import { redeemMfaTicket } from "./mfa";
+import { recordSignup, signupAttribution } from "./activity";
 
 // The adapter is what lets NextAuth automatically create/find User rows
 // for Google sign-ins and link them to an Account row. Because the User
@@ -122,6 +123,19 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   events: {
+    // A new account from Google sign-in: store where the person first came
+    // from (#83), read from the first-visit cookie on this request.
+    async createUser({ user }) {
+      try {
+        const { headers } = await import("next/headers");
+        const cookie = headers().get("cookie");
+        const attribution = signupAttribution(cookie);
+        await prisma.user.update({ where: { id: user.id }, data: attribution });
+        await recordSignup(user.id, cookie, attribution.signupSource);
+      } catch (err) {
+        console.error("Couldn't store the signup source for a Google account:", err);
+      }
+    },
     // Google sign-ins: Google has confirmed the email, and a reserved
     // name from the Google profile ("Admin", "Support"...) is replaced.
     async signIn({ user, account }) {
