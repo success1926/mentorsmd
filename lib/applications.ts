@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { guessMedicalSchool } from "@/lib/medicalSchools";
 
 // Simple spam limits for the public application form, using the
 // applications already in the database (no extra service needed).
@@ -35,4 +36,13 @@ export async function applicationLimitError(ipHash: string | null, email?: strin
     }
   }
   return null;
+}
+
+// The medical school from the application behind this invite (or, for an
+// invite sent by hand, the newest application from the same email).
+export async function applicationSchoolForInvite(inviteId: string, email: string) {
+  const app =
+    (await prisma.mentorApplication.findFirst({ where: { inviteId }, select: { medicalSchool: true } })) ||
+    (await prisma.mentorApplication.findFirst({ where: { email: { equals: email, mode: "insensitive" } }, orderBy: { createdAt: "desc" }, select: { medicalSchool: true } }));
+  return guessMedicalSchool(app?.medicalSchool);
 }

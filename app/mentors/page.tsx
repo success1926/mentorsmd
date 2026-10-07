@@ -2,7 +2,12 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { BrowseFilters, SortSelect } from "@/components/BrowseFilters";
 import { Icon, ICONS, Vetted, Rating, tintFor, initialsOf } from "@/components/ui";
-import { parseBrowseFilters, searchMentors } from "@/lib/mentorQueries";
+import { headers } from "next/headers";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { parseBrowseFilters, searchMentors, type BrowseFilters as Filters } from "@/lib/mentorQueries";
+import { attributionFromCookieHeader, isBotUserAgent, recordActivity } from "@/lib/activity";
+import { runAfterResponse } from "@/lib/request";
 import { BACKGROUNDS, FILTER_GROUPS, FORMATS, SCHOOL_TYPES, STAGES, TURNAROUNDS, labelFor, money, serviceLabel } from "@/lib/options";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +31,32 @@ const QUICK = [
   { label: "Gap years", qs: "bg=GAP_YEARS" },
 ];
 
+// Student demand (#82): every search or filter on this page goes into the
+// private activity log, with how many mentors matched. Sorting alone,
+// bots, mentors and admins aren't logged.
+async function logSearch(f: Filters, resultCount: number) {
+  const picked: Record<string, string[]> = {};
+  for (const k of ["service", "format", "turnaround", "price", "stage", "school", "bg"] as const) {
+    if (f[k].length) picked[k] = [...f[k]].sort();
+  }
+  if (f.rating !== null) picked.rating = [String(f.rating)];
+  if (!f.q && Object.keys(picked).length === 0) return;
+  try {
+    const h = headers();
+    if (isBotUserAgent(h.get("user-agent"))) return;
+    const session = await getServerSession(authOptions);
+    const role = (session?.user as any)?.role;
+    if (role && role !== "BUYER") return;
+    const { visitorId } = attributionFromCookieHeader(h.get("cookie"));
+    const userId = (session?.user as any)?.id || null;
+    // A first-time visitor has no visitor id yet: still logged (just not
+    // de-duplicated). Written after the page is sent, so it never slows it down.
+    runAfterResponse(() => recordActivity({ kind: "SEARCH", visitorId, userId, query: f.q ? f.q.toLowerCase() : null, filters: picked, resultCount }));
+  } catch (err) {
+    console.error("Couldn't log the search:", err);
+  }
+}
+
 function toParams(sp: SP) {
   const p = new URLSearchParams();
   for (const [k, v] of Object.entries(sp)) {
@@ -38,6 +69,7 @@ function toParams(sp: SP) {
 export default async function BrowsePage({ searchParams }: { searchParams: SP }) {
   const filters = parseBrowseFilters(searchParams);
   const mentors = await searchMentors(filters);
+  await logSearch(filters, mentors.length);
   const params = toParams(searchParams);
 
   // Active filter pills, each linking to the same URL minus that value.
@@ -165,7 +197,7 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
                       {m.avgRating !== null && m.avgRating >= 4.8 && m.reviewCount >= 5 && <span className="badge badge-pink">Top rated</span>}
                       <span style={{ marginLeft: "auto" }}><Rating avg={m.avgRating} count={m.reviewCount} /></span>
                     </div>
-                    {m.credential && <span className="text-secondary">{m.credential}</span>}
+                    {(m.credential || m.medicalSchool) && <span className="text-secondary">{[m.credential, m.medicalSchool].filter(Boolean).join(" · ")}</span>}
                     {m.bio && (
                       <p style={{ fontSize: 16, lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                         {m.bio}

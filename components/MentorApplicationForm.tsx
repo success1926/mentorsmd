@@ -14,6 +14,7 @@ import {
   resumeExtension,
 } from "@/lib/applicationRules";
 import { useRecaptcha } from "@/components/FormGuards";
+import { MedicalSchoolPicker } from "@/components/MedicalSchoolPicker";
 
 // The public "Apply to mentor" form. The resume goes straight to Vercel
 // Blob first (via /api/applications/resume), then the form is sent to
@@ -113,8 +114,7 @@ export function MentorApplicationForm() {
           <input className="input" type="email" autoComplete="email" maxLength={L.email} value={form.email} onChange={set("email")} required /></label>
         <label className="field"><span className="field-label">Phone</span>
           <input className="input" type="tel" autoComplete="tel" maxLength={L.phone} value={form.phone} onChange={set("phone")} required /></label>
-        <label className="field"><span className="field-label">Medical school</span>
-          <input className="input" maxLength={L.medicalSchool} placeholder="e.g. Johns Hopkins, MS3" value={form.medicalSchool} onChange={set("medicalSchool")} required /></label>
+        <MedicalSchoolPicker value={form.medicalSchool} onChange={(v) => setForm({ ...form, medicalSchool: v })} help="" />
       </div>
       <label className="field"><span className="field-label">Residency (optional)</span>
         <input className="input" maxLength={L.residency} placeholder="e.g. Internal Medicine, PGY-2" value={form.residency} onChange={set("residency")} /></label>

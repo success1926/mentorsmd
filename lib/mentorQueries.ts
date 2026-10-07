@@ -45,6 +45,7 @@ export type MentorCardData = {
   id: string;
   name: string;
   credential: string | null;
+  medicalSchool: string | null;
   bio: string | null;
   photoUrl: string | null;
   mentorStage: string | null;
@@ -118,6 +119,7 @@ export async function searchMentors(f: BrowseFilters): Promise<MentorCardData[]>
       OR: [
         { name: { contains: f.q, mode: "insensitive" } },
         { credential: { contains: f.q, mode: "insensitive" } },
+        { medicalSchool: { contains: f.q, mode: "insensitive" } },
         { bio: { contains: f.q, mode: "insensitive" } },
         {
           gigs: {
@@ -142,6 +144,7 @@ export async function searchMentors(f: BrowseFilters): Promise<MentorCardData[]>
       id: true,
       name: true,
       credential: true,
+      medicalSchool: true,
       bio: true,
       photoUrl: true,
       mentorStage: true,
@@ -161,6 +164,7 @@ export async function searchMentors(f: BrowseFilters): Promise<MentorCardData[]>
       id: m.id,
       name: m.name,
       credential: m.credential,
+      medicalSchool: m.medicalSchool,
       bio: m.bio,
       photoUrl: m.photoUrl,
       mentorStage: m.mentorStage,

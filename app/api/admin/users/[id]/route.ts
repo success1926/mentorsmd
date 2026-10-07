@@ -7,6 +7,7 @@ import { hasAvailability } from "@/lib/schedule";
 import { logAdminAction } from "@/lib/adminLog";
 import { placeSafetyHold } from "@/lib/flags";
 import { healthFor } from "@/lib/health";
+import { describeFilters } from "@/lib/insights";
 
 async function requireAdmin(): Promise<string | null> {
   const session = await getServerSession(authOptions);
@@ -25,14 +26,14 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       id: true, name: true, email: true, role: true, credential: true, bio: true, photoUrl: true, createdAt: true,
       profileStatus: true, pausedUntil: true, awayNote: true, removedAt: true, removedReason: true, removedByAdmin: true,
       safetyHoldAt: true, safetyHoldReason: true, lastActiveAt: true, emailVerified: true, mentorAgreementVersion: true, mentorAgreementAt: true, dateOfBirth: true, minorStatus: true, becameAdultAt: true, acceptsMinors: true,
-      mentorStage: true, schoolType: true, backgrounds: true, weeklyHours: true, timeZone: true, externalCalUrl: true,
+      mentorStage: true, schoolType: true, backgrounds: true, medicalSchool: true, signupSource: true, signupDetail: true, weeklyHours: true, timeZone: true, externalCalUrl: true,
       gigs: { where: { active: true }, select: { id: true, title: true, price: true, service: true, format: true } },
     },
   });
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const where = user.role === "SELLER" ? { sellerId: user.id } : { buyerId: user.id };
-  const [orders, reviews, health, flags, actions] = await Promise.all([
+  const [orders, reviews, health, flags, actions, activity] = await Promise.all([
     prisma.order.findMany({
       where: { ...where, status: { not: "PENDING_PAYMENT" } },
       include: { gig: { select: { title: true } }, buyer: { select: { name: true } }, seller: { select: { name: true } } },
@@ -55,7 +56,17 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       take: 20,
       include: { admin: { select: { name: true } } },
     }),
+    // Private activity log (#86): what this person did, or (mentors) who
+    // looked at their profile recently.
+    prisma.activityEvent.findMany({
+      where: user.role === "SELLER" ? { OR: [{ userId: user.id }, { mentorId: user.id }] } : { userId: user.id },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+      select: { id: true, createdAt: true, kind: true, query: true, filters: true, resultCount: true, mentorId: true, path: true, user: { select: { name: true } } },
+    }),
   ]);
+  const viewedIds = Array.from(new Set(activity.map((a) => a.mentorId).filter(Boolean) as string[]));
+  const viewedNames = new Map((await prisma.user.findMany({ where: { id: { in: viewedIds } }, select: { id: true, name: true } })).map((m) => [m.id, m.name]));
 
   // The mentor's secret calendar address stays private, even from admins.
   const { weeklyHours, externalCalUrl, ...rest } = user;
@@ -65,6 +76,21 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     health,
     flags,
     actions,
+    activity: activity.map((a) => ({
+      id: a.id,
+      createdAt: a.createdAt,
+      kind: a.kind,
+      text:
+        a.kind === "PROFILE_VIEW"
+          ? a.mentorId === user.id
+            ? `${a.user?.name || "A visitor"} viewed this profile`
+            : `Viewed ${viewedNames.get(a.mentorId || "") || "a mentor"}'s profile`
+          : a.kind === "SEARCH"
+            ? `Searched ${[a.query ? `"${a.query}"` : "", describeFilters(a.filters)].filter(Boolean).join(" · ")} (${a.resultCount ?? "?"} found)`
+            : a.kind === "VISIT"
+              ? `Visited${a.path ? ` ${a.path}` : ""}`
+              : "Signed up",
+    })),
     rating: reviews ? { avg: reviews._avg.rating, count: reviews._count._all } : null,
   });
 }
