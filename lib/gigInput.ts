@@ -11,7 +11,6 @@ import {
   isValue,
   labelFor,
 } from "@/lib/options";
-import { normalizeCalLink } from "@/lib/calls";
 
 type SearchFields = {
   service: string;
@@ -20,7 +19,6 @@ type SearchFields = {
   turnaround: string;
   callsIncluded: number;
   callLength: number | null;
-  calEventUrl: string | null;
   duration: string;
   category: ReturnType<typeof categoryForService>;
 };
@@ -30,7 +28,7 @@ type SearchFields = {
 // whole. Returns either the fields to save or a friendly error.
 export function parseGigSearchFields(
   body: any,
-  current?: { service: string | null; serviceOther?: string | null; format: string | null; turnaround: string | null; callsIncluded: number; callLength: number | null; calEventUrl: string | null }
+  current?: { service: string | null; serviceOther?: string | null; format: string | null; turnaround: string | null; callsIncluded: number; callLength: number | null }
 ): { data: SearchFields } | { error: string } {
   const service = body.service ?? current?.service;
   const format = body.format ?? current?.format;
@@ -61,17 +59,6 @@ export function parseGigSearchFields(
     if (!CALL_LENGTHS.includes(callLength)) return { error: "Choose the call length" };
   }
 
-  let calEventUrl: string | null = current?.calEventUrl ?? null;
-  if (body.calEventUrl !== undefined) {
-    if (body.calEventUrl === null || body.calEventUrl === "") {
-      calEventUrl = null;
-    } else {
-      calEventUrl = normalizeCalLink(body.calEventUrl);
-      if (!calEventUrl) return { error: "The Cal.com event link doesn't look right, e.g. https://cal.com/your-name/45min" };
-    }
-  }
-  if (!formatHasCall(format)) calEventUrl = null;
-
   return {
     data: {
       service,
@@ -80,7 +67,6 @@ export function parseGigSearchFields(
       turnaround,
       callsIncluded,
       callLength,
-      calEventUrl,
       duration: labelFor(TURNAROUNDS, turnaround),
       category: categoryForService(service),
     },

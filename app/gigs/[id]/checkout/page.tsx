@@ -5,6 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Icon, ICONS, Vetted, tintFor, initialsOf } from "@/components/ui";
 import { FORMATS, TURNAROUNDS, labelFor, money, serviceLabel } from "@/lib/options";
+import { DatePicker } from "@/components/DatePicker";
+import { RECORDING_NOTICE } from "@/lib/calls";
+import { fmtDayLabel } from "@/lib/tz";
 
 export default function CheckoutPage() {
   const params = useParams();
@@ -17,7 +20,7 @@ export default function CheckoutPage() {
   const [error, setError] = useState("");
   const [paying, setPaying] = useState(false);
   const [cancelled, setCancelled] = useState(false);
-  const minDate = new Date().toISOString().split("T")[0];
+  const [rules, setRules] = useState<{ earliest: string; latest: string; busy: { startDay: string; endDay: string }[]; explanation: string } | null>(null);
 
   useEffect(() => {
     // Read from window.location rather than useSearchParams, which would
@@ -30,6 +33,15 @@ export default function CheckoutPage() {
         else setGig(data.gig);
       })
       .catch(() => setNotFound(true));
+    // Earliest due date (from the turnaround) and the mentor's busy dates.
+    fetch(`/api/gigs/${gigId}/due-dates`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        setRules(d);
+        setDueDate((cur) => cur || d.earliest);
+      })
+      .catch(() => {});
   }, [gigId]);
 
   async function handleConfirm() {
@@ -114,28 +126,40 @@ export default function CheckoutPage() {
                 <Icon d={ICONS.calendar} />
                 <span>
                   Includes {gig.callsIncluded} × {gig.callLength}-minute call{gig.callsIncluded > 1 ? "s" : ""}. After you pay, you&apos;ll book
-                  {gig.callsIncluded > 1 ? " them" : " it"} on {seller.name.split(" ")[0]}&apos;s calendar from your order page, before your due date.
+                  {gig.callsIncluded > 1 ? " them" : " it"} from {seller.name.split(" ")[0]}&apos;s open times on your order page, before your due date. Calls happen in a private MentorsMD video room.
                 </span>
               </div>
             )}
+            {gig.callsIncluded > 0 && <p className="notice">{RECORDING_NOTICE}</p>}
           </div>
 
           <div className="card stack">
-            <label className="field" style={{ marginBottom: 0 }}>
+            <div className="stack-sm">
               <span className="field-label">Due date</span>
               <span className="field-help">When you need the work back. Agree on it with your mentor in messages first.</span>
-              <input
-                type="date"
-                min={minDate}
-                value={dueDate}
-                onChange={(e) => {
-                  setDueDate(e.target.value);
-                  setError("");
-                }}
-                className="input"
-                style={{ maxWidth: 260 }}
-              />
-            </label>
+              {rules && <span className="text-secondary small">{rules.explanation}</span>}
+            </div>
+            {rules ? (
+              <div className="picker-wrap">
+                <DatePicker
+                  value={dueDate}
+                  onChange={(d) => { setDueDate(d); setError(""); }}
+                  min={rules.earliest}
+                  max={rules.latest}
+                  initialMonth={rules.earliest}
+                  isDisabled={(d) => rules.busy.some((b) => d >= b.startDay && d <= b.endDay)}
+                  label="Due date"
+                />
+                {dueDate && (
+                  <div className="stack-sm">
+                    <span className="text-muted">Selected</span>
+                    <b style={{ fontSize: 18 }}>{fmtDayLabel(dueDate, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</b>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <span className="text-muted">Loading dates…</span>
+            )}
           </div>
         </div>
 

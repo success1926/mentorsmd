@@ -6,7 +6,7 @@
 
 export const JOIN_OPENS_MINUTES_BEFORE = 10; // Join button appears 10 min before start
 export const JOIN_CLOSES_MINUTES_AFTER = 30; // ...and stays until 30 min after the scheduled end
-export const CANCEL_CUTOFF_HOURS = 24; // online cancel/reschedule closes 24h before the call
+export const CANCEL_CUTOFF_HOURS = 24; // on-site cancel/reschedule closes 24h before the call
 export const CALL_HOLD_HOURS = 48; // after the due date, the student has 48h to book or waive
 export const CALL_REMINDER_EVERY_DAYS = 3; // "book your call" nudges while a call is unbooked
 
@@ -18,8 +18,6 @@ export type BookingLike = {
   endTime: DateLike;
   status: string; // BOOKED | CANCELLED | COMPLETED
   source?: string | null;
-  calUid?: string | null;
-  meetingUrl?: string | null;
 };
 
 export type OrderCallLike = {
@@ -70,51 +68,11 @@ export function canChangeOnline(b: BookingLike, now: Date = new Date()) {
   return new Date(b.startTime).getTime() - now.getTime() > CANCEL_CUTOFF_HOURS * 3600_000;
 }
 
-// Only accept real https Cal.com-style links, so nobody can put a
-// javascript: URL or a phishing page behind the "Book a call" button.
-export function normalizeCalLink(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const v = value.trim();
-  if (!v) return null;
-  try {
-    const u = new URL(v.startsWith("http") ? v : `https://${v}`);
-    if (u.protocol !== "https:") return null;
-    const host = u.hostname.toLowerCase();
-    const allowed = (process.env.NEXT_PUBLIC_CAL_HOSTS || "cal.com,app.cal.com,cal.eu")
-      .split(",")
-      .map((h) => h.trim().toLowerCase())
-      .filter(Boolean);
-    if (!allowed.some((h) => host === h || host.endsWith(`.${h}`))) return null;
-    if (u.pathname.length < 2) return null;
-    return `${u.origin}${u.pathname.replace(/\/+$/, "")}`;
-  } catch {
-    return null;
-  }
-}
-
-// The link the student opens to book. The order id rides along as Cal.com
-// booking metadata, which Cal.com sends back in its webhook - that's how
-// a booking gets attached to the right order.
-export function calBookingUrl(base: string, opts: { orderId: string; name?: string; email?: string }) {
-  const u = new URL(base);
-  if (opts.name) u.searchParams.set("name", opts.name);
-  if (opts.email) u.searchParams.set("email", opts.email);
-  u.searchParams.set("metadata[orderId]", opts.orderId);
-  return u.toString();
-}
-
-export function calManageUrls(base: string | null | undefined, uid: string | null | undefined) {
-  if (!uid) return null;
-  let origin = "https://cal.com";
-  try {
-    if (base) origin = new URL(base).origin;
-  } catch {}
-  if (origin === "https://app.cal.com") origin = "https://cal.com";
-  return {
-    reschedule: `${origin}/reschedule/${encodeURIComponent(uid)}`,
-    cancel: `${origin}/booking/${encodeURIComponent(uid)}?cancel=true`,
-  };
-}
+// Shown when booking, on the order page, on the pre-join screen, and in
+// the Terms and Privacy pages. "May be" because recording only runs when
+// it's switched on (DAILY_RECORDING_ENABLED).
+export const RECORDING_RETENTION_DAYS = 60;
+export const RECORDING_NOTICE = `Calls may be recorded for safety and quality. Only the MentorsMD team can watch a recording, and only if there's a problem with an order. Recordings are deleted ${RECORDING_RETENTION_DAYS} days after the order is closed.`;
 
 export function fmtDateTime(d: DateLike) {
   return new Date(d).toLocaleString(undefined, {

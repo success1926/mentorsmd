@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function MentorProfilePage({ params }: { params: { id: string } }) {
   // Everything returned here is sent to the browser (ProfileClient is a
   // client component). Public fields only - never email, passwordHash,
-  // stripeAccountId, calLink secrets or lockout counters.
+  // stripeAccountId, calendar addresses or lockout counters.
   const seller = await prisma.user.findUnique({
     where: { id: params.id },
     select: {

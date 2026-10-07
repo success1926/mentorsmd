@@ -99,7 +99,7 @@ Included:
 - `/api/orders` — the current user's bookings (buyer view) or orders placed with them (seller view)
 - `/api/conversations` — get-or-create a buyer/seller thread, and list your own threads
 - `/api/conversations/[id]/messages` — send/list messages, restricted to the two participants
-- `/api/video/room` — creates a one-hour Daily.co room for a conversation and returns the URL to embed
+- `/api/calls/[id]/join` — gives the student or mentor their own token for the call's private Daily.co room (from 10 min before until 30 min after)
 
 ## Due dates and messaging during the order
 
@@ -299,10 +299,9 @@ Stripe charge) and **Release to coach** (same release path a buyer would
 normally trigger) - an admin decides, nothing resolves itself
 automatically.
 
-**Scheduled calls** - `/api/orders/[id]/schedule-call` lets either party
-lock in a specific date/time for the video call, shown on the order page.
-There's no calendar sync (Google Calendar, etc.) - this only tracks the
-time within the app itself.
+**Scheduled calls** - see "Phase 3" at the end of this file: students
+book calls from the mentor's availability on the order page
+(`/api/orders/[id]/calls`), with emails and calendar invites.
 
 **Discount codes** - created from `/admin`, either percent-off or a fixed
 dollar amount. Validated server-side at checkout (never trust a discount
@@ -724,13 +723,29 @@ New look (Iris colors, Fraunces + Instrument Sans, Leland-style layout) on every
 
 - **Browse**: left filter sidebar (service, format, turnaround, price, mentor stage, school type, background, rating), active filter pills, quick links. Mentor cards list the packages that match.
 - **Packages** must answer the search questions (service, format, turnaround, and calls if included). Mentors answer stage / school type / background once on `/account`. Anything missing is hidden from search, and the mentor sees a warning.
-- **Calls**: no always-on video. A package can include 1-3 calls. After payment the student gets "Book a call", which opens the mentor's Cal.com page with the order id attached. Bookings come back through `/api/webhooks/cal?mentor=<id>` (per-mentor secret on `/account#calendar`), or the mentor adds an agreed time by hand. Join opens 10 min before; reschedule/cancel go through Cal.com (24h cutoff). Mentors can't mark work complete until included calls happen, are skipped, or are forfeited.
-- **Unbooked-call rule** (`lib/callRules.ts`, runs with the daily 09:00 cron): reminders, then "on hold" at the due date, then forfeit after 48h if the mentor had a Cal.com page. All timings are constants in `lib/calls.ts`.
+- **Calls**: no always-on video. A package can include 1-3 calls (booking replaced in Phase 3, below). Mentors can't mark work complete until included calls happen, are skipped, or are forfeited.
+- **Unbooked-call rule** (`lib/callRules.ts`, runs with the daily 09:00 cron): reminders, then "on hold" at the due date, then forfeit after 48h if the mentor had call hours set (Phase 3). All timings are constants in `lib/calls.ts`.
 - **Calendar sync**: `/account#calendar` gives every user a private .ics feed (Google / Outlook / Apple).
-- **Mentor side**: `/dashboard` (availability switch, needs-attention list, active/completed orders, messages), `/dashboard/packages`, `/dashboard/payouts` (debug panel removed), `/account` (profile, search answers, Cal.com, calendar, pause / remove).
+- **Mentor side**: `/dashboard` (availability switch, needs-attention list, active/completed orders, messages), `/dashboard/packages`, `/dashboard/payouts` (debug panel removed), `/account` (profile, search answers, call hours, busy dates, calendar, pause / remove).
 - **Messages**: new `/messages` inbox with an order side panel.
 - **Admin**: collapsible Pending/Resolved disputes, Pending/Joined invites, People (mentors/students: view, pause, remove with reason, restore). Discount-code UI removed (the API still exists).
 - **Fixes**: checkout cancel URL 404, mentor shown at checkout, confirm before removing a package, Stripe debug data no longer sent to the browser.
 
 Database: run `npx prisma db push` (or paste `prisma/redesign-2026-09.sql` into the Neon SQL editor) **before** deploying.
 Marketing content (schools strip, testimonials, acceptance rate, photos) lives in `lib/content.ts`; empty items are hidden.
+
+## Phase 3 (Oct 2026): built-in calendar, calls and reminders
+
+Cal.com is gone. Everything happens on the site:
+
+- **Mentor availability** (`/account#call-hours`): weekly hours per weekday, time zone, break between calls, minimum notice, single days off. Rules and slot maths: `lib/schedule.ts`.
+- **Own calendar**: mentors can paste the secret iCal address of their Google / iCloud / Outlook calendar; busy times are read (cached 15 minutes, `lib/icalBusy.ts`) and hidden from booking.
+- **Busy dates** (`/account#busy-dates`): date ranges with a private note, blocking due dates ("No deadlines") or due dates and calls. Mentors are warned (on screen and by email) when new busy dates cover deadlines they already have; those orders keep their dates.
+- **Due dates at checkout**: a calendar that opens on the earliest allowed date (turnaround: 48h -> 2 days, 3-5 days -> 5, 1-2 weeks -> 14, scheduled call -> 2), skipping busy dates, which are greyed out. The server checks the same rules. Each order keeps the turnaround it was bought with. The revision push (7 days) also skips busy dates.
+- **Booking** (order page): the student picks an open slot (`/api/orders/[id]/slots`, `/api/orders/[id]/calls`). Booking creates the call and a private Daily room, and emails both people with a calendar invite (.ics). Reschedule and cancel work on the site until 24 hours before (`CANCEL_CUTOFF_HOURS`), with updated invites. Mentors can still add a time they agreed by hand.
+- **Calls**: `/calls/<id>` is the pre-join screen (recording notice), then the private room with a per-person token. Attendance (join/leave times) and recordings come in through `/api/webhooks/daily`; attendance shows on the order page and in Admin -> Calls & recordings, recordings are admin-only ("Watch recording") and deleted 60 days after the order closes (daily, with the auto-release cron).
+- **My calendar** (`/calendar`): upcoming and past calls, plus due dates and busy dates for mentors. The private subscribe feed on `/account#calendar` stays.
+- **Reminders**: 8am on the day (each person's own time zone) and 1 hour before, with the Join link, sent once and reset when a call moves. `/api/cron/call-reminders` must run every 15 minutes: Vercel Pro, or a free scheduler such as cron-job.org calling it with the header `Authorization: Bearer <CRON_SECRET>`.
+- **Time zones**: every account stores one (detected in the browser, editable on Account).
+
+Setup: run `prisma/phase3-2026-10.sql` in the Neon SQL editor (after a backup branch) before deploying. Env vars: `DAILY_API_KEY` (video), `DAILY_RECORDING_ENABLED="true"` (recording, paid Daily plan), `DAILY_WEBHOOK_SECRET` (from Admin -> Calls & recordings -> Connect Daily webhook).

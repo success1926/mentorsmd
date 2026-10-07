@@ -6,6 +6,7 @@ import { signIn, useSession } from "next-auth/react";
 import { logOut } from "@/components/TopNav";
 import Link from "next/link";
 import { AuthShell } from "@/components/AuthShell";
+import { browserTimeZone } from "@/lib/tz";
 
 // useSearchParams() requires a Suspense boundary around it for Next.js's
 // production build to prerender this page correctly - this wrapper is
@@ -75,7 +76,7 @@ function OnboardCoachForm() {
     const res = await fetch("/api/signup/seller", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, email, password, name, credential, bio }),
+      body: JSON.stringify({ code, email, password, name, credential, bio, timeZone: browserTimeZone() }),
     });
     const data = await res.json();
 

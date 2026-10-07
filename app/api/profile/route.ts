@@ -4,6 +4,16 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { LIMITS, isNonEmptyString } from "@/lib/validate";
 import { BACKGROUNDS, SCHOOL_TYPES, STAGES, isValue } from "@/lib/options";
+import { hasAvailability } from "@/lib/schedule";
+import { isValidTimeZone } from "@/lib/tz";
+
+function safeHost(url: string) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "your calendar";
+  }
+}
 
 // The logged-in user's own profile. Anyone can edit their name; coaches
 // can also edit the credential and bio shown on their public profile.
@@ -18,15 +28,25 @@ export async function GET() {
     select: {
       id: true, name: true, email: true, role: true, credential: true, bio: true, photoUrl: true, passwordHash: true,
       mentorStage: true, schoolType: true, backgrounds: true,
-      profileStatus: true, pausedUntil: true, awayNote: true, removedAt: true, removedByAdmin: true, calLink: true,
+      profileStatus: true, pausedUntil: true, awayNote: true, removedAt: true, removedByAdmin: true,
+      timeZone: true, weeklyHours: true, bufferMinutes: true, minNoticeHours: true, daysOff: true,
+      externalCalUrl: true, externalCalError: true, externalBusyFetchedAt: true,
     },
   });
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { passwordHash, ...profile } = user;
+  const { passwordHash, externalCalUrl, ...profile } = user;
   // Never send the hash itself - just whether one exists (Google-only
-  // accounts have none, so they can't "change" a password).
-  return NextResponse.json({ profile: { ...profile, hasPassword: !!passwordHash } });
+  // accounts have none, so they can't "change" a password). The secret
+  // calendar address is only shown shortened.
+  return NextResponse.json({
+    profile: {
+      ...profile,
+      hasPassword: !!passwordHash,
+      hasAvailability: hasAvailability(user.weeklyHours),
+      externalCal: externalCalUrl ? { host: safeHost(externalCalUrl) } : null,
+    },
+  });
 }
 
 export async function PATCH(req: Request) {
@@ -43,7 +63,20 @@ export async function PATCH(req: Request) {
     mentorStage?: string;
     schoolType?: string;
     backgrounds?: string[];
+    timeZone?: string;
   } = {};
+
+  // Time zone: anyone. `onlyIfEmpty` is the automatic browser detection,
+  // which never overwrites a zone the person picked themselves.
+  if (body.timeZone !== undefined) {
+    if (!isValidTimeZone(body.timeZone)) return NextResponse.json({ error: "Pick a valid time zone" }, { status: 400 });
+    if (body.onlyIfEmpty) {
+      await prisma.user.updateMany({ where: { id: userId, timeZone: null }, data: { timeZone: body.timeZone } });
+      if (Object.keys(body).every((k) => k === "timeZone" || k === "onlyIfEmpty")) return NextResponse.json({ ok: true });
+    } else {
+      data.timeZone = body.timeZone;
+    }
+  }
 
   if (body.name !== undefined) {
     if (!isNonEmptyString(body.name, LIMITS.name)) {
@@ -85,7 +118,7 @@ export async function PATCH(req: Request) {
   const updated = await prisma.user.update({
     where: { id: userId },
     data,
-    select: { id: true, name: true, credential: true, bio: true, photoUrl: true, mentorStage: true, schoolType: true, backgrounds: true },
+    select: { id: true, name: true, credential: true, bio: true, photoUrl: true, mentorStage: true, schoolType: true, backgrounds: true, timeZone: true },
   });
   return NextResponse.json({ profile: updated });
 }

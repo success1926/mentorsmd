@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { hasAvailability } from "@/lib/schedule";
 import { callSummary, CALL_HOLD_HOURS, CALL_REMINDER_EVERY_DAYS } from "@/lib/calls";
 import {
   sendBookCallReminderEmail,
@@ -15,16 +16,17 @@ import {
 //      order ("on hold") and email both sides. The mentor can extend the
 //      due date, message the student, or contact us. The student gets
 //      48 hours to book or say "I don't need the call".
-//   3. After those 48 hours: if the mentor had a Cal.com page (so the
-//      student could have booked), the call is forfeited and the mentor
-//      can complete the order. Otherwise it stays on hold for an admin.
+//   3. After those 48 hours: if the mentor had availability set (so the
+//      student could have booked a slot), the call is forfeited and the
+//      mentor can complete the order. Otherwise it stays on hold for an
+//      admin to decide.
 const BATCH = 100;
 
 const include = {
   gig: true,
   callBookings: true,
   buyer: { select: { email: true } },
-  seller: { select: { email: true, calLink: true } },
+  seller: { select: { email: true, weeklyHours: true } },
 } as const;
 
 export async function runCallRules(now: Date = new Date()) {
@@ -89,7 +91,7 @@ export async function runCallRules(now: Date = new Date()) {
   });
   for (const o of toForfeit) {
     if (callSummary(o, now).toBook === 0) continue;
-    if (!o.seller.calLink && !o.gig.calEventUrl) continue; // stays on hold; admin decides
+    if (!hasAvailability(o.seller.weeklyHours)) continue; // stays on hold; admin decides
     await prisma.order.update({ where: { id: o.id }, data: { callForfeitedAt: now } });
     results.forfeited++;
     const url = `${SITE_URL}/orders/${o.id}`;

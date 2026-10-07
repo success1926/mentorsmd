@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { hasAvailability } from "@/lib/schedule";
 
 // A single order, for the order detail page. Previously that page fetched
 // EVERY order the user had and searched for one client-side, which also
@@ -19,9 +20,16 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     include: {
       gig: true,
       buyer: { select: { name: true, photoUrl: true } },
-      seller: { select: { name: true, credential: true, photoUrl: true, calLink: true } },
+      seller: { select: { name: true, credential: true, photoUrl: true, weeklyHours: true } },
       review: true,
-      callBookings: { orderBy: { startTime: "asc" } },
+      callBookings: {
+        orderBy: { startTime: "asc" },
+        include: {
+          attendance: { orderBy: { joinedAt: "asc" }, select: { id: true, userId: true, name: true, joinedAt: true, leftAt: true, durationSec: true } },
+          // Recordings are admin-only; removed below for everyone else.
+          recordings: { orderBy: { createdAt: "asc" }, select: { id: true, status: true, startedAt: true, durationSec: true, deletedAt: true } },
+        },
+      },
       deliveries: { orderBy: { number: "asc" } },
     },
   });
@@ -30,10 +38,15 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
 
-  // `viewer` lets the page prefill the Cal.com booking form with the
-  // student's own name and email.
+  const isAdmin = role === "ADMIN";
+  const { weeklyHours, ...seller } = order.seller;
+  const safe = {
+    ...order,
+    seller: { ...seller, hasAvailability: hasAvailability(weeklyHours) },
+    callBookings: order.callBookings.map(({ recordings, ...b }) => ({ ...b, ...(isAdmin ? { recordings } : {}) })),
+  };
   return NextResponse.json({
-    order,
+    order: safe,
     viewer: { id: userId, role, name: session.user.name ?? "", email: session.user.email ?? "" },
   });
 }

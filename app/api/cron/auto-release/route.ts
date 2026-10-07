@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { releaseOrder, FundsNotYetAvailableError, OrderStateChangedError } from "@/lib/orderRelease";
 import { isAuthorizedCron } from "@/lib/cron";
+import { cleanupRecordings } from "@/lib/recordings";
 
 const WINDOW_HOURS = 96;
 
@@ -64,5 +65,15 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ checked: dueForRelease.length, results });
+  // Call recordings past their 60 days ride along on this daily run
+  // (keeps the project within the Hobby plan's cron limit).
+  let recordings: any = null;
+  try {
+    recordings = await cleanupRecordings();
+  } catch (err: any) {
+    console.error("Recording cleanup failed:", err);
+    recordings = { error: err.message };
+  }
+
+  return NextResponse.json({ checked: dueForRelease.length, results, recordings });
 }
