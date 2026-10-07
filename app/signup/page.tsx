@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AuthShell, GoogleButton } from "@/components/AuthShell";
+import { browserTimeZone } from "@/lib/tz";
 
 export default function StudentSignupPage() {
   const router = useRouter();
@@ -21,7 +22,7 @@ export default function StudentSignupPage() {
     const res = await fetch("/api/signup/buyer", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name, email, password, timeZone: browserTimeZone() }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {

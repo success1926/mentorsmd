@@ -6,7 +6,7 @@ export const metadata = { title: "Become a mentor · MentorsMD" };
 const PERKS = [
   { title: "Set your own packages", body: "Choose what you offer, your price and your turnaround. Pause any time.", icon: ICONS.pen },
   { title: "Get paid reliably", body: "Students pay up front. We hold it and release it to you when the work is approved.", icon: ICONS.lock },
-  { title: "Calls on your calendar", body: "Connect Cal.com and students book calls in your open times, only after they've paid.", icon: ICONS.calendar },
+  { title: "Calls on your calendar", body: "Set your weekly hours once. Students book calls in your open times, only after they've paid, and calls happen in a private MentorsMD video room.", icon: ICONS.calendar },
 ];
 
 export default function BecomeMentorPage() {

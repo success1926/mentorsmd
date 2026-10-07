@@ -7,6 +7,7 @@ import { Avatar } from "@/components/Avatar";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 import { Icon, ICONS } from "@/components/ui";
 import { BACKGROUNDS, SCHOOL_TYPES, STAGES } from "@/lib/options";
+import { BusyDatesCard, CallHoursCard, ExternalCalendarCard, TimeZoneCard } from "@/components/AvailabilitySettings";
 
 const LIMITS = { name: 100, credential: 200, bio: 3000, awayNote: 300 };
 
@@ -89,9 +90,6 @@ export default function AccountPage() {
 
   // calendar
   const [feedUrl, setFeedUrl] = useState<string | null>(null);
-  const [cal, setCal] = useState<{ calLink: string | null; webhookUrl: string; webhookSecret: string | null } | null>(null);
-  const [calInput, setCalInput] = useState("");
-  const [calMsg, setCalMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   // availability
   const [returnDate, setReturnDate] = useState("");
@@ -120,7 +118,6 @@ export default function AccountPage() {
         setAwayNote(profile.awayNote || "");
         setReturnDate(profile.pausedUntil ? String(profile.pausedUntil).slice(0, 10) : "");
         if (profile.role === "SELLER") {
-          fetch("/api/profile/cal").then((r) => r.json()).then((d) => { setCal(d); setCalInput(d.calLink || ""); }).catch(() => {});
           fetch("/api/orders").then((r) => r.json()).then((d) => setActiveOrders((d.orders || []).filter((o: any) => ["IN_ESCROW", "COMPLETED"].includes(o.status)).length)).catch(() => {});
         }
       })
@@ -211,20 +208,6 @@ export default function AccountPage() {
     const res = await fetch("/api/profile/calendar", { method });
     const d = await res.json().catch(() => ({}));
     if (res.ok) setFeedUrl(d.feedUrl);
-  }
-
-  async function saveCal(body: any, okText: string) {
-    setCalMsg(null);
-    const res = await fetch("/api/profile/cal", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const d = await res.json().catch(() => ({}));
-    if (!res.ok) return setCalMsg({ ok: false, text: d.error || "Couldn't save" });
-    setCal(d);
-    setCalInput(d.calLink || "");
-    setCalMsg({ ok: true, text: okText });
   }
 
   async function availability(body: any, okText: string) {
@@ -345,63 +328,25 @@ export default function AccountPage() {
         </section>
       )}
 
+      {/* ---------- Call availability + busy dates (mentors) ---------- */}
+      {isSeller && <CallHoursCard key={JSON.stringify([profile.weeklyHours, profile.timeZone, profile.daysOff])} profile={profile} onSaved={loadProfile} />}
+      {isSeller && <BusyDatesCard />}
+
       {/* ---------- Calendar & calls ---------- */}
       <section id="calendar" className="card stack" style={{ scrollMarginTop: 100, gap: 20 }}>
         <div className="stack-sm">
           <h2 style={{ fontSize: 26 }}>Calendar &amp; calls</h2>
           <span className="text-secondary">
             {isSeller
-              ? "Connect Cal.com so students can book the calls in your packages, and add your MentorsMD calls to your own calendar."
-              : "Add your MentorsMD calls to the calendar you already use."}
+              ? "Your time zone, blocking busy times from your own calendar, and adding MentorsMD calls to the calendar you already use."
+              : "Your time zone, and adding your MentorsMD calls to the calendar you already use."}{" "}
+            <Link href="/calendar" className="link">Open My calendar</Link>
           </span>
         </div>
 
-        {isSeller && cal && (
-          <div className="card card-tint stack" style={{ padding: 20 }}>
-            <div className="between">
-              <b className="row"><Icon d={ICONS.calendar} size={18} /> Cal.com booking page</b>
-              {cal.calLink ? <span className="badge badge-success">Connected</span> : <span className="badge">Not connected</span>}
-            </div>
-            <span className="text-secondary small">
-              Students only see this after they&apos;ve paid for a package that includes a call. Set your hours, buffers and video link in Cal.com.
-            </span>
-            <label className="field" style={{ marginBottom: 0 }}>
-              <span className="field-label">Your Cal.com link</span>
-              <div className="row">
-                <input className="input grow" style={{ marginBottom: 0 }} placeholder="https://cal.com/your-name/45min" value={calInput} onChange={(e) => setCalInput(e.target.value)} />
-                <button className="btn btn-primary btn-sm" onClick={() => saveCal({ calLink: calInput }, "Cal.com link saved.")} disabled={!calInput.trim()}>Save</button>
-                {cal.calLink && <button className="btn btn-sm" onClick={() => saveCal({ calLink: null }, "Cal.com disconnected.")}>Disconnect</button>}
-              </div>
-            </label>
+        <TimeZoneCard key={profile.timeZone || "none"} initial={profile.timeZone || null} onSaved={loadProfile} />
 
-            {cal.calLink && (
-              <details className="collapse">
-                <summary style={{ fontSize: 15 }}>Show bookings on orders automatically (recommended)</summary>
-                <div className="collapse-body">
-                  <ol className="text-secondary small" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
-                    <li>In Cal.com, go to Settings → Developer → Webhooks → New.</li>
-                    <li>Paste the URL and secret below.</li>
-                    <li>Turn on: Booking created, Booking rescheduled, Booking cancelled. Save.</li>
-                  </ol>
-                  <CopyField label="Subscriber URL" value={cal.webhookUrl} />
-                  {cal.webhookSecret ? (
-                    <CopyField label="Secret" value={cal.webhookSecret} />
-                  ) : (
-                    <button className="btn btn-soft btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => saveCal({ newSecret: true }, "Secret created. Paste it into Cal.com.")}>Create secret</button>
-                  )}
-                  {cal.webhookSecret && (
-                    <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start", color: "var(--muted)" }}
-                      onClick={() => confirm("Make a new secret? You'll need to paste it into Cal.com again.") && saveCal({ newSecret: true }, "New secret created. Update it in Cal.com.")}>
-                      Reset secret
-                    </button>
-                  )}
-                  <span className="text-muted">Without this, you can still add agreed call times by hand on each order.</span>
-                </div>
-              </details>
-            )}
-            <Msg m={calMsg} />
-          </div>
-        )}
+        {isSeller && <ExternalCalendarCard profile={profile} onChanged={loadProfile} />}
 
         <div className="stack">
           <b>Sync to your calendar</b>

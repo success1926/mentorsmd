@@ -3,7 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
-import { parseDate } from "@/lib/validate";
+import { isDayString } from "@/lib/tz";
+import { dayToDueDate, dueDayProblem } from "@/lib/schedule";
+import { busyRangesFor } from "@/lib/callBooking";
+import { todayFor } from "@/lib/dueDates";
 import { gigPriceOutOfRange, isMentorVisible } from "@/lib/mentor";
 
 // Creates a Stripe Checkout Session for one gig package. Deliberately NOT
@@ -29,8 +32,7 @@ export async function POST(req: Request) {
   if (!dueDate) {
     return NextResponse.json({ error: "Pick a due date before checking out" }, { status: 400 });
   }
-  const parsedDueDate = parseDate(dueDate);
-  if (!parsedDueDate) {
+  if (!isDayString(dueDate)) {
     return NextResponse.json({ error: "Pick a due date between today and one year from now" }, { status: 400 });
   }
   if (typeof gigId !== "string") {
@@ -50,6 +52,14 @@ export async function POST(req: Request) {
   if (!gig.seller.stripeAccountId) {
     return NextResponse.json({ error: "This mentor hasn't finished setting up payouts yet" }, { status: 400 });
   }
+
+  // Due date rules: at least the package's turnaround away, and never on
+  // one of the mentor's busy dates (the picker greys these out too).
+  const today = await todayFor(buyerId);
+  const ranges = await busyRangesFor(gig.sellerId, today);
+  const dueProblem = dueDayProblem(dueDate, today, gig.turnaround, ranges);
+  if (dueProblem) return NextResponse.json({ error: dueProblem }, { status: 400 });
+  const parsedDueDate = dayToDueDate(dueDate);
 
   const conversation = await prisma.conversation.findUnique({
     where: { buyerId_sellerId: { buyerId, sellerId: gig.sellerId } },
@@ -77,6 +87,7 @@ export async function POST(req: Request) {
       amount: gig.price,
       status: "PENDING_PAYMENT",
       dueDate: parsedDueDate,
+      turnaround: gig.turnaround,
       conversationId: conversation.id,
     },
   });

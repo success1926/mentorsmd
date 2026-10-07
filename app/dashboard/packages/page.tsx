@@ -35,10 +35,9 @@ type Form = {
   turnaround: string;
   callsIncluded: number;
   callLength: number;
-  calEventUrl: string;
 };
 
-const EMPTY: Form = { title: "", description: "", price: "", service: "", serviceOther: "", format: "", turnaround: "", callsIncluded: 1, callLength: 45, calEventUrl: "" };
+const EMPTY: Form = { title: "", description: "", price: "", service: "", serviceOther: "", format: "", turnaround: "", callsIncluded: 1, callLength: 45 };
 
 function missing(g: any) {
   const m: string[] = [];
@@ -123,7 +122,6 @@ function PackageForm({ initial, onSaved, onCancel, gigId }: { initial: Form; onS
       turnaround: f.turnaround,
       callsIncluded: hasCall ? f.callsIncluded : 0,
       callLength: hasCall ? f.callLength : null,
-      calEventUrl: hasCall ? f.calEventUrl.trim() : "",
     };
     const res = await fetch(gigId ? `/api/gigs/${gigId}` : "/api/gigs", {
       method: gigId ? "PATCH" : "POST",
@@ -190,6 +188,7 @@ function PackageForm({ initial, onSaved, onCancel, gigId }: { initial: Form; onS
           <div className={bad("pf-turnaround") ? "seg-error" : ""}>
             <Seg id="pf-turnaround" label="Turnaround" options={TURNAROUNDS} value={f.turnaround} onChange={(v) => set({ turnaround: v })} />
           </div>
+          <span className="field-help">Sets the earliest due date a student can pick (48 hours: 2 days, 3 to 5 days: 5 days, 1 to 2 weeks: 14 days, scheduled call: 2 days).{gigId ? " Changes apply to new orders only." : ""}</span>
         </div>
         {hasCall && (
           <>
@@ -211,11 +210,7 @@ function PackageForm({ initial, onSaved, onCancel, gigId }: { initial: Form; onS
                 onChange={(v) => set({ callLength: Number(v) })}
               />
             </div>
-            <label className="field" style={{ marginBottom: 0 }}>
-              <span className="field-label">Cal.com event link for this package (optional)</span>
-              <span className="field-help">Leave blank to use the Cal.com link on your account. Use a specific event if this call has a different length.</span>
-              <input className="input" value={f.calEventUrl} onChange={(e) => set({ calEventUrl: e.target.value })} placeholder="https://cal.com/your-name/45min" />
-            </label>
+            <span className="field-help">After paying, students book each call from your open times. Set your hours on <Link href="/account#call-hours" className="link">Account → Call availability</Link>.</span>
           </>
         )}
       </div>
@@ -368,7 +363,6 @@ function Packages() {
                 turnaround: g.turnaround || "",
                 callsIncluded: g.callsIncluded || 1,
                 callLength: g.callLength || 45,
-                calEventUrl: g.calEventUrl || "",
               }}
               onCancel={() => setEditing(null)}
               onSaved={() => { setEditing(null); load(); }}

@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendRevisionRequestedEmail, SITE_URL } from "@/lib/email";
+import { revisionDueDay } from "@/lib/dueDates";
+import { dayToDueDate } from "@/lib/schedule";
 
 const REVISION_WINDOW_DAYS = 7;
 
@@ -17,9 +19,9 @@ const REVISION_WINDOW_DAYS = 7;
 //     original completion timestamp and pay the seller regardless of the
 //     revision request.
 //
-// Every revision request also pushes the due date out to exactly 7 days
-// from the moment it's submitted, overwriting whatever the due date was
-// before. If 7 days genuinely isn't enough for a given revision, the
+// Every revision request also pushes the due date out to 7 days from the
+// moment it's submitted (moved later if that lands on one of the mentor's
+// busy dates), overwriting whatever the due date was before. If 7 days genuinely isn't enough for a given revision, the
 // seller can move it further out themselves via
 // /api/orders/[id]/due-date.
 export async function POST(req: Request, { params }: { params: { id: string } }) {
@@ -43,7 +45,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (note.length > 5000) return NextResponse.json({ error: "Note is too long (5000 characters max)" }, { status: 400 });
 
   const wasCompleted = order.status === "COMPLETED";
-  const newDueDate = new Date(Date.now() + REVISION_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  // 7 days out, moved past any of the mentor's busy dates.
+  const newDueDate = dayToDueDate(await revisionDueDay(order.sellerId, REVISION_WINDOW_DAYS));
 
   // Conditional on the status we just read, so this can't resurrect an
   // order that the auto-release cron paid out a moment ago.

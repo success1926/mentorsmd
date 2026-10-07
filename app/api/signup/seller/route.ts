@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/prisma";
 import { LIMITS, isNonEmptyString, normalizeEmail } from "@/lib/validate";
+import { isValidTimeZone } from "@/lib/tz";
 
 // THIS is the route that enforces "sellers can't sign up on their own."
 // It is the only place a SELLER-role user is ever created, and it refuses
@@ -9,7 +10,7 @@ import { LIMITS, isNonEmptyString, normalizeEmail } from "@/lib/validate";
 // Never trust a client-side check for this - always verify the code here,
 // server-side, against the database.
 export async function POST(req: Request) {
-  const { code, email: rawEmail, password, name, credential, bio } = await req.json();
+  const { code, email: rawEmail, password, name, credential, bio, timeZone } = await req.json();
 
   const email = normalizeEmail(rawEmail);
   if (typeof code !== "string" || !email || !isNonEmptyString(name, LIMITS.name)) {
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
       });
       if (burned.count === 0) throw new Error("INVITE_ALREADY_USED");
       const created = await tx.user.create({
-        data: { email, name: name.trim(), passwordHash, role: "SELLER", credential: credential || null, bio: bio || null },
+        data: { email, name: name.trim(), passwordHash, role: "SELLER", credential: credential || null, bio: bio || null, timeZone: isValidTimeZone(timeZone) ? timeZone : null },
       });
       await tx.invite.update({ where: { id: invite.id }, data: { redeemedByUserId: created.id } });
       return created;

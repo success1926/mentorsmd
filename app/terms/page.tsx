@@ -1,3 +1,5 @@
+import { RECORDING_RETENTION_DAYS } from "@/lib/calls";
+
 export default function TermsPage() {
   return (
     <div className="page-narrow">
@@ -13,32 +15,42 @@ export default function TermsPage() {
           <h2 style={{ fontSize: 22, marginBottom: 6 }}>1. What this site does</h2>
           <p className="text-secondary">
             MentorsMD connects students ("students") with invited mentors ("mentors") for paid coaching sessions.
-            Mentors are personally vetted and invited; buyers may sign up freely.
+            Mentors are personally vetted and invited; students may sign up freely.
           </p>
         </div>
         <div>
           <h2 style={{ fontSize: 22, marginBottom: 6 }}>2. Payments and escrow</h2>
           <p className="text-secondary">
-            Payment is collected at booking and held until the buyer confirms the work is complete, at which point
+            Payment is collected at booking and held until the student approves the work, at which point
             it is released to the mentor minus a platform fee. [Placeholder - describe your actual refund window,
             dispute process, and fee percentage here.]
           </p>
         </div>
         <div>
-          <h2 style={{ fontSize: 22, marginBottom: 6 }}>3. Account responsibilities</h2>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>3. Video calls and recordings</h2>
+          <p className="text-secondary">
+            Calls included in a package take place in a private MentorsMD video room that only the student and mentor on
+            the order can join. Calls may be recorded for safety and quality. Recordings are only watched by the MentorsMD
+            team when there is a problem with an order (for example a dispute or a missed call), are never shared with
+            the other person or anyone else, and are deleted {RECORDING_RETENTION_DAYS} days after the order is closed. We also keep a
+            record of when each person joined and left a call. By joining a call, you agree to this.
+          </p>
+        </div>
+        <div>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>4. Account responsibilities</h2>
           <p className="text-secondary">
             Users are responsible for the accuracy of information they provide and for maintaining the security of
             their account credentials. [Placeholder.]
           </p>
         </div>
         <div>
-          <h2 style={{ fontSize: 22, marginBottom: 6 }}>4. Limitation of liability</h2>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>5. Limitation of liability</h2>
           <p className="text-secondary">
             [Placeholder - this section typically needs the most careful legal drafting of any section here.]
           </p>
         </div>
         <div>
-          <h2 style={{ fontSize: 22, marginBottom: 6 }}>5. Changes to these terms</h2>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>6. Changes to these terms</h2>
           <p className="text-secondary">
             [Placeholder - describe how and when you'll notify users of changes.]
           </p>
