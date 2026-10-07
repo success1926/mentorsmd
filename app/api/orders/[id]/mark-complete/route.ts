@@ -4,13 +4,18 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendWorkCompleteEmail, SITE_URL } from "@/lib/email";
 import { callSummary } from "@/lib/calls";
+import { parseDelivery } from "@/lib/deliveries";
 
 // This is now the ONLY way an order moves out of IN_ESCROW under normal
 // circumstances - the seller says the work is done, which starts the
 // 96-hour clock. From here: the buyer can confirm early (immediate
 // release, see /api/orders/[id]/release) or do nothing, in which case
 // /api/cron/auto-release picks it up once 96 hours have passed.
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+//
+// Every call saves a Delivery (a required description plus optional
+// files already uploaded through /api/upload). A revision request sends
+// the order back here, and the next delivery becomes Delivery 2, 3...
+export async function POST(req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
@@ -43,22 +48,45 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     );
   }
 
+  const parsed = parseDelivery(await req.json().catch(() => null));
+  if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
+
   // Conditional update so a refund landing at the same moment can't be
-  // overwritten back to COMPLETED.
-  const claim = await prisma.order.updateMany({
-    where: { id: params.id, status: "IN_ESCROW" },
-    data: { status: "COMPLETED", workCompletedAt: new Date() },
-  });
-  if (claim.count === 0) {
+  // overwritten back to COMPLETED. The delivery is saved in the same
+  // transaction, so there's never a "delivered" order without one.
+  let delivery;
+  try {
+    delivery = await prisma.$transaction(async (tx) => {
+      const claim = await tx.order.updateMany({
+        where: { id: params.id, status: "IN_ESCROW", disputed: false },
+        data: { status: "COMPLETED", workCompletedAt: new Date() },
+      });
+      if (claim.count === 0) return null;
+      const count = await tx.delivery.count({ where: { orderId: params.id } });
+      return tx.delivery.create({
+        data: { orderId: params.id, number: count + 1, description: parsed.description, files: parsed.files },
+      });
+    });
+  } catch (err) {
+    // Two clicks at once can both try to save "Delivery N"; the unique
+    // index stops the second one.
+    console.error("Failed to save delivery:", err);
+    return NextResponse.json({ error: "This order changed - refresh the page" }, { status: 409 });
+  }
+  if (!delivery) {
     return NextResponse.json({ error: "This order changed - refresh the page" }, { status: 409 });
   }
   const updated = await prisma.order.findUnique({ where: { id: params.id } });
 
   try {
-    await sendWorkCompleteEmail(order.buyer.email, order.gig.title, `${SITE_URL}/orders/${order.id}`);
+    await sendWorkCompleteEmail(order.buyer.email, order.gig.title, `${SITE_URL}/orders/${order.id}`, {
+      number: delivery.number,
+      description: parsed.description,
+      files: parsed.files,
+    });
   } catch (err) {
     console.error("Failed to send work-complete email:", err);
   }
 
-  return NextResponse.json({ order: updated });
+  return NextResponse.json({ order: updated, delivery });
 }

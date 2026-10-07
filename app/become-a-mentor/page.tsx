@@ -34,12 +34,12 @@ export default function BecomeMentorPage() {
         <div className="card stack" style={{ gap: 14 }}>
           <h2 style={{ fontSize: 30 }}>How to join</h2>
           <ol className="stack-sm" style={{ margin: 0, paddingLeft: 20, fontSize: 16, lineHeight: 1.6 }}>
-            <li>Tell us about yourself: your school, year, and what you&apos;d like to help with.</li>
+            <li>Fill in the short application: your medical school, residency if you have one, your resume and a few lines about yourself.</li>
             <li>Our senior team reviews your background and admissions experience.</li>
             <li>If you&apos;re a fit, we email you a one-time invite link to set up your profile.</li>
           </ol>
           <div className="row-wrap">
-            <Link href="/contact?topic=mentor" className="btn btn-primary btn-lg">Apply to mentor</Link>
+            <Link href="/become-a-mentor/apply" className="btn btn-primary btn-lg">Apply to mentor</Link>
             <span className="text-secondary">Already have an invite? Open the link in your invite email.</span>
           </div>
         </div>

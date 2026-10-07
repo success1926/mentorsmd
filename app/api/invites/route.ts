@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import crypto from "crypto";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sendSellerInviteEmail } from "@/lib/email";
+import { createAndSendInvite } from "@/lib/invites";
 import { normalizeEmail } from "@/lib/validate";
 
 // This is the whole access-control mechanism for who can become a seller:
@@ -31,34 +30,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
   }
 
-  const code = crypto.randomBytes(8).toString("hex").toUpperCase(); // 16 chars - not guessable
-  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7); // 7 days
-
-  const invite = await prisma.invite.create({
-    data: {
-      code,
-      email,
-      expiresAt,
-      createdById: (session!.user as any).id,
-    },
-  });
-
-  const inviteUrl = `${process.env.NEXTAUTH_URL}/become-a-mentor/join?code=${code}&email=${encodeURIComponent(email)}`;
-
-  try {
-    await sendSellerInviteEmail(email, inviteUrl);
-  } catch (err) {
-    console.error("Failed to send invite email:", err);
-    // The invite still exists even if the email failed to send - the
-    // admin can resend it (see the /resend route below) rather than
-    // losing the whole invite over a transient email error.
-    // Pass the real reason back so the admin sees it (e.g. "domain is not
-    // verified") instead of a silent failure.
-    const reason = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ invite, emailSent: false, warning: `Invite created but the email failed to send: ${reason}` });
-  }
-
-  return NextResponse.json({ invite, emailSent: true });
+  const result = await createAndSendInvite(email, (session!.user as any).id);
+  return NextResponse.json(result);
 }
 
 export async function GET() {
