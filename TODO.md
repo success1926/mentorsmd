@@ -7,8 +7,8 @@ Status on Oct 6, 2026: Phase 1 is on the `phase-1` branch on GitHub (from `mento
 
 ## Now: Deploy Phase 1 to a preview
 - [x] Get the Phase 1 code onto a `phase-1` branch on GitHub (**Claude**, Oct 6)
-- [ ] Make a Neon backup branch named `backup-before-phase-1` (**Tabo**)
-- [ ] Run `prisma/phase1-2026-10.sql` in the Neon SQL Editor on main. The check query should return 3 rows (**Tabo**)
+- [x] Make a Neon backup branch named `backup-before-phase-1` (**Claude**, Oct 7)
+- [x] Run `prisma/phase1-2026-10.sql` on the production database (**Claude**, Oct 7; 3 columns confirmed)
 - [ ] Put the `-git-phase-1-` preview domain in the Preview-only `NEXTAUTH_URL` on Vercel, then redeploy (**Tabo**)
 
 ## Now: Test Phase 1 on the preview
