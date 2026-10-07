@@ -46,6 +46,7 @@ const RIGHT_LINKS: Record<string, NavLink[]> = {
     { label: "Payouts", href: "/dashboard/payouts" },
   ],
   ADMIN: [{ label: "Admin", href: "/admin" }],
+  ADMIN_2FA: [{ label: "Finish logging in", href: "/admin/verify" }],
 };
 
 const MENU: Record<string, NavLink[]> = {
@@ -68,11 +69,13 @@ const MENU: Record<string, NavLink[]> = {
   ],
   ADMIN: [
     { label: "Admin", href: "/admin" },
+    { label: "Team", href: "/admin/team" },
     { label: "Account settings", href: "/account" },
   ],
+  ADMIN_2FA: [{ label: "Finish logging in", href: "/admin/verify" }],
 };
 
-const ROLE_LABEL: Record<string, string> = { BUYER: "Student account", SELLER: "Mentor account", ADMIN: "Admin" };
+const ROLE_LABEL: Record<string, string> = { BUYER: "Student account", SELLER: "Mentor account", ADMIN: "Admin", ADMIN_2FA: "Admin (verification needed)" };
 
 function initials(name: string) {
   return (name || "?")
@@ -122,7 +125,7 @@ export function TopNav() {
   // Unread badge + package count. Refreshes on page change, every minute,
   // when the tab regains focus, and right after a thread is read.
   useEffect(() => {
-    if (status !== "authenticated" || role === "ADMIN") return;
+    if (status !== "authenticated" || role === "ADMIN" || role === "ADMIN_2FA") return;
     let alive = true;
     const load = () =>
       fetch("/api/me/nav")

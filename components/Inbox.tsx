@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useConversation, SendError } from "@/lib/hooks/useConversation";
 import { OrderCalls } from "@/components/Calls";
-import { Icon, ICONS, StaffBadge, Vetted, statusBadge, tintFor, initialsOf } from "@/components/ui";
+import { Icon, ICONS, MinorBadge, StaffBadge, Vetted, statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { ConfirmEmailNotice, IntegrityBanner, MessageText, ReportDialog, SendWarnings, setBlocked, type SendWarning } from "@/components/Safety";
 import { money } from "@/lib/options";
 
@@ -73,7 +73,10 @@ export function Inbox({ selectedId }: { selectedId?: string }) {
                 <PersonAvatar person={other} />
                 <div className="grow stack-sm" style={{ gap: 2 }}>
                   <div className="between">
-                    <b className="nowrap" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{other?.name}</b>
+                    <span className="row" style={{ gap: 6, minWidth: 0 }}>
+                      <b className="nowrap" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{other?.name}</b>
+                      {role === "SELLER" && <MinorBadge person={other} />}
+                    </span>
                     {last && <span className="text-muted nowrap">{when(last.createdAt)}</span>}
                   </div>
                   <div className="row" style={{ gap: 8 }}>
@@ -220,6 +223,7 @@ function Thread({ conversationId }: { conversationId: string }) {
             <div className="row" style={{ gap: 8 }}>
               <b>{other?.name}</b>
               {role !== "SELLER" && <Vetted />}
+              {role === "SELLER" && <MinorBadge person={other} />}
             </div>
             {role !== "SELLER" && convo.seller.credential && <span className="text-muted">{convo.seller.credential}</span>}
           </div>
@@ -241,6 +245,11 @@ function Thread({ conversationId }: { conversationId: string }) {
           </div>
         </div>
         <IntegrityBanner />
+        {role === "SELLER" && other?.minorStatus && (
+          <div className="integrity-banner" role="note" style={{ background: "var(--pink-soft)" }}>
+            {other.name.split(" ")[0]} is under 18. Their parent or guardian gets receipts for every order. Never share phone numbers, emails, social media or outside meeting links: with a student under 18 that is a high-severity safety issue.
+          </div>
+        )}
 
         <div
           className="thread-body"

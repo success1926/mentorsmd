@@ -17,7 +17,8 @@ export type FlagKind =
   | "LINK"
   | "AI"
   | "PERFORMANCE"
-  | "BLOCKED_MESSAGE";
+  | "BLOCKED_MESSAGE"
+  | "MINOR";
 
 export type Severity = 1 | 2 | 3;
 

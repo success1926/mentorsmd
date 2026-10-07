@@ -32,6 +32,7 @@ export async function GET() {
       profileStatus: true, pausedUntil: true, awayNote: true, removedAt: true, removedByAdmin: true,
       timeZone: true, weeklyHours: true, bufferMinutes: true, minNoticeHours: true, daysOff: true,
       externalCalUrl: true, externalCalError: true, externalBusyFetchedAt: true,
+      acceptsMinors: true, dateOfBirth: true, minorStatus: true,
     },
   });
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -65,6 +66,7 @@ export async function PATCH(req: Request) {
     schoolType?: string;
     backgrounds?: string[];
     timeZone?: string;
+    acceptsMinors?: boolean;
   } = {};
 
   // Time zone: anyone. `onlyIfEmpty` is the automatic browser detection,
@@ -112,6 +114,11 @@ export async function PATCH(req: Request) {
       if (!isValue(SCHOOL_TYPES, body.schoolType)) return NextResponse.json({ error: "Pick your school type" }, { status: 400 });
       data.schoolType = body.schoolType;
     }
+    // "Work with students under 18" (#110).
+    if (body.acceptsMinors !== undefined) {
+      if (typeof body.acceptsMinors !== "boolean") return NextResponse.json({ error: "Invalid setting" }, { status: 400 });
+      data.acceptsMinors = body.acceptsMinors;
+    }
     if (body.backgrounds !== undefined) {
       if (!Array.isArray(body.backgrounds) || !body.backgrounds.every((b: unknown) => isValue(BACKGROUNDS, b))) {
         return NextResponse.json({ error: "Unknown background option" }, { status: 400 });
@@ -123,7 +130,7 @@ export async function PATCH(req: Request) {
   const updated = await prisma.user.update({
     where: { id: userId },
     data,
-    select: { id: true, name: true, credential: true, bio: true, photoUrl: true, mentorStage: true, schoolType: true, backgrounds: true, timeZone: true },
+    select: { id: true, name: true, credential: true, bio: true, photoUrl: true, mentorStage: true, schoolType: true, backgrounds: true, timeZone: true, acceptsMinors: true },
   });
   return NextResponse.json({ profile: updated });
 }

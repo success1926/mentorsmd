@@ -29,6 +29,12 @@ export const RATE_LIMITS = {
   applicationsPerIpHour: { name: "apply-ip", max: 5, windowSec: 3600 },
   reportsPerHour: { name: "report-h", max: 10, windowSec: 3600 },
   verifyEmailPerHour: { name: "verify-h", max: 3, windowSec: 3600 },
+  // Phase 5
+  parentConsentPerDay: { name: "parent-consent-d", max: 5, windowSec: 86400 },
+  parentPagePerIpHour: { name: "parent-page-ip", max: 60, windowSec: 3600 },
+  adminCodePerHour: { name: "admin-code-h", max: 5, windowSec: 3600 },
+  admin2faTries: { name: "admin-2fa", max: 10, windowSec: 900 },
+  teamInvitePerHour: { name: "team-invite-h", max: 20, windowSec: 3600 },
 } satisfies Record<string, Limit>;
 
 function upstash() {

@@ -11,6 +11,7 @@ import { isEmailConfirmed } from "@/lib/emailVerification";
 import { blockBetween } from "@/lib/blocks";
 import { aiCheckAndFlag, checkOutgoingMessage, flagSavedMessage, senderBlockReason } from "@/lib/messageSafety";
 import { runAfterResponse } from "@/lib/request";
+import { gateBlockReason } from "@/lib/gate";
 
 // Most recent N messages returned when a thread opens. Keeps long-running
 // threads fast; older history can be paged in with ?before=<messageId>.
@@ -86,6 +87,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const held = await senderBlockReason(sender);
   if (held) return NextResponse.json({ error: held, code: "ON_HOLD" }, { status: 403 });
+
+  // Date of birth, updated legal documents, parental consent (Phase 5).
+  if (sender.role === "BUYER" || sender.role === "SELLER") {
+    const gate = await gateBlockReason(senderId);
+    if (gate) return NextResponse.json({ error: gate, code: "ACCOUNT_GATE" }, { status: 403 });
+  }
 
   const otherId = convo.buyerId === senderId ? convo.sellerId : convo.buyerId;
   const blocks = await blockBetween(senderId, otherId);
