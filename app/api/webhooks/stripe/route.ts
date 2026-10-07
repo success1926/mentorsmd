@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       // back into escrow, making it releasable a second time.
       const result = await prisma.order.updateMany({
         where: { id: orderId, status: "PENDING_PAYMENT" },
-        data: { status: "IN_ESCROW", fundsAvailableAt, stripePaymentIntentId: checkoutSession.id },
+        data: { status: "IN_ESCROW", fundsAvailableAt, stripePaymentIntentId: checkoutSession.id, paidAt: new Date() },
       });
 
       if (result.count === 1) {

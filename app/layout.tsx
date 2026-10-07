@@ -5,6 +5,7 @@ import { Providers } from "./providers";
 import { TopNav } from "@/components/TopNav";
 import { Footer } from "@/components/Footer";
 import { AccountGate } from "@/components/AccountGate";
+import { Tracker } from "@/components/Tracker";
 
 // This is what actually determines how the site looks when someone
 // finds it via Google on their phone - the title/description below are
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <TopNav />
           <AccountGate />
+          <Tracker />
           <main className="site-main">{children}</main>
           <Footer />
         </Providers>

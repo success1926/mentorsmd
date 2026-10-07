@@ -176,6 +176,18 @@ model User {
   totpLastStep       Int? // last code used, so a code can't be used twice
   twoFactorEnabledAt DateTime?
 
+  // ---- Insights (Phase 6) ----
+  // Mentors: their medical school (picked from lib/medicalSchools.ts, or
+  // typed in when it isn't listed). Copied from the mentor application.
+  medicalSchool String?
+  // How this account first found MentorsMD (first visit, before signup):
+  // "google", "instagram", "direct", "referral"... (lib/attribution.ts),
+  // and the detail behind it (campaign, referring site, landing page).
+  signupSource  String?
+  signupDetail  String?
+
+  activityEvents ActivityEvent[]
+
   legalAcceptances LegalAcceptance[]
   legalDocsCreated LegalDocument[]   @relation("LegalDocsCreatedBy")
   parentConsents   ParentConsent[]
@@ -396,6 +408,12 @@ model Order {
   // The package's turnaround when the order was placed. Changing a
   // package's turnaround only affects new orders.
   turnaround String?
+
+  // When the payment cleared and when it was refunded (Phase 6, for Admin
+  // -> Insights). Orders from before Phase 6 have neither; their order
+  // date is used instead.
+  paidAt     DateTime?
+  refundedAt DateTime?
 
   // Postgres doesn't index foreign keys automatically. Without these,
   // every "my orders" page and every cron run scans the whole table.
@@ -862,4 +880,31 @@ model AdminMfaToken {
   userId String
 
   @@index([userId, kind, createdAt])
+}
+
+// ---------------- Insights (Phase 6) ----------------
+
+// The private activity log behind Admin -> Insights (#86): site visits,
+// mentor profile views and browse searches. Only admins ever see it.
+// visitorId is a random id kept in a first-party cookie (never an IP).
+// kind: VISIT, PROFILE_VIEW, SEARCH, SIGNUP
+model ActivityEvent {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  kind        String
+  visitorId   String?
+  mentorId    String? // PROFILE_VIEW: whose profile
+  query       String? // SEARCH: the typed words (lowercased)
+  filters     Json? // SEARCH: { service: [...], school: [...], ... }
+  resultCount Int? // SEARCH: how many mentors matched
+  source      String? // VISIT / SIGNUP: where the visitor came from
+  path        String? // VISIT: landing page
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId String?
+
+  @@index([kind, createdAt])
+  @@index([mentorId, kind, createdAt])
+  @@index([visitorId, createdAt])
+  @@index([userId, createdAt])
 }

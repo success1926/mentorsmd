@@ -13,6 +13,7 @@ import { sendVerificationLink } from "@/lib/emailVerification";
 import { ADULT_AGE, MIN_AGE, UNDER_13_MESSAGE, ageOn, parseDob, requiredKindsFor } from "@/lib/legalKinds";
 import { recordAcceptances, requestMeta } from "@/lib/legal";
 import { cleanParentInfo, startParentConsent } from "@/lib/minors";
+import { recordSignup, signupAttribution } from "@/lib/activity";
 
 // Students can sign up freely; this route is protected against bots by a
 // hidden trap field, reCAPTCHA and per-IP limits. A "confirm your email"
@@ -72,8 +73,11 @@ export async function POST(req: Request) {
         email, name: name.trim(), passwordHash, role: "BUYER", timeZone: isValidTimeZone(timeZone) ? timeZone : null,
         dateOfBirth: dob,
         minorStatus: minor ? "PENDING" : null,
+        // Where they first came from (#83), from the first-visit cookie.
+        ...signupAttribution(req.headers.get("cookie")),
       },
     });
+    await recordSignup(user.id, req.headers.get("cookie"), user.signupSource);
     await recordAcceptances(user, requiredKindsFor("BUYER"), "SIGNUP", requestMeta(req)).catch((err) => console.error("Couldn't record the signup agreement:", err));
     if (parent && !("error" in parent)) await startParentConsent(user, parent);
     try {

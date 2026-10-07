@@ -7,6 +7,7 @@ import { BACKGROUNDS, SCHOOL_TYPES, STAGES, isValue } from "@/lib/options";
 import { hasAvailability } from "@/lib/schedule";
 import { isValidTimeZone } from "@/lib/tz";
 import { RESERVED_NAME_ERROR, isReservedName } from "@/lib/reservedNames";
+import { normalizeMedicalSchool } from "@/lib/medicalSchools";
 
 function safeHost(url: string) {
   try {
@@ -28,7 +29,7 @@ export async function GET() {
     where: { id: (session.user as any).id },
     select: {
       id: true, name: true, email: true, role: true, credential: true, bio: true, photoUrl: true, passwordHash: true,
-      mentorStage: true, schoolType: true, backgrounds: true,
+      mentorStage: true, schoolType: true, backgrounds: true, medicalSchool: true,
       profileStatus: true, pausedUntil: true, awayNote: true, removedAt: true, removedByAdmin: true,
       timeZone: true, weeklyHours: true, bufferMinutes: true, minNoticeHours: true, daysOff: true,
       externalCalUrl: true, externalCalError: true, externalBusyFetchedAt: true,
@@ -67,6 +68,7 @@ export async function PATCH(req: Request) {
     backgrounds?: string[];
     timeZone?: string;
     acceptsMinors?: boolean;
+    medicalSchool?: string | null;
   } = {};
 
   // Time zone: anyone. `onlyIfEmpty` is the automatic browser detection,
@@ -114,6 +116,12 @@ export async function PATCH(req: Request) {
       if (!isValue(SCHOOL_TYPES, body.schoolType)) return NextResponse.json({ error: "Pick your school type" }, { status: 400 });
       data.schoolType = body.schoolType;
     }
+    // Medical school (#85): picked from the list or typed in.
+    if (body.medicalSchool !== undefined) {
+      const school = normalizeMedicalSchool(body.medicalSchool);
+      if (!school) return NextResponse.json({ error: "Enter your medical school" }, { status: 400 });
+      data.medicalSchool = school;
+    }
     // "Work with students under 18" (#110).
     if (body.acceptsMinors !== undefined) {
       if (typeof body.acceptsMinors !== "boolean") return NextResponse.json({ error: "Invalid setting" }, { status: 400 });
@@ -130,7 +138,7 @@ export async function PATCH(req: Request) {
   const updated = await prisma.user.update({
     where: { id: userId },
     data,
-    select: { id: true, name: true, credential: true, bio: true, photoUrl: true, mentorStage: true, schoolType: true, backgrounds: true, timeZone: true, acceptsMinors: true },
+    select: { id: true, name: true, credential: true, bio: true, photoUrl: true, mentorStage: true, schoolType: true, backgrounds: true, medicalSchool: true, timeZone: true, acceptsMinors: true },
   });
   return NextResponse.json({ profile: updated });
 }

@@ -96,6 +96,8 @@ export default function MentorDashboard() {
   const attn: Attn[] = [];
   if (payouts === false) attn.push({ key: "payouts", tone: "danger", text: "Connect payouts so students can book you.", href: "/dashboard/payouts", cta: "Connect" });
   if (profile && (!profile.mentorStage || !profile.schoolType)) attn.push({ key: "q", tone: "warn", text: "Answer the mentor questions. Your packages are hidden from search until you do.", href: "/account#search", cta: "Answer" });
+  // Mentors who joined before the medical school question (#85).
+  if (profile && profile.role === "SELLER" && !profile.medicalSchool) attn.push({ key: "school", tone: "warn", text: "Add your medical school. It shows on your profile and helps students find you.", href: "/account#search", cta: "Add school" });
   if (gigs.length === 0) attn.push({ key: "gigs", tone: "warn", text: "Create your first package.", href: "/dashboard/packages?new=1", cta: "Add package" });
   if (profile && !profile.hasAvailability && gigs.some((g) => formatHasCall(g.format))) attn.push({ key: "cal", tone: "warn", text: "Set your call hours so students can book the calls in your packages.", href: "/account#call-hours", cta: "Set hours" });
   for (const o of active) {
