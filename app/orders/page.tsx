@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { statusBadge, tintFor, initialsOf } from "@/components/ui";
+import { MinorBadge, statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { callSummary, fmtDateTime } from "@/lib/calls";
 import { money } from "@/lib/options";
 
@@ -103,6 +103,7 @@ export default function OrdersPage() {
                   {o.dueDate ? ` · Due ${new Date(o.dueDate).toLocaleDateString()}` : ""}
                 </span>
                 <div className="row-wrap" style={{ marginTop: 4 }}>
+                  {isSeller && <MinorBadge person={o.buyer} />}
                   {statusBadge(o)}
                   {step && <span className="text-muted">{step}</span>}
                 </div>

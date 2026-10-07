@@ -10,10 +10,16 @@ import { clientIp, ipKey } from "@/lib/request";
 import { RECAPTCHA_FAILED, verifyRecaptcha } from "@/lib/recaptcha";
 import { RESERVED_NAME_ERROR, isReservedName } from "@/lib/reservedNames";
 import { sendVerificationLink } from "@/lib/emailVerification";
+import { ADULT_AGE, MIN_AGE, UNDER_13_MESSAGE, ageOn, parseDob, requiredKindsFor } from "@/lib/legalKinds";
+import { recordAcceptances, requestMeta } from "@/lib/legal";
+import { cleanParentInfo, startParentConsent } from "@/lib/minors";
 
 // Students can sign up freely; this route is protected against bots by a
 // hidden trap field, reCAPTCHA and per-IP limits. A "confirm your email"
 // link goes out right away (needed before the first message).
+// Phase 5: the agreement checkbox and date of birth are required. Under 13
+// can't sign up; 13-17 give a parent or guardian, whose consent is needed
+// before the account can message or book.
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const { email: rawEmail, password, name, timeZone } = body;
@@ -42,6 +48,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
   }
 
+  if (body.agreed !== true) {
+    return NextResponse.json({ error: "Please agree to the Terms of Service, Privacy Policy and Community Guidelines" }, { status: 400 });
+  }
+  const dob = parseDob(body.dateOfBirth);
+  if (!dob) return NextResponse.json({ error: "Enter your date of birth" }, { status: 400 });
+  const age = ageOn(dob);
+  if (age < MIN_AGE) return NextResponse.json({ error: UNDER_13_MESSAGE, code: "UNDER_13" }, { status: 400 });
+  const minor = age < ADULT_AGE;
+  const parent = minor ? cleanParentInfo(body, email) : null;
+  if (parent && "error" in parent) return NextResponse.json({ error: parent.error }, { status: 400 });
+
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     return NextResponse.json({ error: "An account with that email already exists" }, { status: 409 });
@@ -51,14 +68,20 @@ export async function POST(req: Request) {
 
   try {
     const user = await prisma.user.create({
-      data: { email, name: name.trim(), passwordHash, role: "BUYER", timeZone: isValidTimeZone(timeZone) ? timeZone : null },
+      data: {
+        email, name: name.trim(), passwordHash, role: "BUYER", timeZone: isValidTimeZone(timeZone) ? timeZone : null,
+        dateOfBirth: dob,
+        minorStatus: minor ? "PENDING" : null,
+      },
     });
+    await recordAcceptances(user, requiredKindsFor("BUYER"), "SIGNUP", requestMeta(req)).catch((err) => console.error("Couldn't record the signup agreement:", err));
+    if (parent && !("error" in parent)) await startParentConsent(user, parent);
     try {
       await sendVerificationLink(user);
     } catch (err) {
       console.error("Couldn't send the confirm-your-email link:", err);
     }
-    return NextResponse.json({ id: user.id, email: user.email, name: user.name });
+    return NextResponse.json({ id: user.id, email: user.email, name: user.name, minor });
   } catch (err) {
     // Two signups for the same email at the same instant.
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {

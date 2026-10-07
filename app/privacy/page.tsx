@@ -1,6 +1,25 @@
+import { currentDoc } from "@/lib/legal";
+import { LegalBody, LegalHeader } from "@/components/LegalBody";
 import { RECORDING_RETENTION_DAYS } from "@/lib/calls";
 
-export default function PrivacyPage() {
+// Once a version is published in Admin -> Legal, it replaces the built-in
+// text below (#99, #103).
+export const dynamic = "force-dynamic";
+
+export default async function PrivacyPage() {
+  const doc = await currentDoc("PRIVACY");
+  if (doc) {
+    return (
+      <div className="page-narrow">
+        <LegalHeader title={doc.title} version={doc.version} publishedAt={doc.publishedAt} />
+        <LegalBody body={doc.body} />
+      </div>
+    );
+  }
+  return <BuiltInPrivacyPage />;
+}
+
+function BuiltInPrivacyPage() {
   return (
     <div className="page-narrow">
       <h1 className="page-title" style={{ marginBottom: 12, textAlign: "left" }}>Privacy Policy</h1>

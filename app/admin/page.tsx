@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { useDisputeThread } from "@/lib/hooks/useDisputeThread";
 import { StaffBadge, statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { ActionLog, FlagsAdmin, SEVERITY, kindLabel } from "@/components/admin/Flags";
+import { AdminNav } from "@/components/admin/AdminNav";
 import { DeliveryCard } from "@/components/Deliveries";
 import { Attendance, Recordings } from "@/components/Calls";
 import { BACKGROUNDS, SCHOOL_TYPES, STAGES, labelFor, money } from "@/lib/options";
@@ -76,6 +77,7 @@ export default function AdminPage() {
         <h1 className="page-title">Admin</h1>
         <p className="lede">Flags, disputes, calls, mentor applications, invites and people.</p>
       </div>
+      <AdminNav />
 
       {earnings && (
         <div className="stat-cards">
@@ -493,6 +495,8 @@ function People() {
               {u.health && <span className={`badge ${u.health === "Good" ? "badge-success" : u.health === "Watch" ? "badge-warning" : "badge-danger"}`} title="Health: open, high-severity and upheld flags">{u.health}</span>}
               {u.flags?.openFlags > 0 && <span className="badge badge-warning">{u.flags.openFlags} open flag{u.flags.openFlags === 1 ? "" : "s"}</span>}
               {u.flags?.upheld90 > 0 && <span className="badge badge-danger">{u.flags.upheld90} upheld (90 days)</span>}
+              {u.minorStatus && <span className="badge badge-warning" title={u.minorStatus === "CONSENTED" ? "Parent consent given" : "Waiting for parent consent"}>Under 18{u.minorStatus === "CONSENTED" ? "" : u.minorStatus === "PENDING" ? " · consent pending" : " · no consent"}</span>}
+              {role === "SELLER" && u.acceptsMinors === false && <span className="badge">18+ students only</span>}
               {u.safetyHoldAt && <span className="badge badge-danger">On hold</span>}
               {u.profileStatus === "ACTIVE" && !u.safetyHoldAt && <span className="badge badge-success">Active</span>}
               {u.profileStatus === "PAUSED" && !u.safetyHoldAt && <span className="badge badge-warning">Paused</span>}
@@ -582,6 +586,12 @@ function HealthCard({ d }: { d: any }) {
         <span>{h.openFlags} open flag{h.openFlags === 1 ? "" : "s"}{h.highOpen ? ` (${h.highOpen} high)` : ""}</span>
         <span>· {h.upheld90} upheld in 90 days</span>
         {u.role === "BUYER" && <span>· email {u.emailVerified ? "confirmed" : "not confirmed"}</span>}
+        {u.role === "BUYER" && (
+          <span>
+            · {u.dateOfBirth ? `born ${new Date(u.dateOfBirth).toLocaleDateString(undefined, { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" })}` : "no date of birth yet"}
+            {u.minorStatus ? <> (under 18: <Link href="/admin/minors" className="link">consent {u.minorStatus === "CONSENTED" ? "given" : u.minorStatus === "PENDING" ? "pending" : "not given"}</Link>)</> : u.becameAdultAt ? " (turned 18 here)" : ""}
+          </span>
+        )}
         {u.role === "SELLER" && <span>· agreement {u.mentorAgreementVersion ? `v${u.mentorAgreementVersion}${u.mentorAgreementAt ? `, accepted ${fmtDay(u.mentorAgreementAt)}` : ""}` : "not accepted yet"}</span>}
         <span>· last active {u.lastActiveAt ? fmtDay(u.lastActiveAt) : "unknown"}</span>
       </div>

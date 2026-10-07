@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { blockBetween } from "@/lib/blocks";
+import { gateBlockReason } from "@/lib/gate";
 
 // New accounts (under NEW_ACCOUNT_DAYS old) can start at most
 // NEW_ACCOUNT_DAILY_CONVERSATIONS new conversations with mentors a day.
@@ -33,10 +34,16 @@ export async function POST(req: Request) {
   const existing = await prisma.conversation.findUnique({ where: { buyerId_sellerId: { buyerId: userId, sellerId } } });
   if (existing) return NextResponse.json({ conversation: existing });
 
-  const me = await prisma.user.findUnique({ where: { id: userId }, select: { createdAt: true, safetyHoldAt: true } });
+  const me = await prisma.user.findUnique({ where: { id: userId }, select: { createdAt: true, safetyHoldAt: true, minorStatus: true } });
   if (!me) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (me.safetyHoldAt) {
     return NextResponse.json({ error: "Your account is paused while our team reviews it, so you can't start new conversations right now." }, { status: 403 });
+  }
+  // Date of birth, updated legal documents, parental consent (Phase 5).
+  const gate = await gateBlockReason(userId);
+  if (gate) return NextResponse.json({ error: gate, code: "ACCOUNT_GATE" }, { status: 403 });
+  if (me.minorStatus && !seller.acceptsMinors) {
+    return NextResponse.json({ error: "This mentor works with students 18 and over. Please choose another mentor." }, { status: 403 });
   }
   const blocks = await blockBetween(userId, sellerId);
   if (blocks.iBlocked || blocks.theyBlocked) {
@@ -72,7 +79,7 @@ export async function GET() {
   const conversations = await prisma.conversation.findMany({
     where: role === "SELLER" ? { sellerId: userId } : { buyerId: userId },
     include: {
-      buyer: { select: { id: true, name: true, photoUrl: true } },
+      buyer: { select: { id: true, name: true, photoUrl: true, minorStatus: true } },
       seller: { select: { id: true, name: true, credential: true, photoUrl: true } },
       messages: { orderBy: { createdAt: "desc" }, take: 1 },
     },

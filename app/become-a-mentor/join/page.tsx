@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import { logOut } from "@/components/TopNav";
@@ -38,6 +38,11 @@ function OnboardCoachForm() {
   const [trap, setTrap] = useState("");
   const [agreed, setAgreed] = useState(false);
   const recaptcha = useRecaptcha();
+  // The published Mentor Agreement (Admin -> Legal), if there is one.
+  const [agreementDoc, setAgreementDoc] = useState<any>(null);
+  useEffect(() => {
+    fetch("/api/legal/current").then((r) => r.json()).then((d) => setAgreementDoc(d.mentorAgreement || null)).catch(() => {});
+  }, []);
 
   // Someone is already logged in on this browser (often the admin who sent
   // the invite, testing it). They need to log out to create the mentor account.
@@ -117,7 +122,7 @@ function OnboardCoachForm() {
           <label className="field"><span className="field-label">Set a password</span>
             <input className="input" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
             <span className="field-help">At least 8 characters.</span></label>
-          <MentorAgreement checked={agreed} onChange={setAgreed} />
+          <MentorAgreement checked={agreed} onChange={setAgreed} doc={agreementDoc} />
           <Honeypot value={trap} onChange={setTrap} />
           {error && <div role="alert" className="alert alert-danger" style={{ marginBottom: 14 }}>{error}</div>}
           <button className="btn btn-primary btn-lg btn-block" disabled={loading || !name || !credential || password.length < 8 || !agreed}>

@@ -21,13 +21,15 @@
     "resend": "3.5.0",
     "pusher": "5.2.0",
     "pusher-js": "8.4.0-rc2",
-    "@vercel/blob": "0.23.4"
+    "@vercel/blob": "0.23.4",
+    "qrcode": "1.5.4"
   },
   "devDependencies": {
     "prisma": "5.18.0",
     "typescript": "5.5.4",
     "@types/node": "20.14.15",
     "@types/react": "18.3.3",
-    "@types/bcrypt": "5.0.2"
+    "@types/bcrypt": "5.0.2",
+    "@types/qrcode": "1.5.5"
   }
 }

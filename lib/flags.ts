@@ -7,6 +7,7 @@ import {
   sendSafetyWarningEmail,
 } from "@/lib/email";
 import type { FlagKind, Severity } from "@/lib/moderation";
+import { involvesMinor } from "@/lib/minorCheck";
 
 // Admin -> Flags: one queue for student/mentor reports, disputes and
 // automatic flags. Severity 1 low, 2 medium, 3 high (high = instant email
@@ -43,6 +44,11 @@ const FLAGS_URL = `${SITE_URL}/admin#flags`;
 
 export async function createFlag(f: NewFlag) {
   try {
+    // Stricter for students under 18 (#111): any off-site contact
+    // involving a minor is high severity (instant email to admins).
+    if (f.kind === "OFF_SITE" && f.severity < 3 && (await involvesMinor(f))) {
+      f = { ...f, severity: 3, reason: `${f.reason} (student under 18)` };
+    }
     if (f.dedupeKey) {
       const since = new Date(Date.now() - (f.dedupeDays ?? 30) * 86400_000);
       const dup = await prisma.flag.findFirst({ where: { dedupeKey: f.dedupeKey, createdAt: { gte: since } }, select: { id: true } });
@@ -75,7 +81,7 @@ export async function createFlag(f: NewFlag) {
 }
 
 async function adminEmails() {
-  const admins = await prisma.user.findMany({ where: { role: "ADMIN", removedByAdmin: false }, select: { email: true } });
+  const admins = await prisma.user.findMany({ where: { role: "ADMIN", removedByAdmin: false, adminDisabledAt: null }, select: { email: true } });
   return admins.map((a) => a.email);
 }
 

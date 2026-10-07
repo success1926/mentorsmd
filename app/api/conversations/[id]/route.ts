@@ -16,7 +16,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const conversation = await prisma.conversation.findUnique({
     where: { id: params.id },
     include: {
-      buyer: { select: { id: true, name: true, photoUrl: true } },
+      buyer: { select: { id: true, name: true, photoUrl: true, minorStatus: true } },
       seller: {
         select: { id: true, name: true, credential: true, photoUrl: true, profileStatus: true, pausedUntil: true, awayNote: true },
       },

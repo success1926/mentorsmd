@@ -19,7 +19,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     where: { id: params.id },
     include: {
       gig: true,
-      buyer: { select: { name: true, photoUrl: true } },
+      buyer: { select: { name: true, photoUrl: true, minorStatus: true } },
       seller: { select: { name: true, credential: true, photoUrl: true, weeklyHours: true } },
       review: true,
       callBookings: {

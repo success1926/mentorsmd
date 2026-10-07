@@ -40,6 +40,8 @@ export async function GET(req: Request) {
       removedByAdmin: true,
       stripeAccountId: true,
       safetyHoldAt: true,
+      minorStatus: true,
+      acceptsMinors: true,
       _count: { select: { gigs: { where: { active: true } }, buyerOrders: true, sellerOrders: true } },
     },
     orderBy: { createdAt: "desc" },

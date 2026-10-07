@@ -47,6 +47,12 @@ function LoginForm() {
     const session = await fetch("/api/auth/session").then((r) => r.json()).catch(() => ({}));
     const role = session?.user?.role;
     const cb = safeCallback();
+    // Admins finish 2-step verification first (#116).
+    if (role === "ADMIN_2FA") {
+      router.push(`/admin/verify`);
+      router.refresh();
+      return;
+    }
     router.push(cb || (role === "SELLER" ? "/dashboard" : role === "ADMIN" ? "/admin" : "/mentors"));
     router.refresh();
   }

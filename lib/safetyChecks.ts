@@ -167,7 +167,7 @@ export async function sendWeeklyDigest(now = new Date(), force = false) {
       select: { reason: true, severity: true, subject: { select: { name: true } } },
     }),
     prisma.adminAction.findMany({ where: { action: "USER_AUTO_PAUSE", createdAt: { gte: week } }, select: { targetUser: { select: { name: true } } } }),
-    prisma.user.findMany({ where: { role: "ADMIN", removedByAdmin: false }, select: { email: true } }),
+    prisma.user.findMany({ where: { role: "ADMIN", removedByAdmin: false, adminDisabledAt: null }, select: { email: true } }),
   ]);
   const summary: DigestSummary = {
     open,

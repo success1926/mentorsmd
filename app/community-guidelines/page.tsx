@@ -1,3 +1,5 @@
+import { currentDoc } from "@/lib/legal";
+import { LegalBody, LegalHeader } from "@/components/LegalBody";
 import Link from "next/link";
 import { MENTOR_AGREEMENT_POINTS } from "@/lib/agreement";
 
@@ -45,7 +47,24 @@ const SECTIONS: { title: string; points: string[] }[] = [
   },
 ];
 
-export default function CommunityGuidelinesPage() {
+// Once a version is published in Admin -> Legal, it replaces the built-in
+// text below (#99, #103).
+export const dynamic = "force-dynamic";
+
+export default async function CommunityGuidelinesPage() {
+  const doc = await currentDoc("COMMUNITY_GUIDELINES");
+  if (doc) {
+    return (
+      <div className="page-narrow">
+        <LegalHeader title={doc.title} version={doc.version} publishedAt={doc.publishedAt} />
+        <LegalBody body={doc.body} />
+      </div>
+    );
+  }
+  return <BuiltInCommunityGuidelinesPage />;
+}
+
+function BuiltInCommunityGuidelinesPage() {
   return (
     <div className="page-narrow stack-lg">
       <div className="stack-sm">

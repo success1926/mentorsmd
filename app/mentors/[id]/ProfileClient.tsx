@@ -150,6 +150,12 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
             </div>
           )}
 
+          {seller.adultsOnlyForViewer && (
+            <div className="alert alert-warning">
+              <b>{first} works with students 18 and over.</b> You can still read their profile, but you can&apos;t message or book them. Browse other mentors who work with students under 18.
+            </div>
+          )}
+
           {seller.bio && (
             <section className="stack-sm">
               <h2 style={{ fontSize: 30 }}>About {first}</h2>

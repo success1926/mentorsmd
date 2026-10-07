@@ -8,6 +8,7 @@ import { dayToDueDate, dueDayProblem } from "@/lib/schedule";
 import { busyRangesFor } from "@/lib/callBooking";
 import { todayFor } from "@/lib/dueDates";
 import { gigPriceOutOfRange, isMentorVisible } from "@/lib/mentor";
+import { gateBlockReason } from "@/lib/gate";
 
 // Creates a Stripe Checkout Session for one gig package. Deliberately NOT
 // a Connect "destination charge" - the money lands in OUR Stripe balance
@@ -48,6 +49,13 @@ export async function POST(req: Request) {
   }
   if (!isMentorVisible(gig.seller)) {
     return NextResponse.json({ error: "This mentor isn't taking new orders right now" }, { status: 400 });
+  }
+  // Date of birth, updated legal documents, parental consent (Phase 5).
+  const gate = await gateBlockReason(buyerId);
+  if (gate) return NextResponse.json({ error: gate, code: "ACCOUNT_GATE" }, { status: 403 });
+  if (!gig.seller.acceptsMinors) {
+    const buyer = await prisma.user.findUnique({ where: { id: buyerId }, select: { minorStatus: true } });
+    if (buyer?.minorStatus) return NextResponse.json({ error: "This mentor works with students 18 and over." }, { status: 403 });
   }
   if (!gig.seller.stripeAccountId) {
     return NextResponse.json({ error: "This mentor hasn't finished setting up payouts yet" }, { status: 400 });

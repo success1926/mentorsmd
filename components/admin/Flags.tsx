@@ -28,6 +28,7 @@ const KIND_LABEL: Record<string, string> = {
   AI: "AI check",
   PERFORMANCE: "Performance",
   BLOCKED_MESSAGE: "Blocked message",
+  MINOR: "Under 18",
 };
 export const kindLabel = (k: string) => KIND_LABEL[k] || k;
 
