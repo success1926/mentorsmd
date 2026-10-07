@@ -1,3 +1,5 @@
+import { RECORDING_RETENTION_DAYS } from "@/lib/calls";
+
 export default function PrivacyPage() {
   return (
     <div className="page-narrow">
@@ -24,21 +26,31 @@ export default function PrivacyPage() {
           </p>
         </div>
         <div>
-          <h2 style={{ fontSize: 22, marginBottom: 6 }}>3. How we use your information</h2>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>3. Video calls, recordings and calendars</h2>
+          <p className="text-secondary">
+            Calls run on Daily.co in private rooms. Calls may be recorded; recordings are stored by Daily.co, can only be
+            watched by the MentorsMD team when there is a problem with an order, and are deleted {RECORDING_RETENTION_DAYS} days after the
+            order is closed. We log when each person joined and left a call. We store your time zone to send call
+            reminders. If a mentor connects their own calendar, we read only the busy times from it (not event names)
+            to hide those times from booking.
+          </p>
+        </div>
+        <div>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>4. How we use your information</h2>
           <p className="text-secondary">
             [Placeholder - describe your actual use: facilitating bookings, sending notifications, fraud
             prevention, etc.]
           </p>
         </div>
         <div>
-          <h2 style={{ fontSize: 22, marginBottom: 6 }}>4. Your rights</h2>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>5. Your rights</h2>
           <p className="text-secondary">
             [Placeholder - if you have users in the EU/UK or California, this section has specific legal
             requirements (GDPR/CCPA) that a generic placeholder won't satisfy - get this reviewed.]
           </p>
         </div>
         <div>
-          <h2 style={{ fontSize: 22, marginBottom: 6 }}>5. Contact us</h2>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>6. Contact us</h2>
           <p className="text-secondary">
             Questions about this policy can be sent through our <a href="/contact" style={{ textDecoration: "underline" }}>contact page</a>.
           </p>

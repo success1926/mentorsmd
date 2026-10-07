@@ -67,8 +67,8 @@ export async function GET(_req: Request, { params }: { params: { token: string }
       `DTSTART:${stamp(b.startTime)}`,
       `DTEND:${stamp(b.endTime)}`,
       `SUMMARY:${esc(`MentorsMD call with ${other}`)}`,
-      `DESCRIPTION:${esc(`${b.order.gig.title}\nJoin from the order page: ${SITE_URL}/orders/${b.orderId}`)}`,
-      `URL:${SITE_URL}/orders/${b.orderId}`,
+      `DESCRIPTION:${esc(`${b.order.gig.title}\nJoin here: ${SITE_URL}/calls/${b.id}\nOrder: ${SITE_URL}/orders/${b.orderId}`)}`,
+      `URL:${SITE_URL}/calls/${b.id}`,
       "END:VEVENT"
     );
   }

@@ -74,19 +74,19 @@ enum GigCategory {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
+  id            String    @id @default(cuid())
+  email         String    @unique
   emailVerified DateTime?
-  image        String?   // set automatically by Google sign-in; separate from photoUrl below
-  passwordHash String?   // optional now - a Google-only account has no password on our side
-  role         Role      @default(BUYER)
-  name         String
-  createdAt    DateTime  @default(now())
+  image         String? // set automatically by Google sign-in; separate from photoUrl below
+  passwordHash  String? // optional now - a Google-only account has no password on our side
+  role          Role      @default(BUYER)
+  name          String
+  createdAt     DateTime  @default(now())
 
   // Seller-only profile fields. Null for buyers/admins.
-  credential   String?
-  bio          String?
-  photoUrl     String?
+  credential      String?
+  bio             String?
+  photoUrl        String?
   stripeAccountId String? // Stripe Connect account id, once onboarded
 
   // Login rate limiting - tracks repeated failed password attempts so a
@@ -102,36 +102,60 @@ model User {
 
   // ---- Mentor availability (pause / remove) ----
   profileStatus  ProfileStatus @default(ACTIVE)
-  pausedUntil    DateTime?     // optional return date; profile shows again after this
-  awayNote       String?       // shown on the profile while paused
+  pausedUntil    DateTime? // optional return date; profile shows again after this
+  awayNote       String? // shown on the profile while paused
   removedAt      DateTime?
   removedReason  String?
   removedByAdmin Boolean       @default(false) // admin removal also blocks login
 
   // ---- Mentor-level search answers (asked once, used by every package) ----
-  mentorStage String?  // MS1, MS2, MS3, MS4, RESIDENT
-  schoolType  String?  // MD, DO, MD_PHD
+  mentorStage String? // MS1, MS2, MS3, MS4, RESIDENT
+  schoolType  String? // MD, DO, MD_PHD
   backgrounds String[] @default([]) // REAPPLICANT, NON_TRADITIONAL, FIRST_GEN, GAP_YEARS, CAREER_CHANGER
 
   // ---- Calls & calendars ----
-  calLink       String? // mentor's Cal.com page, e.g. https://cal.com/aisha
-  calWebhookSecret String? // per-mentor signing secret for their Cal.com webhook
-  calendarToken String? @unique // secret token for this user's calendar feed (.ics)
+  // calLink / calWebhookSecret: Cal.com, no longer used since Phase 3
+  // (the built-in calendar replaced it). Kept so old data isn't lost.
+  calLink          String?
+  calWebhookSecret String?
+  calendarToken    String? @unique // secret token for this user's calendar feed (.ics)
+
+  // Every account's time zone (IANA name, e.g. "America/Chicago").
+  // Detected in the browser at signup/login and editable on Account.
+  // Used for call reminders (8am local) and times in emails.
+  timeZone String?
+
+  // ---- Built-in calendar (mentors) ----
+  // Weekly hours: { "1": [["09:00","12:00"],["13:00","17:00"]], ... }
+  // keyed by weekday (0 = Sunday), times in the mentor's time zone.
+  weeklyHours           Json?
+  bufferMinutes         Int       @default(15) // gap kept free before and after each call
+  minNoticeHours        Int       @default(24) // how far ahead students must book
+  daysOff               String[]  @default([]) // single dates with no calls, "YYYY-MM-DD"
+  // A secret iCal address from Google / iCloud. Busy times in it are
+  // blocked in the slot picker. The parsed busy times are cached here.
+  externalCalUrl        String?
+  externalBusy          Json? // [{ s: ISO, e: ISO }]
+  externalBusyFetchedAt DateTime?
+  externalCalError      String?
+
+  busyDates      BusyDate[]
+  callAttendance CallAttendance[]
 
   accounts Account[] // one row per login method (Google, etc.) linked to this user
   sessions Session[]
 
-  gigs         Gig[]         @relation("SellerGigs")
-  sentInvites  Invite[]      @relation("InvitesCreatedByAdmin")
-  buyerOrders  Order[]       @relation("BuyerOrders")
-  sellerOrders Order[]       @relation("SellerOrders")
-  messages     Message[]
-  conversationsAsBuyer  Conversation[] @relation("BuyerConversations")
-  conversationsAsSeller Conversation[] @relation("SellerConversations")
-  reviewsWritten  Review[] @relation("ReviewsByBuyer")
-  reviewsReceived Review[] @relation("ReviewsOfSeller")
-  disputeMessages DisputeMessage[]
-  passwordResetTokens PasswordResetToken[]
+  gigs                  Gig[]                @relation("SellerGigs")
+  sentInvites           Invite[]             @relation("InvitesCreatedByAdmin")
+  buyerOrders           Order[]              @relation("BuyerOrders")
+  sellerOrders          Order[]              @relation("SellerOrders")
+  messages              Message[]
+  conversationsAsBuyer  Conversation[]       @relation("BuyerConversations")
+  conversationsAsSeller Conversation[]       @relation("SellerConversations")
+  reviewsWritten        Review[]             @relation("ReviewsByBuyer")
+  reviewsReceived       Review[]             @relation("ReviewsOfSeller")
+  disputeMessages       DisputeMessage[]
+  passwordResetTokens   PasswordResetToken[]
 }
 
 // One row per "forgot password" request. Only a SHA-256 hash of the
@@ -186,12 +210,12 @@ model Session {
 // by redeeming a code an admin generated. Nothing about seller signup is
 // self-serve.
 model Invite {
-  id        String       @id @default(cuid())
-  code      String       @unique
-  email     String
-  status    InviteStatus @default(PENDING)
-  createdAt DateTime     @default(now())
-  expiresAt DateTime
+  id               String       @id @default(cuid())
+  code             String       @unique
+  email            String
+  status           InviteStatus @default(PENDING)
+  createdAt        DateTime     @default(now())
+  expiresAt        DateTime
   redeemedByUserId String?
 
   createdBy   User   @relation("InvitesCreatedByAdmin", fields: [createdById], references: [id])
@@ -204,8 +228,8 @@ model Gig {
   id          String      @id @default(cuid())
   title       String
   description String
-  price       Int         // cents, to avoid float rounding issues
-  duration    String      // display string, e.g. "48hr turnaround"
+  price       Int // cents, to avoid float rounding issues
+  duration    String // display string, e.g. "48hr turnaround"
   category    GigCategory @default(OTHER)
   active      Boolean     @default(true)
   createdAt   DateTime    @default(now())
@@ -217,8 +241,8 @@ model Gig {
   format        String? // WRITTEN, WRITTEN_CALL, LIVE
   turnaround    String? // H48, D3_5, W1_2, SCHEDULED
   callsIncluded Int     @default(0) // 0 for written-only packages
-  callLength    Int?    // minutes: 30, 45 or 60
-  calEventUrl   String? // optional Cal.com event link just for this package
+  callLength    Int? // minutes: 30, 45 or 60
+  calEventUrl   String? // no longer used (Cal.com removed in Phase 3); kept for old data
 
   seller   User   @relation("SellerGigs", fields: [sellerId], references: [id])
   sellerId String
@@ -231,13 +255,13 @@ model Gig {
 }
 
 model Order {
-  id        String      @id @default(cuid())
-  status    OrderStatus @default(PENDING_PAYMENT)
-  amount    Int         // cents, snapshot of gig price at purchase time
-  dueDate   DateTime?   // buyer-selected deadline, set at checkout
+  id                    String      @id @default(cuid())
+  status                OrderStatus @default(PENDING_PAYMENT)
+  amount                Int // cents, snapshot of gig price at purchase time
+  dueDate               DateTime? // buyer-selected deadline, set at checkout
   stripePaymentIntentId String?
-  createdAt DateTime    @default(now())
-  completedAt DateTime?
+  createdAt             DateTime    @default(now())
+  completedAt           DateTime?
 
   // The exact moment Stripe considers this payment's funds "available"
   // for payout - not a guess, this comes straight from Stripe's own
@@ -261,8 +285,8 @@ model Order {
   // auto-refunded - an admin reviews it and decides (see /api/orders/[id]/refund
   // and /api/orders/[id]/release, both of which an admin can call regardless
   // of who normally would).
-  disputed       Boolean @default(false)
-  disputeReason  String?
+  disputed      Boolean @default(false)
+  disputeReason String?
 
   // Scheduling: an optional specific time for the video call, proposed
   // and confirmed between buyer and seller via messages, then locked in
@@ -300,7 +324,7 @@ model Order {
   conversation   Conversation? @relation(fields: [conversationId], references: [id])
   conversationId String?
 
-  review Review?
+  review          Review?
   disputeMessages DisputeMessage[]
   callBookings    CallBooking[]
   deliveries      Delivery[]
@@ -313,7 +337,11 @@ model Order {
 
   // ---- Dispute outcome, for the admin's Resolved list ----
   disputeResolvedAt DateTime?
-  disputeResolution String?   // REFUNDED or RELEASED
+  disputeResolution String? // REFUNDED or RELEASED
+
+  // The package's turnaround when the order was placed. Changing a
+  // package's turnaround only affects new orders.
+  turnaround String?
 
   // Postgres doesn't index foreign keys automatically. Without these,
   // every "my orders" page and every cron run scans the whole table.
@@ -332,7 +360,7 @@ model Order {
 // the student (and an admin, in a dispute) can see the whole history.
 model Delivery {
   id          String   @id @default(cuid())
-  number      Int      // 1, 2, 3... per order
+  number      Int // 1, 2, 3... per order
   description String
   // [{ url, name }] - files uploaded through /api/upload (Vercel Blob).
   files       Json     @default("[]")
@@ -364,40 +392,113 @@ model DisputeMessage {
   @@index([orderId, createdAt])
 }
 
-// One row per call booked on an order - usually created by the Cal.com
-// webhook when the student books through the mentor's Cal.com page, or
-// by the mentor entering an agreed time by hand if they don't use Cal.com.
+// One row per call booked on an order. Since Phase 3 every call is booked
+// on MentorsMD itself (the student picks a slot from the mentor's
+// availability) and happens in a private Daily room. Old rows from Cal.com
+// keep source "CAL".
 model CallBooking {
-  id         String     @id @default(cuid())
-  startTime  DateTime
-  endTime    DateTime
-  status     CallStatus @default(BOOKED)
-  source     String     @default("CAL") // CAL or MANUAL
-  calUid     String?    @unique         // Cal.com booking uid
-  meetingUrl String?    // video link from Cal.com, if it created one
-  reminderSentAt DateTime?
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  id             String     @id @default(cuid())
+  startTime      DateTime
+  endTime        DateTime
+  status         CallStatus @default(BOOKED)
+  source         String     @default("SITE") // SITE (built-in calendar), MANUAL (mentor added), CAL (old)
+  calUid         String?    @unique // old Cal.com booking uid
+  meetingUrl     String? // old Cal.com video link (no longer used)
+  reminderSentAt DateTime? // old, unused
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  // Daily room for this call (private; people join with a meeting token).
+  roomName                 String?
+  roomUrl                  String?
+  // When the time was last set (booked or rescheduled), and by whom.
+  scheduledAt              DateTime?
+  bookedById               String?
+  cancelledAt              DateTime?
+  cancelledById            String?
+  // Bumped on every reschedule, so calendar apps replace the old invite.
+  icsSequence              Int       @default(0)
+  // Reminders: each is sent once. A reschedule clears them.
+  morningReminderStudentAt DateTime?
+  morningReminderMentorAt  DateTime?
+  hourReminderAt           DateTime?
 
   order   Order  @relation(fields: [orderId], references: [id])
   orderId String
 
+  attendance CallAttendance[]
+  recordings CallRecording[]
+
   @@index([orderId, startTime])
   @@index([status, startTime])
+  @@index([roomName])
+}
+
+// Who joined a call and when (from Daily's webhooks).
+model CallAttendance {
+  id          String    @id @default(cuid())
+  sessionId   String    @unique // Daily's participant session id
+  name        String?
+  joinedAt    DateTime
+  leftAt      DateTime?
+  durationSec Int?
+  createdAt   DateTime  @default(now())
+
+  booking   CallBooking @relation(fields: [bookingId], references: [id])
+  bookingId String
+  user      User?       @relation(fields: [userId], references: [id])
+  userId    String?
+
+  @@index([bookingId, joinedAt])
+}
+
+// Cloud recordings of a call (admin-only). The video itself stays on
+// Daily; we keep its id and delete it 60 days after the order closes.
+model CallRecording {
+  id               String    @id @default(cuid())
+  dailyRecordingId String    @unique
+  status           String?
+  startedAt        DateTime?
+  durationSec      Int?
+  createdAt        DateTime  @default(now())
+  deletedAt        DateTime?
+
+  booking   CallBooking @relation(fields: [bookingId], references: [id])
+  bookingId String
+
+  @@index([deletedAt, createdAt])
+}
+
+// A mentor's busy dates (exams, rotations, travel). The note is private.
+// NO_DEADLINES: students can't pick a due date in the range.
+// NO_DEADLINES_NO_CALLS: no due dates and no calls in the range.
+// Days are calendar dates ("YYYY-MM-DD"), both ends included.
+model BusyDate {
+  id        String   @id @default(cuid())
+  startDay  String
+  endDay    String
+  kind      String   @default("NO_DEADLINES")
+  note      String?
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@index([userId, startDay])
 }
 
 model Review {
   id        String   @id @default(cuid())
-  rating    Int      // 1-5
+  rating    Int // 1-5
   comment   String?
   createdAt DateTime @default(now())
 
   order   Order  @relation(fields: [orderId], references: [id])
   orderId String @unique // one review per order, enforced at the database level
 
-  buyer   User   @relation("ReviewsByBuyer", fields: [buyerId], references: [id])
-  buyerId String
-  seller  User   @relation("ReviewsOfSeller", fields: [sellerId], references: [id])
+  buyer    User   @relation("ReviewsByBuyer", fields: [buyerId], references: [id])
+  buyerId  String
+  seller   User   @relation("ReviewsOfSeller", fields: [sellerId], references: [id])
   sellerId String
 
   @@index([sellerId, createdAt])
@@ -406,11 +507,11 @@ model Review {
 model DiscountCode {
   id             String    @id @default(cuid())
   code           String    @unique
-  percentOff     Int?      // e.g. 20 for 20% off - use this OR amountOffCents, not both
-  amountOffCents Int?      // fixed dollar amount off, in cents
+  percentOff     Int? // e.g. 20 for 20% off - use this OR amountOffCents, not both
+  amountOffCents Int? // fixed dollar amount off, in cents
   active         Boolean   @default(true)
   expiresAt      DateTime?
-  maxRedemptions Int?      // null = unlimited
+  maxRedemptions Int? // null = unlimited
   redemptions    Int       @default(0)
   createdAt      DateTime  @default(now())
 
@@ -446,11 +547,11 @@ model Conversation {
 }
 
 model Message {
-  id             String       @id @default(cuid())
+  id             String   @id @default(cuid())
   body           String
-  attachmentUrl  String?      // set if a file was attached, via /api/upload
-  attachmentName String?      // original filename, shown in the UI
-  createdAt      DateTime     @default(now())
+  attachmentUrl  String? // set if a file was attached, via /api/upload
+  attachmentName String? // original filename, shown in the UI
+  createdAt      DateTime @default(now())
 
   conversation   Conversation @relation(fields: [conversationId], references: [id])
   conversationId String

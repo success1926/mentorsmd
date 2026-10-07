@@ -149,7 +149,7 @@ export default function OrderDetailPage() {
       ) : (
         <>
           <textarea className="input" style={{ marginBottom: 0 }} placeholder="What needs to change?" value={revisionNote} onChange={(e) => setRevisionNote(e.target.value)} />
-          <span className="text-muted">This gives your mentor 7 more days and pauses auto-release.</span>
+          <span className="text-muted">This gives your mentor 7 more days (a little longer if they&apos;re busy then) and pauses auto-release.</span>
           <div className="row">
             <button className="btn btn-soft btn-sm" disabled={!revisionNote.trim() || busy === "revision"}
               onClick={async () => { if (await act("revision", "request-revision", { note: revisionNote })) { setShowRevision(false); setRevisionNote(""); } }}>
@@ -289,7 +289,7 @@ export default function OrderDetailPage() {
           {/* Calls */}
           {calls.included > 0 && order.status !== "PENDING_PAYMENT" && (
             <div className="card">
-              <OrderCalls order={order} viewer={viewer} isBuyer={isBuyer} isSeller={isSeller} onChanged={loadOrder} />
+              <OrderCalls order={order} isBuyer={isBuyer} isSeller={isSeller} isAdmin={isAdmin} onChanged={loadOrder} />
               {isBuyer && calls.canBook && !calls.onHold && !order.disputed && (
                 <button className="btn btn-ghost btn-sm" style={{ marginTop: 8, color: "var(--muted)" }} disabled={busy === "skip"}
                   onClick={() => act("skip", "skip-call", undefined, "Skip the call? Your mentor can then complete the order without it.")}>
@@ -412,7 +412,7 @@ export default function OrderDetailPage() {
               <div className="between"><span className="text-secondary">Amount</span><b>{money(order.amount)}</b></div>
               {order.gig.service && <div className="between"><span className="text-secondary">Service</span><span>{serviceLabel(order.gig.service, order.gig.serviceOther)}</span></div>}
               {order.gig.format && <div className="between"><span className="text-secondary">Format</span><span>{labelFor(FORMATS, order.gig.format)}</span></div>}
-              {order.gig.turnaround && <div className="between"><span className="text-secondary">Turnaround</span><span>{labelFor(TURNAROUNDS, order.gig.turnaround)}</span></div>}
+              {(order.turnaround || order.gig.turnaround) && <div className="between"><span className="text-secondary">Turnaround</span><span>{labelFor(TURNAROUNDS, order.turnaround || order.gig.turnaround)}</span></div>}
               {order.dueDate && <div className="between"><span className="text-secondary">Due</span><b>{fmtDay(order.dueDate)}</b></div>}
             </div>
             {isSeller && active && (
