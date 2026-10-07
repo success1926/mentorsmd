@@ -58,6 +58,13 @@ enum OrderStatus {
 // a dozen near-duplicate spellings). Add more values here if you need a
 // category this list doesn't cover yet - Prisma migrations handle enum
 // changes fine.
+// Mentor applications from the public /become-a-mentor/apply form.
+enum ApplicationStatus {
+  PENDING
+  INVITED
+  DECLINED
+}
+
 enum GigCategory {
   ESSAY_REVIEW
   MOCK_INTERVIEW
@@ -296,6 +303,7 @@ model Order {
   review Review?
   disputeMessages DisputeMessage[]
   callBookings    CallBooking[]
+  deliveries      Delivery[]
 
   // ---- Unbooked-call rule (see lib/calls.ts) ----
   callReminderSentAt DateTime? // last "book your call" reminder to the student
@@ -316,6 +324,24 @@ model Order {
   @@index([disputed, status])
   @@index([gigId])
   @@index([conversationId])
+}
+
+// One row each time the mentor marks the work complete. A revision
+// request sends the order back to the mentor, and the next "Mark work as
+// complete" adds Delivery 2, 3... Older deliveries are never deleted, so
+// the student (and an admin, in a dispute) can see the whole history.
+model Delivery {
+  id          String   @id @default(cuid())
+  number      Int      // 1, 2, 3... per order
+  description String
+  // [{ url, name }] - files uploaded through /api/upload (Vercel Blob).
+  files       Json     @default("[]")
+  createdAt   DateTime @default(now())
+
+  order   Order  @relation(fields: [orderId], references: [id])
+  orderId String
+
+  @@unique([orderId, number])
 }
 
 // A separate thread from the regular buyer/seller Conversation, created
@@ -433,4 +459,30 @@ model Message {
 
   @@index([conversationId, createdAt])
   @@index([conversationId, senderId])
+}
+
+// Someone applying to mentor via /become-a-mentor/apply. An admin reviews
+// it in Admin -> Applications and either invites them (the normal invite
+// flow) or declines.
+model MentorApplication {
+  id            String            @id @default(cuid())
+  name          String
+  email         String
+  phone         String
+  medicalSchool String
+  residency     String?
+  blurb         String
+  resumeUrl     String
+  resumeName    String
+  status        ApplicationStatus @default(PENDING)
+  // SHA-256 of the sender's IP (never the IP itself), for the simple
+  // "too many applications from here" limit.
+  ipHash        String?
+  createdAt     DateTime          @default(now())
+  decidedAt     DateTime?
+  inviteId      String?
+
+  @@index([status, createdAt])
+  @@index([email, createdAt])
+  @@index([ipHash, createdAt])
 }

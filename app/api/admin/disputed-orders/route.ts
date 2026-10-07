@@ -15,6 +15,8 @@ export async function GET() {
     gig: { select: { id: true, title: true } },
     buyer: { select: { name: true, email: true } },
     seller: { select: { name: true, email: true } },
+    // Everything the mentor delivered, so the admin can judge the work.
+    deliveries: { orderBy: { number: "asc" as const } },
   };
 
   const [open, resolved] = await Promise.all([

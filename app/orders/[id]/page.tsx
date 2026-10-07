@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useConversation } from "@/lib/hooks/useConversation";
 import { useDisputeThread } from "@/lib/hooks/useDisputeThread";
 import { OrderCalls } from "@/components/Calls";
+import { DeliverWorkModal, DeliveryCard } from "@/components/Deliveries";
 import { Icon, ICONS, statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { callSummary, CALL_HOLD_HOURS } from "@/lib/calls";
 import { FORMATS, TURNAROUNDS, labelFor, money, serviceLabel } from "@/lib/options";
@@ -61,6 +62,7 @@ export default function OrderDetailPage() {
   const [showRevision, setShowRevision] = useState(false);
   const [revisionNote, setRevisionNote] = useState("");
   const [showDispute, setShowDispute] = useState(false);
+  const [showDeliver, setShowDeliver] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
@@ -131,6 +133,62 @@ export default function OrderDetailPage() {
   const other = isSeller ? order.buyer : order.seller;
   const autoReleaseAt = order.workCompletedAt ? new Date(new Date(order.workCompletedAt).getTime() + AUTO_RELEASE_HOURS * 3600_000) : null;
   const holdEndsAt = order.callHoldAt ? new Date(new Date(order.callHoldAt).getTime() + CALL_HOLD_HOURS * 3600_000) : null;
+  const deliveries: any[] = order.deliveries || [];
+  const latestDelivery = deliveries[deliveries.length - 1];
+  // While the student is reviewing, their actions sit under the latest
+  // delivery. (Orders delivered before deliveries existed keep them in
+  // the side column.)
+  const actionsUnderDelivery = isBuyer && order.status === "COMPLETED" && !order.disputed && !!latestDelivery;
+
+  // Request a revision / open a dispute. Shown under the latest delivery,
+  // or in the side column before anything is delivered.
+  const revisionAndDispute = (
+    <>
+      {!showRevision ? (
+        <button className="btn btn-block" onClick={() => setShowRevision(true)}>Request a revision</button>
+      ) : (
+        <>
+          <textarea className="input" style={{ marginBottom: 0 }} placeholder="What needs to change?" value={revisionNote} onChange={(e) => setRevisionNote(e.target.value)} />
+          <span className="text-muted">This gives your mentor 7 more days and pauses auto-release.</span>
+          <div className="row">
+            <button className="btn btn-soft btn-sm" disabled={!revisionNote.trim() || busy === "revision"}
+              onClick={async () => { if (await act("revision", "request-revision", { note: revisionNote })) { setShowRevision(false); setRevisionNote(""); } }}>
+              Send request
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowRevision(false)}>Cancel</button>
+          </div>
+        </>
+      )}
+      {!showDispute ? (
+        <button className="btn btn-ghost btn-block" style={{ color: "var(--muted)" }} onClick={() => setShowDispute(true)}>
+          {actionsUnderDelivery ? "Open a dispute" : "Report a problem"}
+        </button>
+      ) : (
+        <>
+          <textarea className="input" style={{ marginBottom: 0 }} placeholder="Describe the issue. An admin will review it and payment stays on hold." value={disputeReason} onChange={(e) => setDisputeReason(e.target.value)} />
+          <div className="row">
+            <button className="btn btn-danger btn-sm" disabled={!disputeReason.trim() || busy === "dispute"}
+              onClick={async () => { if (await act("dispute", "dispute", { reason: disputeReason })) { setShowDispute(false); setDisputeReason(""); } }}>
+              Open a dispute
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowDispute(false)}>Cancel</button>
+          </div>
+        </>
+      )}
+    </>
+  );
+
+  const approveButton = (
+    <>
+      <button className="btn btn-primary btn-block" disabled={busy === "release"}
+        onClick={() => act("release", "release", undefined, `Release ${money(order.amount)} to ${order.seller?.name}? This can't be undone.`)}>
+        Approve and release payment
+      </button>
+      <span className="text-muted">
+        Payment held until you approve. If you do nothing, it releases automatically{autoReleaseAt ? ` on ${fmt(autoReleaseAt)}` : ""}.
+      </span>
+    </>
+  );
 
   return (
     <div className="page">
@@ -172,6 +230,27 @@ export default function OrderDetailPage() {
               <b>Revision requested</b>
               <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{order.revisionNote}</p>
               {order.dueDate && <span className="text-muted">New due date: {fmtDay(order.dueDate)}</span>}
+            </div>
+          )}
+
+          {/* Deliveries (every one is kept across revisions) */}
+          {deliveries.length > 0 && (
+            <div className="stack" style={{ gap: 12 }}>
+              <h2 style={{ fontSize: 24 }}>{deliveries.length === 1 ? "Delivery" : `Deliveries (${deliveries.length})`}</h2>
+              {deliveries.map((d) => {
+                const latest = d.id === latestDelivery.id;
+                return (
+                  <DeliveryCard key={d.id} delivery={d} latest={latest && deliveries.length > 1}>
+                    {latest && actionsUnderDelivery ? (
+                      <div className="stack-sm">
+                        {actionError && <div role="alert" className="alert alert-danger">{actionError}</div>}
+                        {approveButton}
+                        {revisionAndDispute}
+                      </div>
+                    ) : null}
+                  </DeliveryCard>
+                );
+              })}
             </div>
           )}
 
@@ -355,13 +434,13 @@ export default function OrderDetailPage() {
             )}
           </div>
 
-          {actionError && <div role="alert" className="alert alert-danger">{actionError}</div>}
+          {actionError && !actionsUnderDelivery && <div role="alert" className="alert alert-danger">{actionError}</div>}
 
           {/* Mentor actions */}
           {isSeller && order.status === "IN_ESCROW" && !order.disputed && (
             <div className="card stack-sm">
-              <button className="btn btn-deep btn-block" disabled={busy === "complete" || !calls.satisfied}
-                onClick={() => act("complete", "mark-complete", undefined, "Mark this work as complete? The student gets 96 hours to review it.")}>
+              <button className="btn btn-deep btn-block" disabled={!calls.satisfied}
+                onClick={() => { setActionError(""); setShowDeliver(true); }}>
                 Mark work as complete
               </button>
               <span className="text-muted">
@@ -378,50 +457,17 @@ export default function OrderDetailPage() {
           )}
 
           {/* Student actions */}
-          {isBuyer && order.status === "COMPLETED" && !order.disputed && (
-            <div className="card stack-sm">
-              <button className="btn btn-primary btn-block" disabled={busy === "release"}
-                onClick={() => act("release", "release", undefined, `Release ${money(order.amount)} to ${order.seller?.name}? This can't be undone.`)}>
-                Approve and release payment
-              </button>
-              <span className="text-muted">
-                No rush. If you do nothing, it releases automatically{autoReleaseAt ? ` on ${fmt(autoReleaseAt)}` : ""}.
-              </span>
+          {actionsUnderDelivery && (
+            <div className="alert">
+              Your mentor delivered the work. Review it, then approve, request a revision or open a dispute under the delivery.
             </div>
           )}
+          {isBuyer && order.status === "COMPLETED" && !order.disputed && !actionsUnderDelivery && (
+            <div className="card stack-sm">{approveButton}</div>
+          )}
 
-          {isBuyer && active && !order.disputed && (
-            <div className="card stack-sm">
-              {!showRevision ? (
-                <button className="btn btn-block" onClick={() => setShowRevision(true)}>Request a revision</button>
-              ) : (
-                <>
-                  <textarea className="input" style={{ marginBottom: 0 }} placeholder="What needs to change?" value={revisionNote} onChange={(e) => setRevisionNote(e.target.value)} />
-                  <span className="text-muted">This gives your mentor 7 more days and pauses auto-release.</span>
-                  <div className="row">
-                    <button className="btn btn-soft btn-sm" disabled={!revisionNote.trim() || busy === "revision"}
-                      onClick={async () => { if (await act("revision", "request-revision", { note: revisionNote })) { setShowRevision(false); setRevisionNote(""); } }}>
-                      Send request
-                    </button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => setShowRevision(false)}>Cancel</button>
-                  </div>
-                </>
-              )}
-              {!showDispute ? (
-                <button className="btn btn-ghost btn-block" style={{ color: "var(--muted)" }} onClick={() => setShowDispute(true)}>Report a problem</button>
-              ) : (
-                <>
-                  <textarea className="input" style={{ marginBottom: 0 }} placeholder="Describe the issue. An admin will review it and payment stays on hold." value={disputeReason} onChange={(e) => setDisputeReason(e.target.value)} />
-                  <div className="row">
-                    <button className="btn btn-danger btn-sm" disabled={!disputeReason.trim() || busy === "dispute"}
-                      onClick={async () => { if (await act("dispute", "dispute", { reason: disputeReason })) { setShowDispute(false); setDisputeReason(""); } }}>
-                      Open a dispute
-                    </button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => setShowDispute(false)}>Cancel</button>
-                  </div>
-                </>
-              )}
-            </div>
+          {isBuyer && active && !order.disputed && !actionsUnderDelivery && (
+            <div className="card stack-sm">{revisionAndDispute}</div>
           )}
 
           {/* Admin resolution */}
@@ -438,6 +484,17 @@ export default function OrderDetailPage() {
           {order.status === "RELEASED" && <div className="alert alert-success">Payment released to {order.seller?.name}.</div>}
         </aside>
       </div>
+
+      {isSeller && (
+        <DeliverWorkModal
+          open={showDeliver}
+          onClose={() => setShowDeliver(false)}
+          orderId={orderId}
+          nextNumber={deliveries.length + 1}
+          reviewHours={AUTO_RELEASE_HOURS}
+          onDelivered={loadOrder}
+        />
+      )}
     </div>
   );
 }
