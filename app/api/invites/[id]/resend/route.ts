@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendSellerInviteEmail } from "@/lib/email";
+import { logAdminAction } from "@/lib/adminLog";
 
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -28,5 +29,6 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ error: `The email failed to send: ${reason}` }, { status: 502 });
   }
 
+  await logAdminAction({ adminId: (session.user as any).id, action: "INVITE_RESENT", summary: `Re-sent the mentor invite to ${invite.email}`, targetType: "INVITE", targetId: invite.id });
   return NextResponse.json({ success: true });
 }

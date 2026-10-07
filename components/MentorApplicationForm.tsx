@@ -13,6 +13,7 @@ import {
   countWords,
   resumeExtension,
 } from "@/lib/applicationRules";
+import { useRecaptcha } from "@/components/FormGuards";
 
 // The public "Apply to mentor" form. The resume goes straight to Vercel
 // Blob first (via /api/applications/resume), then the form is sent to
@@ -24,6 +25,7 @@ export function MentorApplicationForm() {
   const [error, setError] = useState("");
   const [status, setStatus] = useState<"idle" | "uploading" | "sending" | "done">("idle");
   const fileRef = useRef<HTMLInputElement>(null);
+  const recaptcha = useRecaptcha();
 
   const words = countWords(form.blurb);
   const blurbOk = words >= BLURB_MIN_WORDS && words <= BLURB_MAX_WORDS;
@@ -64,7 +66,13 @@ export function MentorApplicationForm() {
       const res = await fetch("/api/applications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, resumeUrl: blob.url, resumeName: resume.name.slice(0, 150), [HONEYPOT_FIELD]: honeypot }),
+        body: JSON.stringify({
+          ...form,
+          resumeUrl: blob.url,
+          resumeName: resume.name.slice(0, 150),
+          [HONEYPOT_FIELD]: honeypot,
+          recaptchaToken: await recaptcha("mentor_application"),
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Something went wrong. Please try again.");

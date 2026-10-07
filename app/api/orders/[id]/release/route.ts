@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logAdminAction } from "@/lib/adminLog";
+import { closeDisputeFlag } from "@/lib/flags";
 import { releaseOrder, FundsNotYetAvailableError, OrderStateChangedError } from "@/lib/orderRelease";
 
 // Two ways a human reaches this:
@@ -51,6 +53,17 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       await prisma.order
         .update({ where: { id: order.id }, data: { disputeResolvedAt: new Date(), disputeResolution: "RELEASED" } })
         .catch((e) => console.error("Couldn't stamp dispute resolution:", e));
+    }
+    if (isAdmin) {
+      await logAdminAction({
+        adminId: userId,
+        action: "ORDER_RELEASE",
+        summary: `Released payment for order ${order.id} to the mentor${order.disputed ? " to resolve a dispute" : ""}`,
+        targetType: "ORDER",
+        targetId: order.id,
+        targetUserId: order.sellerId,
+      });
+      if (order.disputed) await closeDisputeFlag(order.id, "RELEASE", userId);
     }
     return NextResponse.json(result);
   } catch (err: any) {

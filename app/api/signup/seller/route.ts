@@ -3,6 +3,12 @@ import bcrypt from "bcrypt";
 import { prisma } from "@/lib/prisma";
 import { LIMITS, isNonEmptyString, normalizeEmail } from "@/lib/validate";
 import { isValidTimeZone } from "@/lib/tz";
+import { isBot } from "@/lib/honeypot";
+import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
+import { clientIp, ipKey } from "@/lib/request";
+import { RECAPTCHA_FAILED, verifyRecaptcha } from "@/lib/recaptcha";
+import { RESERVED_NAME_ERROR, isReservedName } from "@/lib/reservedNames";
+import { MENTOR_AGREEMENT_VERSION, acceptedAgreement } from "@/lib/agreement";
 
 // THIS is the route that enforces "sellers can't sign up on their own."
 // It is the only place a SELLER-role user is ever created, and it refuses
@@ -10,7 +16,15 @@ import { isValidTimeZone } from "@/lib/tz";
 // Never trust a client-side check for this - always verify the code here,
 // server-side, against the database.
 export async function POST(req: Request) {
-  const { code, email: rawEmail, password, name, credential, bio, timeZone } = await req.json();
+  const body = await req.json().catch(() => ({}));
+  const { code, email: rawEmail, password, name, credential, bio, timeZone } = body;
+
+  if (isBot(body)) return NextResponse.json({ error: "Something went wrong" }, { status: 400 });
+  const r = await rateLimit(RATE_LIMITS.signupPerIpHour, ipKey(req));
+  if (!r.ok) return tooMany(r.retryAfterSec);
+  if (!(await verifyRecaptcha(body.recaptchaToken, "mentor_signup", clientIp(req)))) {
+    return NextResponse.json({ error: RECAPTCHA_FAILED }, { status: 400 });
+  }
 
   const email = normalizeEmail(rawEmail);
   if (typeof code !== "string" || !email || !isNonEmptyString(name, LIMITS.name)) {
@@ -18,6 +32,10 @@ export async function POST(req: Request) {
   }
   if (typeof password !== "string" || password.length < 8 || password.length > 200) {
     return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
+  }
+  if (isReservedName(name)) return NextResponse.json({ error: RESERVED_NAME_ERROR }, { status: 400 });
+  if (!acceptedAgreement(body.agreement)) {
+    return NextResponse.json({ error: "Please read and accept the mentor agreement" }, { status: 400 });
   }
   if ((credential && (typeof credential !== "string" || credential.length > LIMITS.credential)) ||
       (bio && (typeof bio !== "string" || bio.length > LIMITS.bio))) {
@@ -58,7 +76,12 @@ export async function POST(req: Request) {
       });
       if (burned.count === 0) throw new Error("INVITE_ALREADY_USED");
       const created = await tx.user.create({
-        data: { email, name: name.trim(), passwordHash, role: "SELLER", credential: credential || null, bio: bio || null, timeZone: isValidTimeZone(timeZone) ? timeZone : null },
+        data: { email, name: name.trim(), passwordHash, role: "SELLER", credential: credential || null, bio: bio || null, timeZone: isValidTimeZone(timeZone) ? timeZone : null,
+          // An invite email counts as a confirmed address.
+          emailVerified: new Date(),
+          mentorAgreementVersion: MENTOR_AGREEMENT_VERSION,
+          mentorAgreementAt: new Date(),
+        },
       });
       await tx.invite.update({ where: { id: invite.id }, data: { redeemedByUserId: created.id } });
       return created;

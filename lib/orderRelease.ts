@@ -1,3 +1,4 @@
+import { reportError } from "@/lib/sentry";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { stripe, PLATFORM_FEE_PERCENT } from "@/lib/stripe";
@@ -95,11 +96,11 @@ export async function releaseOrder(orderId: string, claimWhere: Prisma.OrderWher
       // through. Rolling back here is how double payouts happen, so leave
       // the order RELEASED and flag it for a human to check in the Stripe
       // dashboard (search transfers for this order id).
-      console.error(
+      const note =
         `[NEEDS MANUAL CHECK] Release for order ${order.id} hit an ambiguous Stripe error - ` +
-          `order left RELEASED; verify a transfer exists for transfer_group=${order.id}.`,
-        err
-      );
+        `order left RELEASED; verify a transfer exists for transfer_group=${order.id}.`;
+      console.error(note, err);
+      await reportError(note, err, { orderId: order.id }, "fatal");
     }
     throw err;
   }

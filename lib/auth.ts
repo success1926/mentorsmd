@@ -5,6 +5,11 @@ import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcrypt";
 import { prisma } from "./prisma";
 import { SESSION_IDLE_SECONDS, sessionEndReason } from "./sessionRules";
+import { RATE_LIMITS, clearRateLimit, rateLimit, rateLimitCount } from "./rateLimit";
+import { clientIp, ipKey } from "./request";
+import { verifyRecaptcha } from "./recaptcha";
+import { isBot } from "./honeypot";
+import { isReservedName } from "./reservedNames";
 
 // The adapter is what lets NextAuth automatically create/find User rows
 // for Google sign-ins and link them to an Account row. Because the User
@@ -13,12 +18,16 @@ import { SESSION_IDLE_SECONDS, sessionEndReason } from "./sessionRules";
 // default - there is no path from Google sign-in to a SELLER or ADMIN
 // account. Those are only ever created explicitly, elsewhere in the code
 // (the invite-gated seller route, and manually for admins).
-// Rate limiting settings: after this many wrong-password attempts in a
-// row, the account is locked for this long before another attempt is
-// allowed - regardless of whether the next attempt would've been
-// correct. This is what stops someone from brute-force guessing a
-// password by trying thousands of combinations back to back.
-const MAX_FAILED_ATTEMPTS = 5;
+// Login protection, in three layers:
+//  1. Per IP: at most RATE_LIMITS.loginPerIp attempts per 15 minutes from
+//     one connection, whatever the account (lib/rateLimit.ts).
+//  2. Per account + IP: 5 wrong passwords for one account from one
+//     connection blocks only THAT connection for 15 minutes. A stranger
+//     guessing at a known email can't lock the real owner out this way.
+//  3. Per account: after this many wrong passwords in a row from anywhere
+//     (a spread-out attack), the account itself is locked for 15 minutes.
+//     Resetting the password unlocks it.
+const MAX_FAILED_ATTEMPTS = 20;
 const LOCKOUT_MINUTES = 15;
 const ROLE_RECHECK_MS = 5 * 60 * 1000;
 
@@ -39,9 +48,18 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        recaptchaToken: { label: "reCAPTCHA", type: "text" },
+        website: { label: "Leave empty", type: "text" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null;
+        // Hidden trap field filled in: a bot. Same answer as a wrong password.
+        if (isBot(credentials)) return null;
+
+        const ip = ipKey(req);
+        const perIp = await rateLimit(RATE_LIMITS.loginPerIp, ip);
+        if (!perIp.ok) return null;
+        if (!(await verifyRecaptcha(credentials.recaptchaToken, "login", clientIp(req)))) return null;
 
         // Case-insensitive, so "Jane@x.com" and "jane@x.com" are the same account.
         const user = await prisma.user.findFirst({
@@ -65,10 +83,15 @@ export const authOptions: NextAuthOptions = {
         if (user.lockedUntil && user.lockedUntil > new Date()) {
           return null;
         }
+        const pairKey = `${user.id}:${ip}`;
+        if ((await rateLimitCount(RATE_LIMITS.loginFailPerAccountIp, pairKey)) >= RATE_LIMITS.loginFailPerAccountIp.max) {
+          return null;
+        }
 
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);
 
         if (!valid) {
+          await rateLimit(RATE_LIMITS.loginFailPerAccountIp, pairKey);
           const attempts = user.failedLoginAttempts + 1;
           await prisma.user.update({
             where: { id: user.id },
@@ -87,13 +110,31 @@ export const authOptions: NextAuthOptions = {
         // once they get it right.
         await prisma.user.update({
           where: { id: user.id },
-          data: { failedLoginAttempts: 0, lockedUntil: null },
+          data: { failedLoginAttempts: 0, lockedUntil: null, lastActiveAt: new Date() },
         });
+        await clearRateLimit(RATE_LIMITS.loginFailPerAccountIp, pairKey);
 
         return { id: user.id, email: user.email, name: user.name, role: user.role };
       },
     }),
   ],
+  events: {
+    // Google sign-ins: Google has confirmed the email, and a reserved
+    // name from the Google profile ("Admin", "Support"...) is replaced.
+    async signIn({ user, account }) {
+      if (account?.provider !== "google" || !user?.id) return;
+      try {
+        const current = await prisma.user.findUnique({ where: { id: user.id }, select: { name: true, emailVerified: true } });
+        if (!current) return;
+        const data: { emailVerified?: Date; lastActiveAt: Date; name?: string } = { lastActiveAt: new Date() };
+        if (!current.emailVerified) data.emailVerified = new Date();
+        if (isReservedName(current.name || "")) data.name = "Student";
+        await prisma.user.update({ where: { id: user.id }, data });
+      } catch (err) {
+        console.error("Couldn't update a Google sign-in:", err);
+      }
+    },
+  },
   callbacks: {
     // Extra safety check on top of the role-default behavior above: if
     // someone signs in with Google using an email that already belongs to
@@ -134,6 +175,8 @@ export const authOptions: NextAuthOptions = {
         // deleting it) takes effect quickly instead of lasting until the
         // 30-day session token expires.
         const fresh = await prisma.user.findUnique({ where: { id: token.sub }, select: { role: true, passwordChangedAt: true, removedByAdmin: true } });
+        // "Last active", for the 14-days-without-login check.
+        await prisma.user.updateMany({ where: { id: token.sub }, data: { lastActiveAt: new Date() } }).catch(() => {});
         token.role = fresh?.role ?? null;
         token.roleCheckedAt = Date.now();
         // Password was reset after this login started: end this session.

@@ -156,8 +156,10 @@ export async function createWebhook(url: string) {
 export function verifyDailyWebhook(body: string, timestamp: string | null, signature: string | null) {
   const secret = process.env.DAILY_WEBHOOK_SECRET;
   if (!secret) {
-    warnOnce("webhook", "DAILY_WEBHOOK_SECRET is not set - Daily webhook events are accepted without a signature check.");
-    return true;
+    // Without a secret there's no way to tell real Daily events from
+    // forged ones, so every event is refused until it's set.
+    warnOnce("webhook", "DAILY_WEBHOOK_SECRET is not set - Daily webhook events are refused (401) until it is. Use Admin -> Calls & recordings -> Connect Daily webhook.");
+    return false;
   }
   if (!timestamp || !signature) return false;
   const expected = crypto.createHmac("sha256", Buffer.from(secret, "base64")).update(`${timestamp}.${body}`).digest("base64");

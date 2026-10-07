@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendDisputeOpenedEmail, SITE_URL } from "@/lib/email";
+import { createFlag } from "@/lib/flags";
 
 // Disputes are buyer-raised, admin-resolved - opening one does NOT
 // automatically refund or release anything. It just flags the order and
@@ -49,6 +50,20 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   // than only in the small summary card on /admin.
   await prisma.disputeMessage.create({
     data: { body: reason, orderId: params.id, senderId: order.buyerId },
+  });
+
+  // Disputes also show in Admin -> Flags (about the mentor). It closes
+  // when the admin refunds or releases the order.
+  await createFlag({
+    kind: "DISPUTE",
+    source: "USER",
+    severity: 2,
+    reason: `Dispute: ${order.gig.title}`,
+    details: reason,
+    subjectUserId: order.sellerId,
+    reporterId: order.buyerId,
+    orderId: order.id,
+    conversationId: order.conversationId,
   });
 
   try {
