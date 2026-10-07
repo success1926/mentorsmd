@@ -9,7 +9,7 @@ Status on Oct 6, 2026: Phase 1 is on the `phase-1` branch on GitHub (from `mento
 - [x] Get the Phase 1 code onto a `phase-1` branch on GitHub (**Claude**, Oct 6)
 - [x] Make a Neon backup branch named `backup-before-phase-1` (**Claude**, Oct 7)
 - [x] Run `prisma/phase1-2026-10.sql` on the production database (**Claude**, Oct 7; 3 columns confirmed)
-- [ ] Put the `-git-phase-1-` preview domain in the Preview-only `NEXTAUTH_URL` on Vercel, then redeploy (**Tabo**)
+- [x] Set a `phase-1`-only Preview `NEXTAUTH_URL` on Vercel and redeploy (**Claude**, Oct 7)
 
 ## Now: Test Phase 1 on the preview
 Use separate browsers for the admin, mentor (a `+mentor` alias email) and student accounts. Google login and finishing payments only work on the live site.
