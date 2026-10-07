@@ -4,10 +4,31 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { LIMITS, isNonEmptyString, normalizeEmail } from "@/lib/validate";
 import { isValidTimeZone } from "@/lib/tz";
+import { isBot } from "@/lib/honeypot";
+import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
+import { clientIp, ipKey } from "@/lib/request";
+import { RECAPTCHA_FAILED, verifyRecaptcha } from "@/lib/recaptcha";
+import { RESERVED_NAME_ERROR, isReservedName } from "@/lib/reservedNames";
+import { sendVerificationLink } from "@/lib/emailVerification";
 
-// Buyers can self-register freely - this route has no gate at all.
+// Students can sign up freely; this route is protected against bots by a
+// hidden trap field, reCAPTCHA and per-IP limits. A "confirm your email"
+// link goes out right away (needed before the first message).
 export async function POST(req: Request) {
-  const { email: rawEmail, password, name, timeZone } = await req.json();
+  const body = await req.json().catch(() => ({}));
+  const { email: rawEmail, password, name, timeZone } = body;
+
+  // Bot filled in the hidden field: pretend it worked, create nothing.
+  if (isBot(body)) return NextResponse.json({ ok: true });
+
+  const ip = ipKey(req);
+  for (const limit of [RATE_LIMITS.signupPerIpHour, RATE_LIMITS.signupPerIpDay]) {
+    const r = await rateLimit(limit, ip);
+    if (!r.ok) return tooMany(r.retryAfterSec, "Too many accounts were created from this connection. Please try again later.");
+  }
+  if (!(await verifyRecaptcha(body.recaptchaToken, "signup", clientIp(req)))) {
+    return NextResponse.json({ error: RECAPTCHA_FAILED }, { status: 400 });
+  }
 
   // Emails are stored lowercase so "Jane@x.com" and "jane@x.com" can't
   // become two separate accounts (and login matches either spelling).
@@ -16,6 +37,7 @@ export async function POST(req: Request) {
   if (!isNonEmptyString(name, LIMITS.name)) {
     return NextResponse.json({ error: "Enter your name" }, { status: 400 });
   }
+  if (isReservedName(name)) return NextResponse.json({ error: RESERVED_NAME_ERROR }, { status: 400 });
   if (typeof password !== "string" || password.length < 8 || password.length > 200) {
     return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
   }
@@ -31,6 +53,11 @@ export async function POST(req: Request) {
     const user = await prisma.user.create({
       data: { email, name: name.trim(), passwordHash, role: "BUYER", timeZone: isValidTimeZone(timeZone) ? timeZone : null },
     });
+    try {
+      await sendVerificationLink(user);
+    } catch (err) {
+      console.error("Couldn't send the confirm-your-email link:", err);
+    }
     return NextResponse.json({ id: user.id, email: user.email, name: user.name });
   } catch (err) {
     // Two signups for the same email at the same instant.

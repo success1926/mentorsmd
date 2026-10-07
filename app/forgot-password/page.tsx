@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Honeypot, useRecaptcha } from "@/components/FormGuards";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [trap, setTrap] = useState("");
+  const recaptcha = useRecaptcha();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -16,7 +19,7 @@ export default function ForgotPasswordPage() {
     const res = await fetch("/api/password/forgot", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, website: trap, recaptchaToken: await recaptcha("forgot_password") }),
     });
     setLoading(false);
     if (!res.ok) {
@@ -47,6 +50,7 @@ export default function ForgotPasswordPage() {
           <form onSubmit={handleSubmit}>
             <label htmlFor="email" className="sr-only">Email</label>
             <input id="email" className="input" placeholder="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Honeypot value={trap} onChange={setTrap} />
             {error && <div role="alert" style={{ color: "var(--danger)", fontSize: 14, marginBottom: 12 }}>{error}</div>}
             <button className="btn btn-primary btn-lg btn-block" disabled={loading || !email}>
               {loading ? "Sending..." : "Send reset link"}

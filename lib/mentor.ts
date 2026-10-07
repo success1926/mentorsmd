@@ -8,6 +8,7 @@ import { PRICE_MAX_CENTS, PRICE_MIN_CENTS, isPriceInRange } from "@/lib/options"
 export function visibleMentorWhere(now: Date = new Date()): Prisma.UserWhereInput {
   return {
     role: "SELLER",
+    safetyHoldAt: null, // paused by MentorsMD pending a safety review
     OR: [{ profileStatus: "ACTIVE" }, { profileStatus: "PAUSED", pausedUntil: { lte: now } }],
   };
 }

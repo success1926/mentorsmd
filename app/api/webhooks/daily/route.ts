@@ -8,8 +8,9 @@ import { verifyDailyWebhook } from "@/lib/daily";
 //
 // Setup (once): Admin -> Calls & recordings -> "Connect Daily webhook", or
 // create a webhook in Daily pointing at https://<your site>/api/webhooks/daily.
-// Then save the secret it shows as DAILY_WEBHOOK_SECRET in Vercel, so
-// events that don't come from Daily are refused.
+// Then save the secret it shows as DAILY_WEBHOOK_SECRET in Vercel. Until
+// that secret is set, every event is refused (401), since there'd be no
+// way to tell real Daily events from forged ones.
 function toDate(v: unknown): Date | null {
   if (typeof v === "number" && v > 0) return new Date(v < 1e12 ? v * 1000 : v);
   if (typeof v === "string" && v) {
@@ -40,6 +41,7 @@ export async function POST(req: Request) {
   if (!event?.type) return NextResponse.json({ ok: true });
 
   if (!verifyDailyWebhook(body, req.headers.get("x-webhook-timestamp"), req.headers.get("x-webhook-signature"))) {
+    if (!process.env.DAILY_WEBHOOK_SECRET) console.warn("Daily webhook event refused: DAILY_WEBHOOK_SECRET is not set.");
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 

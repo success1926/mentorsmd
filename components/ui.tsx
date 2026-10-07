@@ -27,6 +27,7 @@ export const ICONS = {
   clock: "M12 21a9 9 0 100-18 9 9 0 000 18zM12 7v5l3 2",
   pause: "M8 5v14M16 5v14",
   alert: "M12 21a9 9 0 100-18 9 9 0 000 18zM12 7.5v5.5M12 16.5v.01",
+  flag: "M5 21V4M5 4h11l-2 4 2 4H5",
 };
 
 export function Vetted() {
@@ -34,6 +35,18 @@ export function Vetted() {
     <span className="vetted">
       <Icon d={ICONS.check} size={13} stroke={2.8} />
       Vetted
+    </span>
+  );
+}
+
+// Shown next to messages from MentorsMD admins. Names like "Admin" or
+// "MentorsMD Support" are reserved (lib/reservedNames.ts), so this badge
+// is the only way staff can be recognized.
+export function StaffBadge() {
+  return (
+    <span className="staff-badge" title="Official MentorsMD team member">
+      <Icon d={ICONS.shield} size={12} stroke={2.4} />
+      MentorsMD staff
     </span>
   );
 }
