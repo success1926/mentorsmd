@@ -6,7 +6,8 @@ import { LIMITS, isNonEmptyString, parsePriceToCents } from "@/lib/validate";
 import { GIG_DESCRIPTION_MIN_WORDS, PRICE_RULE, countWords } from "@/lib/options";
 import { parseGigSearchFields } from "@/lib/gigInput";
 import { bookableGigWhere } from "@/lib/mentor";
-import { MENTOR_AGREEMENT_VERSION, acceptedAgreement } from "@/lib/agreement";
+import { acceptedAgreement } from "@/lib/agreement";
+import { mentorAgreementLabel } from "@/lib/legal";
 import { checkText } from "@/lib/moderation";
 import { createFlagsForFindings } from "@/lib/flags";
 
@@ -41,6 +42,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (!acceptedAgreement(body.agreement)) {
     return NextResponse.json({ error: "Please tick the box to accept the mentor agreement before saving" }, { status: 400 });
   }
+  const agreementLabel = await mentorAgreementLabel();
 
   if (body.title !== undefined && !isNonEmptyString(body.title, LIMITS.gigTitle)) {
     return NextResponse.json({ error: `Title is required (max ${LIMITS.gigTitle} chars)` }, { status: 400 });
@@ -78,13 +80,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       description: body.description?.trim() ?? gig.description,
       price,
       ...searchData,
-      agreementVersion: MENTOR_AGREEMENT_VERSION,
+      agreementVersion: agreementLabel,
       agreementAt: new Date(),
     },
   });
   await prisma.user.update({
     where: { id: gig.sellerId },
-    data: { mentorAgreementVersion: MENTOR_AGREEMENT_VERSION, mentorAgreementAt: new Date() },
+    data: { mentorAgreementVersion: agreementLabel, mentorAgreementAt: new Date() },
   });
   if (body.title !== undefined || body.description !== undefined) {
     await createFlagsForFindings(checkText(`${updated.title}\n${updated.description}`).findings, {

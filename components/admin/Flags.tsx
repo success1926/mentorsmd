@@ -28,6 +28,7 @@ const KIND_LABEL: Record<string, string> = {
   AI: "AI check",
   PERFORMANCE: "Performance",
   BLOCKED_MESSAGE: "Blocked message",
+  MINOR: "Under 18",
 };
 export const kindLabel = (k: string) => KIND_LABEL[k] || k;
 
@@ -255,7 +256,10 @@ export function ActionLog() {
   return (
     <section className="stack-sm" id="action-log">
       <h2 style={{ fontSize: 30 }}>Action log</h2>
-      <p className="text-secondary">Every admin decision: flags, pauses, removals, refunds, releases and invites, with who did it and when.</p>
+      <div className="between" style={{ gap: 8, flexWrap: "wrap" }}>
+        <p className="text-secondary">Every admin decision: flags, pauses, removals, refunds, releases and invites, with who did it and when.</p>
+        <a className="btn btn-sm" href="/api/admin/actions?format=csv" download>Download CSV</a>
+      </div>
       <details className="collapse">
         <summary><span className="row" style={{ gap: 8 }}>Recent actions {rows && <span className="tab-count">{rows.length}{hasMore ? "+" : ""}</span>}</span></summary>
         <div className="collapse-body" style={{ gap: 0 }}>

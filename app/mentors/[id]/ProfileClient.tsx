@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Icon, ICONS, Vetted, Rating, tintFor, initialsOf } from "@/components/ui";
 import { ConfirmEmailNotice, ReportDialog, SendWarnings, setBlocked, type SendWarning } from "@/components/Safety";
+import { trackEvent } from "@/components/Tracker";
 import { BACKGROUNDS, FORMATS, SCHOOL_TYPES, STAGES, TURNAROUNDS, labelFor, money, serviceLabel } from "@/lib/options";
 
 type Gig = {
@@ -53,6 +54,13 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
       alert(e.message);
     }
   }
+
+  // Private activity log (#86): one profile view per visit. The server
+  // skips the mentor's own views and admins.
+  useEffect(() => {
+    if (status === "loading") return;
+    trackEvent({ kind: "PROFILE_VIEW", mentorId: seller.id });
+  }, [status, seller.id]);
 
   useEffect(() => {
     if (!isBuyer) return;
@@ -134,6 +142,7 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
                 <Vetted />
               </div>
               {seller.credential && <span style={{ fontSize: 18 }}>{seller.credential}</span>}
+              {seller.medicalSchool && <span className="text-secondary" style={{ fontSize: 16 }}>{seller.medicalSchool}</span>}
               <Rating avg={avg} count={reviews.length} />
               {tags.length > 0 && (
                 <div className="row-wrap" style={{ gap: 6 }}>
@@ -147,6 +156,12 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
             <div className="alert alert-warning">
               <b>{first} is away{seller.pausedUntil ? ` until ${new Date(seller.pausedUntil).toLocaleDateString(undefined, { month: "long", day: "numeric" })}` : ""}.</b>{" "}
               {seller.status === "REMOVED" ? "This profile has been removed." : seller.awayNote || "New orders are paused for now."}
+            </div>
+          )}
+
+          {seller.adultsOnlyForViewer && (
+            <div className="alert alert-warning">
+              <b>{first} works with students 18 and over.</b> You can still read their profile, but you can&apos;t message or book them. Browse other mentors who work with students under 18.
             </div>
           )}
 

@@ -67,7 +67,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   });
 
   try {
-    const admins = await prisma.user.findMany({ where: { role: "ADMIN" }, select: { email: true } });
+    const admins = await prisma.user.findMany({ where: { role: "ADMIN", removedByAdmin: false, adminDisabledAt: null }, select: { email: true } });
     await Promise.all(
       admins.map((admin) =>
         sendDisputeOpenedEmail(admin.email, order.gig.title, reason, `${SITE_URL}/orders/${order.id}`)

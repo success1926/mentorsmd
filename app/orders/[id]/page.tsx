@@ -7,7 +7,7 @@ import { useConversation } from "@/lib/hooks/useConversation";
 import { useDisputeThread } from "@/lib/hooks/useDisputeThread";
 import { OrderCalls } from "@/components/Calls";
 import { DeliverWorkModal, DeliveryCard } from "@/components/Deliveries";
-import { Icon, ICONS, StaffBadge, statusBadge, tintFor, initialsOf } from "@/components/ui";
+import { Icon, ICONS, MinorBadge, StaffBadge, statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { callSummary, CALL_HOLD_HOURS } from "@/lib/calls";
 import { FORMATS, TURNAROUNDS, labelFor, money, serviceLabel } from "@/lib/options";
 
@@ -405,6 +405,7 @@ export default function OrderDetailPage() {
               <div className="stack-sm" style={{ gap: 0 }}>
                 <span className="text-muted">{isSeller ? "Student" : "Mentor"}</span>
                 <b>{other?.name}</b>
+                {!isBuyer && <MinorBadge person={order.buyer} />}
               </div>
             </div>
             <hr className="divider" />

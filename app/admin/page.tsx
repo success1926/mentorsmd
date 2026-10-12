@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { useDisputeThread } from "@/lib/hooks/useDisputeThread";
 import { StaffBadge, statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { ActionLog, FlagsAdmin, SEVERITY, kindLabel } from "@/components/admin/Flags";
+import { AdminNav } from "@/components/admin/AdminNav";
 import { DeliveryCard } from "@/components/Deliveries";
 import { Attendance, Recordings } from "@/components/Calls";
 import { BACKGROUNDS, SCHOOL_TYPES, STAGES, labelFor, money } from "@/lib/options";
@@ -74,8 +75,9 @@ export default function AdminPage() {
     <div className="page stack-lg" style={{ gap: 36 }}>
       <div className="stack-sm">
         <h1 className="page-title">Admin</h1>
-        <p className="lede">Flags, disputes, calls, mentor applications, invites and people.</p>
+        <p className="lede">Flags, disputes, calls, mentor applications, invites and people. Numbers and charts are under <Link href="/admin/insights" className="link">Insights</Link>.</p>
       </div>
+      <AdminNav />
 
       {earnings && (
         <div className="stat-cards">
@@ -470,7 +472,10 @@ function People() {
           Students {counts && <span className="tab-count">{counts.students}</span>}
         </button>
       </div>
-      <input className="input" placeholder="Search by name or email" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
+      <div className="row" style={{ gap: 8 }}>
+        <input className="input grow" style={{ marginBottom: 0 }} placeholder="Search by name or email" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
+        <a className="btn btn-sm" href={`/api/admin/users?${new URLSearchParams({ role, format: "csv", ...(q.trim() ? { q: q.trim() } : {}) })}`} download>Download CSV</a>
+      </div>
       <div className="card" style={{ padding: "4px 20px" }}>
         {users === null && <p className="text-muted" style={{ padding: 12 }}>Loading…</p>}
         {users?.length === 0 && <p className="text-muted" style={{ padding: 12 }}>No one found.</p>}
@@ -493,6 +498,8 @@ function People() {
               {u.health && <span className={`badge ${u.health === "Good" ? "badge-success" : u.health === "Watch" ? "badge-warning" : "badge-danger"}`} title="Health: open, high-severity and upheld flags">{u.health}</span>}
               {u.flags?.openFlags > 0 && <span className="badge badge-warning">{u.flags.openFlags} open flag{u.flags.openFlags === 1 ? "" : "s"}</span>}
               {u.flags?.upheld90 > 0 && <span className="badge badge-danger">{u.flags.upheld90} upheld (90 days)</span>}
+              {u.minorStatus && <span className="badge badge-warning" title={u.minorStatus === "CONSENTED" ? "Parent consent given" : "Waiting for parent consent"}>Under 18{u.minorStatus === "CONSENTED" ? "" : u.minorStatus === "PENDING" ? " · consent pending" : " · no consent"}</span>}
+              {role === "SELLER" && u.acceptsMinors === false && <span className="badge">18+ students only</span>}
               {u.safetyHoldAt && <span className="badge badge-danger">On hold</span>}
               {u.profileStatus === "ACTIVE" && !u.safetyHoldAt && <span className="badge badge-success">Active</span>}
               {u.profileStatus === "PAUSED" && !u.safetyHoldAt && <span className="badge badge-warning">Paused</span>}
@@ -538,6 +545,10 @@ function PersonDetail({ id }: { id: string }) {
         <div className="alert alert-warning small">On hold since {fmtDay(u.safetyHoldAt)}{u.safetyHoldReason ? `: ${u.safetyHoldReason}` : ""}. Use Unpause once reviewed.</div>
       )}
       <HealthCard d={d} />
+      <div className="row-wrap small text-secondary">
+        {isMentor && <span><b>Medical school:</b> {u.medicalSchool || "not added yet"}</span>}
+        <span><b>Signup source:</b> {u.signupSource ? `${u.signupSource}${u.signupDetail ? ` (${u.signupDetail})` : ""}` : "unknown"}</span>
+      </div>
       {isMentor && (
         <>
           <div className="row-wrap small">
@@ -554,6 +565,20 @@ function PersonDetail({ id }: { id: string }) {
           </div>
           <Link href={`/mentors/${u.id}`} className="link small">Open public profile →</Link>
         </>
+      )}
+      {d.activity?.length > 0 && (
+        <details className="collapse">
+          <summary><span className="row" style={{ gap: 8 }}>Recent activity (private) <span className="tab-count">{d.activity.length}</span></span></summary>
+          <div className="collapse-body" style={{ gap: 0 }}>
+            {d.activity.map((a: any) => (
+              <div key={a.id} className="list-row small">
+                <span className="text-muted nowrap">{fmtDay(a.createdAt)}</span>
+                <span className="grow">{a.text}</span>
+              </div>
+            ))}
+            <Link href="/admin/insights?tab=log" className="link small" style={{ paddingTop: 8 }}>Full activity log →</Link>
+          </div>
+        </details>
       )}
       <b className="small" style={{ marginTop: 6 }}>Recent orders</b>
       {d.orders.length === 0 && <span className="text-muted">No orders.</span>}
@@ -582,6 +607,12 @@ function HealthCard({ d }: { d: any }) {
         <span>{h.openFlags} open flag{h.openFlags === 1 ? "" : "s"}{h.highOpen ? ` (${h.highOpen} high)` : ""}</span>
         <span>· {h.upheld90} upheld in 90 days</span>
         {u.role === "BUYER" && <span>· email {u.emailVerified ? "confirmed" : "not confirmed"}</span>}
+        {u.role === "BUYER" && (
+          <span>
+            · {u.dateOfBirth ? `born ${new Date(u.dateOfBirth).toLocaleDateString(undefined, { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" })}` : "no date of birth yet"}
+            {u.minorStatus ? <> (under 18: <Link href="/admin/minors" className="link">consent {u.minorStatus === "CONSENTED" ? "given" : u.minorStatus === "PENDING" ? "pending" : "not given"}</Link>)</> : u.becameAdultAt ? " (turned 18 here)" : ""}
+          </span>
+        )}
         {u.role === "SELLER" && <span>· agreement {u.mentorAgreementVersion ? `v${u.mentorAgreementVersion}${u.mentorAgreementAt ? `, accepted ${fmtDay(u.mentorAgreementAt)}` : ""}` : "not accepted yet"}</span>}
         <span>· last active {u.lastActiveAt ? fmtDay(u.lastActiveAt) : "unknown"}</span>
       </div>

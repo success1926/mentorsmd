@@ -22,10 +22,12 @@ export default async function MentorProfilePage({ params }: { params: { id: stri
       photoUrl: true,
       mentorStage: true,
       schoolType: true,
+      medicalSchool: true,
       backgrounds: true,
       profileStatus: true,
       pausedUntil: true,
       awayNote: true,
+      acceptsMinors: true,
       gigs: {
         where: bookableGigWhere,
         orderBy: { price: "asc" },
@@ -52,7 +54,13 @@ export default async function MentorProfilePage({ params }: { params: { id: stri
     select: { id: true, rating: true, comment: true, createdAt: true, buyer: { select: { name: true } } },
   });
 
-  const { role, profileStatus, pausedUntil, ...publicSeller } = seller;
+  // A student under 18 looking at a mentor who works with 18+ only.
+  const viewerIsMinor =
+    viewerRole === "BUYER" && viewerId && !seller.acceptsMinors
+      ? !!(await prisma.user.findUnique({ where: { id: viewerId }, select: { minorStatus: true } }))?.minorStatus
+      : false;
+
+  const { role, profileStatus, pausedUntil, acceptsMinors, ...publicSeller } = seller;
   const available = isMentorVisible({ profileStatus, pausedUntil });
 
   return (
@@ -62,6 +70,7 @@ export default async function MentorProfilePage({ params }: { params: { id: stri
         available,
         status: profileStatus,
         pausedUntil: pausedUntil ? pausedUntil.toISOString() : null,
+        adultsOnlyForViewer: viewerIsMinor,
       }}
       reviews={reviews.map((r) => ({
         id: r.id,

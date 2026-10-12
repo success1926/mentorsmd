@@ -8,7 +8,12 @@ import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
 import { clientIp, ipKey } from "@/lib/request";
 import { RECAPTCHA_FAILED, verifyRecaptcha } from "@/lib/recaptcha";
 import { RESERVED_NAME_ERROR, isReservedName } from "@/lib/reservedNames";
-import { MENTOR_AGREEMENT_VERSION, acceptedAgreement } from "@/lib/agreement";
+import { acceptedAgreement } from "@/lib/agreement";
+import { mentorAgreementLabel, recordAcceptances, requestMeta } from "@/lib/legal";
+import { requiredKindsFor } from "@/lib/legalKinds";
+import { recordSignup, signupAttribution } from "@/lib/activity";
+import { applicationSchoolForInvite } from "@/lib/applications";
+import { normalizeMedicalSchool } from "@/lib/medicalSchools";
 
 // THIS is the route that enforces "sellers can't sign up on their own."
 // It is the only place a SELLER-role user is ever created, and it refuses
@@ -35,7 +40,7 @@ export async function POST(req: Request) {
   }
   if (isReservedName(name)) return NextResponse.json({ error: RESERVED_NAME_ERROR }, { status: 400 });
   if (!acceptedAgreement(body.agreement)) {
-    return NextResponse.json({ error: "Please read and accept the mentor agreement" }, { status: 400 });
+    return NextResponse.json({ error: "Please read and accept the Mentor Agreement and the Terms of Service" }, { status: 400 });
   }
   if ((credential && (typeof credential !== "string" || credential.length > LIMITS.credential)) ||
       (bio && (typeof bio !== "string" || bio.length > LIMITS.bio))) {
@@ -63,7 +68,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "An account with that email already exists" }, { status: 409 });
   }
 
+  // Medical school (#85): what they picked on the join page, or else the
+  // school from their mentor application.
+  const medicalSchool = normalizeMedicalSchool(body.medicalSchool) || (await applicationSchoolForInvite(invite.id, email).catch(() => null));
+
+  const firstVisit = signupAttribution(req.headers.get("cookie"));
   const passwordHash = await bcrypt.hash(password, 12);
+  const agreementLabel = await mentorAgreementLabel();
 
   // Transaction: burn the invite code and create the seller together. The
   // invite update is conditional on it still being PENDING, so a code can
@@ -79,13 +90,21 @@ export async function POST(req: Request) {
         data: { email, name: name.trim(), passwordHash, role: "SELLER", credential: credential || null, bio: bio || null, timeZone: isValidTimeZone(timeZone) ? timeZone : null,
           // An invite email counts as a confirmed address.
           emailVerified: new Date(),
-          mentorAgreementVersion: MENTOR_AGREEMENT_VERSION,
+          mentorAgreementVersion: agreementLabel,
           mentorAgreementAt: new Date(),
+          medicalSchool,
+          // Mentors always join through an invite; the detail keeps how
+          // they first found the site, if we know.
+          signupSource: "invite",
+          signupDetail: firstVisit.signupSource ? [firstVisit.signupSource, firstVisit.signupDetail].filter(Boolean).join(" ").slice(0, 200) : null,
         },
       });
       await tx.invite.update({ where: { id: invite.id }, data: { redeemedByUserId: created.id } });
       return created;
     });
+    await recordSignup(user.id, req.headers.get("cookie"), user.signupSource);
+    // Mentor Agreement + Terms, Privacy and Community Guidelines (#105).
+    await recordAcceptances(user, requiredKindsFor("SELLER"), "MENTOR_JOIN", requestMeta(req)).catch((err) => console.error("Couldn't record the mentor's agreement:", err));
     return NextResponse.json({ id: user.id, email: user.email, name: user.name });
   } catch (err: any) {
     if (err?.message === "INVITE_ALREADY_USED" || err?.code === "P2002") {

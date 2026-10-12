@@ -7,6 +7,7 @@ import { Avatar } from "@/components/Avatar";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 import { Icon, ICONS } from "@/components/ui";
 import { BACKGROUNDS, SCHOOL_TYPES, STAGES } from "@/lib/options";
+import { MedicalSchoolPicker } from "@/components/MedicalSchoolPicker";
 import { BusyDatesCard, CallHoursCard, ExternalCalendarCard, TimeZoneCard } from "@/components/AvailabilitySettings";
 
 const LIMITS = { name: 100, credential: 200, bio: 3000, awayNote: 300 };
@@ -86,6 +87,7 @@ export default function AccountPage() {
   const [stage, setStage] = useState("");
   const [school, setSchool] = useState("");
   const [bgs, setBgs] = useState<string[]>([]);
+  const [medSchool, setMedSchool] = useState("");
   const [searchMsg, setSearchMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   // calendar
@@ -115,6 +117,7 @@ export default function AccountPage() {
         setStage(profile.mentorStage || "");
         setSchool(profile.schoolType || "");
         setBgs(profile.backgrounds || []);
+        setMedSchool(profile.medicalSchool || "");
         setAwayNote(profile.awayNote || "");
         setReturnDate(profile.pausedUntil ? String(profile.pausedUntil).slice(0, 10) : "");
         if (profile.role === "SELLER") {
@@ -284,6 +287,7 @@ export default function AccountPage() {
             <h2 style={{ fontSize: 26 }}>About you (for search)</h2>
             <span className="text-secondary">Asked once and used for all your packages. Stage and school type are required for your packages to show in search.</span>
           </div>
+          <MedicalSchoolPicker value={medSchool} onChange={setMedSchool} required help="Shown on your profile. Start typing and pick your school; not listed? Type its full name." />
           <div className="field">
             <span className="field-label">Your stage</span>
             <div className="seg">
@@ -319,14 +323,17 @@ export default function AccountPage() {
           <button
             className="btn btn-primary"
             style={{ alignSelf: "flex-start" }}
-            disabled={!stage || !school}
-            onClick={() => patchProfile({ mentorStage: stage, schoolType: school, backgrounds: bgs }, setSearchMsg, "Saved. Your packages can now show in search.")}
+            disabled={!stage || !school || !medSchool.trim()}
+            onClick={() => patchProfile({ mentorStage: stage, schoolType: school, backgrounds: bgs, medicalSchool: medSchool }, setSearchMsg, "Saved. Your packages can now show in search.")}
           >
             Save answers
           </button>
           <Msg m={searchMsg} />
         </section>
       )}
+
+      {/* ---------- Students under 18 (mentors) ---------- */}
+      {isSeller && <MinorsCard profile={profile} onSaved={loadProfile} />}
 
       {/* ---------- Call availability + busy dates (mentors) ---------- */}
       {isSeller && <CallHoursCard key={JSON.stringify([profile.weeklyHours, profile.timeZone, profile.daysOff])} profile={profile} onSaved={loadProfile} />}
@@ -452,6 +459,15 @@ export default function AccountPage() {
           <span className="text-secondary">Login email</span>
           <b>{profile.email}</b>
         </div>
+        {profile.role === "BUYER" && profile.dateOfBirth && (
+          <div className="between" style={{ flexWrap: "wrap", gap: 8, borderTop: "1px solid var(--line)", paddingTop: 14 }}>
+            <span className="text-secondary">Date of birth</span>
+            <span className="row" style={{ gap: 8 }}>
+              <b>{new Date(profile.dateOfBirth).toLocaleDateString(undefined, { timeZone: "UTC", month: "long", day: "numeric", year: "numeric" })}</b>
+              {profile.minorStatus === "CONSENTED" && <span className="badge badge-success">Parent consent given</span>}
+            </span>
+          </div>
+        )}
         {profile.hasPassword ? (
           <div className="between" style={{ flexWrap: "wrap", gap: 12, borderTop: "1px solid var(--line)", paddingTop: 14 }}>
             <div className="stack-sm" style={{ gap: 0 }}>
@@ -468,5 +484,39 @@ export default function AccountPage() {
       </section>
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} email={profile.email} />
     </div>
+  );
+}
+
+// Mentors can choose not to work with students under 18 (#110).
+function MinorsCard({ profile, onSaved }: { profile: any; onSaved: () => void }) {
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const on = profile.acceptsMinors !== false;
+  async function toggle() {
+    setBusy(true);
+    setMsg(null);
+    const res = await fetch("/api/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ acceptsMinors: !on }) });
+    const d = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) return setMsg({ ok: false, text: d.error || "Couldn't save" });
+    setMsg({ ok: true, text: on ? "Saved. Students under 18 can't message or book you." : "Saved. Students under 18 can message and book you." });
+    onSaved();
+  }
+  return (
+    <section id="minors" className="card stack" style={{ scrollMarginTop: 100 }}>
+      <div className="between" style={{ gap: 16, alignItems: "flex-start" }}>
+        <div className="stack-sm">
+          <h2 style={{ fontSize: 26 }}>Students under 18</h2>
+          <span className="text-secondary">
+            Students aged 13 to 17 can use MentorsMD with a parent or guardian&apos;s consent, and show an &quot;Under 18&quot; badge. Their parent gets a receipt for every order. Turn this off if you only want to work with students 18 and over (orders you already have aren&apos;t affected).
+          </span>
+        </div>
+        <label className="switch" title={on ? "Working with students under 18" : "18 and over only"}>
+          <input type="checkbox" checked={on} disabled={busy} aria-label="Work with students under 18" onChange={toggle} />
+          <span />
+        </label>
+      </div>
+      <Msg m={msg} />
+    </section>
   );
 }

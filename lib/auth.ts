@@ -10,6 +10,8 @@ import { clientIp, ipKey } from "./request";
 import { verifyRecaptcha } from "./recaptcha";
 import { isBot } from "./honeypot";
 import { isReservedName } from "./reservedNames";
+import { redeemMfaTicket } from "./mfa";
+import { recordSignup, signupAttribution } from "./activity";
 
 // The adapter is what lets NextAuth automatically create/find User rows
 // for Google sign-ins and link them to an Account row. Because the User
@@ -73,6 +75,8 @@ export const authOptions: NextAuthOptions = {
         // removed their own profile still can - they may have orders to
         // finish and payouts to collect.)
         if (user.removedByAdmin) return null;
+        // Disabled admins (Admin -> Team) can't sign in either.
+        if (user.adminDisabledAt) return null;
 
         // Locked out: refuse regardless of whether the password given
         // this time would have been correct. Deliberately returns the
@@ -119,6 +123,19 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   events: {
+    // A new account from Google sign-in: store where the person first came
+    // from (#83), read from the first-visit cookie on this request.
+    async createUser({ user }) {
+      try {
+        const { headers } = await import("next/headers");
+        const cookie = headers().get("cookie");
+        const attribution = signupAttribution(cookie);
+        await prisma.user.update({ where: { id: user.id }, data: attribution });
+        await recordSignup(user.id, cookie, attribution.signupSource);
+      } catch (err) {
+        console.error("Couldn't store the signup source for a Google account:", err);
+      }
+    },
     // Google sign-ins: Google has confirmed the email, and a reserved
     // name from the Google profile ("Admin", "Support"...) is replaced.
     async signIn({ user, account }) {
@@ -154,7 +171,7 @@ export const authOptions: NextAuthOptions = {
       }
       return true;
     },
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user, trigger, session }) {
       // Admin pages call update() every few minutes while the admin is
       // active (components/SessionWatcher.tsx); that's what keeps an
       // admin login alive.
@@ -162,7 +179,17 @@ export const authOptions: NextAuthOptions = {
         token.revoked = true;
         return token;
       }
-      if (trigger === "update") token.lastSeenMs = Date.now();
+      if (trigger === "update") {
+        token.lastSeenMs = Date.now();
+        // 2-step verification finished on /admin/verify: the page hands
+        // over a one-time ticket the server issued after checking the code.
+        if (token.sub && token.role === "ADMIN" && !token.mfa && (session as any)?.mfaTicket) {
+          if (await redeemMfaTicket(token.sub, (session as any).mfaTicket)) {
+            token.mfa = true;
+            token.mfaAtMs = Date.now();
+          }
+        }
+      }
       if (user) {
         // Credentials login already returns `role` on the user object.
         // Google sign-in doesn't, so look it up the first time.
@@ -170,19 +197,36 @@ export const authOptions: NextAuthOptions = {
         token.roleCheckedAt = Date.now();
         token.issuedAtMs = Date.now();
         token.lastSeenMs = Date.now();
-      } else if (token.sub && Date.now() - ((token.roleCheckedAt as number) || 0) > ROLE_RECHECK_MS) {
-        // Re-read the role every few minutes, so demoting an account (or
-        // deleting it) takes effect quickly instead of lasting until the
-        // 30-day session token expires.
-        const fresh = await prisma.user.findUnique({ where: { id: token.sub }, select: { role: true, passwordChangedAt: true, removedByAdmin: true } });
-        // "Last active", for the 14-days-without-login check.
-        await prisma.user.updateMany({ where: { id: token.sub }, data: { lastActiveAt: new Date() } }).catch(() => {});
-        token.role = fresh?.role ?? null;
-        token.roleCheckedAt = Date.now();
-        // Password was reset after this login started: end this session.
-        if (!fresh || fresh.removedByAdmin || (fresh.passwordChangedAt && fresh.passwordChangedAt.getTime() > ((token.issuedAtMs as number) || 0))) {
+        // Admins must pass 2-step verification on every login.
+        token.mfa = false;
+      } else if (token.sub && (token.role === "ADMIN" || Date.now() - ((token.roleCheckedAt as number) || 0) > ROLE_RECHECK_MS)) {
+        // Re-read the role every few minutes (on every request for
+        // admins), so demoting, disabling or removing an account takes
+        // effect right away instead of lasting until the token expires.
+        const fresh = await prisma.user.findUnique({
+          where: { id: token.sub },
+          select: { role: true, passwordChangedAt: true, removedByAdmin: true, adminDisabledAt: true, sessionsRevokedAt: true },
+        });
+        const dueForActivity = Date.now() - ((token.roleCheckedAt as number) || 0) > ROLE_RECHECK_MS;
+        if (dueForActivity) {
+          // "Last active", for the 14-days-without-login check.
+          await prisma.user.updateMany({ where: { id: token.sub }, data: { lastActiveAt: new Date() } }).catch(() => {});
+          token.roleCheckedAt = Date.now();
+        }
+        const issued = (token.issuedAtMs as number) || 0;
+        // Password reset, admin disabled/removed, or "end all sessions"
+        // after this login started: end this session.
+        if (
+          !fresh ||
+          fresh.removedByAdmin ||
+          fresh.adminDisabledAt ||
+          (fresh.passwordChangedAt && fresh.passwordChangedAt.getTime() > issued) ||
+          (fresh.sessionsRevokedAt && fresh.sessionsRevokedAt.getTime() > issued) ||
+          (token.role === "ADMIN" && fresh.role !== "ADMIN")
+        ) {
           token.revoked = true;
         }
+        token.role = fresh?.role ?? null;
       }
       return token;
     },
@@ -195,7 +239,10 @@ export const authOptions: NextAuthOptions = {
         return {} as any;
       }
       if (session.user) {
-        (session.user as any).role = token.role;
+        // An admin who hasn't finished 2-step verification yet gets a
+        // different role, so every admin-only check (role === "ADMIN")
+        // refuses them until they do (/admin/verify).
+        (session.user as any).role = token.role === "ADMIN" && !token.mfa ? "ADMIN_2FA" : token.role;
         // This was missing entirely - without it, every route that checks
         // "who is the logged-in user" (sending invites, creating gigs,
         // booking orders, messaging, everything) receives an empty user

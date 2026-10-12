@@ -89,6 +89,11 @@ export function SessionWatcher() {
     }
   }, [status, pathname, router]);
 
+  // ---- 1b. Admins finish 2-step verification before using Admin ----
+  useEffect(() => {
+    if (role === "ADMIN_2FA" && pathname.startsWith("/admin") && pathname !== "/admin/verify") router.replace("/admin/verify");
+  }, [role, pathname, router]);
+
   // ---- 2. Admin inactivity timer ----
   // Based on the role alone: status briefly reads "loading" while update()
   // runs, and that must not restart the timer.

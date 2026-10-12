@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { sendOrderPaidEmail, SITE_URL } from "@/lib/email";
+import { sendParentReceipt } from "@/lib/minors";
 
 // Stripe calls this URL directly (not the browser), so it's the only
 // reliable place to confirm a payment actually succeeded - never trust the
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
       // back into escrow, making it releasable a second time.
       const result = await prisma.order.updateMany({
         where: { id: orderId, status: "PENDING_PAYMENT" },
-        data: { status: "IN_ESCROW", fundsAvailableAt, stripePaymentIntentId: checkoutSession.id },
+        data: { status: "IN_ESCROW", fundsAvailableAt, stripePaymentIntentId: checkoutSession.id, paidAt: new Date() },
       });
 
       if (result.count === 1) {
@@ -66,6 +67,8 @@ export async function POST(req: Request) {
         } catch (err) {
           console.error("Failed to send order-paid email:", err);
         }
+        // Students under 18: their parent or guardian gets a receipt (#109).
+        await sendParentReceipt(orderId).catch((err) => console.error("Failed to send the parent receipt:", err));
       }
     }
   }

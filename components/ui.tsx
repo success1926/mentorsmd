@@ -51,6 +51,16 @@ export function StaffBadge() {
   );
 }
 
+// Shown to mentors next to a student who is under 18 (#110).
+export function MinorBadge({ person }: { person?: { minorStatus?: string | null } | null }) {
+  if (!person?.minorStatus) return null;
+  return (
+    <span className="badge badge-warning" title="This student is under 18. Keep everything on MentorsMD: sharing contact details is a high-severity safety issue.">
+      Under 18
+    </span>
+  );
+}
+
 export function Rating({ avg, count }: { avg: number | null; count: number }) {
   if (avg === null || count === 0) return <span className="badge badge-brand">New mentor</span>;
   return (
