@@ -135,16 +135,25 @@ export async function sendReviewReceivedEmail(sellerEmail: string, rating: numbe
   });
 }
 
-// Sent to the buyer the moment a coach marks work complete - starts the
-// 96-hour window they have to review before payment releases automatically.
-export async function sendWorkCompleteEmail(buyerEmail: string, gigTitle: string, orderUrl: string) {
+// Sent to the student the moment the mentor marks work complete - starts
+// the 96-hour window they have to review before payment releases
+// automatically. Includes the mentor's delivery note and file names.
+export async function sendWorkCompleteEmail(
+  buyerEmail: string,
+  gigTitle: string,
+  orderUrl: string,
+  delivery?: { number: number; description: string; files: { name: string }[] }
+) {
+  const files = delivery?.files || [];
   await resend.emails.send({
     from: FROM,
     to: buyerEmail,
     subject: subj(`${gigTitle} is ready for review`),
     html: `
-      <p>Your mentor marked <strong>${esc(gigTitle)}</strong> as complete.</p>
-      <p>You have 96 hours to review it. If you don't take any action, payment releases to your mentor automatically once that window passes.</p>
+      <p>Your mentor delivered <strong>${esc(gigTitle)}</strong>${delivery && delivery.number > 1 ? ` (delivery ${delivery.number})` : ""}.</p>
+      ${delivery ? `<p><strong>Their note:</strong></p><p style="color:#555;white-space:pre-wrap;">${esc(delivery.description)}</p>` : ""}
+      ${files.length ? `<p>${files.length} file${files.length === 1 ? "" : "s"} attached on the order page: ${files.map((f) => esc(f.name)).join(", ")}</p>` : ""}
+      <p>You have 96 hours to review it. Payment is held until you approve; if you don't take any action, it releases to your mentor automatically once that window passes.</p>
       <p><a href="${esc(orderUrl)}">Review the work</a></p>
     `,
   });
@@ -267,6 +276,65 @@ export async function sendCallForfeitedEmail(toEmail: string, gigTitle: string, 
       <p>The call included in <strong>${esc(gigTitle)}</strong> wasn't booked within 48 hours of the due date, so it has been marked as forfeited.</p>
       <p>The mentor can now mark the order complete.</p>
       <p><a href="${esc(orderUrl)}">View the order</a></p>
+    `,
+  });
+}
+
+// ---- Mentor applications ----
+
+// Where new mentor applications are sent. Set APPLICATIONS_EMAIL in Vercel
+// to change it.
+export const APPLICATIONS_EMAIL = process.env.APPLICATIONS_EMAIL || "success@mentorsmd.com";
+
+type ApplicationForEmail = {
+  name: string;
+  email: string;
+  phone: string;
+  medicalSchool: string;
+  residency: string | null;
+  blurb: string;
+  resumeUrl: string;
+  resumeName: string;
+};
+
+// To the MentorsMD team. Reply-to is the applicant, so hitting Reply in
+// the inbox answers them directly. The resume is attached when we could
+// read it; the link is always included as a backup.
+export async function sendApplicationEmail(app: ApplicationForEmail, adminUrl: string, resume?: { filename: string; content: Buffer }) {
+  await resend.emails.send({
+    from: FROM,
+    to: APPLICATIONS_EMAIL,
+    reply_to: app.email,
+    subject: subj(`Mentor application: ${app.name}`),
+    attachments: resume ? [resume] : undefined,
+    html: `
+      <p><strong>New mentor application</strong></p>
+      <p>
+        <strong>Name:</strong> ${esc(app.name)}<br/>
+        <strong>Email:</strong> ${esc(app.email)}<br/>
+        <strong>Phone:</strong> ${esc(app.phone)}<br/>
+        <strong>Medical school:</strong> ${esc(app.medicalSchool)}<br/>
+        <strong>Residency:</strong> ${esc(app.residency || "-")}
+      </p>
+      <p><strong>About them:</strong></p>
+      <p style="color:#555;white-space:pre-wrap;">${esc(app.blurb)}</p>
+      <p><strong>Resume:</strong> ${resume ? "attached" : "not attached"} (<a href="${esc(app.resumeUrl)}">${esc(app.resumeName)}</a>)</p>
+      <p><a href="${esc(adminUrl)}">Invite or decline in Admin</a>. Reply to this email to answer ${esc(app.name)} directly.</p>
+    `,
+  });
+}
+
+// To the applicant, right after they submit.
+export async function sendApplicationReceivedEmail(toEmail: string, name: string) {
+  await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    reply_to: APPLICATIONS_EMAIL,
+    subject: "We got your MentorsMD application",
+    html: `
+      <p>Hi ${esc(name.split(" ")[0])},</p>
+      <p>Thanks for applying to mentor on MentorsMD. Our senior team reviews every application and usually replies within a few days.</p>
+      <p>If you're a fit, we'll email you a one-time invite link to set up your mentor profile. You can reply to this email if you have any questions.</p>
     `,
   });
 }

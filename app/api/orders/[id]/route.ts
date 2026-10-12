@@ -22,6 +22,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       seller: { select: { name: true, credential: true, photoUrl: true, calLink: true } },
       review: true,
       callBookings: { orderBy: { startTime: "asc" } },
+      deliveries: { orderBy: { number: "asc" } },
     },
   });
 
