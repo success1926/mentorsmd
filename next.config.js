@@ -1,5 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // reCAPTCHA's site key is public by design; RECAPTCHA_SITE_KEY is
+  // accepted as well so either name works in Vercel.
+  // Lets instrumentation.ts run at server start (Sentry error reporting).
+  experimental: { instrumentationHook: true },
+  env: {
+    NEXT_PUBLIC_RECAPTCHA_SITE_KEY: process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || process.env.RECAPTCHA_SITE_KEY || "",
+  },
   // Old page addresses keep working (links in old emails, bookmarks,
   // shared profiles). Query strings like ?code=... carry over automatically.
   async redirects() {

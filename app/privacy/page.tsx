@@ -21,7 +21,7 @@ export default function PrivacyPage() {
         <div>
           <h2 style={{ fontSize: 22, marginBottom: 6 }}>2. Third-party services we use</h2>
           <p className="text-secondary">
-            Stripe (payments), Daily.co (video calls), Pusher (real-time messaging), Resend (email notifications),
+            Stripe (payments), Daily.co (video calls), Pusher (real-time messaging), Resend (email notifications), Sentry (error reports),
             and our database host. Each has its own privacy practices governing the data that passes through them.
           </p>
         </div>
@@ -36,21 +36,31 @@ export default function PrivacyPage() {
           </p>
         </div>
         <div>
-          <h2 style={{ fontSize: 22, marginBottom: 6 }}>4. How we use your information</h2>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>4. Safety checks and message review</h2>
+          <p className="text-secondary">
+            Messages, file names, package descriptions and delivery notes are checked automatically for safety (threats, slurs, off-site
+            payment, ghostwriting, requests for passwords and unsafe links). Some checks use outside services: Anthropic (an AI safety check),
+            Google Safe Browsing (links) and Google reCAPTCHA (sign-up and login forms). When something is flagged or reported, MentorsMD staff
+            may read the conversation and files involved. We keep a record of flags, reports and the actions our team takes. We store a
+            scrambled (hashed) version of your IP address, not the address itself, to limit spam and abuse.
+          </p>
+        </div>
+        <div>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>5. How we use your information</h2>
           <p className="text-secondary">
             [Placeholder - describe your actual use: facilitating bookings, sending notifications, fraud
             prevention, etc.]
           </p>
         </div>
         <div>
-          <h2 style={{ fontSize: 22, marginBottom: 6 }}>5. Your rights</h2>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>6. Your rights</h2>
           <p className="text-secondary">
             [Placeholder - if you have users in the EU/UK or California, this section has specific legal
             requirements (GDPR/CCPA) that a generic placeholder won't satisfy - get this reviewed.]
           </p>
         </div>
         <div>
-          <h2 style={{ fontSize: 22, marginBottom: 6 }}>6. Contact us</h2>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>7. Contact us</h2>
           <p className="text-secondary">
             Questions about this policy can be sent through our <a href="/contact" style={{ textDecoration: "underline" }}>contact page</a>.
           </p>

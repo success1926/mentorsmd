@@ -6,6 +6,11 @@ import { pusher, conversationChannel } from "@/lib/pusher";
 import { sendNewMessageEmail, SITE_URL } from "@/lib/email";
 import { LIMITS, isOurBlobUrl } from "@/lib/validate";
 import { markRead } from "@/lib/unread";
+import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
+import { isEmailConfirmed } from "@/lib/emailVerification";
+import { blockBetween } from "@/lib/blocks";
+import { aiCheckAndFlag, checkOutgoingMessage, flagSavedMessage, senderBlockReason } from "@/lib/messageSafety";
+import { runAfterResponse } from "@/lib/request";
 
 // Most recent N messages returned when a thread opens. Keeps long-running
 // threads fast; older history can be paged in with ?before=<messageId>.
@@ -59,7 +64,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const convo = await assertParticipant(params.id, (session.user as any).id);
   if (!convo) return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
 
-  const { body, attachmentUrl, attachmentName } = await req.json();
+  const payload = await req.json().catch(() => ({}));
+  const { body, attachmentUrl, attachmentName } = payload;
   const text = typeof body === "string" ? body : "";
   if (!text.trim() && !attachmentUrl) {
     return NextResponse.json({ error: "Message can't be empty" }, { status: 400 });
@@ -72,16 +78,62 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
 
   const senderId = (session.user as any).id;
+  const sender = await prisma.user.findUnique({
+    where: { id: senderId },
+    select: { id: true, role: true, createdAt: true, emailVerified: true, safetyHoldAt: true },
+  });
+  if (!sender) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  const held = await senderBlockReason(sender);
+  if (held) return NextResponse.json({ error: held, code: "ON_HOLD" }, { status: 403 });
+
+  const otherId = convo.buyerId === senderId ? convo.sellerId : convo.buyerId;
+  const blocks = await blockBetween(senderId, otherId);
+  if (blocks.iBlocked) return NextResponse.json({ error: "You blocked this person. Unblock them to send a message.", code: "BLOCKED_USER" }, { status: 403 });
+  if (blocks.theyBlocked) return NextResponse.json({ error: "You can't message this person.", code: "BLOCKED_USER" }, { status: 403 });
+
+  for (const limit of [RATE_LIMITS.messagesPerMinute, RATE_LIMITS.messagesPerDay]) {
+    const r = await rateLimit(limit, senderId);
+    if (!r.ok) return tooMany(r.retryAfterSec, "You're sending messages too quickly. Please wait a moment and try again.");
+  }
+
+  // Students confirm their email before their first message.
+  if (!(await isEmailConfirmed(sender))) {
+    return NextResponse.json(
+      { error: "Please confirm your email before messaging mentors. We sent you a link when you signed up.", code: "EMAIL_UNVERIFIED" },
+      { status: 403 }
+    );
+  }
+
+  const cleanName = attachmentUrl && typeof attachmentName === "string" ? attachmentName.slice(0, 200) : null;
+  const verdict = await checkOutgoingMessage({
+    text,
+    attachmentName: cleanName,
+    sender,
+    conversationId: params.id,
+    acknowledgedWarnings: payload.acknowledgeWarnings === true,
+  });
+  if ("error" in verdict) {
+    return NextResponse.json({ error: verdict.error, code: verdict.code, warnings: verdict.warnings }, { status: verdict.status });
+  }
+
   const message = await prisma.message.create({
     data: {
       body: text,
       attachmentUrl: attachmentUrl || null,
-      attachmentName: attachmentUrl && typeof attachmentName === "string" ? attachmentName.slice(0, 200) : null,
+      attachmentName: cleanName,
       conversationId: params.id,
       senderId,
     },
     include: { sender: { select: { id: true, name: true, role: true } } },
   });
+
+  // Flags for an admin (never shown to the other person).
+  await flagSavedMessage("findings" in verdict ? verdict.findings : [], { id: message.id, body: text, attachmentName: cleanName, senderId, conversationId: params.id });
+  // Optional AI check, after the response so sending isn't slowed down.
+  if (text.trim()) {
+    runAfterResponse(() => aiCheckAndFlag(text, "message", { subjectUserId: senderId, conversationId: params.id, messageId: message.id }));
+  }
 
   // One more unread message for the other person.
   await prisma.conversation.update({

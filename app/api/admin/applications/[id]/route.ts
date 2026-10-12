@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createAndSendInvite } from "@/lib/invites";
 import { normalizeEmail } from "@/lib/validate";
+import { logAdminAction } from "@/lib/adminLog";
 
 // Admin actions on one application:
 //   invite  - send the normal mentor invite to the applicant's email
@@ -25,6 +26,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const updated = await prisma.mentorApplication.update({
       where: { id: app.id },
       data: { status, decidedAt: action === "decline" ? new Date() : null },
+    });
+    await logAdminAction({
+      adminId,
+      action: action === "decline" ? "APPLICATION_DECLINED" : "APPLICATION_REOPENED",
+      summary: `${action === "decline" ? "Declined" : "Moved back to pending"} the mentor application from ${app.name}`,
+      targetType: "APPLICATION",
+      targetId: app.id,
     });
     return NextResponse.json({ application: updated });
   }

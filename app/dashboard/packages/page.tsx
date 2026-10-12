@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import { MentorAgreement } from "@/components/MentorAgreement";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -79,6 +80,8 @@ function PackageForm({ initial, onSaved, onCancel, gigId }: { initial: Form; onS
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showErrors, setShowErrors] = useState(false);
+  // The mentor agreement is accepted again every time a package is saved.
+  const [agreed, setAgreed] = useState(false);
   const set = (patch: Partial<Form>) => setF((prev) => ({ ...prev, ...patch }));
   const hasCall = formatHasCall(f.format);
   const words = countWords(f.description);
@@ -110,6 +113,10 @@ function PackageForm({ initial, onSaved, onCancel, gigId }: { initial: Form; onS
       jumpTo(todo[0][0]);
       return;
     }
+    if (!agreed) {
+      setError("Please tick the box to accept the mentor agreement.");
+      return;
+    }
     setSaving(true);
     setError("");
     const body = {
@@ -122,6 +129,7 @@ function PackageForm({ initial, onSaved, onCancel, gigId }: { initial: Form; onS
       turnaround: f.turnaround,
       callsIncluded: hasCall ? f.callsIncluded : 0,
       callLength: hasCall ? f.callLength : null,
+      agreement: agreed,
     };
     const res = await fetch(gigId ? `/api/gigs/${gigId}` : "/api/gigs", {
       method: gigId ? "PATCH" : "POST",
@@ -215,6 +223,7 @@ function PackageForm({ initial, onSaved, onCancel, gigId }: { initial: Form; onS
         )}
       </div>
 
+      <MentorAgreement checked={agreed} onChange={(v) => { setAgreed(v); if (v) setError(""); }} compact />
       {error && <div role="alert" className="alert alert-danger">{error}</div>}
       <div className="row" style={{ flexWrap: "wrap" }}>
         <button className="btn btn-primary" aria-disabled={todo.length > 0 || saving} disabled={saving} onClick={save} style={todo.length ? { opacity: 0.55 } : undefined}>

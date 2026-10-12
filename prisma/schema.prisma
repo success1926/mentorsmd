@@ -142,6 +142,28 @@ model User {
   busyDates      BusyDate[]
   callAttendance CallAttendance[]
 
+  // ---- Safety (Phase 4) ----
+  // Last time this person used the site (stamped at login and every few
+  // minutes while logged in). Used for the "no login in 14 days" check.
+  lastActiveAt           DateTime?
+  // Paused pending review (by an admin, or automatically after 3 upheld
+  // flags in 90 days). Students on hold can't send messages; mentors on
+  // hold are hidden and can't unpause themselves.
+  safetyHoldAt           DateTime?
+  safetyHoldReason       String?
+  // The mentor agreement (lib/agreement.ts) the mentor accepted, and when.
+  mentorAgreementVersion String?
+  mentorAgreementAt      DateTime?
+
+  emailVerificationTokens EmailVerificationToken[]
+  flagsAbout              Flag[]                   @relation("FlagsAbout")
+  flagsReported           Flag[]                   @relation("FlagsReported")
+  flagsResolved           Flag[]                   @relation("FlagsResolved")
+  blocksMade              Block[]                  @relation("BlocksMade")
+  blocksReceived          Block[]                  @relation("BlocksReceived")
+  adminActions            AdminAction[]            @relation("AdminActionsBy")
+  adminActionsAbout       AdminAction[]            @relation("AdminActionsAbout")
+
   accounts Account[] // one row per login method (Google, etc.) linked to this user
   sessions Session[]
 
@@ -243,6 +265,11 @@ model Gig {
   callsIncluded Int     @default(0) // 0 for written-only packages
   callLength    Int? // minutes: 30, 45 or 60
   calEventUrl   String? // no longer used (Cal.com removed in Phase 3); kept for old data
+
+  // The mentor agreement version accepted when this package was last
+  // published or saved (lib/agreement.ts), and when.
+  agreementVersion String?
+  agreementAt      DateTime?
 
   seller   User   @relation("SellerGigs", fields: [sellerId], references: [id])
   sellerId String
@@ -586,4 +613,105 @@ model MentorApplication {
   @@index([status, createdAt])
   @@index([email, createdAt])
   @@index([ipHash, createdAt])
+}
+
+// ---------------- Safety and integrity (Phase 4) ----------------
+
+// "Confirm your email" links. Only a SHA-256 hash of the token is stored.
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@index([userId, createdAt])
+}
+
+// Fallback rate-limit counters, used only when Upstash Redis isn't set
+// up. One row per (limit, person or IP, time window); old rows are
+// cleaned up by the daily safety cron.
+model RateLimitBucket {
+  key       String   @id
+  count     Int      @default(0)
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
+// One item in Admin -> Flags: a student/mentor report, a dispute, or an
+// automatic flag (word filter, off-site contact, ghostwriting, links, AI
+// check, performance). Severity: 1 low, 2 medium, 3 high.
+// Status: OPEN, DISMISSED, UPHELD (an admin warned, paused or removed).
+model Flag {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  kind      String // REPORT, DISPUTE, LANGUAGE, OFF_SITE, GHOSTWRITING, CREDENTIALS, LINK, AI, PERFORMANCE, BLOCKED_MESSAGE
+  source    String   @default("AUTO") // USER, AUTO, AI, CRON, SYSTEM
+  severity  Int      @default(1)
+  status    String   @default("OPEN")
+  reason    String // short title, e.g. "Asked to pay outside MentorsMD"
+  details   String? // longer explanation / the reporter's words
+  evidence  String? // the text that triggered it (message excerpt)
+  matches   String[] @default([]) // words/phrases to highlight in the evidence
+  dedupeKey String? // stops the daily checks raising the same flag again
+
+  subject       User?   @relation("FlagsAbout", fields: [subjectUserId], references: [id], onDelete: SetNull)
+  subjectUserId String?
+  reporter      User?   @relation("FlagsReported", fields: [reporterId], references: [id], onDelete: SetNull)
+  reporterId    String?
+
+  conversationId String?
+  messageId      String?
+  orderId        String?
+  gigId          String?
+
+  action         String? // DISMISS, WARN, PAUSE, REMOVE, REFUND, RELEASE, AUTO_PAUSE
+  resolutionNote String?
+  resolvedAt     DateTime?
+  resolvedBy     User?     @relation("FlagsResolved", fields: [resolvedById], references: [id], onDelete: SetNull)
+  resolvedById   String?
+  emailedAt      DateTime? // high-severity alert sent to admins
+
+  @@index([status, severity, createdAt])
+  @@index([subjectUserId, createdAt])
+  @@index([dedupeKey, createdAt])
+  @@index([orderId])
+  @@index([conversationId, createdAt])
+}
+
+// Someone blocked someone: neither can message the other.
+model Block {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  blocker   User   @relation("BlocksMade", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockerId String
+  blocked   User   @relation("BlocksReceived", fields: [blockedId], references: [id], onDelete: Cascade)
+  blockedId String
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+// Admin action log: who did what, to whom, when.
+model AdminAction {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  action     String // e.g. FLAG_DISMISS, USER_PAUSE, ORDER_REFUND, INVITE_SENT
+  targetType String? // USER, ORDER, FLAG, INVITE, APPLICATION
+  targetId   String?
+  summary    String
+  details    Json?
+
+  admin        User?   @relation("AdminActionsBy", fields: [adminId], references: [id], onDelete: SetNull)
+  adminId      String? // null = done automatically by the system
+  targetUser   User?   @relation("AdminActionsAbout", fields: [targetUserId], references: [id], onDelete: SetNull)
+  targetUserId String?
+
+  @@index([createdAt])
+  @@index([targetUserId, createdAt])
 }

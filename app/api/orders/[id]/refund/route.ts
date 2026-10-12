@@ -4,6 +4,9 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { isDefiniteStripeFailure } from "@/lib/orderRelease";
+import { logAdminAction } from "@/lib/adminLog";
+import { closeDisputeFlag } from "@/lib/flags";
+import { reportError } from "@/lib/sentry";
 
 // Admin-only, on purpose - this is the resolution path for a dispute, and
 // giving buyers or sellers the ability to trigger it themselves would
@@ -62,6 +65,9 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     }
     // Network/5xx: the refund MAY have happened. Keep the order REFUNDED
     // (so it can't also be released) and have a human confirm in Stripe.
+    const note = `[NEEDS MANUAL CHECK] Refund for order ${order.id} hit an ambiguous Stripe error - order left REFUNDED; verify the refund in Stripe.`;
+    console.error(note);
+    await reportError(note, err, { orderId: order.id }, "fatal");
     return NextResponse.json(
       { error: "Couldn't confirm the refund with Stripe. The order is marked refunded - check the payment in your Stripe dashboard." },
       { status: 502 }
@@ -72,6 +78,17 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   await prisma.callBooking
     .updateMany({ where: { orderId: order.id, status: "BOOKED", startTime: { gt: new Date() } }, data: { status: "CANCELLED" } })
     .catch((e) => console.error("Couldn't cancel calls on refunded order:", e));
+
+  const adminId = (session.user as any).id;
+  await logAdminAction({
+    adminId,
+    action: "ORDER_REFUND",
+    summary: `Refunded order ${order.id} ($${(order.amount / 100).toFixed(2)})${order.disputed ? " to resolve a dispute" : ""}`,
+    targetType: "ORDER",
+    targetId: order.id,
+    targetUserId: order.sellerId,
+  });
+  if (order.disputed) await closeDisputeFlag(order.id, "REFUND", adminId);
 
   const updated = await prisma.order.findUnique({ where: { id: order.id } });
   return NextResponse.json({ order: updated });

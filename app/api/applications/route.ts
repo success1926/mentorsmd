@@ -13,6 +13,9 @@ import {
   resumeExtension,
 } from "@/lib/applicationRules";
 import { applicationLimitError, ipHashFor } from "@/lib/applications";
+import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
+import { clientIp, ipKey } from "@/lib/request";
+import { RECAPTCHA_FAILED, verifyRecaptcha } from "@/lib/recaptcha";
 
 function text(value: unknown, max: number): string | null {
   if (typeof value !== "string") return null;
@@ -30,6 +33,12 @@ export async function POST(req: Request) {
   // Honeypot: a hidden field only bots fill in. Pretend it worked so the
   // bot doesn't learn anything, but save and send nothing.
   if (body[HONEYPOT_FIELD]) return NextResponse.json({ ok: true });
+
+  const burst = await rateLimit(RATE_LIMITS.applicationsPerIpHour, ipKey(req));
+  if (!burst.ok) return tooMany(burst.retryAfterSec, "Too many applications from this connection. Please try again later.");
+  if (!(await verifyRecaptcha(body.recaptchaToken, "mentor_application", clientIp(req)))) {
+    return NextResponse.json({ error: RECAPTCHA_FAILED }, { status: 400 });
+  }
 
   const name = text(body.name, L.name);
   const email = normalizeEmail(body.email);

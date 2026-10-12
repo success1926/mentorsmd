@@ -407,4 +407,100 @@ export async function sendApplicationReceivedEmail(toEmail: string, name: string
   });
 }
 
+// ---- Safety (Phase 4) ----
+
+// "Confirm your email" - students confirm before sending their first message.
+export async function sendEmailVerificationEmail(toEmail: string, name: string, verifyUrl: string) {
+  await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    subject: "Confirm your email for MentorsMD",
+    html: `
+      <p>Hi ${esc(name.split(" ")[0])},</p>
+      <p>Please confirm this is your email address so you can message mentors on MentorsMD.</p>
+      <p><a href="${esc(verifyUrl)}">Confirm my email</a></p>
+      <p style="color:#555;">This link expires in 48 hours. If you didn't create a MentorsMD account, you can ignore this email.</p>
+    `,
+  });
+}
+
+// Instant alert to every admin for a high-severity flag.
+export async function sendHighSeverityFlagEmail(
+  toEmail: string,
+  flag: { kind: string; reason: string; evidence?: string | null; details?: string | null; subjectName?: string | null },
+  adminUrl: string
+) {
+  await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    subject: subj(`High-severity flag: ${flag.reason}`),
+    html: `
+      <p><strong>${esc(flag.reason)}</strong>${flag.subjectName ? ` (about ${esc(flag.subjectName)})` : ""}</p>
+      ${flag.evidence ? `<p style="color:#555;">"${preview(flag.evidence)}"</p>` : ""}
+      ${flag.details ? `<p style="color:#555;">${preview(flag.details)}</p>` : ""}
+      <p><a href="${esc(adminUrl)}">Review it in Admin → Flags</a></p>
+    `,
+  });
+}
+
+export type DigestSummary = {
+  open: number;
+  newThisWeek: number;
+  high: number;
+  byKind: { kind: string; count: number }[];
+  autoPaused: { name: string }[];
+  top: { reason: string; subjectName: string | null; severity: number }[];
+};
+
+// Monday digest for admins.
+export async function sendSafetyDigestEmail(toEmail: string, d: DigestSummary, adminUrl: string) {
+  await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    subject: subj(`MentorsMD safety digest: ${d.open} open flag${d.open === 1 ? "" : "s"}`),
+    html: `
+      <p><strong>This week on MentorsMD</strong></p>
+      <p>${d.newThisWeek} new flag${d.newThisWeek === 1 ? "" : "s"} in the last 7 days · ${d.open} open in total · ${d.high} open high-severity</p>
+      ${d.byKind.length ? `<p>${d.byKind.map((k) => `${esc(k.kind.toLowerCase().replace(/_/g, " "))}: ${k.count}`).join(" · ")}</p>` : ""}
+      ${d.autoPaused.length ? `<p>Paused automatically (3 upheld flags in 90 days): ${d.autoPaused.map((u) => esc(u.name)).join(", ")}</p>` : ""}
+      ${d.top.length ? `<p><strong>Most serious open flags</strong></p><ul>${d.top.map((t) => `<li>${esc(t.reason)}${t.subjectName ? ` (${esc(t.subjectName)})` : ""}</li>`).join("")}</ul>` : ""}
+      <p><a href="${esc(adminUrl)}">Open Admin → Flags</a></p>
+    `,
+  });
+}
+
+// An admin's warning to a student or mentor.
+export async function sendSafetyWarningEmail(toEmail: string, name: string, reason: string, note: string | null) {
+  await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    subject: "A note from the MentorsMD team",
+    html: `
+      <p>Hi ${esc(name.split(" ")[0])},</p>
+      <p>Our team reviewed recent activity on your account and found something that goes against our Community Guidelines: <strong>${esc(reason)}</strong>.</p>
+      ${note ? `<p style="color:#555;white-space:pre-wrap;">${esc(note)}</p>` : ""}
+      <p>Please take a moment to read the <a href="${esc(SITE_URL)}/community-guidelines">Community Guidelines</a>. Repeated problems can lead to your account being paused or removed.</p>
+      <p>Reply to this email if you think we got this wrong.</p>
+    `,
+  });
+}
+
+// Account paused pending review (by an admin or automatically).
+export async function sendAccountPausedEmail(toEmail: string, name: string, isMentor: boolean) {
+  await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    subject: "Your MentorsMD account is paused for review",
+    html: `
+      <p>Hi ${esc(name.split(" ")[0])},</p>
+      <p>Your account has been paused while our team reviews some recent reports. ${
+        isMentor
+          ? "Your profile is hidden from search for now. Your current orders are not affected, and payments already held stay protected."
+          : "You can't send new messages for now. Your current orders are not affected, and payments already held stay protected."
+      }</p>
+      <p>We'll be in touch. Reply to this email if you'd like to share anything with us.</p>
+    `,
+  });
+}
+
 export { SITE_URL };

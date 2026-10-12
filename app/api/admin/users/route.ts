@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { healthBadges, healthLabel } from "@/lib/health";
 
 // Admin "People" list: mentors or students, with search.
 //   ?role=SELLER|BUYER  (default SELLER)
@@ -38,6 +39,7 @@ export async function GET(req: Request) {
       removedReason: true,
       removedByAdmin: true,
       stripeAccountId: true,
+      safetyHoldAt: true,
       _count: { select: { gigs: { where: { active: true } }, buyerOrders: true, sellerOrders: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -49,8 +51,20 @@ export async function GET(req: Request) {
     prisma.user.count({ where: { role: "BUYER" } }),
   ]);
 
+  // Health badges: open / high-severity / upheld flags per person. (The
+  // full scorecard with performance numbers is on each person's View.)
+  const badges = await healthBadges(users.map((u) => u.id));
+
   return NextResponse.json({
-    users: users.map(({ stripeAccountId, ...u }) => ({ ...u, payoutsConnected: !!stripeAccountId })),
+    users: users.map(({ stripeAccountId, ...u }) => {
+      const b = badges.get(u.id) || { openFlags: 0, highOpen: 0, upheld90: 0 };
+      return {
+        ...u,
+        payoutsConnected: !!stripeAccountId,
+        flags: b,
+        health: healthLabel({ ...b, onHold: !!u.safetyHoldAt, issueCount: 0 }),
+      };
+    }),
     counts: { mentors, students },
   });
 }
