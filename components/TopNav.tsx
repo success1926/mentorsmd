@@ -51,7 +51,7 @@ const RIGHT_LINKS: Record<string, NavLink[]> = {
 const MENU: Record<string, NavLink[]> = {
   BUYER: [
     { label: "Account settings", href: "/account" },
-    { label: "Calendar & calls", href: "/account#calendar" },
+    { label: "My calendar", href: "/calendar" },
     { label: "My orders", href: "/orders" },
     { label: "Messages", href: "/messages" },
     { label: "Contact us", href: "/contact" },
@@ -59,8 +59,9 @@ const MENU: Record<string, NavLink[]> = {
   SELLER: [
     { label: "Dashboard", href: "/dashboard" },
     { label: "Messages", href: "/messages" },
+    { label: "My calendar", href: "/calendar" },
     { label: "Edit profile & photo", href: "/account" },
-    { label: "Calendar & calls", href: "/account#calendar" },
+    { label: "Call hours & busy dates", href: "/account#call-hours" },
     { label: "Pause or remove profile", href: "/account#availability" },
     { label: "Payouts", href: "/dashboard/payouts" },
     { label: "Contact us", href: "/contact" },

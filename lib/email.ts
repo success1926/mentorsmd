@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { fmtInZone } from "@/lib/tz";
 
 // Lazy, like lib/stripe.ts: the Resend constructor throws if the API key
 // is missing, which would otherwise crash every route that imports this
@@ -207,28 +208,95 @@ export async function sendPasswordResetEmail(toEmail: string, resetUrl: string) 
 
 // ---- Calls ----
 
-// Sent to both sides when a call is booked or rescheduled.
-export async function sendCallBookedEmail(toEmail: string, gigTitle: string, when: Date, orderUrl: string, rescheduled = false) {
+// The bare address from INVITE_EMAIL_FROM ("MentorsMD <x@y.com>" -> "x@y.com"),
+// used as the organizer in calendar invites.
+export function fromAddress() {
+  const m = FROM.match(/<([^>]+)>/);
+  return (m ? m[1] : FROM).trim();
+}
+
+export type CallEmail = {
+  gigTitle: string;
+  start: Date;
+  end: Date;
+  timeZone: string; // the recipient's
+  otherName: string;
+  orderUrl: string;
+  joinUrl: string;
+  ics?: string; // calendar invite (.ics) to attach
+};
+
+function callWhen(c: CallEmail) {
+  const day = fmtInZone(c.start, c.timeZone, { hour: undefined, minute: undefined, timeZoneName: undefined, weekday: "long", month: "long" });
+  const from = c.start.toLocaleTimeString("en-US", { timeZone: c.timeZone, hour: "numeric", minute: "2-digit" });
+  const to = c.end.toLocaleTimeString("en-US", { timeZone: c.timeZone, hour: "numeric", minute: "2-digit", timeZoneName: "short" });
+  return `${day}, ${from} to ${to}`;
+}
+
+function icsAttachment(c: CallEmail, cancel = false) {
+  return c.ics ? [{ filename: cancel ? "cancelled.ics" : "invite.ics", content: Buffer.from(c.ics), content_type: `text/calendar; charset=utf-8; method=${cancel ? "CANCEL" : "REQUEST"}` }] : undefined;
+}
+
+const CALL_FOOTER = `<p style="color:#777;font-size:13px;">Calls happen in a private MentorsMD video room. Calls may be recorded for safety and quality; only the MentorsMD team can watch a recording, and only if there's a problem with an order.</p>`;
+
+// Sent to both sides when a call is booked or rescheduled, with a
+// calendar invite attached.
+export async function sendCallScheduledEmail(toEmail: string, c: CallEmail, rescheduled = false) {
   await resend.emails.send({
     from: FROM,
     to: toEmail,
-    subject: subj(`${rescheduled ? "Call rescheduled" : "Call booked"}: ${gigTitle}`),
+    subject: subj(`${rescheduled ? "Call moved" : "Call booked"}: ${c.gigTitle}`),
+    attachments: icsAttachment(c),
     html: `
-      <p>A call for <strong>${esc(gigTitle)}</strong> is ${rescheduled ? "now" : ""} set for <strong>${esc(when.toUTCString())}</strong>.</p>
-      <p>The Join button on the order page opens 10 minutes before the start time.</p>
-      <p><a href="${esc(orderUrl)}">View the order</a></p>
+      <p>Your call with <strong>${esc(c.otherName)}</strong> for <strong>${esc(c.gigTitle)}</strong> is ${rescheduled ? "now " : ""}set for:</p>
+      <p style="font-size:17px;"><strong>${esc(callWhen(c))}</strong></p>
+      <p>Join from <a href="${esc(c.joinUrl)}">your call page</a>. The Join button opens 10 minutes before the start. The attached invite adds it to your calendar.</p>
+      <p>Need to change it? You can reschedule or cancel on the <a href="${esc(c.orderUrl)}">order page</a> up to 24 hours before the call.</p>
+      ${CALL_FOOTER}
     `,
   });
 }
 
-export async function sendCallCancelledEmail(toEmail: string, gigTitle: string, orderUrl: string) {
+export async function sendCallCancelledEmail(toEmail: string, c: CallEmail, cancelledBy: string) {
   await resend.emails.send({
     from: FROM,
     to: toEmail,
-    subject: subj(`Call cancelled: ${gigTitle}`),
+    subject: subj(`Call cancelled: ${c.gigTitle}`),
+    attachments: icsAttachment(c, true),
     html: `
-      <p>The call for <strong>${esc(gigTitle)}</strong> was cancelled. You can book a new time from the order page.</p>
-      <p><a href="${esc(orderUrl)}">View the order</a></p>
+      <p>${esc(cancelledBy)} cancelled the call for <strong>${esc(c.gigTitle)}</strong> that was set for ${esc(callWhen(c))}.</p>
+      <p>A new time can be booked from the order page.</p>
+      <p><a href="${esc(c.orderUrl)}">View the order</a></p>
+    `,
+  });
+}
+
+// "Your call is today" (8am local) and "Your call starts in 1 hour".
+export async function sendCallReminderEmail(toEmail: string, c: CallEmail, kind: "morning" | "hour") {
+  await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    subject: subj(kind === "hour" ? `Starting in 1 hour: your call with ${c.otherName}` : `Today: your call with ${c.otherName}`),
+    html: `
+      <p>${kind === "hour" ? "Your call starts in about an hour." : "Just a reminder: you have a call today."}</p>
+      <p><strong>${esc(c.gigTitle)}</strong> with ${esc(c.otherName)}<br/>${esc(callWhen(c))}</p>
+      <p><a href="${esc(c.joinUrl)}" style="display:inline-block;background:#5536D6;color:#fff;padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:600;">Join the call</a></p>
+      <p style="color:#555;">The Join button works from 10 minutes before the start. Use a quiet spot and allow camera and microphone access when your browser asks.</p>
+      ${CALL_FOOTER}
+    `,
+  });
+}
+
+// Mentor added busy dates that cover due dates they already agreed to.
+export async function sendBusyClashEmail(toEmail: string, clashes: { gigTitle: string; studentName: string; due: string; url: string }[]) {
+  await resend.emails.send({
+    from: FROM,
+    to: toEmail,
+    subject: "Your new busy dates overlap existing deadlines",
+    html: `
+      <p>The busy dates you just added cover ${clashes.length === 1 ? "a due date" : "due dates"} you already have:</p>
+      <ul>${clashes.map((c) => `<li><a href="${esc(c.url)}">${esc(c.gigTitle)}</a> for ${esc(c.studentName)}, due ${esc(c.due)}</li>`).join("")}</ul>
+      <p>Existing orders keep their due dates. Deliver early, or message the student and change the due date on the order.</p>
     `,
   });
 }

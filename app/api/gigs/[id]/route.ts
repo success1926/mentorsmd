@@ -47,7 +47,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
   // Search answers are validated as a whole (e.g. switching the format to
   // "Written feedback" drops the call fields).
-  const touchesSearch = ["service", "serviceOther", "format", "turnaround", "callsIncluded", "callLength", "calEventUrl"].some(
+  const touchesSearch = ["service", "serviceOther", "format", "turnaround", "callsIncluded", "callLength"].some(
     (k) => body[k] !== undefined
   );
   let searchData = {};
@@ -63,8 +63,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     price = cents;
   }
 
-  // Note: changing the price never affects existing orders - each order
-  // stores its own snapshot of the amount at checkout.
+  // Note: changing the price or turnaround never affects existing orders -
+  // each order stores its own amount and turnaround at checkout.
   const updated = await prisma.gig.update({
     where: { id: params.id },
     data: {

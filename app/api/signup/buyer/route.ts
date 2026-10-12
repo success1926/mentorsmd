@@ -3,10 +3,11 @@ import bcrypt from "bcrypt";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { LIMITS, isNonEmptyString, normalizeEmail } from "@/lib/validate";
+import { isValidTimeZone } from "@/lib/tz";
 
 // Buyers can self-register freely - this route has no gate at all.
 export async function POST(req: Request) {
-  const { email: rawEmail, password, name } = await req.json();
+  const { email: rawEmail, password, name, timeZone } = await req.json();
 
   // Emails are stored lowercase so "Jane@x.com" and "jane@x.com" can't
   // become two separate accounts (and login matches either spelling).
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
 
   try {
     const user = await prisma.user.create({
-      data: { email, name: name.trim(), passwordHash, role: "BUYER" },
+      data: { email, name: name.trim(), passwordHash, role: "BUYER", timeZone: isValidTimeZone(timeZone) ? timeZone : null },
     });
     return NextResponse.json({ id: user.id, email: user.email, name: user.name });
   } catch (err) {

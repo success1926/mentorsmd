@@ -16,7 +16,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     include: {
       buyer: { select: { id: true, name: true, photoUrl: true } },
       seller: {
-        select: { id: true, name: true, credential: true, photoUrl: true, calLink: true, profileStatus: true, pausedUntil: true, awayNote: true },
+        select: { id: true, name: true, credential: true, photoUrl: true, profileStatus: true, pausedUntil: true, awayNote: true },
       },
     },
   });

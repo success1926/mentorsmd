@@ -15,7 +15,7 @@ export async function GET() {
     include: {
       gig: true,
       buyer: { select: { name: true, photoUrl: true } },
-      seller: { select: { name: true, credential: true, photoUrl: true, calLink: true } },
+      seller: { select: { name: true, credential: true, photoUrl: true } },
       review: true,
       callBookings: { orderBy: { startTime: "asc" } },
     },

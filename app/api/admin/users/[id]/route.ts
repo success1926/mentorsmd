@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { LIMITS } from "@/lib/validate";
+import { hasAvailability } from "@/lib/schedule";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -20,7 +21,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     select: {
       id: true, name: true, email: true, role: true, credential: true, bio: true, photoUrl: true, createdAt: true,
       profileStatus: true, pausedUntil: true, awayNote: true, removedAt: true, removedReason: true, removedByAdmin: true,
-      mentorStage: true, schoolType: true, backgrounds: true, calLink: true,
+      mentorStage: true, schoolType: true, backgrounds: true, weeklyHours: true, timeZone: true, externalCalUrl: true,
       gigs: { where: { active: true }, select: { id: true, title: true, price: true, service: true, format: true } },
     },
   });
@@ -39,8 +40,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       : Promise.resolve(null),
   ]);
 
+  // The mentor's secret calendar address stays private, even from admins.
+  const { weeklyHours, externalCalUrl, ...rest } = user;
   return NextResponse.json({
-    user,
+    user: { ...rest, hasAvailability: hasAvailability(weeklyHours), externalCalConnected: !!externalCalUrl },
     orders,
     rating: reviews ? { avg: reviews._avg.rating, count: reviews._count._all } : null,
   });
