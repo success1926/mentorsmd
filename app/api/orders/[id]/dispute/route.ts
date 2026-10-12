@@ -17,7 +17,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
   if (order.buyerId !== (session.user as any).id) {
-    return NextResponse.json({ error: "Only the buyer can open a dispute" }, { status: 403 });
+    return NextResponse.json({ error: "Only the student on this order can open a dispute" }, { status: 403 });
   }
   if (!["IN_ESCROW", "COMPLETED"].includes(order.status)) {
     return NextResponse.json({ error: "You can only dispute a pending or just-completed order" }, { status: 400 });

@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isMentorVisible } from "@/lib/mentor";
+import { bookableGigWhere, isMentorVisible } from "@/lib/mentor";
 import { ProfileClient } from "./ProfileClient";
 
 export const dynamic = "force-dynamic";
@@ -27,11 +27,11 @@ export default async function MentorProfilePage({ params }: { params: { id: stri
       pausedUntil: true,
       awayNote: true,
       gigs: {
-        where: { active: true },
+        where: bookableGigWhere,
         orderBy: { price: "asc" },
         select: {
           id: true, title: true, description: true, price: true, duration: true,
-          service: true, format: true, turnaround: true, callsIncluded: true, callLength: true,
+          service: true, serviceOther: true, format: true, turnaround: true, callsIncluded: true, callLength: true,
         },
       },
     },

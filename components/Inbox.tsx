@@ -55,7 +55,7 @@ export function Inbox({ selectedId }: { selectedId?: string }) {
               {role === "BUYER" ? (
                 <>
                   <span className="text-secondary">Message any mentor for free from their profile.</span>
-                  <Link href="/coaches" className="btn btn-primary btn-sm" style={{ alignSelf: "flex-start" }}>Browse mentors</Link>
+                  <Link href="/mentors" className="btn btn-primary btn-sm" style={{ alignSelf: "flex-start" }}>Browse mentors</Link>
                 </>
               ) : (
                 <span className="text-secondary">When a student messages you, it shows up here.</span>
@@ -65,17 +65,22 @@ export function Inbox({ selectedId }: { selectedId?: string }) {
           {conversations?.map((c) => {
             const other = role === "SELLER" ? c.buyer : c.seller;
             const last = c.messages?.[0];
+            // The open conversation is being read right now.
+            const unread = c.id !== selectedId ? (role === "SELLER" ? c.sellerUnread : c.buyerUnread) || 0 : 0;
             return (
-              <Link key={c.id} href={`/messages/${c.id}`} className="inbox-item" aria-current={c.id === selectedId ? "true" : undefined}>
+              <Link key={c.id} href={`/messages/${c.id}`} className={`inbox-item ${unread ? "unread" : ""}`} aria-current={c.id === selectedId ? "true" : undefined}>
                 <PersonAvatar person={other} />
                 <div className="grow stack-sm" style={{ gap: 2 }}>
                   <div className="between">
                     <b className="nowrap" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{other?.name}</b>
                     {last && <span className="text-muted nowrap">{when(last.createdAt)}</span>}
                   </div>
-                  <span className="text-muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {last ? (last.body || "Attachment") : "No messages yet"}
-                  </span>
+                  <div className="row" style={{ gap: 8 }}>
+                    <span className="text-muted last-line grow" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+                      {last ? (last.body || "Attachment") : "No messages yet"}
+                    </span>
+                    {unread > 0 && <span className="unread-dot" aria-label={`${unread} unread`} />}
+                  </div>
                 </div>
               </Link>
             );
@@ -255,7 +260,7 @@ function Thread({ conversationId }: { conversationId: string }) {
           <PersonAvatar person={other} size={64} />
           <b>{other?.name}</b>
           {role !== "SELLER" && (
-            <Link href={`/coaches/${convo.seller.id}`} className="link small">View profile</Link>
+            <Link href={`/mentors/${convo.seller.id}`} className="link small">View profile</Link>
           )}
         </div>
 

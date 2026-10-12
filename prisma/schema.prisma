@@ -206,6 +206,7 @@ model Gig {
   // Required search answers. A package missing any of these is hidden
   // from browse until the mentor fills them in (see lib/mentor.ts).
   service       String? // PERSONAL_STATEMENT, SECONDARIES, ... (lib/options.ts)
+  serviceOther  String? // the mentor's own service name when service = OTHER, e.g. "CASPer prep"
   format        String? // WRITTEN, WRITTEN_CALL, LIVE
   turnaround    String? // H48, D3_5, W1_2, SCHEDULED
   callsIncluded Int     @default(0) // 0 for written-only packages
@@ -404,11 +405,18 @@ model Conversation {
   buyerNotifiedAt  DateTime?
   sellerNotifiedAt DateTime?
 
+  // Unread message counts for each side. Sending a message adds one to
+  // the other person's count; opening the conversation resets yours.
+  buyerUnread  Int @default(0)
+  sellerUnread Int @default(0)
+
   messages Message[]
   orders   Order[]
 
   @@unique([buyerId, sellerId])
   @@index([sellerId, createdAt])
+  @@index([buyerId, buyerUnread])
+  @@index([sellerId, sellerUnread])
 }
 
 model Message {

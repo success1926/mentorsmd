@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { parseDate } from "@/lib/validate";
-import { isMentorVisible } from "@/lib/mentor";
+import { gigPriceOutOfRange, isMentorVisible } from "@/lib/mentor";
 
 // Creates a Stripe Checkout Session for one gig package. Deliberately NOT
 // a Connect "destination charge" - the money lands in OUR Stripe balance
@@ -20,7 +20,7 @@ import { isMentorVisible } from "@/lib/mentor";
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user || (session.user as any).role !== "BUYER") {
-    return NextResponse.json({ error: "Only buyer accounts can check out" }, { status: 403 });
+    return NextResponse.json({ error: "Only student accounts can book packages" }, { status: 403 });
   }
 
   const { gigId, dueDate } = await req.json();
@@ -40,6 +40,9 @@ export async function POST(req: Request) {
   const gig = await prisma.gig.findUnique({ where: { id: gigId }, include: { seller: true } });
   if (!gig || !gig.active) {
     return NextResponse.json({ error: "Package not found" }, { status: 404 });
+  }
+  if (gigPriceOutOfRange(gig)) {
+    return NextResponse.json({ error: "This package isn't available to book right now" }, { status: 400 });
   }
   if (!isMentorVisible(gig.seller)) {
     return NextResponse.json({ error: "This mentor isn't taking new orders right now" }, { status: 400 });

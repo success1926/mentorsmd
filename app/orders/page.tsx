@@ -30,12 +30,17 @@ export default function OrdersPage() {
   const isSeller = (session?.user as any)?.role === "SELLER";
   const [orders, setOrders] = useState<any[] | null>(null);
   const [tab, setTab] = useState<"active" | "done">("active");
+  const [unread, setUnread] = useState(0);
 
   useEffect(() => {
     fetch("/api/orders")
       .then((r) => r.json())
       .then((d) => setOrders((d.orders || []).filter((o: any) => o.status !== "PENDING_PAYMENT" && o.status !== "CANCELLED")))
       .catch(() => setOrders([]));
+    fetch("/api/me/nav")
+      .then((r) => r.json())
+      .then((d) => setUnread(d.unread || 0))
+      .catch(() => {});
   }, []);
 
   const active = (orders || []).filter((o) => ACTIVE.includes(o.status));
@@ -46,8 +51,18 @@ export default function OrdersPage() {
     <div className="page-mid">
       <div className="between" style={{ marginBottom: 24, flexWrap: "wrap" }}>
         <h1 className="page-title">{isSeller ? "Orders" : "My orders"}</h1>
-        {!isSeller && <Link href="/coaches" className="btn btn-primary">Find a mentor</Link>}
+        {!isSeller && <Link href="/mentors" className="btn btn-primary">Find a mentor</Link>}
       </div>
+
+      {unread > 0 && (
+        <div className="alert row" style={{ marginBottom: 20, alignItems: "center" }}>
+          <span className="count-badge" style={{ marginLeft: 0 }}>{unread > 99 ? "99+" : unread}</span>
+          <span className="grow">
+            You have <b>{unread} unread message{unread === 1 ? "" : "s"}</b>.
+          </span>
+          <Link href="/messages" className="btn btn-sm">Open messages</Link>
+        </div>
+      )}
 
       <div className="tabs" role="tablist">
         <button role="tab" className="tab" aria-selected={tab === "active"} onClick={() => setTab("active")}>
@@ -62,7 +77,7 @@ export default function OrdersPage() {
       {orders !== null && list.length === 0 && (
         <div className="empty stack" style={{ alignItems: "center" }}>
           <span>{tab === "active" ? "No orders in progress." : "No completed orders yet."}</span>
-          {!isSeller && tab === "active" && <Link href="/coaches" className="btn btn-primary">Browse mentors</Link>}
+          {!isSeller && tab === "active" && <Link href="/mentors" className="btn btn-primary">Browse mentors</Link>}
         </div>
       )}
 

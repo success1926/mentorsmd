@@ -25,7 +25,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   const isBuyer = order.buyerId === userId;
   const isAdmin = role === "ADMIN";
   if (!isBuyer && !isAdmin) {
-    return NextResponse.json({ error: "Only the buyer or an admin can release this payment" }, { status: 403 });
+    return NextResponse.json({ error: "Only the student on this order or an admin can release this payment" }, { status: 403 });
   }
 
   if (isBuyer && !isAdmin && order.disputed) {

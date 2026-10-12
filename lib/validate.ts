@@ -1,3 +1,5 @@
+import { isPriceInRange } from "@/lib/options";
+
 // Small shared input checks. Every API route receives raw JSON from the
 // browser, which anyone can edit - so types, lengths, and formats are
 // verified here on the server, never assumed.
@@ -17,12 +19,14 @@ export const LIMITS = {
 
 export const GIG_CATEGORIES = ["ESSAY_REVIEW", "MOCK_INTERVIEW", "APPLICATION_STRATEGY", "TUTORING", "OTHER"] as const;
 
-// Prices are entered in dollars. $5 min keeps Stripe fees from eating the
-// whole order; $10,000 max catches typos like an extra zero or two.
+// Prices are entered in dollars. Limits live in lib/options.ts
+// (PRICE_MIN_CENTS / PRICE_MAX_CENTS) so the form and server agree.
 export function parsePriceToCents(dollars: unknown): number | null {
+  if (dollars === null || dollars === undefined || dollars === "") return null;
   const n = Number(dollars);
-  if (!Number.isFinite(n) || n < 5 || n > 10_000) return null;
-  return Math.round(n * 100);
+  if (!Number.isFinite(n)) return null;
+  const cents = Math.round(n * 100);
+  return isPriceInRange(cents) ? cents : null;
 }
 
 export function normalizeEmail(email: unknown): string | null {

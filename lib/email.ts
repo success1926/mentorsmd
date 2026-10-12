@@ -116,7 +116,7 @@ export async function sendDisputeOpenedEmail(adminEmail: string, gigTitle: strin
     to: adminEmail,
     subject: subj(`Dispute opened: ${gigTitle}`),
     html: `
-      <p>A buyer opened a dispute on <strong>${esc(gigTitle)}</strong>:</p>
+      <p>A student opened a dispute on <strong>${esc(gigTitle)}</strong>:</p>
       <p style="color:#555;">"${esc(reason)}"</p>
       <p><a href="${esc(orderUrl)}">Review the order</a></p>
     `,
@@ -159,7 +159,7 @@ export async function sendOverdueReminderEmail(sellerEmail: string, gigTitle: st
     subject: subj(`Reminder: ${gigTitle} is overdue`),
     html: `
       <p><strong>${esc(gigTitle)}</strong> was due on ${dueDate.toLocaleDateString()} and hasn't been marked complete yet.</p>
-      <p>Mark it done as soon as it's ready so the buyer can review it.</p>
+      <p>Mark it done as soon as it's ready so the student can review it.</p>
       <p><a href="${esc(orderUrl)}">View the order</a></p>
     `,
   });

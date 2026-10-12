@@ -30,7 +30,7 @@ export default function StudentSignupPage() {
       return;
     }
     await signIn("credentials", { email, password, redirect: false });
-    router.push("/coaches");
+    router.push("/mentors");
     router.refresh();
   }
 
@@ -41,7 +41,7 @@ export default function StudentSignupPage() {
           <h1 className="page-title" style={{ fontSize: 40 }}>Create your account</h1>
           <span className="text-secondary">Free for students. Message any vetted mentor before you book.</span>
         </div>
-        <GoogleButton onClick={() => signIn("google", { callbackUrl: "/coaches" })} label="Sign up with Google" />
+        <GoogleButton onClick={() => signIn("google", { callbackUrl: "/mentors" })} label="Sign up with Google" />
         <div className="or-line">or</div>
         <form onSubmit={handleSubmit} className="stack" style={{ gap: 0 }}>
           <label className="field">

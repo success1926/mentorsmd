@@ -3,11 +3,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { LIMITS, isNonEmptyString, parsePriceToCents } from "@/lib/validate";
+import { GIG_DESCRIPTION_MIN_WORDS, PRICE_RULE, countWords } from "@/lib/options";
 import { parseGigSearchFields } from "@/lib/gigInput";
+import { bookableGigWhere } from "@/lib/mentor";
 
 // Public: anyone (even logged out) can browse gigs.
-//   ?mine=true      (seller session) only that seller's own packages - the dashboard
-//   ?sellerId=<id>  only one coach's packages - message thread booking panel
+//   ?mine=true      (mentor session) the mentor's own packages, including
+//                   ones hidden because their price is out of range
+//   ?sellerId=<id>  one mentor's bookable packages - message thread booking panel
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const mine = searchParams.get("mine") === "true";
@@ -16,13 +19,13 @@ export async function GET(req: Request) {
   if (mine) {
     const session = await getServerSession(authOptions);
     if (!session?.user || (session.user as any).role !== "SELLER") {
-      return NextResponse.json({ error: "Only seller accounts can view their own packages" }, { status: 403 });
+      return NextResponse.json({ error: "Only mentor accounts have packages" }, { status: 403 });
     }
     sellerId = (session.user as any).id;
   }
 
   const gigs = await prisma.gig.findMany({
-    where: { active: true, ...(sellerId ? { sellerId } : {}) },
+    where: mine ? { active: true, sellerId } : { ...bookableGigWhere, ...(sellerId ? { sellerId } : {}) },
     include: { seller: { select: { id: true, name: true, credential: true, photoUrl: true } } },
     orderBy: { createdAt: "desc" },
     take: 500,
@@ -36,7 +39,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user || (session.user as any).role !== "SELLER") {
-    return NextResponse.json({ error: "Only seller accounts can create packages" }, { status: 403 });
+    return NextResponse.json({ error: "Only mentor accounts can create packages" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -47,9 +50,12 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
+  if (countWords(description) < GIG_DESCRIPTION_MIN_WORDS) {
+    return NextResponse.json({ error: `Describe the package in at least ${GIG_DESCRIPTION_MIN_WORDS} words` }, { status: 400 });
+  }
   const priceCents = parsePriceToCents(price);
   if (priceCents === null) {
-    return NextResponse.json({ error: "Price must be between $5 and $10,000" }, { status: 400 });
+    return NextResponse.json({ error: PRICE_RULE }, { status: 400 });
   }
   // Every package must answer the search questions (service, format,
   // turnaround, and calls if it includes one) - see lib/gigInput.ts.

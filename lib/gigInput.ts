@@ -3,6 +3,8 @@ import {
   FORMATS,
   MAX_CALLS,
   SERVICES,
+  SERVICE_OTHER_MAX,
+  SERVICE_OTHER_MIN,
   TURNAROUNDS,
   categoryForService,
   formatHasCall,
@@ -13,6 +15,7 @@ import { normalizeCalLink } from "@/lib/calls";
 
 type SearchFields = {
   service: string;
+  serviceOther: string | null;
   format: string;
   turnaround: string;
   callsIncluded: number;
@@ -27,13 +30,23 @@ type SearchFields = {
 // whole. Returns either the fields to save or a friendly error.
 export function parseGigSearchFields(
   body: any,
-  current?: { service: string | null; format: string | null; turnaround: string | null; callsIncluded: number; callLength: number | null; calEventUrl: string | null }
+  current?: { service: string | null; serviceOther?: string | null; format: string | null; turnaround: string | null; callsIncluded: number; callLength: number | null; calEventUrl: string | null }
 ): { data: SearchFields } | { error: string } {
   const service = body.service ?? current?.service;
   const format = body.format ?? current?.format;
   const turnaround = body.turnaround ?? current?.turnaround;
 
   if (!isValue(SERVICES, service)) return { error: "Choose which service this package is" };
+
+  // "Other" needs a short name for the service, shown as its tag.
+  let serviceOther: string | null = null;
+  if (service === "OTHER") {
+    const raw = body.serviceOther !== undefined ? body.serviceOther : current?.serviceOther;
+    serviceOther = typeof raw === "string" ? raw.trim().replace(/\s+/g, " ") : "";
+    if (!serviceOther || serviceOther.length < SERVICE_OTHER_MIN || serviceOther.length > SERVICE_OTHER_MAX) {
+      return { error: `Name the service in ${SERVICE_OTHER_MIN} to ${SERVICE_OTHER_MAX} characters, e.g. "CASPer prep"` };
+    }
+  }
   if (!isValue(FORMATS, format)) return { error: "Choose the format" };
   if (!isValue(TURNAROUNDS, turnaround)) return { error: "Choose the turnaround" };
 
@@ -62,6 +75,7 @@ export function parseGigSearchFields(
   return {
     data: {
       service,
+      serviceOther,
       format,
       turnaround,
       callsIncluded,

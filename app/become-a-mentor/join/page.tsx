@@ -2,7 +2,8 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
+import { logOut } from "@/components/TopNav";
 import Link from "next/link";
 import { AuthShell } from "@/components/AuthShell";
 
@@ -30,6 +31,27 @@ function OnboardCoachForm() {
   const [bio, setBio] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const { data: session, status } = useSession();
+
+  // Someone is already logged in on this browser (often the admin who sent
+  // the invite, testing it). They need to log out to create the mentor account.
+  if (status === "authenticated" && code && !loading) {
+    return (
+      <div className="page-narrow">
+        <div className="card-narrow stack">
+          <h1 className="page-title" style={{ fontSize: 34 }}>You&apos;re already logged in</h1>
+          <p className="text-secondary">
+            You&apos;re logged in as <b>{session?.user?.name || session?.user?.email}</b>
+            {session?.user?.email ? ` (${session.user.email})` : ""}. Log out to accept this mentor invite
+            {emailFromLink ? ` for ${emailFromLink}` : ""}.
+          </p>
+          <div className="row">
+            <button className="btn btn-primary" onClick={() => logOut(window.location.pathname + window.location.search)}>Log out and continue</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!code || !emailFromLink) {
     return (
@@ -38,7 +60,7 @@ function OnboardCoachForm() {
           <h1 className="page-title" style={{ fontSize: 34 }}>Missing invite link</h1>
           <p className="text-secondary">This page only works from the invite email our team sends you. Open the link in that email to set up your profile.</p>
           <p className="text-secondary">
-            Looking for help with your own application? <Link href="/signup/buyer" className="link">Create a student account</Link>
+            Looking for help with your own application? <Link href="/signup" className="link">Create a student account</Link>
           </p>
         </div>
       </div>

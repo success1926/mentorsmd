@@ -3,7 +3,7 @@ import Link from "next/link";
 import { BrowseFilters, SortSelect } from "@/components/BrowseFilters";
 import { Icon, ICONS, Vetted, Rating, tintFor, initialsOf } from "@/components/ui";
 import { parseBrowseFilters, searchMentors } from "@/lib/mentorQueries";
-import { BACKGROUNDS, FILTER_GROUPS, FORMATS, SCHOOL_TYPES, SERVICES, STAGES, TURNAROUNDS, labelFor, money } from "@/lib/options";
+import { BACKGROUNDS, FILTER_GROUPS, FORMATS, SCHOOL_TYPES, STAGES, TURNAROUNDS, labelFor, money, serviceLabel } from "@/lib/options";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Find your mentor · MentorsMD" };
@@ -50,13 +50,13 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
       const rest = next.getAll(g.key).filter((x) => x !== v);
       next.delete(g.key);
       rest.forEach((x) => next.append(g.key, x));
-      pills.push({ label, href: `/coaches${next.toString() ? `?${next}` : ""}` });
+      pills.push({ label, href: `/mentors${next.toString() ? `?${next}` : ""}` });
     }
   }
   if (filters.q) {
     const next = new URLSearchParams(params.toString());
     next.delete("q");
-    pills.unshift({ label: `"${filters.q}"`, href: `/coaches${next.toString() ? `?${next}` : ""}` });
+    pills.unshift({ label: `"${filters.q}"`, href: `/mentors${next.toString() ? `?${next}` : ""}` });
   }
   const pkgFiltered = filters.service.length + filters.format.length + filters.turnaround.length + filters.price.length > 0;
   const activeQuick = QUICK.find((q) => (q.qs ? params.toString() === q.qs : params.toString() === "" || params.toString().startsWith("sort=")))?.label;
@@ -68,7 +68,7 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
           {QUICK.map((q) => (
             <Link
               key={q.label}
-              href={q.qs ? `/coaches?${q.qs}` : "/coaches"}
+              href={q.qs ? `/mentors?${q.qs}` : "/mentors"}
               className="nowrap"
               style={{
                 padding: "16px 0",
@@ -86,7 +86,7 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
         <section className="stack" style={{ gap: 14, marginBottom: 36 }}>
           <h1 className="page-title">Find your mentor</h1>
           <p className="lede">Every mentor is vetted by our senior team. Message anyone for free.</p>
-          <form action="/coaches" method="get" className="search-inline" role="search" style={{ maxWidth: 760 }}>
+          <form action="/mentors" method="get" className="search-inline" role="search" style={{ maxWidth: 760 }}>
             <Icon d={ICONS.search} size={20} />
             <input name="q" defaultValue={filters.q} aria-label="Search mentors" placeholder="Search by name, school or keyword" />
             {/* keep the current filters when searching */}
@@ -129,7 +129,7 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
                     <span aria-hidden="true">×</span>
                   </Link>
                 ))}
-                <Link href={filters.sort !== "best" ? `/coaches?sort=${filters.sort}` : "/coaches"} className="link small" scroll={false}>
+                <Link href={filters.sort !== "best" ? `/mentors?sort=${filters.sort}` : "/mentors"} className="link small" scroll={false}>
                   Clear all
                 </Link>
               </div>
@@ -139,7 +139,7 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
               <div className="empty stack" style={{ alignItems: "center" }}>
                 <b style={{ color: "var(--ink)", fontSize: 18 }}>No mentors match those filters yet.</b>
                 <span>Try removing a filter, or browse everyone.</span>
-                <Link href="/coaches" className="btn btn-primary">Show all mentors</Link>
+                <Link href="/mentors" className="btn btn-primary">Show all mentors</Link>
               </div>
             )}
 
@@ -150,7 +150,7 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
                 : `${m.totalPackages} ${m.totalPackages === 1 ? "package" : "packages"}`;
               return (
                 <article key={m.id} className="mentor-card">
-                  <Link href={`/coaches/${m.id}`} aria-hidden="true" tabIndex={-1}>
+                  <Link href={`/mentors/${m.id}`} aria-hidden="true" tabIndex={-1}>
                     {m.photoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={m.photoUrl} alt="" className="avatar" style={{ objectFit: "cover" }} loading="lazy" />
@@ -160,7 +160,7 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
                   </Link>
                   <div className="stack" style={{ gap: 10, minWidth: 0 }}>
                     <div className="row-wrap">
-                      <Link href={`/coaches/${m.id}`} className="display" style={{ fontSize: 26 }}>{m.name}</Link>
+                      <Link href={`/mentors/${m.id}`} className="display" style={{ fontSize: 26 }}>{m.name}</Link>
                       <Vetted />
                       {m.avgRating !== null && m.avgRating >= 4.8 && m.reviewCount >= 5 && <span className="badge badge-pink">Top rated</span>}
                       <span style={{ marginLeft: "auto" }}><Rating avg={m.avgRating} count={m.reviewCount} /></span>
@@ -179,11 +179,11 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
                     <div className="stack-sm" style={{ marginTop: 4 }}>
                       <span className="text-muted" style={{ fontWeight: 600 }}>{head}</span>
                       {m.packages.slice(0, 4).map((p) => (
-                        <Link key={p.id} href={`/coaches/${m.id}#pkg-${p.id}`} className="pkg-line">
+                        <Link key={p.id} href={`/mentors/${m.id}#pkg-${p.id}`} className="pkg-line">
                           <span className="stack-sm" style={{ gap: 2, minWidth: 0 }}>
                             <b style={{ fontSize: 15, fontWeight: 600 }}>{p.title}</b>
                             <span className="text-muted">
-                              {[labelFor(SERVICES, p.service), labelFor(FORMATS, p.format), labelFor(TURNAROUNDS, p.turnaround)].filter(Boolean).join(" · ")}
+                              {[serviceLabel(p.service, p.serviceOther), labelFor(FORMATS, p.format), labelFor(TURNAROUNDS, p.turnaround)].filter(Boolean).join(" · ")}
                             </span>
                           </span>
                           <b className="nowrap">{money(p.price)}</b>

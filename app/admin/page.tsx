@@ -172,7 +172,7 @@ export default function AdminPage() {
                   <span className="text-muted">{inv.email}{inv.joinedUser?.createdAt ? ` · joined ${fmtDay(inv.joinedUser.createdAt)}` : ""}</span>
                 </div>
                 <span className="badge badge-success">Joined</span>
-                {inv.redeemedByUserId && <Link href={`/coaches/${inv.redeemedByUserId}`} className="btn btn-sm">Profile</Link>}
+                {inv.redeemedByUserId && <Link href={`/mentors/${inv.redeemedByUserId}`} className="btn btn-sm">Profile</Link>}
               </div>
             ))}
           </div>
@@ -181,7 +181,43 @@ export default function AdminPage() {
 
       {/* ---------- People ---------- */}
       <People />
+
+      {/* ---------- Custom "Other" services ---------- */}
+      <CustomServices />
     </div>
+  );
+}
+
+// ---------------- Custom service names from "Other" packages ----------------
+function CustomServices() {
+  const [services, setServices] = useState<any[] | null>(null);
+  useEffect(() => {
+    fetch("/api/admin/custom-services").then((r) => r.json()).then((d) => setServices(d.services || [])).catch(() => setServices([]));
+  }, []);
+  return (
+    <section className="stack-sm">
+      <h2 style={{ fontSize: 30 }}>Custom services</h2>
+      <p className="text-secondary">What mentors typed when they picked &quot;Other&quot;. If several mentors offer the same thing, it may be worth adding as an official service.</p>
+      <div className="card" style={{ padding: "6px 20px" }}>
+        {services === null && <p className="text-muted" style={{ padding: "12px 0" }}>Loading…</p>}
+        {services?.length === 0 && <p className="text-muted" style={{ padding: "12px 0" }}>No &quot;Other&quot; packages yet.</p>}
+        {services?.map((s) => (
+          <details key={s.name} className="list-row" style={{ display: "block" }}>
+            <summary className="between" style={{ cursor: "pointer" }}>
+              <b style={{ fontSize: 15 }}>{s.name}</b>
+              <span className="text-muted">{s.mentors} mentor{s.mentors === 1 ? "" : "s"} · {s.packages} package{s.packages === 1 ? "" : "s"}</span>
+            </summary>
+            <div className="stack-sm" style={{ padding: "8px 0 4px" }}>
+              {s.examples.map((e: any) => (
+                <Link key={e.id} href={`/mentors/${e.sellerId}#pkg-${e.id}`} className="link small">
+                  {e.title} ({e.mentor})
+                </Link>
+              ))}
+            </div>
+          </details>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -312,7 +348,7 @@ function PersonDetail({ id }: { id: string }) {
           <div className="row-wrap small">
             {u.gigs.map((g: any) => <span key={g.id} className="badge badge-brand">{g.title} · {money(g.price)}</span>)}
           </div>
-          <Link href={`/coaches/${u.id}`} className="link small">Open public profile →</Link>
+          <Link href={`/mentors/${u.id}`} className="link small">Open public profile →</Link>
         </>
       )}
       <b className="small" style={{ marginTop: 6 }}>Recent orders</b>

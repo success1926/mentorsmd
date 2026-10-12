@@ -4,6 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcrypt";
 import { prisma } from "./prisma";
+import { SESSION_IDLE_SECONDS, sessionEndReason } from "./sessionRules";
 
 // The adapter is what lets NextAuth automatically create/find User rows
 // for Google sign-ins and link them to an Account row. Because the User
@@ -23,7 +24,10 @@ const ROLE_RECHECK_MS = 5 * 60 * 1000;
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
-  session: { strategy: "jwt" },
+  // maxAge is the inactivity limit: the login cookie is renewed whenever
+  // the person uses the site, so it only runs out after 7 idle days.
+  // The 30-day hard limit and the admin 1-hour limit are in sessionRules.
+  session: { strategy: "jwt", maxAge: SESSION_IDLE_SECONDS },
   pages: { signIn: "/login" },
   providers: [
     GoogleProvider({
@@ -109,13 +113,22 @@ export const authOptions: NextAuthOptions = {
       }
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
+      // Admin pages call update() every few minutes while the admin is
+      // active (components/SessionWatcher.tsx); that's what keeps an
+      // admin login alive.
+      if (!user && sessionEndReason(token)) {
+        token.revoked = true;
+        return token;
+      }
+      if (trigger === "update") token.lastSeenMs = Date.now();
       if (user) {
         // Credentials login already returns `role` on the user object.
         // Google sign-in doesn't, so look it up the first time.
         token.role = (user as any).role ?? (await prisma.user.findUnique({ where: { id: user.id }, select: { role: true } }))?.role;
         token.roleCheckedAt = Date.now();
         token.issuedAtMs = Date.now();
+        token.lastSeenMs = Date.now();
       } else if (token.sub && Date.now() - ((token.roleCheckedAt as number) || 0) > ROLE_RECHECK_MS) {
         // Re-read the role every few minutes, so demoting an account (or
         // deleting it) takes effect quickly instead of lasting until the

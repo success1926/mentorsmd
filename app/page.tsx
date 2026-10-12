@@ -1,18 +1,19 @@
 import Link from "next/link";
 import { HomeFeatures } from "@/components/HomeFeatures";
+import { RoleCta } from "@/components/RoleCta";
 import { Icon, ICONS, Vetted, Rating, tintFor, initialsOf } from "@/components/ui";
 import { getFeaturedMentors, getReviewStats, getWallReviews } from "@/lib/mentorQueries";
 import { MENTOR_ACCEPTANCE_RATE, MENTOR_SCHOOLS, PHOTOS, TESTIMONIALS } from "@/lib/content";
-import { labelFor, money, STAGES, SERVICES } from "@/lib/options";
+import { labelFor, money, STAGES, serviceLabel } from "@/lib/options";
 
 export const dynamic = "force-dynamic"; // mentor cards and review counts read live data
 
 const QUICK = [
-  { label: "Personal statement", icon: ICONS.pen, href: "/coaches?service=PERSONAL_STATEMENT" },
-  { label: "Secondaries", icon: ICONS.doc, href: "/coaches?service=SECONDARIES" },
-  { label: "Interviews", icon: ICONS.chat, href: "/coaches?service=MMI&service=TRADITIONAL_INTERVIEW" },
-  { label: "MCAT", icon: ICONS.chart, href: "/coaches?service=MCAT" },
-  { label: "Reapplying", icon: ICONS.cycle, href: "/coaches?service=REAPPLICANT&bg=REAPPLICANT" },
+  { label: "Personal statement", icon: ICONS.pen, href: "/mentors?service=PERSONAL_STATEMENT" },
+  { label: "Secondaries", icon: ICONS.doc, href: "/mentors?service=SECONDARIES" },
+  { label: "Interviews", icon: ICONS.chat, href: "/mentors?service=MMI&service=TRADITIONAL_INTERVIEW" },
+  { label: "MCAT", icon: ICONS.chart, href: "/mentors?service=MCAT" },
+  { label: "Reapplying", icon: ICONS.cycle, href: "/mentors?service=REAPPLICANT&bg=REAPPLICANT" },
 ];
 
 const PATHS = [
@@ -21,21 +22,21 @@ const PATHS = [
     body: "Personal statement, activities and secondaries, shaped by someone who just wrote theirs.",
     bg: "linear-gradient(180deg, #CFC4FF 0%, #8E78F0 50%, #2B1F6B 100%)",
     photo: PHOTOS.pathApplication,
-    href: "/coaches?service=PERSONAL_STATEMENT&service=SECONDARIES&service=ACTIVITIES",
+    href: "/mentors?service=PERSONAL_STATEMENT&service=SECONDARIES&service=ACTIVITIES",
   },
   {
     title: "Ace your interviews",
     body: "MMI and traditional mock interviews with written feedback after every session.",
     bg: "linear-gradient(180deg, #F5B9CD 0%, #9A7BE8 50%, #2B1F6B 100%)",
     photo: PHOTOS.pathInterviews,
-    href: "/coaches?service=MMI&service=TRADITIONAL_INTERVIEW",
+    href: "/mentors?service=MMI&service=TRADITIONAL_INTERVIEW",
   },
   {
     title: "Plan your path",
     body: "School lists, MCAT strategy, gap years and reapplying, from people who made the same calls.",
     bg: "linear-gradient(180deg, #E4EEFF 0%, #8E9BF0 50%, #2B1F6B 100%)",
     photo: PHOTOS.pathPlan,
-    href: "/coaches?service=SCHOOL_LIST&service=MCAT&service=REAPPLICANT",
+    href: "/mentors?service=SCHOOL_LIST&service=MCAT&service=REAPPLICANT",
   },
 ];
 
@@ -73,7 +74,7 @@ export default async function HomePage() {
         <div className="hero-body">
           <h1 className="hero-title">Your white coat starts here</h1>
           <p className="hero-sub">One-on-one help from med students and residents, every one vetted by our senior team.</p>
-          <form action="/coaches" method="get" className="hero-search" role="search">
+          <form action="/mentors" method="get" className="hero-search" role="search">
             <Icon d={ICONS.search} size={22} />
             <input name="q" aria-label="Search for help" placeholder="Search for help with your personal statement, MMI, MCAT…" />
             <button type="submit" aria-label="Search mentors">
@@ -173,13 +174,13 @@ export default async function HomePage() {
           <div className="wrap">
             <div className="between" style={{ alignItems: "flex-end", marginBottom: 40, flexWrap: "wrap" }}>
               <h2 style={{ fontSize: "clamp(34px, 4.4vw, 64px)" }}>Meet a few of our mentors.</h2>
-              <Link href="/coaches" className="link" style={{ fontSize: 18 }}>Browse all mentors →</Link>
+              <Link href="/mentors" className="link" style={{ fontSize: 18 }}>Browse all mentors →</Link>
             </div>
             <div className="grid-4">
               {mentors.map((m) => {
                 const firstService = m.packages[0]?.service;
                 return (
-                  <Link key={m.id} href={`/coaches/${m.id}`} className="mentor-tile">
+                  <Link key={m.id} href={`/mentors/${m.id}`} className="mentor-tile">
                     <div className="mentor-tile-photo" style={{ background: tintFor(m.id) }}>
                       {m.photoUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -197,7 +198,7 @@ export default async function HomePage() {
                       <span className="text-secondary" style={{ fontSize: 16 }}>
                         {m.credential || labelFor(STAGES, m.mentorStage)}
                       </span>
-                      {firstService && <span style={{ fontSize: 16 }}>{labelFor(SERVICES, firstService)}</span>}
+                      {firstService && <span style={{ fontSize: 16 }}>{serviceLabel(firstService, m.packages[0]?.serviceOther)}</span>}
                       <span className="text-secondary" style={{ fontSize: 15 }}>
                         From <b style={{ color: "var(--ink)" }}>{money(m.minPrice)}</b>
                       </span>
@@ -256,9 +257,7 @@ export default async function HomePage() {
           <p className="lede" style={{ fontSize: 21 }}>
             Message any vetted mentor for free. When you book, we hold your payment until you approve the work.
           </p>
-          <Link href="/coaches" className="btn btn-primary btn-lg" style={{ padding: "20px 38px", fontSize: 19 }}>
-            Get started
-          </Link>
+          <RoleCta href="/mentors" label="Get started" className="btn btn-primary btn-lg" style={{ padding: "20px 38px", fontSize: 19 }} />
         </div>
       </section>
     </div>

@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Icon, ICONS, Vetted, Rating, tintFor, initialsOf } from "@/components/ui";
-import { BACKGROUNDS, FORMATS, SCHOOL_TYPES, SERVICES, STAGES, TURNAROUNDS, labelFor, money } from "@/lib/options";
+import { BACKGROUNDS, FORMATS, SCHOOL_TYPES, STAGES, TURNAROUNDS, labelFor, money, serviceLabel } from "@/lib/options";
 
 type Gig = {
   id: string;
@@ -13,6 +13,7 @@ type Gig = {
   description: string;
   price: number;
   service: string | null;
+  serviceOther: string | null;
   format: string | null;
   turnaround: string | null;
   callsIncluded: number;
@@ -76,7 +77,7 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
 
   return (
     <div className="page">
-      <Link href="/coaches" className="link small" style={{ display: "inline-block", marginBottom: 24 }}>
+      <Link href="/mentors" className="link small" style={{ display: "inline-block", marginBottom: 24 }}>
         ← All mentors
       </Link>
 
@@ -129,7 +130,7 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
                   <div className="stack-sm grow">
                     <b style={{ fontSize: 19 }}>{g.title}</b>
                     <div className="pkg-meta">
-                      {g.service && <span className="badge badge-brand">{labelFor(SERVICES, g.service)}</span>}
+                      {g.service && <span className="badge badge-brand">{serviceLabel(g.service, g.serviceOther)}</span>}
                       {g.format && <span className="badge badge-blue">{labelFor(FORMATS, g.format)}</span>}
                       {g.turnaround && <span className="badge">{labelFor(TURNAROUNDS, g.turnaround)}</span>}
                       {g.callsIncluded > 0 && (
@@ -152,7 +153,7 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
                       Book for {money(g.price)}
                     </button>
                   ) : status !== "loading" && !session ? (
-                    <Link href={`/login?callbackUrl=/coaches/${seller.id}`} className="btn btn-primary">Log in to book</Link>
+                    <Link href={`/login?callbackUrl=/mentors/${seller.id}`} className="btn btn-primary">Log in to book</Link>
                   ) : null}
                   {isBuyer && !bookable && seller.available && (
                     <span className="text-muted">Booking unlocks once {first} replies to your message.</span>
@@ -202,7 +203,7 @@ export function ProfileClient({ seller, reviews }: { seller: any; reviews: any[]
                 <span className="text-secondary">{first} isn&apos;t taking new messages while away.</span>
               )
             ) : status !== "loading" && !session ? (
-              <Link href={`/signup/buyer`} className="btn btn-primary btn-block">Create a free account to message</Link>
+              <Link href={`/signup`} className="btn btn-primary btn-block">Create a free account to message</Link>
             ) : (
               <span className="text-muted">Only student accounts can message mentors.</span>
             )}

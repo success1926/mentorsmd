@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useSession, signIn } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { Avatar } from "@/components/Avatar";
+import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 import { Icon, ICONS } from "@/components/ui";
 import { BACKGROUNDS, SCHOOL_TYPES, STAGES } from "@/lib/options";
 
@@ -100,12 +101,8 @@ export default function AccountPage() {
   const [removeReason, setRemoveReason] = useState("");
   const [activeOrders, setActiveOrders] = useState<number | null>(null);
 
-  // password
-  const [currentPw, setCurrentPw] = useState("");
-  const [newPw, setNewPw] = useState("");
-  const [confirmPw, setConfirmPw] = useState("");
-  const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [pwSaving, setPwSaving] = useState(false);
+  // password (pop-up)
+  const [pwOpen, setPwOpen] = useState(false);
 
   function loadProfile() {
     return fetch("/api/profile")
@@ -244,30 +241,6 @@ export default function AccountPage() {
     loadProfile();
   }
 
-  async function changePassword(e: React.FormEvent) {
-    e.preventDefault();
-    setPwMsg(null);
-    if (newPw.length < 8) return setPwMsg({ ok: false, text: "New password must be at least 8 characters" });
-    if (newPw !== confirmPw) return setPwMsg({ ok: false, text: "The two new passwords don't match" });
-    setPwSaving(true);
-    const res = await fetch("/api/profile/password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ currentPassword: currentPw, newPassword: newPw }),
-    });
-    const data = await res.json().catch(() => ({}));
-    setPwSaving(false);
-    if (res.ok) {
-      await signIn("credentials", { email: profile.email, password: newPw, redirect: false });
-      setCurrentPw("");
-      setNewPw("");
-      setConfirmPw("");
-      setPwMsg({ ok: true, text: "Password changed. Other devices are signed out within a few minutes." });
-    } else {
-      setPwMsg({ ok: false, text: data.error || "Couldn't change password" });
-    }
-  }
-
   const webcal = feedUrl ? feedUrl.replace(/^https?:/, "webcal:") : "";
 
   return (
@@ -316,7 +289,7 @@ export default function AccountPage() {
         )}
         <div className="row-wrap">
           <button className="btn btn-primary" disabled={saving || !name.trim() || (isSeller && !credential.trim())}>{saving ? "Saving…" : "Save changes"}</button>
-          {isSeller && <Link href={`/coaches/${profile.id}`} className="btn">View my profile</Link>}
+          {isSeller && <Link href={`/mentors/${profile.id}`} className="btn">View my profile</Link>}
         </div>
         <Msg m={saveMsg} />
       </form>
@@ -527,22 +500,28 @@ export default function AccountPage() {
         </section>
       )}
 
-      {/* ---------- Password ---------- */}
-      {profile.hasPassword ? (
-        <form onSubmit={changePassword} className="card stack" style={{ gap: 4 }}>
-          <h2 style={{ fontSize: 26, marginBottom: 12 }}>Change password</h2>
-          <label className="field"><span className="field-label">Current password</span><input className="input" type="password" autoComplete="current-password" value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} /></label>
-          <label className="field"><span className="field-label">New password</span><input className="input" type="password" autoComplete="new-password" value={newPw} onChange={(e) => setNewPw(e.target.value)} /></label>
-          <label className="field"><span className="field-label">Confirm new password</span><input className="input" type="password" autoComplete="new-password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} /></label>
-          <div className="row-wrap">
-            <button className="btn btn-primary" disabled={pwSaving || !currentPw || !newPw || !confirmPw}>{pwSaving ? "Saving…" : "Change password"}</button>
-            <Link href="/forgot-password" className="link small">Forgot your current password?</Link>
+      {/* ---------- Sign-in & security ---------- */}
+      <section className="card stack" style={{ gap: 14 }}>
+        <h2 style={{ fontSize: 26 }}>Sign-in &amp; security</h2>
+        <div className="between" style={{ flexWrap: "wrap", gap: 8 }}>
+          <span className="text-secondary">Login email</span>
+          <b>{profile.email}</b>
+        </div>
+        {profile.hasPassword ? (
+          <div className="between" style={{ flexWrap: "wrap", gap: 12, borderTop: "1px solid var(--line)", paddingTop: 14 }}>
+            <div className="stack-sm" style={{ gap: 0 }}>
+              <span className="text-secondary">Password</span>
+              <b aria-label="Password hidden" style={{ letterSpacing: 2 }}>••••••••</b>
+            </div>
+            <button className="btn" onClick={() => setPwOpen(true)}>Change password</button>
           </div>
-          <Msg m={pwMsg} />
-        </form>
-      ) : (
-        <div className="card text-secondary">You sign in with Google, so there&apos;s no MentorsMD password to change.</div>
-      )}
+        ) : (
+          <p className="text-secondary" style={{ borderTop: "1px solid var(--line)", paddingTop: 14 }}>
+            You sign in with Google, so there&apos;s no MentorsMD password to change.
+          </p>
+        )}
+      </section>
+      <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} email={profile.email} />
     </div>
   );
 }

@@ -16,7 +16,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const userId = (session.user as any).id;
   if (order.buyerId !== userId) {
-    return NextResponse.json({ error: "Only the buyer can review this order" }, { status: 403 });
+    return NextResponse.json({ error: "Only the student on this order can review it" }, { status: 403 });
   }
   if (order.status !== "RELEASED") {
     return NextResponse.json({ error: "You can only review an order after payment is released" }, { status: 400 });
@@ -42,7 +42,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   });
 
   try {
-    await sendReviewReceivedEmail(order.seller.email, ratingNum, order.gig.title, `${SITE_URL}/coaches/${order.sellerId}`);
+    await sendReviewReceivedEmail(order.seller.email, ratingNum, order.gig.title, `${SITE_URL}/mentors/${order.sellerId}`);
   } catch (err) {
     console.error("Failed to send review notification email:", err);
   }
