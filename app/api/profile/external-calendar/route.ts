@@ -15,7 +15,8 @@ async function requireMentor() {
   return (session.user as any).id as string;
 }
 
-// Body: { url } to connect (or replace), or { refresh: true } to re-read now.
+// Body: { url } to connect (or replace), or { refresh: true } to re-read now
+// (also re-reads a connected Google Calendar; see lib/googleCalendar.ts).
 export async function POST(req: Request) {
   const userId = await requireMentor();
   if (!userId) return NextResponse.json({ error: "Mentor accounts only" }, { status: 403 });
@@ -27,10 +28,10 @@ export async function POST(req: Request) {
     await prisma.user.update({ where: { id: userId }, data: { externalCalUrl: url, externalBusy: [], externalBusyFetchedAt: null, externalCalError: null } });
   }
   const mentor = await prisma.user.findUnique({ where: { id: userId }, select: mentorScheduleSelect });
-  if (!mentor?.externalCalUrl) return NextResponse.json({ error: "No calendar connected" }, { status: 400 });
+  if (!mentor?.externalCalUrl && !mentor?.googleCalConnectedAt) return NextResponse.json({ error: "No calendar connected" }, { status: 400 });
   try {
     const busy = await externalBusyFor(mentor, true);
-    return NextResponse.json({ ok: true, busyCount: busy.length, host: new URL(mentor.externalCalUrl).hostname });
+    return NextResponse.json({ ok: true, busyCount: busy.length, host: mentor.externalCalUrl ? new URL(mentor.externalCalUrl).hostname : "Google Calendar" });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || "Couldn't read that calendar" }, { status: 400 });
   }

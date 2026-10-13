@@ -32,13 +32,13 @@ export async function GET() {
       mentorStage: true, schoolType: true, backgrounds: true, medicalSchool: true,
       profileStatus: true, pausedUntil: true, awayNote: true, removedAt: true, removedByAdmin: true,
       timeZone: true, weeklyHours: true, bufferMinutes: true, minNoticeHours: true, daysOff: true,
-      externalCalUrl: true, externalCalError: true, externalBusyFetchedAt: true,
+      externalCalUrl: true, externalCalError: true, externalBusyFetchedAt: true, googleCalEmail: true, googleCalConnectedAt: true,
       acceptsMinors: true, dateOfBirth: true, minorStatus: true,
     },
   });
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { passwordHash, externalCalUrl, ...profile } = user;
+  const { passwordHash, externalCalUrl, googleCalEmail, googleCalConnectedAt, ...profile } = user;
   // Never send the hash itself - just whether one exists (Google-only
   // accounts have none, so they can't "change" a password). The secret
   // calendar address is only shown shortened.
@@ -48,6 +48,7 @@ export async function GET() {
       hasPassword: !!passwordHash,
       hasAvailability: hasAvailability(user.weeklyHours),
       externalCal: externalCalUrl ? { host: safeHost(externalCalUrl) } : null,
+      googleCal: googleCalConnectedAt ? { email: googleCalEmail, connectedAt: googleCalConnectedAt } : null,
     },
   });
 }
