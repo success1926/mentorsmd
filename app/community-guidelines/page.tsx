@@ -9,7 +9,7 @@ const SECTIONS: { title: string; points: string[] }[] = [
   {
     title: "Your work stays your own",
     points: [
-      "Mentors give feedback, ideas, edits and coaching. They never write essays, personal statements, secondaries or activity descriptions for a student.",
+      "Mentors give feedback, ideas, edits and guidance. They never write essays, personal statements, secondaries or activity descriptions for a student.",
       "Students never ask a mentor to write their application or take a test (MCAT, CASPer, PREview) for them.",
       "Schools treat ghostwritten applications as dishonest. It can cost a student their seat, and a mentor their own standing.",
     ],

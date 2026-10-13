@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { markLoggedOutOnPurpose } from "@/components/SessionWatcher";
+import { MENTOR_QUICK_LINKS, quickLinkHref } from "@/lib/options";
 
 export function LogoMark({ size = 32 }: { size?: number }) {
   return (
@@ -120,6 +121,7 @@ export function TopNav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [scrolled, setScrolled] = useState(false);
   const [navInfo, setNavInfo] = useState<{ unread: number; packageCount: number | null }>({ unread: 0, packageCount: null });
 
   // Unread badge + package count. Refreshes on page change, every minute,
@@ -162,6 +164,15 @@ export function TopNav() {
     };
   }, []);
 
+  // Once the page is scrolled, the bar turns solid white (on the homepage
+  // it starts see-through over the hero) and shows the quick links row.
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 80);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [pathname]);
+
   // Close menus on navigation.
   useEffect(() => {
     setMenuOpen(false);
@@ -170,6 +181,8 @@ export function TopNav() {
 
   const isHome = pathname === "/";
   const marketing = !session || role === "BUYER";
+  // Quick links only on the pages where students are looking for a mentor.
+  const showQuick = scrolled && marketing && (isHome || pathname.startsWith("/mentors") || pathname === "/founders");
   // Mentors with no packages yet see "+ Add package" instead of "My packages".
   const right = (role ? RIGHT_LINKS[role] || [] : []).map((l) =>
     l.href === "/dashboard/packages" && navInfo.packageCount === 0 ? { label: "+ Add package", href: "/dashboard/packages?new=1" } : l
@@ -182,7 +195,7 @@ export function TopNav() {
   const active = (href: string): "page" | undefined => (href === pathname || (href !== "/" && pathname.startsWith(href) && href !== "/dashboard") || (href === "/dashboard" && pathname === "/dashboard") ? "page" : undefined);
 
   return (
-    <header className={`nav ${isHome ? "nav-home" : ""}`}>
+    <header className={`nav ${isHome ? "nav-home" : ""} ${scrolled ? "nav-scrolled" : ""}`}>
       <div className="nav-inner">
         <Logo />
         <nav aria-label="Main" className="nav-links">
@@ -240,6 +253,16 @@ export function TopNav() {
           </button>
         </div>
       </div>
+
+      {showQuick && (
+        <nav aria-label="Quick links" className="nav-quick">
+          <div className="nav-quick-inner">
+            {MENTOR_QUICK_LINKS.map((q) => (
+              <Link key={q.label} href={quickLinkHref(q)}>{q.label}</Link>
+            ))}
+          </div>
+        </nav>
+      )}
 
       {drawerOpen && (
         <div className="nav-drawer" role="dialog" aria-modal="true" aria-label="Menu">

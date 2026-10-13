@@ -22,7 +22,7 @@ export default function ContactPage({ searchParams }: { searchParams: { topic?: 
         </p>
       </div>
       {mentor && (
-        <Link href="/become-a-mentor/apply" className="card card-tint row" style={{ gap: 16 }}>
+        <Link href="/become-a-mentor#apply" className="card card-tint row" style={{ gap: 16 }}>
           <span className="icon-dot" style={{ background: "#fff" }}><Icon d={ICONS.doc} /></span>
           <span className="stack-sm grow" style={{ gap: 2 }}>
             <b>Apply to mentor</b>
@@ -60,7 +60,7 @@ export default function ContactPage({ searchParams }: { searchParams: { topic?: 
         <div className="card card-tint stack-sm">
           <b>Want to become a mentor?</b>
           <span className="text-secondary">
-            Please don&apos;t email your resume. <Link href="/become-a-mentor/apply" className="link">Apply with the mentor application form</Link> so our senior team can review it.
+            Please don&apos;t email your resume. <Link href="/become-a-mentor#apply" className="link">Apply with the mentor application form</Link> so our senior team can review it.
           </span>
         </div>
       )}

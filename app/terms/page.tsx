@@ -33,7 +33,7 @@ function BuiltInTermsPage() {
         <div>
           <h2 style={{ fontSize: 22, marginBottom: 6 }}>1. What this site does</h2>
           <p className="text-secondary">
-            MentorsMD connects students ("students") with invited mentors ("mentors") for paid coaching sessions.
+            MentorsMD connects students ("students") with invited mentors ("mentors") for paid one-on-one mentoring.
             Mentors are personally vetted and invited; students may sign up freely.
           </p>
         </div>

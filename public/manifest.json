@@ -1,7 +1,7 @@
 {
   "name": "MentorsMD",
   "short_name": "MentorsMD",
-  "description": "Book coaching sessions with vetted med students and residents",
+  "description": "Book one-on-one help from vetted med students and residents",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FFFFFF",

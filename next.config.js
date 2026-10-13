@@ -15,6 +15,8 @@ const nextConfig = {
       { source: "/coaches/:id", destination: "/mentors/:id", permanent: true },
       { source: "/onboard-coach", destination: "/become-a-mentor/join", permanent: true },
       { source: "/signup/buyer", destination: "/signup", permanent: true },
+      // The application form now lives on /become-a-mentor itself.
+      { source: "/become-a-mentor/apply", destination: "/become-a-mentor#apply", permanent: false },
     ];
   },
 };
