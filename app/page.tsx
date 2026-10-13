@@ -155,6 +155,9 @@ export default async function HomePage() {
             <p>
               Anyone can call themselves an admissions coach. On MentorsMD, nobody mentors until they&apos;ve been through a rigorous interview with each of our senior team members, so every mentor has real experience and outstanding results.
             </p>
+            <p>
+              <Link href="/senior-team" style={{ color: "inherit", textDecoration: "underline", textUnderlineOffset: 4 }}>Meet our senior team →</Link>
+            </p>
           </div>
           <div className="grid-4">
             {VET.map((v) => (
