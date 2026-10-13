@@ -10,7 +10,7 @@ export function Footer() {
           <div className="footer-col" style={{ gap: 14 }}>
             <span className="logo">
               <LogoMark />
-              MentorsMD
+              <span>Mentors<b>MD</b></span>
             </span>
             <span className="text-secondary" style={{ fontSize: 17 }}>Vetted mentors for the road to medical school.</span>
           </div>

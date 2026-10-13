@@ -6,6 +6,7 @@ import { TopNav } from "@/components/TopNav";
 import { Footer } from "@/components/Footer";
 import { AccountGate } from "@/components/AccountGate";
 import { Tracker } from "@/components/Tracker";
+import { siteUrl } from "@/lib/siteUrl";
 
 // This is what actually determines how the site looks when someone
 // finds it via Google on their phone - the title/description below are
@@ -13,6 +14,9 @@ import { Tracker } from "@/components/Tracker";
 // what shows if a link gets shared in a text or on social media (a
 // proper preview card instead of a bare link).
 export const metadata: Metadata = {
+  // Makes the link-preview image (app/opengraph-image.png) a full
+  // https://mentorsmd.com/... address, which texts and social apps need.
+  metadataBase: new URL(siteUrl()),
   title: "MentorsMD",
   description: "One-on-one help from med students and residents, every one vetted by our senior team.",
   manifest: "/manifest.json", // lets someone "Add to Home Screen" on their phone
