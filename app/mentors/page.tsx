@@ -74,6 +74,8 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
     next.delete("q");
     pills.unshift({ label: `"${filters.q}"`, href: `/mentors${next.toString() ? `?${next}` : ""}` });
   }
+  // Any filter, search or quick link (sorting alone doesn't count).
+  const anyFilter = [...params.keys()].some((k) => k !== "sort");
   const pkgFiltered = filters.service.length + filters.format.length + filters.turnaround.length + filters.price.length > 0;
   const activeQuick = QUICK.find((q) => (q.qs ? params.toString() === q.qs : params.toString() === "" || params.toString().startsWith("sort=")))?.label;
 
@@ -151,11 +153,19 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
               </div>
             )}
 
-            {mentors.length === 0 && (
+            {mentors.length === 0 && anyFilter && (
               <div className="empty stack" style={{ alignItems: "center" }}>
                 <b style={{ color: "var(--ink)", fontSize: 18 }}>No mentors match those filters yet.</b>
                 <span>Try removing a filter, or browse everyone.</span>
                 <Link href="/mentors" className="btn btn-primary">Show all mentors</Link>
+              </div>
+            )}
+
+            {mentors.length === 0 && !anyFilter && (
+              <div className="empty stack" style={{ alignItems: "center" }}>
+                <b style={{ color: "var(--ink)", fontSize: 18 }}>Mentors are joining soon.</b>
+                <span>Every mentor goes through a rigorous interview with our senior team, so we add them carefully. Check back soon.</span>
+                <Link href="/become-a-mentor" className="link small">Are you a med student or resident? Apply to mentor</Link>
               </div>
             )}
 
