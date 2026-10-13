@@ -10,6 +10,7 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import type { Interval } from "@/lib/schedule";
+import { siteUrl } from "@/lib/siteUrl";
 
 // The narrowest scope that can read busy times: "See the availability on
 // Google Calendars you have access to". The FreeBusy API accepts it; it
@@ -26,13 +27,9 @@ export function googleCalConfigured() {
   return !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 }
 
-// The site's own address (the production address on the live site).
-export function siteBase(reqUrl: string) {
-  return (process.env.NEXTAUTH_URL || new URL(reqUrl).origin).replace(/\/+$/, "");
-}
-
-export function googleCalRedirectUri(reqUrl: string) {
-  return `${siteBase(reqUrl)}/api/calendar/google/callback`;
+// Must exactly match an "Authorized redirect URI" on the Google OAuth client.
+export function googleCalRedirectUri() {
+  return `${siteUrl()}/api/calendar/google/callback`;
 }
 
 // ---- Encryption of the stored refresh token (AES-256-GCM) ----
@@ -93,10 +90,10 @@ export function checkState(fromGoogle: string | null, fromCookie: string | undef
   return userId;
 }
 
-export function googleConsentUrl(reqUrl: string, state: string) {
+export function googleConsentUrl(state: string) {
   const p = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID || "",
-    redirect_uri: googleCalRedirectUri(reqUrl),
+    redirect_uri: googleCalRedirectUri(),
     response_type: "code",
     scope: SCOPES.join(" "),
     access_type: "offline", // gives a refresh token, so we can check busy times later
@@ -125,12 +122,12 @@ async function postForm(url: string, body: Record<string, string>, signal?: Abor
 
 // Swaps the one-time code from the callback for tokens. Returns the
 // refresh token, the Google account's email and the scopes granted.
-export async function exchangeCode(code: string, reqUrl: string) {
+export async function exchangeCode(code: string) {
   const { ok, json } = await postForm("https://oauth2.googleapis.com/token", {
     code,
     client_id: process.env.GOOGLE_CLIENT_ID || "",
     client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
-    redirect_uri: googleCalRedirectUri(reqUrl),
+    redirect_uri: googleCalRedirectUri(),
     grant_type: "authorization_code",
   });
   if (!ok) throw new GoogleCalError(`Google turned down the code (${json?.error || "unknown error"})`);

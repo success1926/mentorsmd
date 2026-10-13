@@ -3,7 +3,8 @@ import { cookies } from "next/headers";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { GOOGLE_CAL_STATE_COOKIE, checkState, encryptToken, exchangeCode, siteBase } from "@/lib/googleCalendar";
+import { GOOGLE_CAL_STATE_COOKIE, checkState, encryptToken, exchangeCode } from "@/lib/googleCalendar";
+import { siteUrl } from "@/lib/siteUrl";
 import { externalBusyFor, mentorScheduleSelect } from "@/lib/callBooking";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic";
 // read busy times once, and return to Account with a flag the page shows.
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const base = siteBase(req.url);
+  const base = siteUrl();
   const stateCookie = cookies().get(GOOGLE_CAL_STATE_COOKIE)?.value;
   const back = (flag: string) => {
     const res = NextResponse.redirect(`${base}/account?gcal=${flag}#calendar`);
@@ -33,7 +34,7 @@ export async function GET(req: Request) {
 
   let result: Awaited<ReturnType<typeof exchangeCode>>;
   try {
-    result = await exchangeCode(code, req.url);
+    result = await exchangeCode(code);
   } catch (err) {
     console.error("Google Calendar connect failed:", err);
     return back("error");
