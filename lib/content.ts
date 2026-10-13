@@ -38,7 +38,7 @@ export type TeamMember = { name: string; title: string; creds?: string; photo: s
 export const SENIOR_TEAM: TeamMember[] = [
   {
     name: "Stephen Frederico",
-    title: "Founder",
+    title: "Co-founder",
     creds: "Four years on the University of Pittsburgh School of Medicine admissions committee",
     photo: "/images/team/stephen.jpg",
     photoPosition: "50% 0%",
@@ -53,7 +53,7 @@ export const SENIOR_TEAM: TeamMember[] = [
   },
   {
     name: "Shwetabh",
-    title: "VP of Consulting & Business Development",
+    title: "Co-founder",
     creds: "Admissions committee interviewer, University of Pittsburgh School of Medicine",
     photo: "/images/team/shwetabh.jpg",
     photoPosition: "50% 15%",
