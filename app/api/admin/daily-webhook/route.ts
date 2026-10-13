@@ -12,8 +12,10 @@ export async function POST() {
   if (!session?.user || (session.user as any).role !== "ADMIN") {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
-  if (!SITE_URL.startsWith("https://")) {
-    return NextResponse.json({ error: "This only works on the live site (NEXTAUTH_URL must start with https://)" }, { status: 400 });
+  // Only from the live site: a preview's address changes with every
+  // deployment, so Daily would end up sending events to a dead address.
+  if (process.env.VERCEL_ENV !== "production" || !SITE_URL.startsWith("https://")) {
+    return NextResponse.json({ error: "This only works on the live site (an https address, not a preview)" }, { status: 400 });
   }
   const res = await createWebhook(`${SITE_URL}/api/webhooks/daily`);
   if (!res.ok) {

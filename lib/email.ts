@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { fmtInZone } from "@/lib/tz";
+import { siteUrl } from "@/lib/siteUrl";
 
 // Lazy, like lib/stripe.ts: the Resend constructor throws if the API key
 // is missing, which would otherwise crash every route that imports this
@@ -20,7 +21,7 @@ export const resend = {
 };
 
 const FROM = process.env.INVITE_EMAIL_FROM || "notifications@yourdomain.com";
-const SITE_URL = process.env.NEXTAUTH_URL || "http://localhost:3000";
+const SITE_URL = siteUrl();
 
 // Every user-supplied value (names, notes, message text, gig titles) is
 // escaped before it goes into an email's HTML. Without this, a user could
