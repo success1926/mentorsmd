@@ -547,3 +547,11 @@ details.collapse > .collapse-body { padding: 0 22px 20px; display: flex; flex-di
   .funnel-row { grid-template-columns: 1fr; gap: 4px; }
   .ins-charts { grid-template-columns: 1fr; }
 }
+
+/* Senior team page: photo beside the bio, stacked on phones. */
+.team-member { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 32px; align-items: start; }
+.team-photo { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 20px; background: var(--tint-soft, #EEEAFE); }
+@media (max-width: 720px) {
+  .team-member { grid-template-columns: 1fr; gap: 18px; }
+  .team-photo { max-width: 260px; }
+}

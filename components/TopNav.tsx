@@ -186,7 +186,7 @@ export function TopNav() {
   const isHome = pathname === "/";
   const marketing = !session || role === "BUYER";
   // Quick links only on the pages where students are looking for a mentor.
-  const showQuick = scrolled && marketing && (isHome || pathname.startsWith("/mentors") || pathname === "/founders");
+  const showQuick = scrolled && marketing && (isHome || pathname.startsWith("/mentors") || pathname === "/senior-team");
   // Mentors with no packages yet see "+ Add package" instead of "My packages".
   const right = (role ? RIGHT_LINKS[role] || [] : []).map((l) =>
     l.href === "/dashboard/packages" && navInfo.packageCount === 0 ? { label: "+ Add package", href: "/dashboard/packages?new=1" } : l
