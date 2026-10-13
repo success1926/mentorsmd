@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon, ICONS } from "@/components/ui";
 import { money } from "@/lib/options";
-
-const PLATFORM_FEE_PERCENT = 20; // keep in sync with lib/stripe.ts
+import { PLATFORM_FEE_PERCENT } from "@/lib/fee";
 
 type Status = { connected: boolean; started: boolean; outstandingItems?: string[]; error?: string };
 

@@ -69,9 +69,9 @@ you ever touching a bank transfer yourself:
    URL without actually paying.
 4. **Release**: once the buyer (or an admin, in a dispute) confirms the
    work is done, `POST /api/orders/[id]/release` calls Stripe's Transfer
-   API to send the seller 80% of the price. The 20% platform fee just
+   API to send the seller 70% of the price. The 30% platform fee just
    stays in your Stripe balance - no separate step needed. Adjust the cut
-   in `lib/stripe.ts` (`PLATFORM_FEE_PERCENT`).
+   in `lib/fee.ts` (`PLATFORM_FEE_PERCENT`).
 
 For local testing, use the Stripe CLI to forward webhooks:
 
@@ -94,7 +94,7 @@ Included:
 - `/api/stripe/connect` — seller payout onboarding
 - `/api/checkout` — buyer payment, held on the platform for escrow
 - `/api/webhooks/stripe` — confirms payment before trusting it
-- `/api/orders/[id]/release` — pays the seller their 80% cut
+- `/api/orders/[id]/release` — pays the seller their 70% cut
 - `/api/admin/earnings` — dashboard totals: collected, your cut, paid out, still in escrow
 - `/api/orders` — the current user's bookings (buyer view) or orders placed with them (seller view)
 - `/api/conversations` — get-or-create a buyer/seller thread, and list your own threads
@@ -128,7 +128,7 @@ your bank account directly:
   payout schedule you set in the Stripe dashboard (daily, weekly, or
   monthly) - not something you do by hand each time
 - **Your Stripe balance → seller's bank account**: happens only when you
-  call the release endpoint, and goes straight to them - their 80% never
+  call the release endpoint, and goes straight to them - their 70% never
   passes through your balance at all
 
 So the only "manual" step in the whole system is deciding, once, how often
