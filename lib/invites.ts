@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendSellerInviteEmail } from "@/lib/email";
 import { logAdminAction } from "@/lib/adminLog";
+import { siteUrl } from "@/lib/siteUrl";
 
 // Creates a mentor invite and emails the one-click link. Used by
 // Admin -> Invite a mentor and by the one-click Invite on an application.
@@ -16,7 +17,7 @@ export async function createAndSendInvite(email: string, adminId: string) {
 
   await logAdminAction({ adminId, action: "INVITE_SENT", summary: `Invited ${email} to mentor`, targetType: "INVITE", targetId: invite.id });
 
-  const inviteUrl = `${process.env.NEXTAUTH_URL}/become-a-mentor/join?code=${code}&email=${encodeURIComponent(email)}`;
+  const inviteUrl = `${siteUrl()}/become-a-mentor/join?code=${code}&email=${encodeURIComponent(email)}`;
 
   try {
     await sendSellerInviteEmail(email, inviteUrl);

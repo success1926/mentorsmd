@@ -9,6 +9,7 @@ import { busyRangesFor } from "@/lib/callBooking";
 import { todayFor } from "@/lib/dueDates";
 import { gigPriceOutOfRange, isMentorVisible } from "@/lib/mentor";
 import { gateBlockReason } from "@/lib/gate";
+import { siteUrl } from "@/lib/siteUrl";
 
 // Creates a Stripe Checkout Session for one gig package. Deliberately NOT
 // a Connect "destination charge" - the money lands in OUR Stripe balance
@@ -117,9 +118,9 @@ export async function POST(req: Request) {
     customer_email: session.user.email || undefined,
     // Unpaid sessions expire after 1 hour instead of Stripe's 24h default.
     expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
-    success_url: `${process.env.NEXTAUTH_URL}/orders/${order.id}?success=true`,
+    success_url: `${siteUrl()}/orders/${order.id}?success=true`,
     // Back to the checkout page (there's no /gigs/[id] page - that was a 404).
-    cancel_url: `${process.env.NEXTAUTH_URL}/gigs/${gig.id}/checkout?cancelled=true`,
+    cancel_url: `${siteUrl()}/gigs/${gig.id}/checkout?cancelled=true`,
   });
 
   await prisma.order.update({

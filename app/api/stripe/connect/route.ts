@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { siteUrl } from "@/lib/siteUrl";
 
 // Called when a seller clicks "Connect bank account" in their dashboard.
 // Creates a connected Stripe account (if they don't have one yet) and
@@ -86,8 +87,8 @@ export async function POST() {
         type: "account_onboarding",
         account_onboarding: {
           configurations: ["recipient"],
-          refresh_url: `${process.env.NEXTAUTH_URL}/dashboard/payouts?refresh=true`,
-          return_url: `${process.env.NEXTAUTH_URL}/dashboard/payouts?connected=true`,
+          refresh_url: `${siteUrl()}/dashboard/payouts?refresh=true`,
+          return_url: `${siteUrl()}/dashboard/payouts?connected=true`,
         },
       },
     });
