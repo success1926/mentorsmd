@@ -138,6 +138,12 @@ model User {
   externalBusy          Json? // [{ s: ISO, e: ISO }]
   externalBusyFetchedAt DateTime?
   externalCalError      String?
+  // One-click Google Calendar connection (lib/googleCalendar.ts), used
+  // instead of / as well as the iCal link. Its busy times go into
+  // externalBusy above. The refresh token is encrypted (AES-256-GCM).
+  googleCalEmail        String?
+  googleCalRefreshToken String?
+  googleCalConnectedAt  DateTime?
 
   busyDates      BusyDate[]
   callAttendance CallAttendance[]

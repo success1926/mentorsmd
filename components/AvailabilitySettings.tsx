@@ -300,11 +300,37 @@ export function BusyDatesCard() {
 
 // ---------- Mentor: block times from their own calendar ----------
 
+// Messages for the ?gcal= flag the Google Calendar callback adds.
+const GCAL_FLAGS: Record<string, Msg> = {
+  connected: { ok: true, text: "Google Calendar connected. Times you're busy are now hidden from students." },
+  denied: { ok: false, text: "Google Calendar wasn't connected, because permission wasn't given. You can try again any time." },
+  "no-permission": { ok: false, text: "Google didn't share your busy times. Try again and leave the calendar box ticked on Google's screen." },
+  expired: { ok: false, text: "That took too long, or started in another window. Please click Connect Google Calendar again." },
+  "mentors-only": { ok: false, text: "Only mentor accounts can connect a calendar." },
+  "not-set-up": { ok: false, text: "Connecting Google Calendar isn't switched on yet. Please paste a calendar link instead for now." },
+  error: { ok: false, text: "Couldn't connect Google Calendar. Please try again." },
+};
+
+const shortTime = (d: string | Date) => new Date(d).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+
 export function ExternalCalendarCard({ profile, onChanged }: { profile: any; onChanged?: () => void }) {
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<Msg>(null);
   const connected = profile.externalCal;
+  const google = profile.googleCal as { email: string | null; connectedAt: string } | null;
+
+  // Coming back from Google: show the result once, then tidy the address.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const flag = params.get("gcal");
+    if (!flag) return;
+    setMsg(GCAL_FLAGS[flag] || GCAL_FLAGS.error);
+    params.delete("gcal");
+    const qs = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}#calendar`);
+    document.getElementById("calendar")?.scrollIntoView();
+  }, []);
 
   async function call(method: "POST" | "DELETE", body?: any, okText?: string) {
     setBusy(true);
@@ -324,43 +350,75 @@ export function ExternalCalendarCard({ profile, onChanged }: { profile: any; onC
     onChanged?.();
   }
 
+  async function disconnectGoogle() {
+    if (!confirm("Disconnect Google Calendar? Your busy times will no longer be hidden from students.")) return;
+    setBusy(true);
+    setMsg(null);
+    const res = await fetch("/api/calendar/google/disconnect", { method: "POST" });
+    setBusy(false);
+    setMsg(res.ok ? { ok: true, text: "Google Calendar disconnected." } : { ok: false, text: "Couldn't disconnect. Please try again." });
+    onChanged?.();
+  }
+
   return (
     <div className="card card-tint stack" style={{ padding: 20 }}>
       <div className="between" style={{ flexWrap: "wrap", gap: 8 }}>
         <b className="row"><Icon d={ICONS.calendar} size={18} /> Block busy times from your own calendar</b>
-        {connected ? <span className="badge badge-success">Connected</span> : <span className="badge">Not connected</span>}
+        {google || connected ? <span className="badge badge-success">Connected</span> : <span className="badge">Not connected</span>}
       </div>
       <span className="text-secondary small">
-        Paste your calendar&apos;s secret address and we&apos;ll hide times you&apos;re busy from the slot picker (checked every 15 minutes). We only read busy times; event names aren&apos;t stored and nothing is added to your calendar.
+        We&apos;ll hide times you&apos;re busy from the slot picker (checked every 15 minutes). We only see when you&apos;re busy; event names aren&apos;t seen or stored, and nothing is added to your calendar.
       </span>
-      <details className="collapse">
-        <summary style={{ fontSize: 15 }}>Where do I find the secret address?</summary>
-        <div className="collapse-body">
-          <ol className="text-secondary small" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
-            <li><b>Google Calendar</b> (on a computer): Settings → click your calendar on the left → Integrate calendar → copy <i>Secret address in iCal format</i>.</li>
-            <li><b>iCloud</b>: in the Calendar app, share the calendar as a <i>Public Calendar</i> and copy the link (it starts with webcal://).</li>
-            <li><b>Outlook</b>: Settings → Calendar → Shared calendars → Publish a calendar → copy the ICS link.</li>
-          </ol>
-          <span className="text-muted small">Keep this address private, like a password. You can disconnect it here at any time.</span>
-        </div>
-      </details>
-      {connected && (
+
+      {google ? (
         <div className="stack-sm small">
-          <span>Reading from <b>{connected.host}</b>{profile.externalBusyFetchedAt ? `, last checked ${new Date(profile.externalBusyFetchedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}.</span>
-          {profile.externalCalError && <span className="alert alert-warning">Last check failed: {profile.externalCalError}</span>}
+          <span className="row-wrap" style={{ gap: 6 }}>
+            <span>Connected as <b>{google.email || "your Google account"}</b> ·</span>
+            <button className="link-btn" style={{ color: "var(--danger)" }} disabled={busy} onClick={disconnectGoogle}>Disconnect</button>
+          </span>
+          <span className="text-secondary">{profile.externalBusyFetchedAt ? `Last synced ${shortTime(profile.externalBusyFetchedAt)}.` : "Not synced yet."}</span>
           <div className="row-wrap">
-            <button className="btn btn-sm" disabled={busy} onClick={() => call("POST", { refresh: true })}>Check now</button>
-            <button className="btn btn-ghost btn-sm" style={{ color: "var(--danger)" }} disabled={busy}
-              onClick={() => confirm("Stop blocking times from this calendar?") && call("DELETE", undefined, "Disconnected.")}>
-              Disconnect
-            </button>
+            <button className="btn btn-sm" disabled={busy} onClick={() => call("POST", { refresh: true }, "Synced.")}>Sync now</button>
+            {profile.externalCalError && <a className="btn btn-sm" href="/api/calendar/google/start">Reconnect Google Calendar</a>}
           </div>
         </div>
+      ) : (
+        <div>
+          <a className="btn btn-primary" href="/api/calendar/google/start">Connect Google Calendar</a>
+        </div>
       )}
-      <div className="row">
-        <input className="input grow" style={{ marginBottom: 0 }} placeholder={connected ? "Paste a new secret address to replace it" : "https://calendar.google.com/calendar/ical/…/basic.ics"} value={url} onChange={(e) => setUrl(e.target.value)} aria-label="Secret calendar address" />
-        <button className="btn btn-primary btn-sm" disabled={!url.trim() || busy} onClick={() => call("POST", { url })}>{busy ? "Checking…" : "Connect"}</button>
-      </div>
+      {profile.externalCalError && (google || connected) && <span className="alert alert-warning small">Last check failed: {profile.externalCalError}</span>}
+
+      <details className="collapse" open={!!connected}>
+        <summary style={{ fontSize: 15 }}>Using Apple or Outlook? Paste a calendar link instead</summary>
+        <div className="collapse-body stack-sm">
+          <span className="text-secondary small">
+            Paste your calendar&apos;s secret address.{google ? " Busy times from it are added to the ones from Google Calendar." : ""}
+          </span>
+          <ol className="text-secondary small" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
+            <li><b>iCloud</b>: in the Calendar app, share the calendar as a <i>Public Calendar</i> and copy the link (it starts with webcal://).</li>
+            <li><b>Outlook</b>: Settings → Calendar → Shared calendars → Publish a calendar → copy the ICS link.</li>
+            <li><b>Google Calendar</b> (on a computer): Settings → click your calendar on the left → Integrate calendar → copy <i>Secret address in iCal format</i>.</li>
+          </ol>
+          <span className="text-muted small">Keep this address private, like a password. You can disconnect it here at any time.</span>
+          {connected && (
+            <div className="stack-sm small">
+              <span>Reading from <b>{connected.host}</b>{profile.externalBusyFetchedAt ? `, last checked ${shortTime(profile.externalBusyFetchedAt)}` : ""}.</span>
+              <div className="row-wrap">
+                <button className="btn btn-sm" disabled={busy} onClick={() => call("POST", { refresh: true })}>Check now</button>
+                <button className="btn btn-ghost btn-sm" style={{ color: "var(--danger)" }} disabled={busy}
+                  onClick={() => confirm("Stop blocking times from this calendar link?") && call("DELETE", undefined, "Disconnected.")}>
+                  Disconnect
+                </button>
+              </div>
+            </div>
+          )}
+          <div className="row">
+            <input className="input grow" style={{ marginBottom: 0 }} placeholder={connected ? "Paste a new secret address to replace it" : "webcal://… or https://…"} value={url} onChange={(e) => setUrl(e.target.value)} aria-label="Secret calendar address" />
+            <button className="btn btn-primary btn-sm" disabled={!url.trim() || busy} onClick={() => call("POST", { url })}>{busy ? "Checking…" : "Connect"}</button>
+          </div>
+        </div>
+      </details>
       <Note m={msg} />
     </div>
   );

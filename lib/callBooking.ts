@@ -7,6 +7,7 @@ import { callSummary } from "@/lib/calls";
 import { BusyRange, Interval, generateSlots, BOOKING_HORIZON_DAYS } from "@/lib/schedule";
 import { addDays, dayInZone, tzOrDefault } from "@/lib/tz";
 import { EXTERNAL_CAL_CACHE_MINUTES, fetchIcal, parseIcalBusy } from "@/lib/icalBusy";
+import { googleBusy } from "@/lib/googleCalendar";
 import { deleteRoom, ensureRoom } from "@/lib/daily";
 import { buildCallIcs } from "@/lib/ics";
 import { CallEmail, SITE_URL, fromAddress, sendCallCancelledEmail, sendCallScheduledEmail } from "@/lib/email";
@@ -23,6 +24,8 @@ export const mentorScheduleSelect = {
   externalCalUrl: true,
   externalBusy: true,
   externalBusyFetchedAt: true,
+  // Not the token itself: lib/googleCalendar.ts loads that only when needed.
+  googleCalConnectedAt: true,
 } as const;
 
 export const orderForCallsInclude = {
@@ -35,23 +38,30 @@ export const orderForCallsInclude = {
 export type OrderForCalls = Prisma.OrderGetPayload<{ include: typeof orderForCallsInclude }>;
 type MentorForSchedule = OrderForCalls["seller"];
 
-// ---------- The mentor's own calendar (secret iCal address) ----------
+// ---------- The mentor's own calendar (Google connection and/or iCal link) ----------
 
-// Busy times from the mentor's Google/iCloud calendar, re-read at most
-// every 15 minutes. If the calendar can't be read, the last good copy is
-// used and the error is shown on their Account page.
+// Busy times from the mentor's own calendar, re-read at most every 15
+// minutes. If Google Calendar is connected AND an iCal link is pasted, the
+// busy times from both are combined (a mentor may keep work and personal
+// calendars apart). If either can't be read, the last good copy is used
+// and the error is shown on their Account page.
 export async function externalBusyFor(mentor: MentorForSchedule, force = false): Promise<Interval[]> {
-  if (!mentor.externalCalUrl) return [];
+  const google = !!mentor.googleCalConnectedAt;
+  const icalUrl = mentor.externalCalUrl;
+  if (!icalUrl && !google) return [];
   const fresh =
     mentor.externalBusyFetchedAt && Date.now() - mentor.externalBusyFetchedAt.getTime() < EXTERNAL_CAL_CACHE_MINUTES * 60_000;
   const cached = Array.isArray(mentor.externalBusy) ? (mentor.externalBusy as any[]) : [];
   const fromCache = () => cached.map((b) => ({ s: Date.parse(b.s), e: Date.parse(b.e) })).filter((b) => b.s && b.e);
   if (fresh && !force) return fromCache();
   try {
-    const text = await fetchIcal(mentor.externalCalUrl);
     const from = Date.now() - 24 * 3600_000;
     const to = Date.now() + (BOOKING_HORIZON_DAYS + 2) * 24 * 3600_000;
-    const busy = parseIcalBusy(text, tzOrDefault(mentor.timeZone), from, to);
+    const parts = await Promise.all([
+      google ? googleBusy(mentor.id, from, to) : Promise.resolve([] as Interval[]),
+      icalUrl ? fetchIcal(icalUrl).then((text) => parseIcalBusy(text, tzOrDefault(mentor.timeZone), from, to)) : Promise.resolve([] as Interval[]),
+    ]);
+    const busy = parts.flat().sort((a, b) => a.s - b.s);
     await prisma.user.update({
       where: { id: mentor.id },
       data: {
