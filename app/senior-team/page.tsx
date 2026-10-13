@@ -27,7 +27,6 @@ export default function SeniorTeamPage() {
                 alt={`Photo of ${p.name}`}
                 className="team-photo"
                 style={{ objectPosition: p.photoPosition || "50% 20%" }}
-                loading="lazy"
               />
               <div className="stack" style={{ gap: 12, minWidth: 0 }}>
                 <div className="stack" style={{ gap: 4 }}>
