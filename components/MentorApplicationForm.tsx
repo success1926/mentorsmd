@@ -29,6 +29,14 @@ export function MentorApplicationForm() {
   const doneRef = useRef<HTMLDivElement>(null);
   const recaptcha = useRecaptcha();
 
+  // Old /become-a-mentor/apply links redirect to #apply; the browser's own
+  // jump happens before the page settles, so scroll there once it has.
+  useEffect(() => {
+    if (window.location.hash !== "#apply") return;
+    const t = setTimeout(() => document.getElementById("apply")?.scrollIntoView(), 150);
+    return () => clearTimeout(t);
+  }, []);
+
   const words = countWords(form.blurb);
   const blurbOk = words >= BLURB_MIN_WORDS && words <= BLURB_MAX_WORDS;
   const ready = form.name.trim() && form.email.trim() && form.phone.trim() && form.medicalSchool.trim() && blurbOk && resume;
