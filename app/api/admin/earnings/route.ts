@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { PLATFORM_FEE_PERCENT } from "@/lib/stripe";
 
 // Powers the dashboard shown to the site owner: how much has been
-// collected in total, how much of that is your 20% cut, how much has
+// collected in total, how much of that is your cut, how much has
 // already gone out to sellers, and what's still sitting in escrow.
 // All figures are derived from Order rows, not tracked separately, so they
 // can never drift from what Stripe actually did.

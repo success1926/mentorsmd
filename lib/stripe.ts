@@ -22,5 +22,5 @@ export const stripe = new Proxy({} as Stripe, {
   },
 });
 
-// Your platform's cut. Kept in one place so it's never hardcoded twice.
-export const PLATFORM_FEE_PERCENT = 20;
+// Your platform's cut lives in lib/fee.ts so client pages can import it too.
+export { PLATFORM_FEE_PERCENT } from "@/lib/fee";

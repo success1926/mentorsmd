@@ -15,7 +15,7 @@ import { csvCell } from "@/lib/csv";
 //  - Sales: orders paid in the period (including ones refunded later).
 //  - Refunds: orders refunded in the period.
 //  - MentorsMD fee and Paid to mentors: orders whose payment was released
-//    to the mentor in the period (the 20% fee is only earned on release).
+//    to the mentor in the period (the fee is only earned on release).
 //  - Orders from before Phase 6 have no payment date; their order date is used.
 //
 // Each tab returns stat cards, charts and tables. Every table (and chart)
@@ -206,7 +206,7 @@ async function overview(r: Range): Promise<InsightsResult> {
           { key: "student", label: "Student" },
           { key: "mentor", label: "Mentor" },
           { key: "amount", label: "Amount", kind: "money" },
-          { key: "fee", label: "Fee (20%)", kind: "money" },
+          { key: "fee", label: `Fee (${PLATFORM_FEE_PERCENT}%)`, kind: "money" },
           { key: "status", label: "Status" },
         ],
         rows: paid.map((o) => ({

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { PLATFORM_FEE_PERCENT } from "@/lib/fee";
 import { useDisputeThread } from "@/lib/hooks/useDisputeThread";
 import { StaffBadge, statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { ActionLog, FlagsAdmin, SEVERITY, kindLabel } from "@/components/admin/Flags";
@@ -83,7 +84,7 @@ export default function AdminPage() {
         <div className="stat-cards">
           {[
             ["Total collected", earnings.totalCollectedCents, "var(--tint-soft)"],
-            ["Your 20% cut", earnings.platformCutCents, "var(--pink-soft)"],
+            [`Your ${PLATFORM_FEE_PERCENT}% cut`, earnings.platformCutCents, "var(--pink-soft)"],
             ["Paid to mentors", earnings.paidToSellersCents, "var(--blue)"],
             ["Held right now", earnings.inEscrowCents, "var(--tint-soft)"],
           ].map(([label, cents, bg]: any) => (
