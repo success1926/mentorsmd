@@ -41,9 +41,9 @@ const PATHS = [
 ];
 
 const VET = [
-  { title: "Verified", body: "Every mentor is confirmed as a current med student or resident.", icon: ICONS.shield },
-  { title: "Reviewed", body: "Our senior team looks at their own application and admissions experience.", icon: ICONS.doc },
-  { title: "Approved", body: "Only mentors with real expertise in what they offer are accepted.", icon: ICONS.check },
+  { title: "Interviewed", body: "Every mentor goes through a rigorous interview with each of our senior team members.", icon: ICONS.chat },
+  { title: "Real experience", body: "We make sure they have real, hands-on experience with what they offer.", icon: ICONS.doc },
+  { title: "Outstanding results", body: "Only mentors with outstanding results of their own are accepted.", icon: ICONS.check },
   ...(MENTOR_ACCEPTANCE_RATE !== null
     ? [{ title: "Selective", body: `Only ${MENTOR_ACCEPTANCE_RATE}% of people who apply to mentor are accepted.`, icon: ICONS.star }]
     : [{ title: "Invite-only", body: "Nobody can sign up to mentor. Every mentor joins through an invite from our team.", icon: ICONS.star }]),
@@ -148,12 +148,12 @@ export default async function HomePage() {
       </section>
 
       {/* ---------------- Vetting ---------------- */}
-      <section id="vetting" style={{ paddingBottom: 120, scrollMarginTop: 100 }}>
+      <section id="vetting" style={{ paddingBottom: 120, scrollMarginTop: 150 }}>
         <div className="wrap stack-lg" style={{ gap: 56 }}>
           <div className="vet-hero" style={PHOTOS.vetting ? { background: `linear-gradient(180deg, rgba(27,24,52,0.1), rgba(27,24,52,0.7)), url(${PHOTOS.vetting}) center/cover` } : undefined}>
             <h2>Every mentor, vetted.</h2>
             <p>
-              Anyone can call themselves an admissions coach. On MentorsMD, nobody mentors until our senior team has reviewed their background and admissions experience. Only people with real expertise get through.
+              Anyone can call themselves an admissions coach. On MentorsMD, nobody mentors until they&apos;ve been through a rigorous interview with each of our senior team members, so every mentor has real experience and outstanding results.
             </p>
           </div>
           <div className="grid-4">
@@ -221,7 +221,7 @@ export default async function HomePage() {
 
       {/* ---------------- Testimonials wall ---------------- */}
       {wall.length >= 3 && (
-        <section id="reviews" className="wall" style={{ scrollMarginTop: 80 }}>
+        <section id="reviews" className="wall" style={{ scrollMarginTop: 150 }}>
           <div className="wrap">
             <div className="center-head" style={{ marginBottom: 56, gap: 18 }}>
               <span className="eyebrow" style={{ color: "var(--ink)", fontSize: 18, fontWeight: 500 }}>Testimonials</span>

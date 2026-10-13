@@ -37,6 +37,22 @@ const FEATURES = [
     tag: "PAYMENT HELD",
     screen: "Paid → Held by MentorsMD → Delivered → Released",
   },
+  {
+    title: "Ask for a revision",
+    body: "Not quite right? Ask your mentor for a revision from your order, and the due date moves out 7 days so they have time to rework it.",
+    cta: "Browse mentors",
+    href: "/mentors",
+    tag: "REVISIONS",
+    screen: "Revision requested → New due date, 7 days out",
+  },
+  {
+    title: "Help if something goes wrong",
+    body: "Open a dispute from your order and a MentorsMD admin steps in. They look at what happened and can refund your payment.",
+    cta: "Get started",
+    href: "/signup",
+    tag: "DISPUTES",
+    screen: "Dispute opened → MentorsMD admin reviews → Refund if needed",
+  },
 ];
 
 const SWATCHES = ["#FFFFFF", "#F5B9CD", "#E4EEFF", "#F1EDFF", "#FCE4EC", "#CFC4FF"];

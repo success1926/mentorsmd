@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { upload } from "@vercel/blob/client";
 import {
@@ -26,6 +26,7 @@ export function MentorApplicationForm() {
   const [error, setError] = useState("");
   const [status, setStatus] = useState<"idle" | "uploading" | "sending" | "done">("idle");
   const fileRef = useRef<HTMLInputElement>(null);
+  const doneRef = useRef<HTMLDivElement>(null);
   const recaptcha = useRecaptcha();
 
   const words = countWords(form.blurb);
@@ -78,7 +79,6 @@ export function MentorApplicationForm() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Something went wrong. Please try again.");
       setStatus("done");
-      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: any) {
       setStatus("idle");
       const msg = err?.message || "";
@@ -90,9 +90,15 @@ export function MentorApplicationForm() {
     }
   }
 
+  // The form sits partway down /become-a-mentor, so bring the thank-you
+  // into view rather than jumping to the top of the page.
+  useEffect(() => {
+    if (status === "done") doneRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [status]);
+
   if (status === "done") {
     return (
-      <div className="card stack" style={{ gap: 14 }}>
+      <div ref={doneRef} className="card stack" style={{ gap: 14, scrollMarginTop: 150 }}>
         <h2 style={{ fontSize: 30 }}>Thank you, {form.name.trim().split(" ")[0]}!</h2>
         <p className="text-secondary" style={{ lineHeight: 1.6 }}>
           Your application is in. We&apos;ve sent a confirmation to <b>{form.email.trim()}</b>. Our senior team reviews every application and usually replies within a few days. If you&apos;re a fit, you&apos;ll get a one-time invite link to set up your mentor profile.

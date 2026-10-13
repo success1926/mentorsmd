@@ -23,7 +23,7 @@ function text(value: unknown, max: number): string | null {
   return t && t.length <= max ? t : null;
 }
 
-// Public: the "Apply to mentor" form at /become-a-mentor/apply. Saves the
+// Public: the "Apply to mentor" form at /become-a-mentor#apply. Saves the
 // application, emails it to the MentorsMD team (resume attached, reply-to
 // the applicant) and sends the applicant a confirmation.
 export async function POST(req: Request) {

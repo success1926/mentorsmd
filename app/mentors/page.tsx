@@ -8,28 +8,12 @@ import { authOptions } from "@/lib/auth";
 import { parseBrowseFilters, searchMentors, type BrowseFilters as Filters } from "@/lib/mentorQueries";
 import { attributionFromCookieHeader, isBotUserAgent, recordActivity } from "@/lib/activity";
 import { runAfterResponse } from "@/lib/request";
-import { BACKGROUNDS, FILTER_GROUPS, FORMATS, SCHOOL_TYPES, STAGES, TURNAROUNDS, labelFor, money, serviceLabel } from "@/lib/options";
+import { BACKGROUNDS, FILTER_GROUPS, FORMATS, MENTOR_QUICK_LINKS as QUICK, SCHOOL_TYPES, STAGES, TURNAROUNDS, labelFor, money, quickLinkHref, serviceLabel } from "@/lib/options";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Find your mentor · MentorsMD" };
 
 type SP = Record<string, string | string[] | undefined>;
-
-// Quick links set a filter (and clear the others).
-const QUICK = [
-  { label: "Popular", qs: "" },
-  { label: "Personal statement", qs: "service=PERSONAL_STATEMENT" },
-  { label: "Secondaries", qs: "service=SECONDARIES" },
-  { label: "MMI", qs: "service=MMI" },
-  { label: "Traditional interviews", qs: "service=TRADITIONAL_INTERVIEW" },
-  { label: "MCAT", qs: "service=MCAT" },
-  { label: "School list", qs: "service=SCHOOL_LIST" },
-  { label: "Reapplicants", qs: "bg=REAPPLICANT" },
-  { label: "Non-traditional", qs: "bg=NON_TRADITIONAL" },
-  { label: "DO schools", qs: "school=DO" },
-  { label: "MD/PhD", qs: "school=MD_PHD" },
-  { label: "Gap years", qs: "bg=GAP_YEARS" },
-];
 
 // Student demand (#82): every search or filter on this page goes into the
 // private activity log, with how many mentors matched. Sorting alone,
@@ -100,7 +84,7 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
           {QUICK.map((q) => (
             <Link
               key={q.label}
-              href={q.qs ? `/mentors?${q.qs}` : "/mentors"}
+              href={quickLinkHref(q)}
               className="nowrap"
               style={{
                 padding: "16px 0",

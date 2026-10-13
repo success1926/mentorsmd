@@ -147,3 +147,23 @@ export const FILTER_GROUPS = [
   { key: "bg", title: "Been where you are", sub: "Their own path to med school", options: BACKGROUNDS, multi: true },
   { key: "rating", title: "Rating", sub: "From student reviews", options: RATINGS, multi: false },
 ];
+
+// Quick links across the top of /mentors, also shown in the top bar once
+// the page is scrolled (components/TopNav.tsx). Each sets one filter and
+// clears the others.
+export const MENTOR_QUICK_LINKS: { label: string; qs: string }[] = [
+  { label: "Popular", qs: "" },
+  { label: "Personal statement", qs: "service=PERSONAL_STATEMENT" },
+  { label: "Secondaries", qs: "service=SECONDARIES" },
+  { label: "MMI", qs: "service=MMI" },
+  { label: "Traditional interviews", qs: "service=TRADITIONAL_INTERVIEW" },
+  { label: "MCAT", qs: "service=MCAT" },
+  { label: "School list", qs: "service=SCHOOL_LIST" },
+  { label: "Reapplicants", qs: "bg=REAPPLICANT" },
+  { label: "Non-traditional", qs: "bg=NON_TRADITIONAL" },
+  { label: "DO schools", qs: "school=DO" },
+  { label: "MD/PhD", qs: "school=MD_PHD" },
+  { label: "Gap years", qs: "bg=GAP_YEARS" },
+];
+
+export const quickLinkHref = (q: { qs: string }) => (q.qs ? `/mentors?${q.qs}` : "/mentors");
