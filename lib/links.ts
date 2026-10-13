@@ -2,6 +2,7 @@ import { warnOnce } from "@/lib/warnOnce";
 import { fetchWithTimeout } from "@/lib/request";
 import { normalize } from "@/lib/moderation";
 import { extractLinks, hostOf } from "@/lib/linkText";
+import { siteUrl } from "@/lib/siteUrl";
 
 export { SHORTENERS, extractLinks, hostOf, isShortener, leavingHref } from "@/lib/linkText";
 
@@ -16,7 +17,7 @@ export { SHORTENERS, extractLinks, hostOf, isShortener, leavingHref } from "@/li
 export const NEW_ACCOUNT_LINK_HOURS = 24;
 
 function ownHost(): string | null {
-  return hostOf(process.env.NEXTAUTH_URL || "");
+  return hostOf(siteUrl());
 }
 
 // Links that point somewhere other than MentorsMD itself.

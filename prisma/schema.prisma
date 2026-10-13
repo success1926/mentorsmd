@@ -372,14 +372,6 @@ model Order {
   // rather than one per cron run.
   reminderLastSentAt DateTime?
 
-  // Discounts: set at checkout if a valid code was applied. No longer
-  // reachable from the checkout page (removed per product decision),
-  // but left in the schema in case discount codes come back later -
-  // admin can still create them, they just won't be applied anywhere
-  // right now.
-  discountCode   DiscountCode? @relation(fields: [discountCodeId], references: [id])
-  discountCodeId String?
-
   gig      Gig    @relation(fields: [gigId], references: [id])
   gigId    String
   buyer    User   @relation("BuyerOrders", fields: [buyerId], references: [id])
@@ -574,20 +566,6 @@ model Review {
   sellerId String
 
   @@index([sellerId, createdAt])
-}
-
-model DiscountCode {
-  id             String    @id @default(cuid())
-  code           String    @unique
-  percentOff     Int? // e.g. 20 for 20% off - use this OR amountOffCents, not both
-  amountOffCents Int? // fixed dollar amount off, in cents
-  active         Boolean   @default(true)
-  expiresAt      DateTime?
-  maxRedemptions Int? // null = unlimited
-  redemptions    Int       @default(0)
-  createdAt      DateTime  @default(now())
-
-  orders Order[]
 }
 
 model Conversation {

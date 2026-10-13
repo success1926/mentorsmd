@@ -254,22 +254,12 @@ can't use "Continue with Google" as a side door.
 ## Page structure: homepage vs. the coaches list
 
 - `/` - the marketing homepage: your own copy about the company, the main
-  search bar, a "Browse all coaches" button, and the Trustpilot widget.
+  search bar, and a "Browse all coaches" button.
   Edit `app/page.tsx` directly to change the wording - it's plain text
   and JSX, nothing dynamic to break.
 - `/coaches` - the actual list of every coach, with its own search bar
   right above the results. This is what both search bars (homepage and
   top nav) send people to.
-
-## Setting up the Trustpilot widget
-
-1. Create a free account at https://business.trustpilot.com and claim your business profile.
-2. In their dashboard, find **Get More Reviews → Widgets** (or search "TrustBox" in their help center) and generate a **Mini** widget - this gives you your **Business Unit ID**.
-3. Put that ID in `.env` as `NEXT_PUBLIC_TRUSTPILOT_BUSINESS_ID`.
-4. Set `NEXT_PUBLIC_TRUSTPILOT_REVIEW_URL` to your actual Trustpilot review page URL (Trustpilot gives you this once your profile is set up - it looks like `https://www.trustpilot.com/review/yourdomain.com`).
-5. Until you have real reviews, the widget will just show "no reviews yet" - that's normal and expected for a new business.
-
-If you leave these two variables blank, the widget simply doesn't render (no broken box, no error) - so it's safe to launch without Trustpilot set up yet and add it later.
 
 ## Reviews, categories, disputes, and everything else in this batch
 
@@ -303,12 +293,6 @@ automatically.
 book calls from the mentor's availability on the order page
 (`/api/orders/[id]/calls`), with emails and calendar invites.
 
-**Discount codes** - created from `/admin`, either percent-off or a fixed
-dollar amount. Validated server-side at checkout (never trust a discount
-amount the client sends), and the redemption count only increments once
-payment actually clears (via the Stripe webhook), not just when someone
-types the code in.
-
 **Email notifications** - new message, order paid, payment released,
 revision requested, dispute opened, and review received all trigger an
 email via Resend, defined in `lib/email.ts`. These are all best-effort -
@@ -341,11 +325,8 @@ This replaces the old "buyer clicks release" flow entirely.
    code that moves money - it's shared between the authenticated route
    and the cron job so there's exactly one place that logic lives.
 
-**Discount codes removed from checkout.** The field is gone from the
-checkout page and the checkout API no longer accepts one. The admin
-discount-code creation UI and API are still there (harmless, just
-currently has no consumer) in case you want to re-enable it later - see
-the note in the admin page.
+**Discount codes** were removed entirely in Oct 2026 (no promos); see
+`prisma/cleanup-2026-10-drop-discount-codes.sql`.
 
 **Two cron jobs, defined in `vercel.json`:**
 - `/api/cron/auto-release` runs hourly - finds every `COMPLETED` order
@@ -728,7 +709,7 @@ New look (Iris colors, Fraunces + Instrument Sans, Leland-style layout) on every
 - **Calendar sync**: `/account#calendar` gives every user a private .ics feed (Google / Outlook / Apple).
 - **Mentor side**: `/dashboard` (availability switch, needs-attention list, active/completed orders, messages), `/dashboard/packages`, `/dashboard/payouts` (debug panel removed), `/account` (profile, search answers, call hours, busy dates, calendar, pause / remove).
 - **Messages**: new `/messages` inbox with an order side panel.
-- **Admin**: collapsible Pending/Resolved disputes, Pending/Joined invites, People (mentors/students: view, pause, remove with reason, restore). Discount-code UI removed (the API still exists).
+- **Admin**: collapsible Pending/Resolved disputes, Pending/Joined invites, People (mentors/students: view, pause, remove with reason, restore).
 - **Fixes**: checkout cancel URL 404, mentor shown at checkout, confirm before removing a package, Stripe debug data no longer sent to the browser.
 
 Database: run `npx prisma db push` (or paste `prisma/redesign-2026-09.sql` into the Neon SQL editor) **before** deploying.
