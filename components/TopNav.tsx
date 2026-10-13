@@ -7,14 +7,18 @@ import { useSession, signOut } from "next-auth/react";
 import { markLoggedOutOnPurpose } from "@/components/SessionWatcher";
 import { MENTOR_QUICK_LINKS, quickLinkHref } from "@/lib/options";
 
-export function LogoMark({ size = 32 }: { size?: number }) {
+// The brand mark: a graduation cap whose tassel is a stethoscope.
+// Same drawing as app/icon.svg (browser tab) - keep the two in step.
+export function LogoMark({ size = 34 }: { size?: number }) {
   return (
-    <span className="logo-mark" style={{ width: size, height: size }} aria-hidden="true">
-      <svg width={size / 2} height={size / 2} viewBox="0 0 18 18">
-        <rect x="7" y="1" width="4" height="16" rx="1.5" fill="#fff" />
-        <rect x="1" y="7" width="16" height="4" rx="1.5" fill="#fff" />
-      </svg>
-    </span>
+    <svg className="logo-mark" width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
+      <path d="M17 28v10c0 8 30 8 30 0V28l-15 7z" fill="#5536D6" />
+      <path d="M32 7l28 14-28 14L4 21z" fill="#2B1F6B" />
+      <circle cx="32" cy="21" r="2.6" fill="#F07FA6" />
+      <path d="M32 21l21 4.5V40" fill="none" stroke="#F07FA6" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="53" cy="46" r="5.5" fill="#F07FA6" />
+      <circle cx="53" cy="46" r="2.2" fill="#fff" />
+    </svg>
   );
 }
 
@@ -22,7 +26,7 @@ export function Logo() {
   return (
     <Link href="/" className="logo" aria-label="MentorsMD home">
       <LogoMark />
-      <span>MentorsMD</span>
+      <span>Mentors<b>MD</b></span>
     </Link>
   );
 }
