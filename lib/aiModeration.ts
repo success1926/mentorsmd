@@ -10,7 +10,7 @@ import type { Severity } from "@/lib/moderation";
 //
 // Env: ANTHROPIC_API_KEY (from https://console.anthropic.com). Off when unset.
 
-const MODEL = "claude-haiku-4-5-20251001";
+const MODEL = "claude-haiku-5-5";
 const TIMEOUT_MS = 8000;
 
 export type AiVerdict = { flag: boolean; category: string; severity: Severity; reason: string; quote: string };
