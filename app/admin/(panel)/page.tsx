@@ -38,7 +38,7 @@ export default async function AdminOverviewPage() {
   const cards: { label: string; value: string; note?: string; href: string; urgent: boolean }[] = [];
   if (disputes !== null) cards.push({ label: "Open disputes", value: String(disputes), href: "/admin/disputes#disputes", urgent: disputes > 0 });
   if (flags !== null) cards.push({ label: "Open flags", value: String(flags), note: highFlags ? `${highFlags} high` : undefined, href: "/admin/disputes#flags", urgent: (highFlags ?? 0) > 0 });
-  if (applications !== null) cards.push({ label: "Mentor applications waiting", value: String(applications), href: "/admin/applications", urgent: applications > 0 });
+  if (applications !== null) cards.push({ label: "Mentor applications waiting", value: String(applications), href: can(admin, "leads") ? "/admin/leads?tab=APPLICATION" : "/admin/applications", urgent: applications > 0 });
   if (held !== null) {
     cards.push({
       label: "Payouts pending",

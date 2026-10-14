@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { Icon, ICONS } from "@/components/ui";
 import { getSiteContent } from "@/lib/siteContentStore";
+import { ContactForm } from "@/components/ContactForm";
 
 export const metadata = { title: "Contact us · MentorsMD" };
 
 // The email, phone and text are edited in Admin -> Website. Their defaults
 // come from NEXT_PUBLIC_CONTACT_EMAIL / NEXT_PUBLIC_CONTACT_PHONE in Vercel
 // (lib/siteContent.ts). The phone card only shows when a number is set.
+// The message form saves a lead (Admin -> Leads) and emails the team.
 export default async function ContactPage({ searchParams }: { searchParams: { topic?: string } }) {
   const c = await getSiteContent("contact");
   const EMAIL = c.email;
@@ -48,6 +50,7 @@ export default async function ContactPage({ searchParams }: { searchParams: { to
           </a>
         )}
       </div>
+      <ContactForm title={c.formTitle} intro={c.formIntro} success={c.formSuccess} defaultTopic={mentor ? "MENTOR" : "STUDENT"} />
       {!mentor && (
         <div className="card card-tint stack-sm">
           <b>{c.orderTitle}</b>

@@ -9,6 +9,7 @@ import { parseBrowseFilters, searchMentors, type BrowseFilters as Filters } from
 import { attributionFromCookieHeader, isBotUserAgent, recordActivity } from "@/lib/activity";
 import { runAfterResponse } from "@/lib/request";
 import { getSiteContent } from "@/lib/siteContentStore";
+import { WaitlistBox } from "@/components/WaitlistBox";
 import { BACKGROUNDS, FILTER_GROUPS, FORMATS, MENTOR_QUICK_LINKS as QUICK, SCHOOL_TYPES, STAGES, TURNAROUNDS, labelFor, money, quickLinkHref, serviceLabel } from "@/lib/options";
 
 export const dynamic = "force-dynamic";
@@ -166,6 +167,9 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
               <div className="empty stack" style={{ alignItems: "center" }}>
                 <b style={{ color: "var(--ink)", fontSize: 18 }}>{c.emptyTitle}</b>
                 {c.emptyText && <span>{c.emptyText}</span>}
+                <div style={{ width: "100%", display: "flex", justifyContent: "center", margin: "8px 0" }}>
+                  <WaitlistBox title={c.waitlistTitle} text={c.waitlistText} button={c.waitlistButton} success={c.waitlistSuccess} />
+                </div>
                 {c.emptyLink && <Link href="/become-a-mentor" className="link small">{c.emptyLink}</Link>}
               </div>
             )}

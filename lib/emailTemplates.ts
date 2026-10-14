@@ -208,6 +208,41 @@ const LIST: EmailDef[] = [
   minorStatus("minor_turned_18", "Turned 18", "Sent to a student on their 18th birthday, when their account becomes a regular account.", "Happy birthday from MentorsMD",
     "You're 18 now, so your account is a regular account: parental consent is no longer needed, and your parent's link to your orders has stopped working."),
 
+  {
+    key: "waitlist_mentors_available",
+    name: "Waitlist: mentors are available",
+    description: "Sent from Admin -> Leads -> Waitlist (\"Email everyone on the waitlist\") to people who asked to hear when mentors join. Includes a link to leave the waitlist.",
+    group: "STUDENTS",
+    subject: "Mentors are now available on MentorsMD",
+    body: [
+      "Hi there,",
+      "You asked us to let you know when mentors join MentorsMD. They're here: medical students and residents, every one vetted by our senior team.",
+      "You can message any mentor for free before you book.",
+      "[[Browse mentors]]({{mentorsLink}})",
+      ">> You're getting this because you joined the MentorsMD waitlist. [Remove me from the waitlist]({{removeLink}}).",
+    ].join("\n\n"),
+    vars: [
+      link("mentorsLink", "Link to the mentors page", `${SITE}/mentors`),
+      link("removeLink", "Link to leave the waitlist", `${SITE}/waitlist/remove?id=sample&sig=sample`),
+    ],
+    required: ["removeLink"],
+  },
+  {
+    key: "contact_received",
+    name: "Contact form: we got your message",
+    description: "Sent to someone who uses the form on the Contact page, right after they send it. Replies go to the team inbox.",
+    group: "BOTH",
+    subject: "We got your message",
+    body: [
+      "Hi {{firstName}},",
+      "Thanks for getting in touch with MentorsMD. A real person on our team will read your message and usually replies within one business day.",
+      "> You can reply to this email to add anything.",
+    ].join("\n\n"),
+    // Their message is deliberately not repeated here, so the form can't
+    // be used to send someone else's text to any address.
+    vars: [V.firstName],
+  },
+
   // ----- Mentors -----
   {
     key: "mentor_invite",
@@ -575,6 +610,26 @@ const LIST: EmailDef[] = [
       text("resumeStatus", '"attached" or "not attached"', "attached"),
       text("resumeName", "The resume's file name", "Resume.pdf"),
       link("resumeLink", "Link to the resume", `${SITE}/sample-resume.pdf`),
+      V.adminLink,
+    ],
+  },
+  {
+    key: "contact_message",
+    name: "New contact message",
+    description: "Sent to the team inbox when someone uses the form on the Contact page. Reply goes to the sender.",
+    group: "TEAM",
+    subject: "Contact form ({{topic}}): {{senderName}}",
+    body: [
+      "**New message from the Contact page**",
+      "**Name:** {{senderName}}\n**Email:** {{senderEmail}}\n**Topic:** {{topic}}",
+      "{{message}}",
+      "[Open it in Admin → Leads]({{adminLink}}). Reply to this email to answer {{senderName}} directly.",
+    ].join("\n\n"),
+    vars: [
+      text("senderName", "The sender's name", "Jordan Lee"),
+      text("senderEmail", "The sender's email", "jordan@example.com"),
+      text("topic", "The topic they picked", "Student question"),
+      block("message", "What they wrote", blocks.quote("Hi! How do I pick the right mentor for my secondaries?")),
       V.adminLink,
     ],
   },
