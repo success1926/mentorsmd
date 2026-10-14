@@ -3,6 +3,7 @@ import { LogoMark } from "./TopNav";
 import { FooterAccountLink } from "./RoleCta";
 import { getSiteContent } from "@/lib/siteContentStore";
 import { isSafeHref } from "@/lib/siteContent";
+import { hasReviewWall } from "@/lib/reviewWall";
 
 // Same layout as the AdmitMD footer: a big logo centred on the left, link
 // columns on the right, then a bottom row with social icons and contact
@@ -54,7 +55,7 @@ const SOCIALS = [
 ] as const;
 
 export async function Footer() {
-  const [c, contact] = await Promise.all([getSiteContent("footer"), getSiteContent("contact")]);
+  const [c, contact, showReviews] = await Promise.all([getSiteContent("footer"), getSiteContent("contact"), hasReviewWall()]);
   const phoneHref = contact.phone ? `tel:${contact.phone.replace(/[^\d+]/g, "")}` : "";
   return (
     <footer className="site-footer">
@@ -71,8 +72,8 @@ export async function Footer() {
             <div className="footer-col">
               <div className="footer-col-title">Students</div>
               <Link href="/mentors">Browse mentors</Link>
-              <Link href="/#vetting">How we vet mentors</Link>
-              <Link href="/#reviews">Reviews</Link>
+              <Link href="/how-it-works">How it works</Link>
+              {showReviews && <Link href="/reviews">Reviews</Link>}
               <FooterAccountLink kind="student" />
             </div>
             <div className="footer-col">

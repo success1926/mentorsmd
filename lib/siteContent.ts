@@ -130,7 +130,7 @@ export const SITE_PAGES = {
             // Mentors are invite-only, so there's no acceptance rate to show.
             { title: "Invite-only", body: "Nobody can sign up to mentor. Every mentor joins through an invite from our team." },
           ],
-          { maxItems: 8, help: "Icons follow the order: chat, page, check mark, star." },
+          { maxItems: 8, help: "Icons follow the order: chat, page, check mark, star. This panel also shows on the How it works page." },
         ),
       }),
       ...section("Featured mentors", {
@@ -174,7 +174,7 @@ export const SITE_PAGES = {
             rating: text("Stars (1–5)", "5", { max: 1 }),
           },
           TESTIMONIALS.map((t) => ({ name: t.name, detail: t.detail, quote: t.quote, rating: String(t.rating ?? 5) })),
-          { help: "Only with permission. Real reviews from completed orders are added automatically. The section shows once there are at least 3 in total." },
+          { help: "Only with permission. Real reviews from completed orders are added automatically. The section (and the Reviews link in the top bar and footer) shows once there are at least 3 in total. They also show on the Reviews page." },
         ),
       }),
       ...section("Frequently asked questions", {
@@ -184,7 +184,7 @@ export const SITE_PAGES = {
           "Question",
           { question: text("Question", "", { max: 200, required: true }), answer: long("Answer", "", { max: 1500, required: true }) },
           [],
-          { help: "The section is hidden while there are no questions." },
+          { help: "The section is hidden while there are no questions. The same questions also show on the How it works page." },
         ),
       }),
       ...section("Final call to action", {
@@ -272,6 +272,67 @@ export const SITE_PAGES = {
       ...section("Application form", {
         applyTitle: text("Heading", "Apply to mentor", { max: 60 }),
         applyText: long("Text", "Tell us a little about yourself. Our senior team reviews every application and usually replies within a few days.", { max: 400 }),
+      }),
+    },
+  },
+
+  howItWorks: {
+    label: "How it works",
+    path: "/how-it-works",
+    fields: {
+      ...section("Intro", {
+        title: text("Heading", "How MentorsMD works", { max: 80, required: true }),
+        intro: long("Intro", "MentorsMD connects you with med students and residents who got in recently. Every mentor is vetted by our senior team, and your payment is held until you approve the work.", { max: 600 }),
+      }),
+      ...section("Steps", {
+        stepsTitle: text("Heading", "Four simple steps", { max: 80 }),
+        steps: list(
+          "Steps",
+          "Step",
+          { title: text("Title", "", { max: 80, required: true }), body: long("Text", "", { max: 400 }) },
+          [
+            { title: "Find a mentor", body: "Browse vetted mentors by what you need help with: personal statement, secondaries, interviews, MCAT and more." },
+            { title: "Message them for free", body: "Ask questions before you book. Messaging any mentor is free." },
+            { title: "Book and pay securely", body: "You pay when you book, and MentorsMD holds the payment, not the mentor. It is released when you approve the work, or automatically 96 hours after it is delivered." },
+            { title: "Get your feedback or have your call", body: "Written work arrives on your due date. For live help, pick a time on your mentor's calendar and join a private MentorsMD video room from your order." },
+          ],
+          { maxItems: 6, help: "Shown as numbered cards. The vetting panel and the questions below them are edited on the Homepage." },
+        ),
+      }),
+      ...section("Payment protection & safety", {
+        protectTitle: text("Heading", "Your payment and safety, protected.", { max: 80 }),
+        protectText: long("Text", "We built MentorsMD so students never have to take a mentor's word for it.", { max: 400 }),
+        protectItems: list(
+          "Points",
+          "Point",
+          { title: text("Title", "", { max: 80, required: true }), body: long("Text", "", { max: 400 }) },
+          [
+            { title: "Payment held until you approve", body: "MentorsMD holds your payment, not the mentor. It is released when you approve the work, or automatically 96 hours after it is delivered." },
+            { title: "Revisions and disputes", body: "Ask your mentor for a revision from your order. If something goes wrong, open a dispute and a MentorsMD admin looks at what happened and can refund your payment." },
+            { title: "Private video calls", body: "Calls happen in a private MentorsMD video room that you join from your order, so there's no need to share your phone number or personal accounts." },
+            { title: "Parental consent under 18", body: "Students aged 13 to 17 need a parent or guardian's consent before they can message or book. Parents get a receipt for every order." },
+          ],
+          { maxItems: 6, help: "Icons follow the order: lock, arrows, video camera, shield. Links to Safety tips and Community Guidelines are added below automatically." },
+        ),
+      }),
+      ...section("Final call to action", {
+        ctaTitle: text("Heading", "Ready to get started?", { max: 80 }),
+        ctaText: long("Text", "Message any vetted mentor for free. When you book, we hold your payment until you approve the work.", { max: 400 }),
+      }),
+    },
+  },
+
+  reviews: {
+    label: "Reviews",
+    path: "/reviews",
+    fields: {
+      ...section("Intro", {
+        title: text("Heading", "What students say", { max: 80, required: true }),
+        intro: long("Intro", "Reviews from students who worked with a MentorsMD mentor. Reviews from completed orders are added automatically.", { max: 400, help: "The reviews themselves come from completed orders, plus the hand-picked testimonials in Homepage → Testimonials." }),
+      }),
+      ...section("When there are no reviews yet", {
+        emptyTitle: text("Heading", "Reviews are on their way.", { max: 80 }),
+        emptyText: long("Text", "Our first students are working with their mentors now. In the meantime, every mentor is vetted by our senior team, and your payment is held until you approve the work.", { max: 400 }),
       }),
     },
   },

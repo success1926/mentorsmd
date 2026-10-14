@@ -19,7 +19,7 @@
 
 ## 1. First look (anyone, logged out, on phone *and* computer)
 - [ ] The homepage shows the new design. The search bar and the 5 quick chips work.
-- [ ] Top bar links work: Browse mentors, How we vet mentors, Reviews, Become a mentor, Log in, Get started.
+- [ ] Top bar links work: Home, Browse mentors, How it works, Senior team, Reviews (only shown once there are at least 3 reviews/testimonials), Become a mentor, Log in, Get started. The current page is highlighted.
 - [ ] On a phone, the ☰ menu opens and closes, and no page scrolls sideways.
 - [ ] Footer links all open a page: About, Contact, Terms, Privacy, Become a mentor.
 - [ ] The Contact page shows your contact email.

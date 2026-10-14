@@ -9,6 +9,7 @@ import { Tracker } from "@/components/Tracker";
 import { PostHogAnalytics } from "@/components/PostHogAnalytics";
 import { SitePreviewBar } from "@/components/website/SitePreviewBar";
 import { siteUrl } from "@/lib/siteUrl";
+import { hasReviewWall } from "@/lib/reviewWall";
 
 // This is what actually determines how the site looks when someone
 // finds it via Google on their phone - the title/description below are
@@ -41,13 +42,15 @@ export const viewport: Viewport = {
 const display = Fraunces({ subsets: ["latin"], style: ["normal", "italic"], variable: "--font-display-loaded", display: "swap" });
 const body = Instrument_Sans({ subsets: ["latin"], variable: "--font-body-loaded", display: "swap" });
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // The Reviews link (top bar and footer) only shows once there are reviews to show.
+  const showReviews = await hasReviewWall();
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body>
         <Providers>
           <SitePreviewBar />
-          <TopNav />
+          <TopNav showReviews={showReviews} />
           <AccountGate />
           <Tracker />
           <PostHogAnalytics />

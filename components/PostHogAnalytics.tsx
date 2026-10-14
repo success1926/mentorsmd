@@ -28,7 +28,7 @@ const KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com";
 
 // Pages where a session recording may run (logged-out visitors only).
-const RECORDABLE = [/^\/$/, /^\/mentors(\/[^/]+)?\/?$/, /^\/senior-team\/?$/, /^\/become-a-mentor\/?$/, /^\/contact\/?$/, /^\/signup\/?$/, /^\/login\/?$/];
+const RECORDABLE = [/^\/$/, /^\/mentors(\/[^/]+)?\/?$/, /^\/senior-team\/?$/, /^\/how-it-works\/?$/, /^\/reviews\/?$/, /^\/become-a-mentor\/?$/, /^\/contact\/?$/, /^\/signup\/?$/, /^\/login\/?$/];
 const recordable = (path: string) => RECORDABLE.some((r) => r.test(path));
 
 // Paths whose last part is a private token.

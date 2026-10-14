@@ -217,11 +217,18 @@ export async function getReviewStats() {
   return { avg: agg._avg.rating, count: agg._count._all };
 }
 
+// Reviews good enough for the review wall (homepage and /reviews).
+const WALL_REVIEW_WHERE: Prisma.ReviewWhereInput = { rating: { gte: 4 }, comment: { not: null } };
+
 export async function getWallReviews(take = 8) {
   return prisma.review.findMany({
-    where: { rating: { gte: 4 }, comment: { not: null } },
+    where: WALL_REVIEW_WHERE,
     include: { buyer: { select: { name: true } }, seller: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
     take,
   });
+}
+
+export async function countWallReviews() {
+  return prisma.review.count({ where: WALL_REVIEW_WHERE });
 }

@@ -215,8 +215,23 @@ details.collapse > .collapse-body { padding: 0 22px 20px; display: flex; flex-di
 .nav-quick-inner::-webkit-scrollbar { display: none; }
 .nav-quick-inner a { flex-shrink: 0; color: var(--ink-2); }
 .nav-inner { height: 84px; max-width: 1440px; margin: 0 auto; padding: 0 32px; display: flex; align-items: center; gap: 40px; font-size: 17px; }
-.nav-links { display: flex; align-items: center; gap: 32px; }
+.nav-links { display: flex; align-items: center; gap: 32px; white-space: nowrap; }
 .nav-links a[aria-current="page"] { color: var(--primary); font-weight: 600; }
+/* Small laptops: tighter spacing, and Home (the logo goes home too) and
+   Senior team (also in the footer) move to the phone menu only. */
+@media (max-width: 1360px) {
+  .nav-inner { gap: 28px; }
+  .nav-links { gap: 24px; }
+  .nav-right { gap: 20px; }
+}
+@media (max-width: 1220px) {
+  .nav-links .nav-mid-hide { display: none; }
+}
+@media (max-width: 1100px) {
+  .nav-inner { gap: 20px; font-size: 16px; }
+  .nav-links { gap: 18px; }
+  .nav-right { gap: 16px; }
+}
 .nav-right { margin-left: auto; display: flex; align-items: center; gap: 24px; }
 .logo { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-display); font-size: 25px; font-weight: 400; letter-spacing: -0.02em; color: #2B1F6B; }
 .logo b { font-weight: 500; color: var(--primary); }
@@ -230,6 +245,7 @@ details.collapse > .collapse-body { padding: 0 22px 20px; display: flex; flex-di
 .nav-burger { display: none; width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: #fff; align-items: center; justify-content: center; cursor: pointer; }
 .nav-drawer { position: fixed; inset: 0; z-index: 70; background: #fff; display: flex; flex-direction: column; padding: 16px 20px 32px; overflow-y: auto; }
 .nav-drawer a:not(.btn), .nav-drawer button.drawer-link { padding: 14px 4px; font-size: 20px; border-bottom: 1px solid var(--line); text-align: left; background: none; border-left: none; border-right: none; border-top: none; color: var(--ink); cursor: pointer; font-family: inherit; }
+.nav-drawer a[aria-current="page"]:not(.btn) { color: var(--primary); font-weight: 600; }
 
 /* ---------- Footer ---------- */
 .site-footer { border-top: 1px solid var(--line); background: var(--surface-2); padding: 64px 0 40px; font-size: 15px; }
