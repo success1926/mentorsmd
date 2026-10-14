@@ -39,15 +39,21 @@ function BuiltInPrivacyPage() {
           <p className="text-secondary">
             To understand how the site is used, we keep a private log of visits, which mentor profiles are viewed and what is searched
             on Find a mentor, and we note how you first found us (for example the website that linked to us). This uses two of our own
-            cookies (a random browser id and the first-visit source), no advertising or outside tracking services, and only the
-            MentorsMD team can see it. Entries are deleted after about 13 months.
+            cookies (a random browser id and the first-visit source), no advertising trackers, and only the
+            MentorsMD team can see it. Entries are deleted after about 13 months. We also use PostHog for product analytics (see below).
           </p>
         </div>
         <div>
           <h2 style={{ fontSize: 22, marginBottom: 6 }}>2. Third-party services we use</h2>
           <p className="text-secondary">
             Stripe (payments), Daily.co (video calls), Supabase (file storage and real-time messaging), Resend (email notifications), Sentry (error reports),
-            and our database host. Each has its own privacy practices governing the data that passes through them.
+            PostHog (product analytics), and our database host. Each has its own privacy practices governing the data that passes through them.
+          </p>
+          <p className="text-secondary">
+            PostHog shows us which pages are visited and clicked, using a cookie. If you are logged in it receives only your internal account id
+            and whether you are a student or mentor, never your name, email or date of birth. Anything typed into forms is masked. Short
+            screen recordings are made only on public pages (such as the homepage and mentor profiles) for visitors who are not logged in; we
+            never record messages, orders, calls or account pages. Turning on &quot;Do Not Track&quot; in your browser switches PostHog off.
           </p>
         </div>
         <div>

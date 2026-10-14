@@ -6,6 +6,7 @@ import { TopNav } from "@/components/TopNav";
 import { Footer } from "@/components/Footer";
 import { AccountGate } from "@/components/AccountGate";
 import { Tracker } from "@/components/Tracker";
+import { PostHogAnalytics } from "@/components/PostHogAnalytics";
 import { SitePreviewBar } from "@/components/website/SitePreviewBar";
 import { siteUrl } from "@/lib/siteUrl";
 
@@ -49,6 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <TopNav />
           <AccountGate />
           <Tracker />
+          <PostHogAnalytics />
           <main className="site-main">{children}</main>
           <Footer />
         </Providers>

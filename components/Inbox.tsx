@@ -63,7 +63,7 @@ export function Inbox({ selectedId }: { selectedId?: string }) {
     <div className="page" style={{ paddingTop: 32 }}>
       <h1 className="page-title" style={{ fontSize: 40, marginBottom: 20 }}>Messages</h1>
       <div className={`inbox ${selectedId ? "" : "inbox-2"}`}>
-        <div className={`inbox-list ${selectedId ? "has-thread" : ""}`}>
+        <div className={`inbox-list ph-no-capture ${selectedId ? "has-thread" : ""}`}>
           {conversations === null && <p className="text-muted" style={{ padding: 20 }}>Loading…</p>}
           {conversations?.length === 0 && (
             <div style={{ padding: 24 }} className="stack-sm">
@@ -267,7 +267,7 @@ function Thread({ conversationId }: { conversationId: string }) {
         )}
 
         <div
-          className="thread-body"
+          className="thread-body ph-no-capture"
           ref={bodyRef}
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {

@@ -308,7 +308,7 @@ export default function OrderDetailPage() {
                   ? "Payment stays on hold until an admin reviews this and decides. Reply here if they ask for more details."
                   : `Resolved: ${order.status === "REFUNDED" ? "refunded to the student" : "released to the mentor"}.`}
               </span>
-              <div className="msg-thread">
+              <div className="msg-thread ph-no-capture">
                 {disputeMessages.length === 0 && <p className="text-muted">Loading…</p>}
                 {disputeMessages.map((m: any) => (
                   <div key={m.id} className={`msg-bubble ${m.sender?.role === "ADMIN" ? "msg-theirs" : "msg-mine"}`}>
@@ -335,7 +335,7 @@ export default function OrderDetailPage() {
                 <b>Messages with {other?.name}</b>
                 <Link href={`/messages/${order.conversationId}`} className="link small">Open in Messages</Link>
               </div>
-              <div className="msg-thread" style={{ maxHeight: 380, overflowY: "auto", border: "none", padding: 0 }}>
+              <div className="msg-thread ph-no-capture" style={{ maxHeight: 380, overflowY: "auto", border: "none", padding: 0 }}>
                 {messages.length === 0 && <p className="text-muted">No messages yet.</p>}
                 {messages.slice(-30).map((m: any) => (
                   <div key={m.id} className={`msg-bubble ${m.senderId === viewer.id ? "msg-mine" : "msg-theirs"}`}>

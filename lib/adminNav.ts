@@ -28,6 +28,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/legal", label: "Legal", perm: "legal", group: "Content & legal" },
 
   { href: "/admin/insights", label: "Insights", perm: "insights", group: "Settings" },
+  { href: "/admin/analytics", label: "Analytics", perm: "analytics", group: "Settings" },
   { href: "/admin/action-log", label: "Action log", perm: "actionlog", group: "Settings" },
   { href: "/admin/team", label: "Team & roles", perm: "team", group: "Settings" },
 ];

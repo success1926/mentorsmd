@@ -65,7 +65,7 @@ export function StatCards({ cards, csvHref }: { cards: CardData[]; csvHref?: str
 }
 
 // One series, one bar per day / week / month. Hover or focus a bar for its value.
-export function BarChart({ chart, csvHref }: { chart: ChartData; csvHref: string }) {
+export function BarChart({ chart, csvHref }: { chart: ChartData; csvHref?: string }) {
   const [hover, setHover] = useState<number | null>(null);
   const pts = chart.points;
   const max = Math.max(1, ...pts.map((p) => p.value));
@@ -86,7 +86,7 @@ export function BarChart({ chart, csvHref }: { chart: ChartData; csvHref: string
           <b>{chart.title}</b>
           <span className="text-muted small">Total {show(total)}</span>
         </span>
-        <CsvLink href={csvHref} label="CSV" />
+        {csvHref && <CsvLink href={csvHref} label="CSV" />}
       </div>
       <div style={{ position: "relative" }} onMouseLeave={() => setHover(null)}>
         <svg className="chart-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={`${chart.title}: total ${show(total)}`}>
@@ -122,7 +122,7 @@ export function BarChart({ chart, csvHref }: { chart: ChartData; csvHref: string
   );
 }
 
-export function DataTable({ table, csvHref, pageSize = 50 }: { table: TableData; csvHref: string; pageSize?: number }) {
+export function DataTable({ table, csvHref, pageSize = 50 }: { table: TableData; csvHref?: string; pageSize?: number }) {
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | null>(table.sort || null);
   const [all, setAll] = useState(false);
   const rows = useMemo(() => {
@@ -152,7 +152,7 @@ export function DataTable({ table, csvHref, pageSize = 50 }: { table: TableData;
           <h3 style={{ fontSize: 22 }}>{table.title}</h3>
           {table.note && <span className="text-muted small">{table.note}</span>}
         </span>
-        <CsvLink href={csvHref} />
+        {csvHref && <CsvLink href={csvHref} />}
       </div>
       {table.rows.length === 0 ? (
         <div className="card text-muted small" style={{ padding: 16 }}>Nothing here for these dates yet.</div>
