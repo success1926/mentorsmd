@@ -64,6 +64,7 @@ export default function OrderDetailPage() {
   const [showDispute, setShowDispute] = useState(false);
   const [showDeliver, setShowDeliver] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
+  const [refundReason, setRefundReason] = useState("My mentor missed two of our booked calls. I'd like a full refund.");
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
 
@@ -286,6 +287,28 @@ export default function OrderDetailPage() {
             </div>
           )}
 
+          {/* Two mentor no-shows: the student can open a dispute for a full refund */}
+          {calls.refundDisputeOpen && active && (
+            <div className="card stack" style={{ borderColor: "#F3D0D0", background: "#FFF7F7" }}>
+              <b>{isBuyer ? "Your mentor has missed two calls" : "The mentor has missed two calls on this order"}</b>
+              {isBuyer && !order.disputed && (
+                <>
+                  <span className="text-secondary">
+                    You can open a dispute, and <b>a full refund is the expected outcome</b>. If you&apos;d rather carry on, you can still book another call for free.
+                  </span>
+                  <textarea className="input" style={{ marginBottom: 0 }} value={refundReason} onChange={(e) => setRefundReason(e.target.value)} aria-label="Why you're opening a dispute" />
+                  <button className="btn btn-danger btn-sm" style={{ alignSelf: "flex-start" }} disabled={!refundReason.trim() || busy === "dispute"}
+                    onClick={() => act("dispute", "dispute", { reason: refundReason })}>
+                    Open a dispute for a full refund
+                  </button>
+                </>
+              )}
+              {isBuyer && order.disputed && <span className="text-secondary">Your dispute is open. The MentorsMD team will review it; a full refund is the expected outcome.</span>}
+              {isSeller && <span className="text-secondary">The student can open a dispute, and a full refund is the expected outcome. Contact us if you think this is wrong.</span>}
+              {isAdmin && !isBuyer && !isSeller && <span className="text-secondary">Two mentor no-shows: the student can open a dispute, and the policy is a full refund.</span>}
+            </div>
+          )}
+
           {/* Calls */}
           {calls.included > 0 && order.status !== "PENDING_PAYMENT" && (
             <div className="card">
@@ -447,7 +470,11 @@ export default function OrderDetailPage() {
               <span className="text-muted">
                 {calls.satisfied
                   ? `The student then has ${AUTO_RELEASE_HOURS} hours to review. Payment releases to you automatically after that.`
-                  : "Available once the included call has happened (or the student skips it)."}
+                  : calls.toBook === 0 && calls.awaitingAdmin > 0
+                    ? "Available once the MentorsMD team has sorted out the past call."
+                    : calls.toBook === 0 && calls.checking > 0
+                      ? "Available once we've checked who joined the call (usually under an hour after it ends)."
+                      : "Available once the included call has happened (or the student skips it)."}
               </span>
             </div>
           )}

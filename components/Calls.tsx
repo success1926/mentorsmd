@@ -9,11 +9,13 @@ import {
   CANCEL_CUTOFF_HOURS,
   JOIN_OPENS_MINUTES_BEFORE,
   RECORDING_NOTICE,
+  callHeld,
   callSummary,
   canChangeOnline,
   fmtDateTime,
   joinState,
 } from "@/lib/calls";
+import { NEEDS_ADMIN, outcomeLabel } from "@/lib/callOutcomes";
 
 // Re-render every 30s so the Join button switches on at the right time.
 function useNow() {
@@ -199,6 +201,26 @@ export function CallRow({
   );
 }
 
+// What happened at a past call, in plain words (lib/callOutcomes.ts).
+function PastCallOutcome({ booking, order, viewer }: { booking: any; order: any; viewer: "student" | "mentor" | "admin" }) {
+  if (!booking.outcome) {
+    // Old calls (before outcomes existed) just count as done.
+    if (callHeld(booking)) return null;
+    return <span className="small text-secondary">Checking who joined. This usually takes under an hour after the call.</span>;
+  }
+  const tone = booking.outcome === "HELD" ? "badge-success" : NEEDS_ADMIN.includes(booking.outcome) ? "badge-warning" : "";
+  return (
+    <div className="stack-sm" style={{ gap: 4 }}>
+      <span className={`badge ${tone}`} style={{ alignSelf: "flex-start", whiteSpace: "normal" }}>{outcomeLabel(booking.outcome, viewer)}</span>
+      {booking.outcome === "STUDENT_NO_SHOW" && viewer === "mentor" && order.conversationId && (
+        <span className="small text-secondary">
+          Please <Link href={`/messages/${order.conversationId}`} className="link">message {(order.buyer?.name || "the student").split(" ")[0]}</Link> so there&apos;s a record.
+        </span>
+      )}
+    </div>
+  );
+}
+
 // Everything about calls on one order: booked calls (Join, Reschedule,
 // Cancel), the slot picker for booking (students, only after payment and
 // only when the package includes a call), past calls with attendance, and
@@ -280,6 +302,15 @@ export function OrderCalls({
         </span>
       </div>
 
+      {calls.mentorNoShows > 0 && calls.canBook && isBuyer && !order.disputed && (
+        <div className="alert alert-blue">Your mentor missed a call, so it doesn&apos;t count. Book another one below for free.</div>
+      )}
+      {calls.awaitingAdmin > 0 && (
+        <div className="alert alert-warning">
+          {isAdmin ? "A past call needs a decision in Admin → Calls & recordings." : "Our records don't show a past call taking place. The MentorsMD team will be in touch to sort it out."}
+        </div>
+      )}
+
       {calls.upcoming.map((b) => (
         <CallRow key={b.id} booking={b} order={order} canManage={isBuyer || isSeller} isSeller={isSeller} isAdmin={isAdmin} onChanged={onChanged} />
       ))}
@@ -329,6 +360,7 @@ export function OrderCalls({
           {past.map((b: any) => (
             <div key={b.id} className="stack-sm" style={{ gap: 4 }}>
               <span className="small">{fmtDateTime(b.startTime)}</span>
+              <PastCallOutcome booking={b} order={order} viewer={isBuyer ? "student" : isSeller ? "mentor" : "admin"} />
               <Attendance booking={b} order={order} />
               {isAdmin && <Recordings booking={b} />}
             </div>

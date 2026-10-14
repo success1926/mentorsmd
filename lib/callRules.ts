@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { hasAvailability } from "@/lib/schedule";
 import { callSummary, CALL_HOLD_HOURS, CALL_REMINDER_EVERY_DAYS } from "@/lib/calls";
+import { FREES_THE_CALL } from "@/lib/callOutcomes";
 import {
   sendBookCallReminderEmail,
   sendCallForfeitedEmail,
@@ -9,7 +10,7 @@ import {
 } from "@/lib/email";
 
 // The unbooked-call rule, run once a day from the overdue-reminders cron.
-// (Recommended version - still an open question, see the open-questions doc.)
+// (Decided, see the open-questions doc, item 1.)
 //
 //   1. While a call is unbooked, remind the student every few days.
 //   2. When the due date passes with a call still unbooked, pause the
@@ -20,7 +21,13 @@ import {
 //      student could have booked a slot), the call is forfeited and the
 //      mentor can complete the order. Otherwise it stays on hold for an
 //      admin to decide.
+//   A call given back after a mentor no-show (or a free rebook from an
+//   admin) is never put on hold or forfeited: the student still gets the
+//   "book your call" reminders, and an admin decides if it drags on.
 const BATCH = 100;
+
+const owedAfterMentorNoShow = (o: { callBookings: { outcome: string | null }[] }) =>
+  o.callBookings.some((b) => FREES_THE_CALL.includes(b.outcome || ""));
 
 const include = {
   gig: true,
@@ -75,6 +82,7 @@ export async function runCallRules(now: Date = new Date()) {
   });
   for (const o of toHold) {
     if (callSummary(o, now).toBook === 0) continue;
+    if (owedAfterMentorNoShow(o)) continue;
     await prisma.order.update({ where: { id: o.id }, data: { callHoldAt: now } });
     results.held++;
     const url = `${SITE_URL}/orders/${o.id}`;
@@ -91,6 +99,7 @@ export async function runCallRules(now: Date = new Date()) {
   });
   for (const o of toForfeit) {
     if (callSummary(o, now).toBook === 0) continue;
+    if (owedAfterMentorNoShow(o)) continue; // stays on hold; admin decides
     if (!hasAvailability(o.seller.weeklyHours)) continue; // stays on hold; admin decides
     await prisma.order.update({ where: { id: o.id }, data: { callForfeitedAt: now } });
     results.forfeited++;

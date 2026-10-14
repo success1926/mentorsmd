@@ -12,10 +12,6 @@ export const MENTOR_SCHOOLS: string[] = [
   // "UCSF",
 ];
 
-// e.g. 12 -> "Only 12% of people who apply to mentor are accepted."
-// Leave null until you have a real number.
-export const MENTOR_ACCEPTANCE_RATE: number | null = null;
-
 // Hand-picked testimonials (with permission). Real reviews left on
 // completed orders are added to the wall automatically as well.
 export type Testimonial = { name: string; detail: string; quote: string; rating?: number };

@@ -15,7 +15,7 @@
 // This file has no server-only code, so the admin form can use it too.
 // Loading and saving lives in lib/siteContentStore.ts.
 
-import { MENTOR_ACCEPTANCE_RATE, MENTOR_SCHOOLS, PHOTOS, SENIOR_TEAM, TESTIMONIALS } from "@/lib/content";
+import { MENTOR_SCHOOLS, PHOTOS, SENIOR_TEAM, TESTIMONIALS } from "@/lib/content";
 import { parseFocus, stripFocus, withFocus } from "@/lib/imageFocus";
 
 type Base = { label: string; help?: string; section?: string };
@@ -127,9 +127,8 @@ export const SITE_PAGES = {
             { title: "Interviewed", body: "Every mentor goes through a rigorous interview with each of our senior team members." },
             { title: "Real experience", body: "We make sure they have real, hands-on experience with what they offer." },
             { title: "Outstanding results", body: "Only mentors with outstanding results of their own are accepted." },
-            MENTOR_ACCEPTANCE_RATE !== null
-              ? { title: "Selective", body: `Only ${MENTOR_ACCEPTANCE_RATE}% of people who apply to mentor are accepted.` }
-              : { title: "Invite-only", body: "Nobody can sign up to mentor. Every mentor joins through an invite from our team." },
+            // Mentors are invite-only, so there's no acceptance rate to show.
+            { title: "Invite-only", body: "Nobody can sign up to mentor. Every mentor joins through an invite from our team." },
           ],
           { maxItems: 8, help: "Icons follow the order: chat, page, check mark, star." },
         ),

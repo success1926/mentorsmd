@@ -18,7 +18,8 @@ export type FlagKind =
   | "AI"
   | "PERFORMANCE"
   | "BLOCKED_MESSAGE"
-  | "MINOR";
+  | "MINOR"
+  | "CALL";
 
 export type Severity = 1 | 2 | 3;
 

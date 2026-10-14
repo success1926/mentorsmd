@@ -1,8 +1,9 @@
 // Rules for calls included in a package. Pure functions, safe to import
 // from both server and client code.
 //
-// Several numbers here are still open questions (see the open-questions
-// doc). They're constants so each one is a one-line change.
+// The numbers are decided (see the open-questions doc). They're constants
+// so each one is a one-line change.
+import { COUNTS_AS_HELD, DECIDE_WITHIN_HOURS, FREES_THE_CALL, NEEDS_ADMIN } from "@/lib/callOutcomes";
 
 export const JOIN_OPENS_MINUTES_BEFORE = 10; // Join button appears 10 min before start
 export const JOIN_CLOSES_MINUTES_AFTER = 30; // ...and stays until 30 min after the scheduled end
@@ -18,6 +19,7 @@ export type BookingLike = {
   endTime: DateLike;
   status: string; // BOOKED | CANCELLED | COMPLETED
   source?: string | null;
+  outcome?: string | null; // see lib/callOutcomes.ts
 };
 
 export type OrderCallLike = {
@@ -29,16 +31,37 @@ export type OrderCallLike = {
   callBookings?: BookingLike[];
 };
 
+// Whether a booked call counts as having happened.
+//   - an outcome of held or student no-show: yes
+//   - a mentor no-show, free rebook, nobody joined or unclear: no
+//   - no outcome yet: no while it's being checked (up to 48 hours after
+//     the end; the cron normally decides within the hour), then yes,
+//     the old "end time passed = held" rule for calls from before
+//     outcomes existed.
+export function callHeld(b: BookingLike, now: Date = new Date()) {
+  if (b.status === "COMPLETED" || COUNTS_AS_HELD.includes(b.outcome || "")) return true;
+  if (b.outcome) return false;
+  return new Date(b.endTime).getTime() <= now.getTime() - DECIDE_WITHIN_HOURS * 3600_000;
+}
+
 export function callSummary(order: OrderCallLike, now: Date = new Date()) {
   const included = order.gig?.callsIncluded ?? 0;
   const live = (order.callBookings || []).filter((b) => b.status !== "CANCELLED");
-  const held = live.filter((b) => b.status === "COMPLETED" || new Date(b.endTime) <= now).length;
+  // A mentor no-show (or a free rebook from an admin) gives the call back,
+  // so it doesn't use up one of the package's calls.
+  const counted = live.filter((b) => !FREES_THE_CALL.includes(b.outcome || ""));
+  const held = counted.filter((b) => callHeld(b, now)).length;
   const upcoming = live
     .filter((b) => b.status === "BOOKED" && new Date(b.endTime) > now)
     .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  // Ended, but we're still checking who joined.
+  const checking = counted.filter((b) => !b.outcome && b.status === "BOOKED" && new Date(b.endTime) <= now && !callHeld(b, now)).length;
+  // Nobody joined (or unclear): waiting for an admin to decide.
+  const awaitingAdmin = counted.filter((b) => NEEDS_ADMIN.includes(b.outcome || "")).length;
+  const mentorNoShows = live.filter((b) => b.outcome === "MENTOR_NO_SHOW").length;
   const waived = !!order.callWaivedAt;
   const forfeited = !!order.callForfeitedAt;
-  const toBook = Math.max(0, included - live.length);
+  const toBook = Math.max(0, included - counted.length);
   // The mentor can only mark the work complete once every included call
   // has happened, or the student waived it, or it was forfeited.
   const satisfied = included === 0 || waived || forfeited || held >= included;
@@ -51,6 +74,12 @@ export function callSummary(order: OrderCallLike, now: Date = new Date()) {
     satisfied,
     waived,
     forfeited,
+    checking,
+    awaitingAdmin,
+    mentorNoShows,
+    // Two mentor no-shows on one order: the student can open a dispute,
+    // with a full refund as the expected outcome.
+    refundDisputeOpen: mentorNoShows >= 2,
     canBook: active && included > 0 && !waived && !forfeited && toBook > 0,
     onHold: active && !!order.callHoldAt && !waived && !forfeited && toBook > 0,
   };

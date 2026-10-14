@@ -6,7 +6,7 @@ A freelance marketplace for getting into medical school. Students book packages 
 
 ## Docs
 - `docs/change-list.md`: the numbered change list (items 1–119), grouped into Phases 1–6 (all live). Commits refer to these numbers.
-- `docs/open-questions.md`: product rules with the recommended answers the code already uses.
+- `docs/open-questions.md`: product rules (all decided as of Oct 14, 2026) and what the code does for each.
 - `docs/live-test.md`: the full live test, section by section.
 - `docs/phase-checklist.md`: how Phases 1–6 were taken live (kept for reference).
 - `docs/design-direction.md`: design decisions. The Leland-style design (joinleland.com) is the main design, always in the Iris colors.
