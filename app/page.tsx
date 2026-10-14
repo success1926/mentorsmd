@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { HomeFeatures } from "@/components/HomeFeatures";
 import { RoleCta } from "@/components/RoleCta";
+import { ReviewWall } from "@/components/ReviewWall";
+import { VettingSection } from "@/components/VettingSection";
+import { FaqSection } from "@/components/FaqSection";
 import { Icon, ICONS, Vetted, Rating, tintFor, initialsOf } from "@/components/ui";
-import { getFeaturedMentors, getReviewStats, getWallReviews } from "@/lib/mentorQueries";
-import { paragraphs, safeHref } from "@/lib/siteContent";
+import { getFeaturedMentors, getReviewStats } from "@/lib/mentorQueries";
+import { HOME_WALL_REVIEWS, REVIEW_WALL_MIN, getReviewWall } from "@/lib/reviewWall";
+import { safeHref } from "@/lib/siteContent";
 import { getSiteContent } from "@/lib/siteContentStore";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
 import { Fragment } from "react";
@@ -19,21 +23,10 @@ const PATH_BGS = [
   "linear-gradient(180deg, #F5B9CD 0%, #9A7BE8 50%, #2B1F6B 100%)",
   "linear-gradient(180deg, #E4EEFF 0%, #8E9BF0 50%, #2B1F6B 100%)",
 ];
-const VET_ICONS = [ICONS.chat, ICONS.doc, ICONS.check, ICONS.star];
 
 export default async function HomePage() {
-  const [mentors, stats, reviews, c] = await Promise.all([getFeaturedMentors(4), getReviewStats(), getWallReviews(8), getSiteContent("home")]);
-
-  const wall = [
-    ...c.testimonials.map((t, i) => ({ key: `t-${i}`, name: t.name, detail: t.detail, quote: t.quote, rating: Math.min(5, Math.max(1, Number(t.rating) || 5)) })),
-    ...reviews.map((r) => ({
-      key: r.id,
-      name: r.buyer.name.split(" ")[0] + (r.buyer.name.split(" ")[1] ? ` ${r.buyer.name.split(" ")[1][0]}.` : ""),
-      detail: `Worked with ${r.seller.name}`,
-      quote: r.comment || "",
-      rating: r.rating,
-    })),
-  ];
+  const [mentors, stats, c] = await Promise.all([getFeaturedMentors(4), getReviewStats(), getSiteContent("home")]);
+  const wall = await getReviewWall(c.testimonials, HOME_WALL_REVIEWS);
 
   return (
     <div>
@@ -119,31 +112,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ---------------- Vetting ---------------- */}
-      <section id="vetting" style={{ paddingBottom: 120, scrollMarginTop: 150 }}>
-        <div className="wrap stack-lg" style={{ gap: 56 }}>
-          <div className="vet-hero" style={c.vetPhoto ? { background: `linear-gradient(180deg, rgba(27,24,52,0.1), rgba(27,24,52,0.7)), url("${stripFocus(c.vetPhoto)}") ${c.vetPhoto.includes("#") ? focusPosition(c.vetPhoto) : "center"}/cover` } : undefined}>
-            <h2>{c.vetTitle}</h2>
-            {paragraphs(c.vetText).map((t, i) => (
-              <p key={i}>{t}</p>
-            ))}
-            {c.vetLink && (
-              <p>
-                <Link href="/senior-team" style={{ color: "inherit", textDecoration: "underline", textUnderlineOffset: 4 }}>{c.vetLink}</Link>
-              </p>
-            )}
-          </div>
-          <div className="grid-4">
-            {c.vetItems.map((v, i) => (
-              <div key={i} className="vet-item">
-                <span className="icon-dot"><Icon d={VET_ICONS[i % VET_ICONS.length]} size={22} /></span>
-                <h3 style={{ fontSize: 21, marginTop: 4 }}>{v.title}</h3>
-                <p className="text-secondary" style={{ fontSize: 17 }}>{v.body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* ---------------- Vetting (also on /how-it-works) ---------------- */}
+      <VettingSection c={c} id="vetting" />
 
       {/* ---------------- Featured mentors ---------------- */}
       {mentors.length > 0 && (
@@ -197,58 +167,20 @@ export default async function HomePage() {
       </section>
 
       {/* ---------------- Testimonials wall ---------------- */}
-      {wall.length >= 3 && (
+      {wall.length >= REVIEW_WALL_MIN && (
         <section id="reviews" className="wall" style={{ scrollMarginTop: 150 }}>
           <div className="wrap">
             <div className="center-head" style={{ marginBottom: 56, gap: 18 }}>
               <span className="eyebrow" style={{ color: "var(--ink)", fontSize: 18, fontWeight: 500 }}>{c.testimonialsEyebrow}</span>
               <h2 className="big-title">{c.testimonialsTitle}</h2>
             </div>
-            <div className="wall-grid">
-              {wall.map((t, i) => (
-                <div key={t.key}>
-                  <div className="testi">
-                    <div className="row" style={{ gap: 14 }}>
-                      <span className="avatar" style={{ width: 54, height: 54, background: ["#FCE4EC", "#E4EEFF", "#DDD5FF", "#F5B9CD"][i % 4] }}>
-                        {initialsOf(t.name)}
-                      </span>
-                      <span className="stack-sm" style={{ gap: 2 }}>
-                        <b style={{ fontSize: 18 }}>{t.name}</b>
-                        <span className="text-secondary">{t.detail}</span>
-                      </span>
-                    </div>
-                    <span className="stars">{"★".repeat(Math.round(t.rating))}</span>
-                    {(paragraphs(t.quote).length ? paragraphs(t.quote) : [""]).map((q, j) => (
-                      <p key={j} style={{ fontSize: 18, lineHeight: 1.55 }}>{q}</p>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ReviewWall items={wall} />
           </div>
         </section>
       )}
 
-      {/* ---------------- FAQ (only once questions are added in Admin -> Website) ---------------- */}
-      {c.faq.length > 0 && (
-        <section id="faq" style={{ paddingBottom: 40, scrollMarginTop: 150 }}>
-          <div className="wrap" style={{ maxWidth: 900 }}>
-            <h2 className="big-title" style={{ textAlign: "center", marginBottom: 48 }}>{c.faqTitle}</h2>
-            <div>
-              {c.faq.map((q, i) => (
-                <details key={i} className="collapse">
-                  <summary style={{ fontSize: 18 }}>{q.question}</summary>
-                  <div className="collapse-body">
-                    {paragraphs(q.answer).map((a, j) => (
-                      <p key={j} className="text-secondary" style={{ fontSize: 17, lineHeight: 1.6 }}>{a}</p>
-                    ))}
-                  </div>
-                </details>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+      {/* ---------------- FAQ (only once questions are added in Admin -> Website; also on /how-it-works) ---------------- */}
+      <FaqSection title={c.faqTitle} faq={c.faq} />
 
       {/* ---------------- Final CTA ---------------- */}
       <section className="home-section">

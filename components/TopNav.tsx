@@ -33,12 +33,28 @@ export function Logo() {
 }
 
 type NavLink = { label: string; href: string };
+// midHide: hidden on the bar at in-between (small laptop) widths so it
+// fits on one line; always in the phone menu.
+type MainLink = NavLink & { midHide?: boolean; reviews?: boolean };
 
-const MARKETING: NavLink[] = [
-  { label: "How we vet mentors", href: "/#vetting" },
-  { label: "Reviews", href: "/#reviews" },
+// The general pages, in order (as on AdmitMD: a row of real pages).
+// "Reviews" only shows once the homepage shows its review wall.
+const LOGGED_OUT_LINKS: MainLink[] = [
+  { label: "Home", href: "/", midHide: true },
+  { label: "Browse mentors", href: "/mentors" },
+  { label: "How it works", href: "/how-it-works" },
+  { label: "Senior team", href: "/senior-team", midHide: true },
+  { label: "Reviews", href: "/reviews", reviews: true },
   { label: "Become a mentor", href: "/become-a-mentor" },
 ];
+// Logged-in students keep their shorter list (their own links sit on the right).
+const STUDENT_LINKS: MainLink[] = [
+  { label: "Browse mentors", href: "/mentors" },
+  { label: "How it works", href: "/how-it-works" },
+  { label: "Reviews", href: "/reviews", reviews: true },
+  { label: "Become a mentor", href: "/become-a-mentor" },
+];
+const OTHER_LINKS: MainLink[] = [{ label: "Browse mentors", href: "/mentors" }];
 
 const RIGHT_LINKS: Record<string, NavLink[]> = {
   BUYER: [
@@ -118,7 +134,7 @@ function Chevron() {
   );
 }
 
-export function TopNav() {
+export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
   const { data: session, status } = useSession();
   const pathname = usePathname() || "/";
   const role: string | undefined = (session?.user as any)?.role;
@@ -208,6 +224,8 @@ export function TopNav() {
       <span className="count-badge" aria-label={`${navInfo.unread} unread`}>{navInfo.unread > 99 ? "99+" : navInfo.unread}</span>
     ) : null;
   const menu = role ? MENU[role] || [] : [];
+  const mainLinks = (!session ? LOGGED_OUT_LINKS : role === "BUYER" ? STUDENT_LINKS : OTHER_LINKS).filter((l) => !l.reviews || showReviews);
+  const mainActive = (href: string): "page" | undefined => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/")) ? "page" : undefined;
   const active = (href: string): "page" | undefined => (href === pathname || (href !== "/" && pathname.startsWith(href) && href !== "/dashboard") || (href === "/dashboard" && pathname === "/dashboard") ? "page" : undefined);
 
   return (
@@ -215,10 +233,11 @@ export function TopNav() {
       <div className="nav-inner">
         <Logo />
         <nav aria-label="Main" className="nav-links">
-          <Link href="/mentors" aria-current={pathname.startsWith("/mentors") ? "page" : undefined} className="row" style={{ gap: 6 }}>
-            Browse mentors <Chevron />
-          </Link>
-          {marketing && MARKETING.map((l) => <Link key={l.href} href={l.href}>{l.label}</Link>)}
+          {mainLinks.map((l) => (
+            <Link key={l.href} href={l.href} aria-current={mainActive(l.href)} className={l.midHide ? "nav-mid-hide" : undefined}>
+              {l.label}
+            </Link>
+          ))}
         </nav>
 
         <div className="nav-right">
@@ -290,8 +309,9 @@ export function TopNav() {
               </svg>
             </button>
           </div>
-          <Link href="/mentors">Browse mentors</Link>
-          {marketing && MARKETING.map((l) => <Link key={l.href} href={l.href}>{l.label}</Link>)}
+          {mainLinks.map((l) => (
+            <Link key={l.href} href={l.href} aria-current={mainActive(l.href)}>{l.label}</Link>
+          ))}
           {right.map((l) => <Link key={"r" + l.href} href={l.href} style={{ display: "flex", alignItems: "center" }}>{l.label}{badge(l.href)}</Link>)}
           {menu
             .filter((m) => !right.some((r) => r.href === m.href))

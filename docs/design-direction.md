@@ -90,10 +90,9 @@ The core positioning: a freelance marketplace for getting into medical school wh
   - Pink #F5B9CD / #FCE4EC and blue #E4EEFF as accents.
   - Type: Fraunces 400 for large serif headlines, Instrument Sans for everything else.
 - **Top bar:**
-  - Logo, then Browse mentors ▾, How we vet mentors, Reviews and Become a mentor.
+  - Logo, then a row of real pages (as on AdmitMD): Home, Browse mentors, How it works (/how-it-works), Senior team, Reviews (/reviews, only once the homepage shows its review wall) and Become a mentor. Browse mentors is a plain link (no ▾ menu). On small laptops (under 1220px wide) Home and Senior team move to the phone menu only.
   - On the right, "Log in" and a "Get started" pill.
   - After scrolling, the bar turns white and a row of quick links appears under it: Popular, Personal statement, Secondaries, MMI, Traditional interviews, MCAT, School list, Reapplicants, Non-traditional, DO schools, MD/PhD, Gap years.
-  - The Browse menu groups mentors by service, by mentor stage, and "Been where you are".
 - **Homepage sections:**
   1. Light lilac hero: "Your white coat starts here", a big search pill, topic chips, a star rating with the review count, and an "Our mentors study at" strip.
   2. "Getting into med school is hard. You don't have to do it alone." with 3 tall photo cards: Write a standout application / Ace your interviews / Plan your path.
