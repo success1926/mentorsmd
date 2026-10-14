@@ -6,6 +6,7 @@ import { TopNav } from "@/components/TopNav";
 import { Footer } from "@/components/Footer";
 import { AccountGate } from "@/components/AccountGate";
 import { Tracker } from "@/components/Tracker";
+import { SitePreviewBar } from "@/components/website/SitePreviewBar";
 import { siteUrl } from "@/lib/siteUrl";
 
 // This is what actually determines how the site looks when someone
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body>
         <Providers>
+          <SitePreviewBar />
           <TopNav />
           <AccountGate />
           <Tracker />

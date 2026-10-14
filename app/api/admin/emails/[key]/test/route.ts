@@ -11,7 +11,7 @@ const TEST_LIMIT = { name: "email-test-h", max: 30, windowSec: 3600 };
 // Admin -> Emails -> "Send test to me": the wording in the editor, filled
 // with sample data, sent only to the logged-in admin's own address.
 export async function POST(req: Request, { params }: { params: { key: string } }) {
-  const admin = await currentAdmin();
+  const admin = await currentAdmin("emails");
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const def = EMAILS[params.key];
   if (!def) return NextResponse.json({ error: "Not found" }, { status: 404 });

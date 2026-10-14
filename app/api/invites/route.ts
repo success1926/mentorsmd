@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { currentAdmin } from "@/lib/adminTeam";
 import { prisma } from "@/lib/prisma";
 import { createAndSendInvite } from "@/lib/invites";
 import { normalizeEmail } from "@/lib/validate";
@@ -14,13 +13,12 @@ import { normalizeEmail } from "@/lib/validate";
 // seller a one-click link with the code already embedded in the URL, so
 // they just click through and land on a pre-filled signup form.
 
-function requireAdmin(session: any) {
-  return session?.user && (session.user as any).role === "ADMIN";
-}
+// Admins whose role includes Mentors (lib/adminPermissions.ts).
+const requireAdmin = () => currentAdmin("mentors");
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!requireAdmin(session)) {
+  const admin = await requireAdmin();
+  if (!admin) {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
 
@@ -30,13 +28,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
   }
 
-  const result = await createAndSendInvite(email, (session!.user as any).id);
+  const result = await createAndSendInvite(email, admin.id);
   return NextResponse.json(result);
 }
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!requireAdmin(session)) {
+  const admin = await requireAdmin();
+  if (!admin) {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
 

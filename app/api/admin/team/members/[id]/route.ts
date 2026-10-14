@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ADMIN_ROLE_LABEL, activeOwnerCount, currentAdmin, normalizeAdminRole, revokeSessions } from "@/lib/adminTeam";
+import { ADMIN_ROLE_LABEL, activeOwnerCount, currentAdmin, findCustomRole, normalizeAdminRole, revokeSessions, roleLabelFor } from "@/lib/adminTeam";
 import { sendTeamAccessChangedEmail } from "@/lib/email";
 import { logAdminAction } from "@/lib/adminLog";
 
 // Owners manage team members (#115-#118):
-//   { action: "role", adminRole: "OWNER" | "ADMIN" }
+//   { action: "role", adminRole: "OWNER" | "ADMIN", roleId? }  (roleId: a custom
+//                               role; not for yourself or an Owner)
 //   { action: "disable" }       can't log in; logged out right away
 //   { action: "enable" }
 //   { action: "remove" }        leaves the team for good; logged out right away
@@ -13,13 +14,13 @@ import { logAdminAction } from "@/lib/adminLog";
 //   { action: "end-sessions" }  logs them out everywhere
 // There must always be at least one active Owner. Every change is logged.
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const admin = await currentAdmin();
+  const admin = await currentAdmin("team");
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   if (admin.adminRole !== "OWNER") return NextResponse.json({ error: "Only Owners can manage the team" }, { status: 403 });
 
   const member = await prisma.user.findUnique({
     where: { id: params.id },
-    select: { id: true, name: true, email: true, role: true, adminRole: true, adminDisabledAt: true, removedByAdmin: true },
+    select: { id: true, name: true, email: true, role: true, adminRole: true, adminRoleId: true, adminDisabledAt: true, removedByAdmin: true, adminCustomRole: { select: { name: true } } },
   });
   if (!member || member.role !== "ADMIN" || member.removedByAdmin) return NextResponse.json({ error: "Team member not found" }, { status: 404 });
 
@@ -33,13 +34,20 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const tell = (text: string) => sendTeamAccessChangedEmail(member.email, member.name, text).catch((err) => console.error("Couldn't send the team email:", err));
 
   if (action === "role") {
+    // Nobody changes their own role or an Owner's (Owners keep everything).
+    if (self) return NextResponse.json({ error: "You can't change your own role." }, { status: 400 });
+    if (isOwner) return NextResponse.json({ error: "An Owner's role can't be changed." }, { status: 400 });
     const next = body.adminRole === "OWNER" ? "OWNER" : body.adminRole === "ADMIN" ? "ADMIN" : null;
-    if (!next) return NextResponse.json({ error: "Pick Owner or Admin" }, { status: 400 });
-    if (next === normalizeAdminRole(member.adminRole)) return NextResponse.json({ ok: true });
-    if (next === "ADMIN" && lastOwner) return NextResponse.json({ error: "There must always be at least one Owner. Make someone else an Owner first." }, { status: 400 });
-    await prisma.user.update({ where: { id: member.id }, data: { adminRole: next } });
-    await log("TEAM_ROLE_CHANGE", `Changed ${member.name} from ${ADMIN_ROLE_LABEL[normalizeAdminRole(member.adminRole)]} to ${ADMIN_ROLE_LABEL[next]}`, { from: normalizeAdminRole(member.adminRole), to: next });
-    await tell(`Your role on the MentorsMD admin team is now ${ADMIN_ROLE_LABEL[next]}.`);
+    if (!next) return NextResponse.json({ error: "Pick a role" }, { status: 400 });
+    const customRole = next === "ADMIN" ? await findCustomRole(body.roleId) : null;
+    if (next === "ADMIN" && body.roleId && !customRole) return NextResponse.json({ error: "That role no longer exists. Reload the page." }, { status: 400 });
+    const nextRoleId = customRole?.id ?? null;
+    if (next === normalizeAdminRole(member.adminRole) && nextRoleId === member.adminRoleId) return NextResponse.json({ ok: true });
+    const from = roleLabelFor(member);
+    const to = customRole?.name ?? ADMIN_ROLE_LABEL[next];
+    await prisma.user.update({ where: { id: member.id }, data: { adminRole: next, adminRoleId: nextRoleId } });
+    await log("TEAM_ROLE_CHANGE", `Changed ${member.name} from ${from} to ${to}`, { from, to });
+    await tell(`Your role on the MentorsMD admin team is now ${to}.`);
     return NextResponse.json({ ok: true });
   }
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { adminCan } from "@/lib/adminTeam";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -25,7 +26,8 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   const userId = (session.user as any).id;
   const role = (session.user as any).role;
   const isBuyer = order.buyerId === userId;
-  const isAdmin = role === "ADMIN";
+  // Admins release money only with the Orders permission (lib/adminPermissions.ts).
+  const isAdmin = role === "ADMIN" && (await adminCan("orders"));
   if (!isBuyer && !isAdmin) {
     return NextResponse.json({ error: "Only the student on this order or an admin can release this payment" }, { status: 403 });
   }

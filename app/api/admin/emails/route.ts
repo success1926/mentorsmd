@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 // Admin -> Emails: every automatic email, and whether it's been edited.
 export async function GET() {
-  const admin = await currentAdmin();
+  const admin = await currentAdmin("emails");
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const saved = await prisma.emailTemplate.findMany({ select: { key: true, updatedAt: true, updatedById: true } });
   const byKey = new Map(saved.map((s) => [s.key, s]));

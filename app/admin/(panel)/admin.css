@@ -1,0 +1,38 @@
+/* Admin layout: sidebar + page (components/admin/AdminShell.tsx). */
+.adm-shell { display: grid; grid-template-columns: 236px minmax(0, 1fr); min-height: calc(100vh - 80px); }
+.adm-side { border-right: 1px solid var(--line); background: var(--surface-2); padding: 24px 14px 40px; }
+.adm-side-top { display: flex; align-items: center; gap: 10px; padding: 0 10px 14px; }
+.adm-brand { font-family: var(--font-display); font-size: 22px; }
+.adm-current, .adm-menu-btn { display: none; }
+.adm-nav-list { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 16px; }
+.adm-group { display: flex; flex-direction: column; gap: 2px; }
+.adm-group-label { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); padding: 0 10px 4px; }
+.adm-link { display: block; padding: 8px 10px; border-radius: 10px; color: var(--ink); font-size: 15px; text-decoration: none; }
+.adm-link:hover { background: var(--tint-soft); opacity: 1; }
+.adm-link[aria-current="page"] { background: var(--tint); color: var(--primary-deep); font-weight: 600; }
+.adm-me { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 10px 0; border-top: 1px solid var(--line); }
+.adm-main { min-width: 0; }
+.adm-main .page { max-width: 1100px; margin: 0; padding: 36px 32px 96px; }
+
+/* Phones and small tablets: a top bar with a Menu button; the list opens below it. */
+@media (max-width: 860px) {
+  .adm-shell { grid-template-columns: 1fr; min-height: 0; }
+  .adm-side { border-right: 0; border-bottom: 1px solid var(--line); padding: 10px 16px; position: sticky; top: 0; z-index: 20; }
+  .adm-side-top { padding: 0; }
+  .adm-current { display: inline; color: var(--muted); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .adm-menu-btn { display: inline-flex; }
+  .adm-nav-list { display: none; position: static; padding: 12px 0 8px; max-height: calc(100vh - 70px); overflow-y: auto; }
+  .adm-side.is-open .adm-nav-list { display: flex; }
+  .adm-main .page { padding: 24px 16px 80px; }
+}
+
+/* Overview cards. */
+.adm-overview { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+
+/* Team & roles: tick-box matrix (components/admin/TeamRoles.tsx). */
+.adm-matrix { width: 100%; border-collapse: collapse; font-size: 14px; }
+.adm-matrix th, .adm-matrix td { padding: 8px 12px; border-bottom: 1px solid var(--line); text-align: center; vertical-align: middle; }
+.adm-matrix th[scope="row"], .adm-matrix thead th:first-child { text-align: left; font-weight: 500; min-width: 220px; }
+.adm-matrix thead th { font-weight: 600; white-space: nowrap; }
+.adm-matrix-group th { text-align: left; background: var(--surface-2); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); }
+.adm-matrix input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); }

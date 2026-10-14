@@ -14,7 +14,7 @@ const CSV_MAX = 20000;
 //   ?q=<part of an email address> &key=<email type> &status=SENT|FAILED
 //   &page=1   or   &format=csv (everything matching, up to 20,000 rows)
 export async function GET(req: Request) {
-  const admin = await currentAdmin();
+  const admin = await currentAdmin("emails");
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const sp = new URL(req.url).searchParams;
   const q = (sp.get("q") || "").trim().slice(0, 200);

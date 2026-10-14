@@ -1,8 +1,22 @@
 import Link from "next/link";
 import { LogoMark } from "./TopNav";
 import { FooterAccountLink } from "./RoleCta";
+import { getSiteContent } from "@/lib/siteContentStore";
+import { isSafeHref } from "@/lib/siteContent";
 
-export function Footer() {
+// The tagline and social links are edited in Admin -> Website. A social
+// link only shows once its address is filled in.
+const SOCIALS = [
+  { key: "instagram", label: "Instagram" },
+  { key: "tiktok", label: "TikTok" },
+  { key: "linkedin", label: "LinkedIn" },
+  { key: "x", label: "X" },
+  { key: "youtube", label: "YouTube" },
+] as const;
+
+export async function Footer() {
+  const c = await getSiteContent("footer");
+  const socials = SOCIALS.filter((s) => c[s.key] && isSafeHref(c[s.key]));
   return (
     <footer className="site-footer">
       <div className="wrap stack-lg" style={{ gap: 48 }}>
@@ -12,7 +26,16 @@ export function Footer() {
               <LogoMark />
               <span>Mentors<b>MD</b></span>
             </span>
-            <span className="text-secondary" style={{ fontSize: 17 }}>Vetted mentors for the road to medical school.</span>
+            {c.tagline && <span className="text-secondary" style={{ fontSize: 17 }}>{c.tagline}</span>}
+            {socials.length > 0 && (
+              <nav aria-label="MentorsMD on social media" className="row-wrap" style={{ gap: 16, fontSize: 15 }}>
+                {socials.map((s) => (
+                  <a key={s.key} href={c[s.key]} target="_blank" rel="noopener noreferrer" className="text-secondary">
+                    {s.label}
+                  </a>
+                ))}
+              </nav>
+            )}
           </div>
           <div className="footer-col">
             <b>Students</b>

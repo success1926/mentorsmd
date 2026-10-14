@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 // Admin -> Emails -> one email: GET the saved and default wording, PUT to
 // save new wording (checked first), DELETE to go back to the default.
 export async function GET(_req: Request, { params }: { params: { key: string } }) {
-  const admin = await currentAdmin();
+  const admin = await currentAdmin("emails");
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const def = EMAILS[params.key];
   if (!def) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -22,7 +22,7 @@ export async function GET(_req: Request, { params }: { params: { key: string } }
 }
 
 export async function PUT(req: Request, { params }: { params: { key: string } }) {
-  const admin = await currentAdmin();
+  const admin = await currentAdmin("emails");
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const def = EMAILS[params.key];
   if (!def) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -47,7 +47,7 @@ export async function PUT(req: Request, { params }: { params: { key: string } })
 }
 
 export async function DELETE(_req: Request, { params }: { params: { key: string } }) {
-  const admin = await currentAdmin();
+  const admin = await currentAdmin("emails");
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const def = EMAILS[params.key];
   if (!def) return NextResponse.json({ error: "Not found" }, { status: 404 });

@@ -8,6 +8,7 @@ import { authOptions } from "@/lib/auth";
 import { parseBrowseFilters, searchMentors, type BrowseFilters as Filters } from "@/lib/mentorQueries";
 import { attributionFromCookieHeader, isBotUserAgent, recordActivity } from "@/lib/activity";
 import { runAfterResponse } from "@/lib/request";
+import { getSiteContent } from "@/lib/siteContentStore";
 import { BACKGROUNDS, FILTER_GROUPS, FORMATS, MENTOR_QUICK_LINKS as QUICK, SCHOOL_TYPES, STAGES, TURNAROUNDS, labelFor, money, quickLinkHref, serviceLabel } from "@/lib/options";
 
 export const dynamic = "force-dynamic";
@@ -52,7 +53,7 @@ function toParams(sp: SP) {
 
 export default async function BrowsePage({ searchParams }: { searchParams: SP }) {
   const filters = parseBrowseFilters(searchParams);
-  const mentors = await searchMentors(filters);
+  const [mentors, c] = await Promise.all([searchMentors(filters), getSiteContent("mentors")]);
   await logSearch(filters, mentors.length);
   const params = toParams(searchParams);
 
@@ -102,8 +103,8 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
 
       <div className="page" style={{ paddingTop: 40 }}>
         <section className="stack" style={{ gap: 14, marginBottom: 36 }}>
-          <h1 className="page-title">Find your mentor</h1>
-          <p className="lede">Every mentor is vetted by our senior team. Message anyone for free.</p>
+          <h1 className="page-title">{c.title}</h1>
+          {c.intro && <p className="lede">{c.intro}</p>}
           <form action="/mentors" method="get" className="search-inline" role="search" style={{ maxWidth: 760 }}>
             <Icon d={ICONS.search} size={20} />
             <input name="q" defaultValue={filters.q} aria-label="Search mentors" placeholder="Search by name, school or keyword" />
@@ -163,9 +164,9 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
 
             {mentors.length === 0 && !anyFilter && (
               <div className="empty stack" style={{ alignItems: "center" }}>
-                <b style={{ color: "var(--ink)", fontSize: 18 }}>Mentors are joining soon.</b>
-                <span>Every mentor goes through a rigorous interview with our senior team, so we add them carefully. Check back soon.</span>
-                <Link href="/become-a-mentor" className="link small">Are you a med student or resident? Apply to mentor</Link>
+                <b style={{ color: "var(--ink)", fontSize: 18 }}>{c.emptyTitle}</b>
+                {c.emptyText && <span>{c.emptyText}</span>}
+                {c.emptyLink && <Link href="/become-a-mentor" className="link small">{c.emptyLink}</Link>}
               </div>
             )}
 

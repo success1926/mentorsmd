@@ -40,7 +40,7 @@ export type NewFlag = {
   dedupeDays?: number;
 };
 
-const FLAGS_URL = `${SITE_URL}/admin#flags`;
+const FLAGS_URL = `${SITE_URL}/admin/disputes#flags`;
 
 export async function createFlag(f: NewFlag) {
   try {

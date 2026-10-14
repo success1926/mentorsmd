@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 // Acceptance records (#102): who accepted which version, when, from which
 // IP and browser. ?kind=TERMS ?q=email-or-name ?format=csv ?before=<ISO>
 export async function GET(req: Request) {
-  const admin = await currentAdmin();
+  const admin = await currentAdmin("legal");
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const sp = new URL(req.url).searchParams;
   const kind = sp.get("kind");

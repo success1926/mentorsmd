@@ -1,6 +1,9 @@
 // Marketing content you fill in yourself. Anything left empty is simply
 // hidden on the site - nothing placeholder-y ever shows to visitors.
 // (See "Content to supply" in the open-questions doc.)
+//
+// These are now only the built-in DEFAULTS: admins edit the live text and
+// photos in Admin -> Website (lib/siteContent.ts lists every field).
 
 // Shown in the "Our mentors study at" strip under the hero. Use only
 // schools your current mentors actually attend.

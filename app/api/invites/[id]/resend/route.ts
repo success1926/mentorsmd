@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { currentAdmin } from "@/lib/adminTeam";
 import { prisma } from "@/lib/prisma";
 import { sendSellerInviteEmail } from "@/lib/email";
 import { logAdminAction } from "@/lib/adminLog";
 import { siteUrl } from "@/lib/siteUrl";
 
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
+  const admin = await currentAdmin("mentors");
+  if (!admin) {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
 
@@ -30,6 +29,6 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ error: `The email failed to send: ${reason}` }, { status: 502 });
   }
 
-  await logAdminAction({ adminId: (session.user as any).id, action: "INVITE_RESENT", summary: `Re-sent the mentor invite to ${invite.email}`, targetType: "INVITE", targetId: invite.id });
+  await logAdminAction({ adminId: admin.id, action: "INVITE_RESENT", summary: `Re-sent the mentor invite to ${invite.email}`, targetType: "INVITE", targetId: invite.id });
   return NextResponse.json({ success: true });
 }

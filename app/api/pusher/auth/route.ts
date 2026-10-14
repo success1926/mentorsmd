@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { adminCan } from "@/lib/adminTeam";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
     const orderId = channelName.replace("private-dispute-", "");
     const order = await prisma.order.findUnique({ where: { id: orderId }, select: { buyerId: true, sellerId: true } });
     // Admins can join any dispute thread; buyer/seller only their own.
-    authorized = !!order && (role === "ADMIN" || order.buyerId === userId || order.sellerId === userId);
+    authorized = !!order && (order.buyerId === userId || order.sellerId === userId || (role === "ADMIN" && (await adminCan("disputes"))));
   }
 
   if (!authorized) {

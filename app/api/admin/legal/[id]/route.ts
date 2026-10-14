@@ -12,7 +12,7 @@ const MAX_BODY = 100_000;
 //   { ..., action: "publish" }                                    save and publish
 // Published versions never change; publish a new version instead.
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const admin = await currentAdmin();
+  const admin = await currentAdmin("legal");
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const doc = await prisma.legalDocument.findUnique({ where: { id: params.id } });
   if (!doc || !isLegalKind(doc.kind)) return NextResponse.json({ error: "Document not found" }, { status: 404 });
@@ -75,7 +75,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
 // Delete a draft (published versions are kept forever).
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const admin = await currentAdmin();
+  const admin = await currentAdmin("legal");
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const doc = await prisma.legalDocument.findUnique({ where: { id: params.id } });
   if (!doc) return NextResponse.json({ error: "Document not found" }, { status: 404 });
