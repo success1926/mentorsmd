@@ -3,6 +3,7 @@ import { isAuthorizedCron } from "@/lib/cron";
 import { runDailySafety } from "@/lib/safetyChecks";
 import { runDailyMinorChecks } from "@/lib/minors";
 import { cleanupOldActivity } from "@/lib/activity";
+import { cleanupOldEmailLogs } from "@/lib/emailLog";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 // rate-limit counters, and on Mondays the weekly safety digest email.
 // Also (Phase 5) parent consent reminders, expired consent links and
 // students turning 18. Phase 6: deletes activity log entries older
-// than about 13 months.
+// than about 13 months, and email log rows older than 90 days.
 export async function GET(req: Request) {
   if (!isAuthorizedCron(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const result = await runDailySafety(new Date());
@@ -29,5 +30,10 @@ export async function GET(req: Request) {
     console.error("Activity log cleanup failed:", err);
     return null;
   });
-  return NextResponse.json({ ...result, minors, activityDeleted });
+  // The email log (Admin -> Email log) keeps 90 days.
+  const emailLogDeleted = await cleanupOldEmailLogs(new Date()).catch((err) => {
+    console.error("Email log cleanup failed:", err);
+    return null;
+  });
+  return NextResponse.json({ ...result, minors, activityDeleted, emailLogDeleted });
 }

@@ -28,3 +28,4 @@ Next.js 14 (App Router) + TypeScript, Prisma on Neon Postgres, NextAuth (email a
 - Database changes ship as a SQL file in `prisma/`, run in the Neon SQL Editor after making a Neon backup branch. Files that only add things run before the code goes live; files that remove things run after.
 - Build links to the site with `siteUrl()` from `lib/siteUrl.ts`, never `process.env.NEXTAUTH_URL` directly.
 - This repository is public: never commit secrets, real customer data or personal email addresses.
+- Automatic emails: wording lives in `lib/emailTemplates.ts` (defaults) and Admin -> Emails (saved edits, `EmailTemplate` table). Send through a template in `lib/email.ts`, never with raw HTML; every send attempt is in Admin -> Email log (`EmailLog`, kept 90 days).

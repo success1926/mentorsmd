@@ -1,6 +1,9 @@
 import { Resend } from "resend";
 import { fmtInZone } from "@/lib/tz";
 import { siteUrl } from "@/lib/siteUrl";
+import { prisma } from "@/lib/prisma";
+import { logEmail } from "@/lib/emailLog";
+import { EMAILS, blocks, previewText, renderEmail, validateTemplate, type Values } from "@/lib/emailTemplates";
 
 // Lazy, like lib/stripe.ts: the Resend constructor throws if the API key
 // is missing, which would otherwise crash every route that imports this
@@ -23,118 +26,104 @@ export const resend = {
 const FROM = process.env.INVITE_EMAIL_FROM || "notifications@yourdomain.com";
 const SITE_URL = siteUrl();
 
-// Every user-supplied value (names, notes, message text, gig titles) is
-// escaped before it goes into an email's HTML. Without this, a user could
-// put a fake "click here to verify your account" link in their name or a
-// message, and it would arrive looking like it came from MentorsMD.
-function esc(value: unknown) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+// ---- Templates (Admin -> Emails) ----
+// The wording of every email lives in lib/emailTemplates.ts (the default)
+// and, once an admin edits it, in the EmailTemplate table. Values are
+// always HTML-escaped by the renderer, so a user can't put a fake link or
+// HTML in their name or a message.
+
+type Attachment = { filename: string; content: Buffer; content_type?: string };
+type Extra = { attachments?: Attachment[]; reply_to?: string };
+
+// The saved wording for one email, or null to use the default. Any problem
+// (database down, a saved version that's no longer valid) falls back to
+// the default so the email still goes out.
+async function savedTemplate(key: string) {
+  try {
+    const row = await prisma.emailTemplate.findUnique({ where: { key } });
+    if (!row) return null;
+    const errors = validateTemplate(EMAILS[key], row);
+    if (errors.length) {
+      console.error(`Saved email template "${key}" isn't valid, using the default:`, errors.join(" "));
+      return null;
+    }
+    return row;
+  } catch (err) {
+    console.error(`Couldn't load the email template "${key}", using the default:`, err);
+    return null;
+  }
 }
 
-function preview(text: string) {
-  return esc(text.slice(0, 140)) + (text.length > 140 ? "..." : "");
+// Sends one email and writes the attempt to the email log.
+async function deliver(key: string, to: string, subject: string, html: string, extra: Extra = {}) {
+  try {
+    const result = await resend.emails.send({
+      from: FROM,
+      to,
+      ...(extra.reply_to ? { reply_to: extra.reply_to } : {}),
+      subject,
+      attachments: extra.attachments,
+      html,
+    });
+    await logEmail({ templateKey: key, toEmail: to, subject, status: "SENT", providerId: result.data?.id ?? null });
+    return result;
+  } catch (err) {
+    await logEmail({ templateKey: key, toEmail: to, subject, status: "FAILED", error: err instanceof Error ? err.message : String(err) });
+    throw err;
+  }
 }
 
-// Strip newlines from subjects (header injection) and cap their length.
-function subj(text: string) {
-  return text.replace(/[\r\n]+/g, " ").slice(0, 150);
+async function sendTemplate(key: string, to: string, values: Values, extra: Extra = {}) {
+  const def = EMAILS[key];
+  if (!def) throw new Error(`Unknown email template: ${key}`);
+  const tpl = (await savedTemplate(key)) || def;
+  const { subject, html } = renderEmail(def, tpl, values);
+  return deliver(key, to, subject, html, extra);
 }
+
+// Admin -> Emails -> "Send test to me": the wording in the editor (saved
+// or not), filled with sample data, to the admin's own address only.
+export async function sendTestEmail(key: string, toEmail: string, tpl: { subject: string; body: string }) {
+  const def = EMAILS[key];
+  if (!def) throw new Error(`Unknown email template: ${key}`);
+  const values = Object.fromEntries(def.vars.map((v) => [v.name, v.sample]));
+  const { subject, html } = renderEmail(def, tpl, values);
+  return deliver(key, toEmail, `[Test] ${subject}`.slice(0, 160), html);
+}
+
+const first = (name: string) => name.split(" ")[0];
+const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
 export async function sendSellerInviteEmail(toEmail: string, inviteUrl: string) {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: "You're invited to mentor on MentorsMD",
-    html: `
-      <p>You've been invited to set up a mentor profile.</p>
-      <p><a href="${esc(inviteUrl)}">Click here to accept the invite and set up your profile</a></p>
-      <p>This link expires in 7 days and can only be used once.</p>
-    `,
-  });
+  await sendTemplate("mentor_invite", toEmail, { inviteLink: inviteUrl });
 }
 
 // Sent to whoever DIDN'T just send a message - so if a buyer messages a
 // coach, the coach gets this (not the buyer). Real-time delivery via
 // Pusher covers people actively on the site; this covers people who
 // aren't, so a message doesn't sit unseen for days.
-export async function sendNewMessageEmail(toEmail: string, fromName: string, previewText: string, conversationUrl: string) {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: subj(`New message from ${fromName}`),
-    html: `
-      <p><strong>${esc(fromName)}</strong> sent you a message:</p>
-      <p style="color:#555;">"${preview(previewText)}"</p>
-      <p><a href="${esc(conversationUrl)}">Reply on MentorsMD</a></p>
-    `,
-  });
+export async function sendNewMessageEmail(toEmail: string, fromName: string, previewMessage: string, conversationUrl: string) {
+  await sendTemplate("new_message", toEmail, { fromName, messagePreview: previewText(previewMessage), conversationLink: conversationUrl });
 }
 
 export async function sendOrderPaidEmail(sellerEmail: string, gigTitle: string, buyerName: string, orderUrl: string) {
-  await resend.emails.send({
-    from: FROM,
-    to: sellerEmail,
-    subject: subj(`New order: ${gigTitle}`),
-    html: `
-      <p><strong>${esc(buyerName)}</strong> just booked and paid for <strong>${esc(gigTitle)}</strong>.</p>
-      <p><a href="${esc(orderUrl)}">View the order</a></p>
-    `,
-  });
+  await sendTemplate("new_order", sellerEmail, { studentName: buyerName, packageTitle: gigTitle, orderLink: orderUrl });
 }
 
 export async function sendOrderReleasedEmail(sellerEmail: string, gigTitle: string, amountCents: number, orderUrl: string) {
-  await resend.emails.send({
-    from: FROM,
-    to: sellerEmail,
-    subject: subj(`Payment released: ${gigTitle}`),
-    html: `
-      <p>Payment for <strong>${esc(gigTitle)}</strong> has been released to you - $${(amountCents / 100).toFixed(2)} is on its way to your bank account.</p>
-      <p><a href="${esc(orderUrl)}">View the order</a></p>
-    `,
-  });
+  await sendTemplate("payment_released", sellerEmail, { packageTitle: gigTitle, amount: money(amountCents), orderLink: orderUrl });
 }
 
 export async function sendRevisionRequestedEmail(sellerEmail: string, gigTitle: string, note: string, orderUrl: string) {
-  await resend.emails.send({
-    from: FROM,
-    to: sellerEmail,
-    subject: subj(`Revision requested: ${gigTitle}`),
-    html: `
-      <p>A revision was requested for <strong>${esc(gigTitle)}</strong>:</p>
-      <p style="color:#555;">"${esc(note)}"</p>
-      <p><a href="${esc(orderUrl)}">View the order</a></p>
-    `,
-  });
+  await sendTemplate("revision_requested", sellerEmail, { packageTitle: gigTitle, note, orderLink: orderUrl });
 }
 
 export async function sendDisputeOpenedEmail(adminEmail: string, gigTitle: string, reason: string, orderUrl: string) {
-  await resend.emails.send({
-    from: FROM,
-    to: adminEmail,
-    subject: subj(`Dispute opened: ${gigTitle}`),
-    html: `
-      <p>A student opened a dispute on <strong>${esc(gigTitle)}</strong>:</p>
-      <p style="color:#555;">"${esc(reason)}"</p>
-      <p><a href="${esc(orderUrl)}">Review the order</a></p>
-    `,
-  });
+  await sendTemplate("dispute_opened", adminEmail, { packageTitle: gigTitle, reason, orderLink: orderUrl });
 }
 
 export async function sendReviewReceivedEmail(sellerEmail: string, rating: number, gigTitle: string, profileUrl: string) {
-  await resend.emails.send({
-    from: FROM,
-    to: sellerEmail,
-    subject: subj(`New ${rating}-star review`),
-    html: `
-      <p>You received a new ${rating}-star review for <strong>${esc(gigTitle)}</strong>.</p>
-      <p><a href="${esc(profileUrl)}">View your profile</a></p>
-    `,
-  });
+  await sendTemplate("review_received", sellerEmail, { rating: String(rating), packageTitle: gigTitle, profileLink: profileUrl });
 }
 
 // Sent to the student the moment the mentor marks work complete - starts
@@ -147,64 +136,33 @@ export async function sendWorkCompleteEmail(
   delivery?: { number: number; description: string; files: { name: string }[] }
 ) {
   const files = delivery?.files || [];
-  await resend.emails.send({
-    from: FROM,
-    to: buyerEmail,
-    subject: subj(`${gigTitle} is ready for review`),
-    html: `
-      <p>Your mentor delivered <strong>${esc(gigTitle)}</strong>${delivery && delivery.number > 1 ? ` (delivery ${delivery.number})` : ""}.</p>
-      ${delivery ? `<p><strong>Their note:</strong></p><p style="color:#555;white-space:pre-wrap;">${esc(delivery.description)}</p>` : ""}
-      ${files.length ? `<p>${files.length} file${files.length === 1 ? "" : "s"} attached on the order page: ${files.map((f) => esc(f.name)).join(", ")}</p>` : ""}
-      <p>You have 96 hours to review it. Payment is held until you approve; if you don't take any action, it releases to your mentor automatically once that window passes.</p>
-      <p><a href="${esc(orderUrl)}">Review the work</a></p>
-    `,
+  await sendTemplate("work_delivered", buyerEmail, {
+    packageTitle: gigTitle,
+    deliveryLabel: delivery && delivery.number > 1 ? ` (delivery ${delivery.number})` : "",
+    deliveryNote: delivery ? blocks.deliveryNote(delivery.description) : "",
+    fileCount: files.length ? `${files.length} file${files.length === 1 ? "" : "s"}` : "",
+    fileNames: files.map((f) => f.name).join(", "),
+    orderLink: orderUrl,
   });
 }
 
 // Sent once per day to a seller whose work is past the buyer's due date
 // and hasn't been marked complete yet. See /api/cron/overdue-reminders.
 export async function sendOverdueReminderEmail(sellerEmail: string, gigTitle: string, dueDate: Date, orderUrl: string) {
-  await resend.emails.send({
-    from: FROM,
-    to: sellerEmail,
-    subject: subj(`Reminder: ${gigTitle} is overdue`),
-    html: `
-      <p><strong>${esc(gigTitle)}</strong> was due on ${dueDate.toLocaleDateString()} and hasn't been marked complete yet.</p>
-      <p>Mark it done as soon as it's ready so the student can review it.</p>
-      <p><a href="${esc(orderUrl)}">View the order</a></p>
-    `,
-  });
+  await sendTemplate("overdue_reminder", sellerEmail, { packageTitle: gigTitle, dueDate: dueDate.toLocaleDateString(), orderLink: orderUrl });
 }
 
 // Sent whenever someone posts in a dispute thread - to whoever DIDN'T
 // just post. If an admin asks a question, the buyer and seller both get
 // notified; if either of them replies, every admin gets notified.
-export async function sendDisputeMessageEmail(toEmail: string, fromName: string, gigTitle: string, previewText: string, orderUrl: string) {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: subj(`New reply on the ${gigTitle} dispute`),
-    html: `
-      <p><strong>${esc(fromName)}</strong> replied on the dispute for <strong>${esc(gigTitle)}</strong>:</p>
-      <p style="color:#555;">"${preview(previewText)}"</p>
-      <p><a href="${esc(orderUrl)}">View the dispute</a></p>
-    `,
-  });
+export async function sendDisputeMessageEmail(toEmail: string, fromName: string, gigTitle: string, previewMessage: string, orderUrl: string) {
+  await sendTemplate("dispute_reply", toEmail, { fromName, packageTitle: gigTitle, messagePreview: previewText(previewMessage), orderLink: orderUrl });
 }
 
 // Sent when someone uses "Forgot password?". The link works once and
 // expires after an hour.
 export async function sendPasswordResetEmail(toEmail: string, resetUrl: string) {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: "Reset your MentorsMD password",
-    html: `
-      <p>Someone (hopefully you) asked to reset the password for this MentorsMD account.</p>
-      <p><a href="${esc(resetUrl)}">Choose a new password</a></p>
-      <p style="color:#555;">This link expires in 1 hour and can only be used once. If you didn't ask for this, you can ignore this email and your password won't change.</p>
-    `,
-  });
+  await sendTemplate("password_reset", toEmail, { resetLink: resetUrl });
 }
 
 // ---- Calls ----
@@ -238,115 +196,43 @@ function icsAttachment(c: CallEmail, cancel = false) {
   return c.ics ? [{ filename: cancel ? "cancelled.ics" : "invite.ics", content: Buffer.from(c.ics), content_type: `text/calendar; charset=utf-8; method=${cancel ? "CANCEL" : "REQUEST"}` }] : undefined;
 }
 
-const CALL_FOOTER = `<p style="color:#777;font-size:13px;">Calls happen in a private MentorsMD video room. Calls may be recorded for safety and quality; only the MentorsMD team can watch a recording, and only if there's a problem with an order.</p>`;
+const callValues = (c: CallEmail): Values => ({ packageTitle: c.gigTitle, otherName: c.otherName, when: callWhen(c), joinLink: c.joinUrl, orderLink: c.orderUrl });
 
 // Sent to both sides when a call is booked or rescheduled, with a
 // calendar invite attached.
 export async function sendCallScheduledEmail(toEmail: string, c: CallEmail, rescheduled = false) {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: subj(`${rescheduled ? "Call moved" : "Call booked"}: ${c.gigTitle}`),
-    attachments: icsAttachment(c),
-    html: `
-      <p>Your call with <strong>${esc(c.otherName)}</strong> for <strong>${esc(c.gigTitle)}</strong> is ${rescheduled ? "now " : ""}set for:</p>
-      <p style="font-size:17px;"><strong>${esc(callWhen(c))}</strong></p>
-      <p>Join from <a href="${esc(c.joinUrl)}">your call page</a>. The Join button opens 10 minutes before the start. The attached invite adds it to your calendar.</p>
-      <p>Need to change it? You can reschedule or cancel on the <a href="${esc(c.orderUrl)}">order page</a> up to 24 hours before the call.</p>
-      ${CALL_FOOTER}
-    `,
-  });
+  await sendTemplate(rescheduled ? "call_rescheduled" : "call_booked", toEmail, callValues(c), { attachments: icsAttachment(c) });
 }
 
 export async function sendCallCancelledEmail(toEmail: string, c: CallEmail, cancelledBy: string) {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: subj(`Call cancelled: ${c.gigTitle}`),
-    attachments: icsAttachment(c, true),
-    html: `
-      <p>${esc(cancelledBy)} cancelled the call for <strong>${esc(c.gigTitle)}</strong> that was set for ${esc(callWhen(c))}.</p>
-      <p>A new time can be booked from the order page.</p>
-      <p><a href="${esc(c.orderUrl)}">View the order</a></p>
-    `,
-  });
+  await sendTemplate("call_cancelled", toEmail, { ...callValues(c), cancelledBy }, { attachments: icsAttachment(c, true) });
 }
 
 // "Your call is today" (8am local) and "Your call starts in 1 hour".
 export async function sendCallReminderEmail(toEmail: string, c: CallEmail, kind: "morning" | "hour") {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: subj(kind === "hour" ? `Starting in 1 hour: your call with ${c.otherName}` : `Today: your call with ${c.otherName}`),
-    html: `
-      <p>${kind === "hour" ? "Your call starts in about an hour." : "Just a reminder: you have a call today."}</p>
-      <p><strong>${esc(c.gigTitle)}</strong> with ${esc(c.otherName)}<br/>${esc(callWhen(c))}</p>
-      <p><a href="${esc(c.joinUrl)}" style="display:inline-block;background:#5536D6;color:#fff;padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:600;">Join the call</a></p>
-      <p style="color:#555;">The Join button works from 10 minutes before the start. Use a quiet spot and allow camera and microphone access when your browser asks.</p>
-      ${CALL_FOOTER}
-    `,
-  });
+  await sendTemplate(kind === "hour" ? "call_reminder_hour" : "call_reminder_today", toEmail, callValues(c));
 }
 
 // Mentor added busy dates that cover due dates they already agreed to.
 export async function sendBusyClashEmail(toEmail: string, clashes: { gigTitle: string; studentName: string; due: string; url: string }[]) {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: "Your new busy dates overlap existing deadlines",
-    html: `
-      <p>The busy dates you just added cover ${clashes.length === 1 ? "a due date" : "due dates"} you already have:</p>
-      <ul>${clashes.map((c) => `<li><a href="${esc(c.url)}">${esc(c.gigTitle)}</a> for ${esc(c.studentName)}, due ${esc(c.due)}</li>`).join("")}</ul>
-      <p>Existing orders keep their due dates. Deliver early, or message the student and change the due date on the order.</p>
-    `,
+  await sendTemplate("busy_dates_clash", toEmail, {
+    dueDatesPhrase: clashes.length === 1 ? "a due date" : "due dates",
+    clashList: blocks.clashList(clashes),
   });
 }
 
 // Nudges the student while a call included in their package is unbooked.
 export async function sendBookCallReminderEmail(buyerEmail: string, gigTitle: string, dueDate: Date | null, orderUrl: string) {
-  await resend.emails.send({
-    from: FROM,
-    to: buyerEmail,
-    subject: subj(`Book your call: ${gigTitle}`),
-    html: `
-      <p>Your package <strong>${esc(gigTitle)}</strong> includes a call with your mentor that isn't booked yet.</p>
-      ${dueDate ? `<p>Please book it before <strong>${esc(dueDate.toDateString())}</strong>.</p>` : ""}
-      <p><a href="${esc(orderUrl)}">Book a call</a></p>
-    `,
-  });
+  await sendTemplate("book_call_reminder", buyerEmail, { packageTitle: gigTitle, bookBy: dueDate ? dueDate.toDateString() : "", orderLink: orderUrl });
 }
 
 // The due date passed with a call still unbooked: the order is paused.
 export async function sendCallHoldEmail(toEmail: string, gigTitle: string, orderUrl: string, forStudent: boolean) {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: subj(`Action needed: ${gigTitle}`),
-    html: forStudent
-      ? `
-      <p>The due date for <strong>${esc(gigTitle)}</strong> has passed and the call included in it isn't booked.</p>
-      <p>You have 48 hours to book it, or to tell us you don't need it. After that, the call is forfeited and your mentor can complete the order.</p>
-      <p><a href="${esc(orderUrl)}">Book now or skip the call</a></p>
-    `
-      : `
-      <p>The due date for <strong>${esc(gigTitle)}</strong> has passed and the student hasn't booked the included call.</p>
-      <p>The order is paused. We've asked the student to book within 48 hours. You can extend the due date, message them, or contact us.</p>
-      <p><a href="${esc(orderUrl)}">View the order</a></p>
-    `,
-  });
+  await sendTemplate(forStudent ? "call_on_hold_student" : "call_on_hold_mentor", toEmail, { packageTitle: gigTitle, orderLink: orderUrl });
 }
 
 export async function sendCallForfeitedEmail(toEmail: string, gigTitle: string, orderUrl: string) {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: subj(`Call not booked: ${gigTitle}`),
-    html: `
-      <p>The call included in <strong>${esc(gigTitle)}</strong> wasn't booked within 48 hours of the due date, so it has been marked as forfeited.</p>
-      <p>The mentor can now mark the order complete.</p>
-      <p><a href="${esc(orderUrl)}">View the order</a></p>
-    `,
-  });
+  await sendTemplate("call_forfeited", toEmail, { packageTitle: gigTitle, orderLink: orderUrl });
 }
 
 // ---- Mentor applications ----
@@ -370,59 +256,35 @@ type ApplicationForEmail = {
 // the inbox answers them directly. The resume is attached when we could
 // read it; the link is always included as a backup.
 export async function sendApplicationEmail(app: ApplicationForEmail, adminUrl: string, resume?: { filename: string; content: Buffer }) {
-  await resend.emails.send({
-    from: FROM,
-    to: APPLICATIONS_EMAIL,
-    reply_to: app.email,
-    subject: subj(`Mentor application: ${app.name}`),
-    attachments: resume ? [resume] : undefined,
-    html: `
-      <p><strong>New mentor application</strong></p>
-      <p>
-        <strong>Name:</strong> ${esc(app.name)}<br/>
-        <strong>Email:</strong> ${esc(app.email)}<br/>
-        <strong>Phone:</strong> ${esc(app.phone)}<br/>
-        <strong>Medical school:</strong> ${esc(app.medicalSchool)}<br/>
-        <strong>Residency:</strong> ${esc(app.residency || "-")}
-      </p>
-      <p><strong>About them:</strong></p>
-      <p style="color:#555;white-space:pre-wrap;">${esc(app.blurb)}</p>
-      <p><strong>Resume:</strong> ${resume ? "attached" : "not attached"} (<a href="${esc(app.resumeUrl)}">${esc(app.resumeName)}</a>)</p>
-      <p><a href="${esc(adminUrl)}">Invite or decline in Admin</a>. Reply to this email to answer ${esc(app.name)} directly.</p>
-    `,
-  });
+  await sendTemplate(
+    "mentor_application",
+    APPLICATIONS_EMAIL,
+    {
+      applicantName: app.name,
+      applicantEmail: app.email,
+      phone: app.phone,
+      medicalSchool: app.medicalSchool,
+      residency: app.residency || "-",
+      about: blocks.quote(app.blurb),
+      resumeStatus: resume ? "attached" : "not attached",
+      resumeName: app.resumeName,
+      resumeLink: app.resumeUrl,
+      adminLink: adminUrl,
+    },
+    { reply_to: app.email, attachments: resume ? [resume] : undefined }
+  );
 }
 
 // To the applicant, right after they submit.
 export async function sendApplicationReceivedEmail(toEmail: string, name: string) {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    reply_to: APPLICATIONS_EMAIL,
-    subject: "We got your MentorsMD application",
-    html: `
-      <p>Hi ${esc(name.split(" ")[0])},</p>
-      <p>Thanks for applying to mentor on MentorsMD. Our senior team reviews every application and usually replies within a few days.</p>
-      <p>If you're a fit, we'll email you a one-time invite link to set up your mentor profile. You can reply to this email if you have any questions.</p>
-    `,
-  });
+  await sendTemplate("application_received", toEmail, { firstName: first(name) }, { reply_to: APPLICATIONS_EMAIL });
 }
 
 // ---- Safety (Phase 4) ----
 
 // "Confirm your email" - students confirm before sending their first message.
 export async function sendEmailVerificationEmail(toEmail: string, name: string, verifyUrl: string) {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: "Confirm your email for MentorsMD",
-    html: `
-      <p>Hi ${esc(name.split(" ")[0])},</p>
-      <p>Please confirm this is your email address so you can message mentors on MentorsMD.</p>
-      <p><a href="${esc(verifyUrl)}">Confirm my email</a></p>
-      <p style="color:#555;">This link expires in 48 hours. If you didn't create a MentorsMD account, you can ignore this email.</p>
-    `,
-  });
+  await sendTemplate("email_verification", toEmail, { firstName: first(name), verifyLink: verifyUrl });
 }
 
 // Instant alert to every admin for a high-severity flag.
@@ -431,16 +293,12 @@ export async function sendHighSeverityFlagEmail(
   flag: { kind: string; reason: string; evidence?: string | null; details?: string | null; subjectName?: string | null },
   adminUrl: string
 ) {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: subj(`High-severity flag: ${flag.reason}`),
-    html: `
-      <p><strong>${esc(flag.reason)}</strong>${flag.subjectName ? ` (about ${esc(flag.subjectName)})` : ""}</p>
-      ${flag.evidence ? `<p style="color:#555;">"${preview(flag.evidence)}"</p>` : ""}
-      ${flag.details ? `<p style="color:#555;">${preview(flag.details)}</p>` : ""}
-      <p><a href="${esc(adminUrl)}">Review it in Admin → Flags</a></p>
-    `,
+  await sendTemplate("high_severity_flag", toEmail, {
+    reason: flag.reason,
+    aboutWhom: flag.subjectName ? ` (about ${flag.subjectName})` : "",
+    evidence: flag.evidence ? previewText(flag.evidence) : "",
+    details: flag.details ? previewText(flag.details) : "",
+    adminLink: adminUrl,
   });
 }
 
@@ -455,53 +313,26 @@ export type DigestSummary = {
 
 // Monday digest for admins.
 export async function sendSafetyDigestEmail(toEmail: string, d: DigestSummary, adminUrl: string) {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: subj(`MentorsMD safety digest: ${d.open} open flag${d.open === 1 ? "" : "s"}`),
-    html: `
-      <p><strong>This week on MentorsMD</strong></p>
-      <p>${d.newThisWeek} new flag${d.newThisWeek === 1 ? "" : "s"} in the last 7 days · ${d.open} open in total · ${d.high} open high-severity</p>
-      ${d.byKind.length ? `<p>${d.byKind.map((k) => `${esc(k.kind.toLowerCase().replace(/_/g, " "))}: ${k.count}`).join(" · ")}</p>` : ""}
-      ${d.autoPaused.length ? `<p>Paused automatically (3 upheld flags in 90 days): ${d.autoPaused.map((u) => esc(u.name)).join(", ")}</p>` : ""}
-      ${d.top.length ? `<p><strong>Most serious open flags</strong></p><ul>${d.top.map((t) => `<li>${esc(t.reason)}${t.subjectName ? ` (${esc(t.subjectName)})` : ""}</li>`).join("")}</ul>` : ""}
-      <p><a href="${esc(adminUrl)}">Open Admin → Flags</a></p>
-    `,
+  await sendTemplate("safety_digest", toEmail, {
+    openFlags: `${d.open} open flag${d.open === 1 ? "" : "s"}`,
+    newFlags: `${d.newThisWeek} new flag${d.newThisWeek === 1 ? "" : "s"}`,
+    openCount: String(d.open),
+    highCount: String(d.high),
+    byKind: d.byKind.map((k) => `${k.kind.toLowerCase().replace(/_/g, " ")}: ${k.count}`).join(" · "),
+    autoPaused: d.autoPaused.map((u) => u.name).join(", "),
+    topFlags: blocks.topFlags(d.top),
+    adminLink: adminUrl,
   });
 }
 
 // An admin's warning to a student or mentor.
 export async function sendSafetyWarningEmail(toEmail: string, name: string, reason: string, note: string | null) {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: "A note from the MentorsMD team",
-    html: `
-      <p>Hi ${esc(name.split(" ")[0])},</p>
-      <p>Our team reviewed recent activity on your account and found something that goes against our Community Guidelines: <strong>${esc(reason)}</strong>.</p>
-      ${note ? `<p style="color:#555;white-space:pre-wrap;">${esc(note)}</p>` : ""}
-      <p>Please take a moment to read the <a href="${esc(SITE_URL)}/community-guidelines">Community Guidelines</a>. Repeated problems can lead to your account being paused or removed.</p>
-      <p>Reply to this email if you think we got this wrong.</p>
-    `,
-  });
+  await sendTemplate("safety_warning", toEmail, { firstName: first(name), reason, teamNote: note ? blocks.quote(note) : "", siteLink: SITE_URL });
 }
 
 // Account paused pending review (by an admin or automatically).
 export async function sendAccountPausedEmail(toEmail: string, name: string, isMentor: boolean) {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: "Your MentorsMD account is paused for review",
-    html: `
-      <p>Hi ${esc(name.split(" ")[0])},</p>
-      <p>Your account has been paused while our team reviews some recent reports. ${
-        isMentor
-          ? "Your profile is hidden from search for now. Your current orders are not affected, and payments already held stay protected."
-          : "You can't send new messages for now. Your current orders are not affected, and payments already held stay protected."
-      }</p>
-      <p>We'll be in touch. Reply to this email if you'd like to share anything with us.</p>
-    `,
-  });
+  await sendTemplate(isMentor ? "account_paused_mentor" : "account_paused_student", toEmail, { firstName: first(name) });
 }
 
 // ---- Minors and parental consent (Phase 5) ----
@@ -515,33 +346,22 @@ export async function sendParentConsentEmail(
   expiresAt: Date,
   reminder = false
 ) {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: subj(`${reminder ? "Reminder: " : ""}${studentName} needs your consent to use MentorsMD`),
-    html: `
-      <p>Hi ${esc(parentName.split(" ")[0])},</p>
-      <p><strong>${esc(studentName)}</strong> created a student account on MentorsMD, where students applying to medical school get one-on-one help from vetted medical students and residents.</p>
-      <p>Because ${esc(studentName.split(" ")[0])} is under 18, their account stays paused until a parent or guardian reads our Terms and the Parental Consent form and consents.</p>
-      <p><a href="${esc(consentUrl)}" style="display:inline-block;background:#5536D6;color:#fff;padding:12px 22px;border-radius:999px;text-decoration:none;font-weight:600;">Review and give consent</a></p>
-      <p style="color:#555;">This link expires on ${esc(expiresAt.toDateString())}. If you don't know this student, or don't want them to use MentorsMD, you can ignore this email or choose "I don't consent" on the page.</p>
-    `,
+  await sendTemplate(reminder ? "parent_consent_reminder" : "parent_consent", toEmail, {
+    parentFirstName: first(parentName),
+    studentName,
+    studentFirstName: first(studentName),
+    consentLink: consentUrl,
+    expiresOn: expiresAt.toDateString(),
   });
 }
 
 // To the parent once they've consented: their private parent link.
 export async function sendParentConsentConfirmedEmail(toEmail: string, parentName: string, studentName: string, parentUrl: string) {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: subj(`Consent recorded for ${studentName}`),
-    html: `
-      <p>Hi ${esc(parentName.split(" ")[0])},</p>
-      <p>Thank you. Your consent for <strong>${esc(studentName)}</strong> to use MentorsMD is recorded, and their account is now active.</p>
-      <p>You'll get a receipt by email for every order. You can see their orders and calls at any time, or withdraw your consent, from your private parent page:</p>
-      <p><a href="${esc(parentUrl)}">Open your parent page</a></p>
-      <p style="color:#555;">Keep this link private: anyone with it can see the order history. It stops working when ${esc(studentName.split(" ")[0])} turns 18.</p>
-    `,
+  await sendTemplate("parent_consent_confirmed", toEmail, {
+    parentFirstName: first(parentName),
+    studentName,
+    studentFirstName: first(studentName),
+    parentLink: parentUrl,
   });
 }
 
@@ -553,86 +373,36 @@ export async function sendParentReceiptEmail(
   order: { gigTitle: string; mentorName: string; amountCents: number; paidAt: Date; dueDate: Date | null },
   parentUrl: string
 ) {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: subj(`Receipt: ${studentName} booked ${order.gigTitle}`),
-    html: `
-      <p>Hi ${esc(parentName.split(" ")[0])},</p>
-      <p><strong>${esc(studentName)}</strong> booked a package on MentorsMD.</p>
-      <p>
-        <strong>Package:</strong> ${esc(order.gigTitle)}<br/>
-        <strong>Mentor:</strong> ${esc(order.mentorName)}<br/>
-        <strong>Amount paid:</strong> $${(order.amountCents / 100).toFixed(2)}<br/>
-        <strong>Date:</strong> ${esc(order.paidAt.toDateString())}
-        ${order.dueDate ? `<br/><strong>Due:</strong> ${esc(order.dueDate.toDateString())}` : ""}
-      </p>
-      <p>Payment held until you approve: the money is only released to the mentor after the work is delivered and approved (or the review window passes).</p>
-      <p><a href="${esc(parentUrl)}">See all orders and calls</a></p>
-    `,
+  await sendTemplate("parent_receipt", toEmail, {
+    parentFirstName: first(parentName),
+    studentName,
+    packageTitle: order.gigTitle,
+    mentorName: order.mentorName,
+    amount: money(order.amountCents),
+    paidOn: order.paidAt.toDateString(),
+    dueDate: order.dueDate ? order.dueDate.toDateString() : "",
+    parentLink: parentUrl,
   });
 }
 
 // To the student when their minor status changes.
 export async function sendMinorStatusEmail(toEmail: string, name: string, kind: "CONSENTED" | "DECLINED" | "WITHDRAWN" | "ADULT") {
-  const first = esc(name.split(" ")[0]);
-  const text = {
-    CONSENTED: { subject: "Your MentorsMD account is ready", body: "Your parent or guardian gave their consent, so your account is now active. You can message mentors and book packages." },
-    DECLINED: { subject: "Your parent or guardian didn't give consent", body: "Your parent or guardian chose not to give consent, so your MentorsMD account stays paused. If this was a mistake, you can send them a new request after logging in." },
-    WITHDRAWN: { subject: "Your MentorsMD account is paused", body: "Your parent or guardian withdrew their consent, so your account is paused. Our team will contact your parent or guardian about any open orders." },
-    ADULT: { subject: "Happy birthday from MentorsMD", body: "You're 18 now, so your account is a regular account: parental consent is no longer needed, and your parent's link to your orders has stopped working." },
-  }[kind];
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: text.subject,
-    html: `
-      <p>Hi ${first},</p>
-      <p>${text.body}</p>
-      <p><a href="${esc(SITE_URL)}">Go to MentorsMD</a></p>
-    `,
-  });
+  const key = { CONSENTED: "minor_consented", DECLINED: "minor_declined", WITHDRAWN: "minor_withdrawn", ADULT: "minor_turned_18" }[kind];
+  await sendTemplate(key, toEmail, { firstName: first(name), siteLink: SITE_URL });
 }
 
 // ---- Admin team (Phase 5) ----
 
 export async function sendAdminInviteEmail(toEmail: string, inviterName: string, roleLabel: string, inviteUrl: string) {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: "You're invited to the MentorsMD admin team",
-    html: `
-      <p>${esc(inviterName)} invited you to join the MentorsMD team as ${esc(roleLabel)}.</p>
-      <p><a href="${esc(inviteUrl)}">Accept the invite and set your password</a></p>
-      <p style="color:#555;">This link expires in 7 days and can only be used once. When you first log in you'll set up 2-step verification (an authenticator app or email codes).</p>
-    `,
-  });
+  await sendTemplate("admin_invite", toEmail, { inviterName, roleLabel, inviteLink: inviteUrl });
 }
 
 export async function sendAdminCodeEmail(toEmail: string, code: string) {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: subj(`Your MentorsMD admin code: ${code}`),
-    html: `
-      <p>Your MentorsMD admin login code is:</p>
-      <p style="font-size:28px;letter-spacing:6px;"><strong>${esc(code)}</strong></p>
-      <p style="color:#555;">It expires in 10 minutes. If you didn't just try to log in, change your password and tell the team Owner.</p>
-    `,
-  });
+  await sendTemplate("admin_code", toEmail, { code });
 }
 
 export async function sendTeamAccessChangedEmail(toEmail: string, name: string, text: string) {
-  await resend.emails.send({
-    from: FROM,
-    to: toEmail,
-    subject: "Your MentorsMD admin access changed",
-    html: `
-      <p>Hi ${esc(name.split(" ")[0])},</p>
-      <p>${esc(text)}</p>
-      <p style="color:#555;">If you have questions, contact the MentorsMD team Owner.</p>
-    `,
-  });
+  await sendTemplate("team_access_changed", toEmail, { firstName: first(name), message: text });
 }
 
 export { SITE_URL };
