@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 // Admin -> Website: the editable pages and which have unpublished changes.
 export async function GET() {
-  const admin = await currentAdmin();
+  const admin = await currentAdmin("website");
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   let rows: { key: string; draft: unknown; updatedAt: Date; publishedAt: Date | null }[] = [];
   let setupNeeded = false;

@@ -30,3 +30,4 @@ Next.js 14 (App Router) + TypeScript, Prisma on Neon Postgres, NextAuth (email a
 - Build links to the site with `siteUrl()` from `lib/siteUrl.ts`, never `process.env.NEXTAUTH_URL` directly.
 - Public page text and photos (homepage, senior team, become a mentor, mentors intro, contact, footer) are edited in Admin -> Website (`/admin/website`): draft, preview, publish. Fields and their built-in defaults live in `lib/siteContent.ts`; loading/caching in `lib/siteContentStore.ts`; stored in the `SiteContent` table (`prisma/website-editor-2026-10.sql`). When changing copy in code, change the default there.
 - This repository is public: never commit secrets, real customer data or personal email addresses.
+- Automatic emails: wording lives in `lib/emailTemplates.ts` (defaults) and Admin -> Emails (saved edits, `EmailTemplate` table). Send through a template in `lib/email.ts`, never with raw HTML; every send attempt is in Admin -> Email log (`EmailLog`, kept 90 days).

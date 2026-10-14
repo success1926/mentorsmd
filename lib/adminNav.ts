@@ -19,11 +19,9 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/calls", label: "Calls & recordings", perm: "calls", group: "Safety" },
   { href: "/admin/minors", label: "Under 18", perm: "minors", group: "Safety" },
 
-  // Website and Emails ship in their own pull requests; flip `ready` to
-  // true (or drop it) once their pages are merged.
-  { href: "/admin/website", label: "Website", perm: "website", group: "Content & legal", ready: false },
-  { href: "/admin/emails", label: "Emails", perm: "emails", group: "Content & legal", ready: false },
-  { href: "/admin/email-log", label: "Email log", perm: "emails", group: "Content & legal", ready: false },
+  { href: "/admin/website", label: "Website", perm: "website", group: "Content & legal" },
+  { href: "/admin/emails", label: "Emails", perm: "emails", group: "Content & legal" },
+  { href: "/admin/email-log", label: "Email log", perm: "emails", group: "Content & legal" },
   { href: "/admin/legal", label: "Legal", perm: "legal", group: "Content & legal" },
 
   { href: "/admin/insights", label: "Insights", perm: "insights", group: "Settings" },

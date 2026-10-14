@@ -16,7 +16,7 @@ export async function POST(req: Request) {
       body,
       request: req,
       onBeforeGenerateToken: async (pathname) => {
-        if (!(await currentAdmin())) throw new Error("Admin access required");
+        if (!(await currentAdmin("website"))) throw new Error("Admin access required");
         if (!pathname.startsWith("site/") || pathname.includes("..")) throw new Error("Invalid file name");
         if (!/\.(jpe?g|png|webp|gif|avif)$/i.test(pathname)) throw new Error("Photos must be JPG, PNG, WebP, GIF or AVIF");
         return { allowedContentTypes: SITE_IMAGE_TYPES, maximumSizeInBytes: MAX_BYTES, addRandomSuffix: true };

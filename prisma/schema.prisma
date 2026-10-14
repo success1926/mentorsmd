@@ -927,3 +927,35 @@ model SiteContent {
   publishedAt   DateTime?
   publishedById String?
 }
+
+// ---------------- Emails (Oct 2026) ----------------
+
+// Admin -> Emails: the wording an admin saved for one automatic email.
+// key matches an entry in lib/emailTemplates.ts. No row = the default
+// wording in that file is used. updatedById is the admin who saved it
+// (kept as a plain id so this table doesn't change the User model).
+model EmailTemplate {
+  key         String   @id
+  subject     String
+  body        String
+  updatedAt   DateTime @default(now()) @updatedAt
+  updatedById String?
+}
+
+// Admin -> Email log: one row per send attempt from lib/email.ts (never
+// the email body). status: SENT or FAILED. Rows older than 90 days are
+// deleted by the daily safety cron.
+model EmailLog {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  templateKey String
+  toEmail     String
+  subject     String
+  status      String
+  providerId  String?
+  error       String?
+
+  @@index([createdAt])
+  @@index([templateKey, createdAt])
+  @@index([toEmail, createdAt])
+}

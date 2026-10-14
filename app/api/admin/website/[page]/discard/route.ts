@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 // Discard draft: throw away unpublished changes (the live page is untouched).
 export async function POST(_req: Request, { params }: { params: { page: string } }) {
-  const admin = await currentAdmin();
+  const admin = await currentAdmin("website");
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const key = params.page;
   if (!isSitePageKey(key)) return NextResponse.json({ error: "Unknown page" }, { status: 404 });

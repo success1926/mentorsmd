@@ -33,7 +33,7 @@ const liveRows = unstable_cache(
 export const isSitePreview = cache(async (): Promise<boolean> => {
   try {
     if (!draftMode().isEnabled) return false;
-    return !!(await currentAdmin());
+    return !!(await currentAdmin("website"));
   } catch {
     return false;
   }

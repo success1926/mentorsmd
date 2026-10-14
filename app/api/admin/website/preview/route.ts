@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 // Preview: turns on draft mode (a cookie signed by the server) for this
 // admin's browser and opens the page showing the saved drafts.
 export async function GET(req: Request) {
-  const admin = await currentAdmin();
+  const admin = await currentAdmin("website");
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const key = new URL(req.url).searchParams.get("page");
   if (!isSitePageKey(key)) return NextResponse.json({ error: "Unknown page" }, { status: 404 });

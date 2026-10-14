@@ -148,7 +148,6 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
   return (
     <div className="page stack-lg" style={{ gap: 28, maxWidth: 980 }}>
       <div className="row-wrap" style={{ gap: 16 }}>
-        <Link href="/admin" className="link small">← Admin</Link>
         <Link href="/admin/website" className="link small">All website pages</Link>
       </div>
       <div className="stack-sm">

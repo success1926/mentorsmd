@@ -30,7 +30,6 @@ export default function AdminWebsitePage() {
 
   return (
     <div className="page stack-lg" style={{ gap: 28 }}>
-      <Link href="/admin" className="link small">← Admin</Link>
       <div className="stack-sm">
         <h1 className="page-title">Website</h1>
         <p className="lede">Change the text and photos on the public site. Save a draft, preview it on the real page, then publish.</p>

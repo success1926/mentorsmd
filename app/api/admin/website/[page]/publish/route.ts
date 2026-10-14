@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 // Publish: the saved draft becomes what visitors see.
 export async function POST(_req: Request, { params }: { params: { page: string } }) {
-  const admin = await currentAdmin();
+  const admin = await currentAdmin("website");
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const key = params.page;
   if (!isSitePageKey(key)) return NextResponse.json({ error: "Unknown page" }, { status: 404 });
