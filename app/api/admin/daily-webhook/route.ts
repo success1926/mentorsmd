@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { currentAdmin } from "@/lib/adminTeam";
 import { SITE_URL } from "@/lib/email";
 import { createWebhook } from "@/lib/daily";
 
@@ -8,8 +7,8 @@ import { createWebhook } from "@/lib/daily";
 // events to /api/webhooks/daily. Shows the webhook secret, which the
 // owner then saves in Vercel as DAILY_WEBHOOK_SECRET.
 export async function POST() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
+  const admin = await currentAdmin("calls");
+  if (!admin) {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
   // Only from the live site: a preview's address changes with every

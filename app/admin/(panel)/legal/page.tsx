@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { AdminGuard, AdminNav } from "@/components/admin/AdminNav";
+import { AdminGuard } from "@/components/admin/AdminNav";
 import { LegalBody } from "@/components/LegalBody";
 import { LEGAL_INFO, LEGAL_KINDS } from "@/lib/legalKinds";
 
@@ -34,7 +34,6 @@ export default function AdminLegalPage() {
         <h1 className="page-title">Legal</h1>
         <p className="lede">Terms, Privacy, the Mentor Agreement, Community Guidelines and the Parental Consent form.</p>
       </div>
-      <AdminNav />
       <div className="card card-tint stack-sm small">
         <b>How this works</b>
         <span className="text-secondary">

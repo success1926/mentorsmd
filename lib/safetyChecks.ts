@@ -180,7 +180,7 @@ export async function sendWeeklyDigest(now = new Date(), force = false) {
   let sent = 0;
   for (const a of admins) {
     try {
-      await sendSafetyDigestEmail(a.email, summary, `${SITE_URL}/admin#flags`);
+      await sendSafetyDigestEmail(a.email, summary, `${SITE_URL}/admin/disputes#flags`);
       sent++;
     } catch (err) {
       console.error("Couldn't send the safety digest:", err);

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { currentAdmin } from "@/lib/adminTeam";
 import { prisma } from "@/lib/prisma";
 import { logAdminAction } from "@/lib/adminLog";
 
@@ -9,8 +8,8 @@ import { logAdminAction } from "@/lib/adminLog";
 // conditional on the invite not being REDEEMED, so a coach who signs up at
 // the same moment keeps their account and the redeemed record is kept.
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
+  const admin = await currentAdmin("mentors");
+  if (!admin) {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
 
@@ -26,6 +25,6 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     );
   }
 
-  await logAdminAction({ adminId: (session.user as any).id, action: "INVITE_CANCELLED", summary: `Cancelled the mentor invite for ${before?.email || "an applicant"}`, targetType: "INVITE", targetId: params.id });
+  await logAdminAction({ adminId: admin.id, action: "INVITE_CANCELLED", summary: `Cancelled the mentor invite for ${before?.email || "an applicant"}`, targetType: "INVITE", targetId: params.id });
   return NextResponse.json({ success: true });
 }

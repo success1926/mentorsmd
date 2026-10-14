@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/prisma";
-import { ADMIN_ROLE_LABEL, inviteByToken, normalizeAdminRole } from "@/lib/adminTeam";
+import { inviteByToken, normalizeAdminRole, roleLabelFor } from "@/lib/adminTeam";
 import { LIMITS, isNonEmptyString } from "@/lib/validate";
 import { logAdminAction } from "@/lib/adminLog";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   const token = new URL(req.url).searchParams.get("token") || "";
   const invite = await inviteByToken(token);
   if (!invite) return NextResponse.json({ error: "This invite link isn't valid any more. Ask the Owner to send a new one." }, { status: 404 });
-  return NextResponse.json({ email: invite.email, role: ADMIN_ROLE_LABEL[normalizeAdminRole(invite.adminRole)], invitedBy: invite.invitedBy?.name || null });
+  return NextResponse.json({ email: invite.email, role: roleLabelFor(invite), invitedBy: invite.invitedBy?.name || null });
 }
 
 // POST { token, name, password } -> creates the admin account.
@@ -48,6 +48,8 @@ export async function POST(req: Request) {
     passwordHash,
     role: "ADMIN" as const,
     adminRole,
+    // Custom role picked when the Owner sent the invite (null = full access).
+    adminRoleId: adminRole === "OWNER" ? null : invite.adminRoleId,
     adminDisabledAt: null,
     removedByAdmin: false,
     profileStatus: "ACTIVE" as const,
@@ -70,7 +72,7 @@ export async function POST(req: Request) {
   await logAdminAction({
     adminId: user.id,
     action: "TEAM_JOINED",
-    summary: `${user.name} (${user.email}) joined the team as ${ADMIN_ROLE_LABEL[adminRole]}`,
+    summary: `${user.name} (${user.email}) joined the team as ${roleLabelFor(invite)}`,
     targetType: "USER",
     targetId: user.id,
     targetUserId: user.id,

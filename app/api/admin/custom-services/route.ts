@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { currentAdmin } from "@/lib/adminTeam";
 import { prisma } from "@/lib/prisma";
 
 // Admin: the custom service names mentors typed for "Other" packages,
 // grouped case-insensitively. Several mentors writing the same thing is
 // the signal to add it as an official service.
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
+  const admin = await currentAdmin("services");
+  if (!admin) {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
 

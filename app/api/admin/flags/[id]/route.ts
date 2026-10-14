@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { currentAdmin } from "@/lib/adminTeam";
 import { prisma } from "@/lib/prisma";
 import { resolveFlag, type FlagAction } from "@/lib/flags";
 import { LIMITS } from "@/lib/validate";
 
 async function adminId() {
-  const session = await getServerSession(authOptions);
-  return session?.user && (session.user as any).role === "ADMIN" ? ((session.user as any).id as string) : null;
+  return (await currentAdmin("flags"))?.id ?? null;
 }
 
 // The conversation around a flag (read-only, for the admin's review).

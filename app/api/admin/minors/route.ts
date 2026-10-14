@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 // Admin -> Under 18 (#113): students aged 13-17 (and those who have
 // turned 18), with every parent consent request and its signature record.
 export async function GET() {
-  const admin = await currentAdmin();
+  const admin = await currentAdmin("minors");
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const users = await prisma.user.findMany({
     where: { OR: [{ minorStatus: { not: null } }, { becameAdultAt: { not: null } }, { parentConsents: { some: {} } }] },
@@ -32,7 +32,7 @@ export async function GET() {
 
 // { action: "resend", userId }: email the parent a fresh consent link.
 export async function POST(req: Request) {
-  const admin = await currentAdmin();
+  const admin = await currentAdmin("minors");
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const body = await req.json().catch(() => ({}));
   if (body.action !== "resend" || typeof body.userId !== "string") return NextResponse.json({ error: "Unknown action" }, { status: 400 });

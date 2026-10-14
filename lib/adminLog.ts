@@ -7,7 +7,7 @@ export type AdminActionInput = {
   adminId: string | null;
   action: string; // e.g. FLAG_DISMISS, USER_PAUSE, ORDER_REFUND, INVITE_SENT
   summary: string; // one readable line: "Paused Jane Doe (3 upheld flags)"
-  targetType?: "USER" | "ORDER" | "FLAG" | "INVITE" | "APPLICATION";
+  targetType?: "USER" | "ORDER" | "FLAG" | "INVITE" | "APPLICATION" | "ROLE";
   targetId?: string | null;
   targetUserId?: string | null;
   details?: Record<string, unknown>;

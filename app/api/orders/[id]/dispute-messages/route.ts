@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { adminCan } from "@/lib/adminTeam";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -13,7 +14,8 @@ async function getAuthorizedOrder(orderId: string, userId: string, role: string)
   });
   if (!order) return null;
   const isParticipant = order.buyerId === userId || order.sellerId === userId;
-  if (!isParticipant && role !== "ADMIN") return null;
+  // Admins need the Disputes permission (lib/adminPermissions.ts).
+  if (!isParticipant && !(role === "ADMIN" && (await adminCan("disputes")))) return null;
   return order;
 }
 

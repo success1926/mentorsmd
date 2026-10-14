@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { currentAdmin } from "@/lib/adminTeam";
 import { prisma } from "@/lib/prisma";
 import { recordingAccessLink } from "@/lib/daily";
 
 // Admin-only "Watch recording": asks Daily for a short-lived link to the
 // recording. The link is never stored or shown to the student or mentor.
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
+  const admin = await currentAdmin(["calls", "disputes"]);
+  if (!admin) {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
   const rec = await prisma.callRecording.findUnique({ where: { id: params.id } });

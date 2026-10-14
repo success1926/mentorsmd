@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { currentAdmin } from "@/lib/adminTeam";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { isDefiniteStripeFailure } from "@/lib/orderRelease";
@@ -12,8 +11,9 @@ import { reportError } from "@/lib/sentry";
 // giving buyers or sellers the ability to trigger it themselves would
 // defeat the point of holding funds in escrow in the first place.
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
+  // Money: needs the Orders permission (lib/adminPermissions.ts).
+  const admin = await currentAdmin("orders");
+  if (!admin) {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
 
@@ -80,7 +80,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     .updateMany({ where: { orderId: order.id, status: "BOOKED", startTime: { gt: new Date() } }, data: { status: "CANCELLED" } })
     .catch((e) => console.error("Couldn't cancel calls on refunded order:", e));
 
-  const adminId = (session.user as any).id;
+  const adminId = admin.id;
   await logAdminAction({
     adminId,
     action: "ORDER_REFUND",

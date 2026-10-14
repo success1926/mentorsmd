@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { currentAdmin } from "@/lib/adminTeam";
 import { prisma } from "@/lib/prisma";
 import { PLATFORM_FEE_PERCENT } from "@/lib/stripe";
 
@@ -10,8 +9,8 @@ import { PLATFORM_FEE_PERCENT } from "@/lib/stripe";
 // All figures are derived from Order rows, not tracked separately, so they
 // can never drift from what Stripe actually did.
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
+  const admin = await currentAdmin("orders");
+  if (!admin) {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
 
