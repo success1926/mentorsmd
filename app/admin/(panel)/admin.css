@@ -4,8 +4,13 @@
 .adm-side-top { display: flex; align-items: center; gap: 10px; padding: 0 10px 14px; }
 .adm-brand { font-family: var(--font-display); font-size: 22px; }
 .adm-current, .adm-menu-btn { display: none; }
-.adm-nav-list { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 16px; }
+.adm-nav-list { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 16px; }
 .adm-group { display: flex; flex-direction: column; gap: 2px; }
+.adm-group-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border: 0; border-radius: 10px; background: none; font: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); cursor: pointer; text-align: left; }
+.adm-group-btn:hover { color: var(--ink); background: var(--tint-soft); }
+.adm-group-btn > span:first-child { flex: 1; }
+.adm-caret { font-size: 11px; }
+.adm-group-items { display: flex; flex-direction: column; gap: 2px; padding-bottom: 6px; }
 .adm-group-label { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); padding: 0 10px 4px; }
 .adm-link { display: block; padding: 8px 10px; border-radius: 10px; color: var(--ink); font-size: 15px; text-decoration: none; }
 .adm-link:hover { background: var(--tint-soft); opacity: 1; }
