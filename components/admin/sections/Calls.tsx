@@ -3,16 +3,52 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Attendance, Recordings } from "@/components/Calls";
+import { NEEDS_ADMIN, outcomeLabel } from "@/lib/callOutcomes";
+
+// The admin's choices for a past call (see /api/admin/calls/[id]/outcome).
+const OVERRIDES = [
+  { outcome: "HELD", label: "Count as held", confirm: "Count this call as held? It's used up, and nobody is emailed." },
+  { outcome: "FREE_REBOOK", label: "Give a free rebook", confirm: "Give a free rebook? The call no longer counts, so the student can book another. Nobody is emailed, so tell them yourself." },
+  { outcome: "STUDENT_NO_SHOW", label: "Mark student no-show", confirm: "Mark as a student no-show? The call counts as used, and both get the no-show email." },
+  { outcome: "MENTOR_NO_SHOW", label: "Mark mentor no-show", confirm: "Mark as a mentor no-show? The student gets a free rebook, both get the no-show email, and a second one on this order lets the student open a dispute for a full refund." },
+];
+
+function OutcomeBadge({ c }: { c: any }) {
+  if (!c.outcome) return <span className="badge">Not decided yet</span>;
+  const tone = c.outcome === "HELD" ? "badge-success" : NEEDS_ADMIN.includes(c.outcome) ? "badge-warning" : c.outcome === "MENTOR_NO_SHOW" ? "badge-danger" : "";
+  return (
+    <span className={`badge ${tone}`}>
+      {outcomeLabel(c.outcome)}
+      {c.outcomeById ? " (set by an admin)" : " (automatic)"}
+    </span>
+  );
+}
 
 // Admin -> Calls & recordings: upcoming and past calls, attendance,
-// recordings, and the "Connect Daily webhook" button.
+// recordings, each past call's outcome (with buttons to change it), and
+// the "Connect Daily webhook" button.
 export function CallsAdmin() {
   const [data, setData] = useState<{ calls: any[]; setup: any } | null>(null);
   const [secret, setSecret] = useState<string | null>(null);
   const [hookMsg, setHookMsg] = useState("");
-  useEffect(() => {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [outcomeMsg, setOutcomeMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const load = () =>
     fetch("/api/admin/calls").then((r) => r.json()).then((d) => setData({ calls: d.calls || [], setup: d.setup || {} })).catch(() => setData({ calls: [], setup: {} }));
+  useEffect(() => {
+    load();
   }, []);
+
+  async function setOutcome(c: any, o: (typeof OVERRIDES)[number]) {
+    if (!confirm(o.confirm)) return;
+    setBusy(c.id);
+    setOutcomeMsg(null);
+    const res = await fetch(`/api/admin/calls/${c.id}/outcome`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ outcome: o.outcome }) });
+    const d = await res.json().catch(() => ({}));
+    setBusy(null);
+    setOutcomeMsg(res.ok ? { ok: true, text: `Saved: ${outcomeLabel(o.outcome)}.` } : { ok: false, text: d.error || "Couldn't save that" });
+    load();
+  }
 
   async function connectWebhook() {
     setHookMsg("");
@@ -27,6 +63,7 @@ export function CallsAdmin() {
   const past = calls.filter((c) => new Date(c.endTime).getTime() < now && c.status !== "CANCELLED");
   const upcoming = calls.filter((c) => new Date(c.endTime).getTime() >= now && c.status === "BOOKED").reverse();
   const setup = data?.setup || {};
+  const undecided = past.filter((c) => c.outcome && NEEDS_ADMIN.includes(c.outcome)).length;
 
   return (
     <section className="stack-sm" id="calls">
@@ -48,6 +85,13 @@ export function CallsAdmin() {
         </div>
       )}
       <span className="text-secondary">Recordings are only for checking problems (disputes, no-shows). They&apos;re deleted automatically 60 days after the order closes.</span>
+      <span className="text-secondary">
+        About 30 minutes after each call ends, the site decides what happened from who joined: held (both there together for 10+ minutes),
+        student no-show (the mentor joined, the student hadn&apos;t by 15 minutes in: the call is used), mentor no-show (the student joined, the
+        mentor hadn&apos;t by 15 minutes in: the student gets a free rebook) or nobody joined (needs your decision). You can change any of them below.
+      </span>
+      {undecided > 0 && <div className="alert alert-warning">{undecided} past call{undecided === 1 ? " needs" : "s need"} a decision: open &quot;Past 60 days&quot; below.</div>}
+      {outcomeMsg && <div role="status" className={`alert ${outcomeMsg.ok ? "alert-success" : "alert-danger"}`}>{outcomeMsg.text}</div>}
       <details className="collapse">
         <summary><span className="row" style={{ gap: 8 }}>Upcoming <span className="tab-count">{upcoming.length}</span></span></summary>
         <div className="collapse-body" style={{ gap: 0 }}>
@@ -74,7 +118,8 @@ export function CallsAdmin() {
                   <b style={{ fontSize: 15 }}>{new Date(c.startTime).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</b>
                   <span className="text-muted">{c.order.gig.title} · {c.order.buyer.name} (student) with {c.order.seller.name} (mentor)</span>
                 </span>
-                <span className="row" style={{ gap: 6 }}>
+                <span className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+                  <OutcomeBadge c={c} />
                   {c.order.disputed && <span className="badge badge-danger">Disputed</span>}
                   <Link href={`/orders/${c.order.id}`} className="btn btn-sm">Open order</Link>
                 </span>
@@ -82,6 +127,11 @@ export function CallsAdmin() {
               <div className="stack-sm" style={{ paddingTop: 8 }}>
                 <Attendance booking={c} order={c.order} />
                 <Recordings booking={c} />
+                <div className="row-wrap" style={{ gap: 6 }}>
+                  {OVERRIDES.filter((o) => o.outcome !== c.outcome).map((o) => (
+                    <button key={o.outcome} className="btn btn-sm" disabled={busy === c.id} onClick={() => setOutcome(c, o)}>{o.label}</button>
+                  ))}
+                </div>
               </div>
             </div>
           ))}

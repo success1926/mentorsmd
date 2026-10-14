@@ -50,6 +50,11 @@ function BuiltInPrivacyPage() {
             PostHog (product analytics), and our database host. Each has its own privacy practices governing the data that passes through them.
           </p>
           <p className="text-secondary">
+            Sentry receives technical error reports when something breaks. For errors in your browser we send only the page address
+            (without anything after a &quot;?&quot;, and with private links and ids removed) and the kind of error, never what you typed or
+            your name or email.
+          </p>
+          <p className="text-secondary">
             PostHog shows us which pages are visited and clicked, using a cookie. If you are logged in it receives only your internal account id
             and whether you are a student or mentor, never your name, email or date of birth. Anything typed into forms is masked. Short
             screen recordings are made only on public pages (such as the homepage and mentor profiles) for visitors who are not logged in; we
@@ -67,7 +72,30 @@ function BuiltInPrivacyPage() {
           </p>
         </div>
         <div>
-          <h2 style={{ fontSize: 22, marginBottom: 6 }}>4. Safety checks and message review</h2>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>4. Google Calendar (for mentors)</h2>
+          <p className="text-secondary">
+            Mentors can choose to connect a Google Calendar so their busy times are hidden from students when booking. When a mentor
+            connects, we ask Google only for permission to see free/busy times (the calendar.freebusy permission), plus the email address of
+            the Google account, so we can show which account is connected. We read only when the mentor is busy or free on their main
+            calendar: never event titles, descriptions, locations, attendees or any other calendar content. We use these busy times only to
+            hide them from students when they book a call, and keep a short-lived copy of them for that purpose.
+          </p>
+          <p className="text-secondary">
+            The permission Google gives us (a connection token) is stored encrypted. We don&apos;t sell or share this data, and we don&apos;t
+            use it for advertising or to train AI models. A mentor can disconnect at any time on Account → Call availability, which tells
+            Google to remove the permission and deletes the stored token and busy times. You can also remove access from your Google
+            account at{" "}
+            <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>myaccount.google.com/permissions</a>;
+            we then can no longer read your calendar, and disconnecting on Account deletes the stored token.
+          </p>
+          <p className="text-secondary">
+            MentorsMD&apos;s use and transfer of information received from Google APIs will adhere to the{" "}
+            <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>Google API Services User Data Policy</a>,
+            including the Limited Use requirements.
+          </p>
+        </div>
+        <div>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>5. Safety checks and message review</h2>
           <p className="text-secondary">
             Messages, file names, package descriptions and delivery notes are checked automatically for safety (threats, slurs, off-site
             payment, ghostwriting, requests for passwords and unsafe links). Some checks use outside services: Anthropic (an AI safety check),
@@ -77,21 +105,21 @@ function BuiltInPrivacyPage() {
           </p>
         </div>
         <div>
-          <h2 style={{ fontSize: 22, marginBottom: 6 }}>5. How we use your information</h2>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>6. How we use your information</h2>
           <p className="text-secondary">
             [Placeholder - describe your actual use: facilitating bookings, sending notifications, fraud
             prevention, etc.]
           </p>
         </div>
         <div>
-          <h2 style={{ fontSize: 22, marginBottom: 6 }}>6. Your rights</h2>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>7. Your rights</h2>
           <p className="text-secondary">
             [Placeholder - if you have users in the EU/UK or California, this section has specific legal
             requirements (GDPR/CCPA) that a generic placeholder won't satisfy - get this reviewed.]
           </p>
         </div>
         <div>
-          <h2 style={{ fontSize: 22, marginBottom: 6 }}>7. Contact us</h2>
+          <h2 style={{ fontSize: 22, marginBottom: 6 }}>8. Contact us</h2>
           <p className="text-secondary">
             Questions about this policy can be sent through our <a href="/contact" style={{ textDecoration: "underline" }}>contact page</a>.
           </p>

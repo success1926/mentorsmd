@@ -169,7 +169,39 @@ export default function AdminTeamPage() {
           </div>
         </section>
       )}
+
+      {isOwner && <SentryTest />}
     </div>
+  );
+}
+
+// Owner only: sends one test event so you can check Sentry (error
+// reports) is connected. Says whether SENTRY_DSN is set.
+function SentryTest() {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  async function send() {
+    setBusy(true);
+    setMsg(null);
+    const res = await fetch("/api/admin/sentry-test", { method: "POST" });
+    const d = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) return setMsg({ ok: false, text: d.error || "Couldn't send the test error" });
+    setMsg(
+      d.enabled
+        ? { ok: true, text: "Sentry is on. A test error was sent: it should appear in Sentry → Issues within a minute." }
+        : { ok: false, text: "Sentry is off: SENTRY_DSN isn't set in Vercel, so nothing was sent. Errors only go to the server logs." }
+    );
+  }
+  return (
+    <section className="card stack-sm">
+      <h2 style={{ fontSize: 22 }}>Error reports (Sentry)</h2>
+      <span className="text-secondary">Server and page errors are sent to Sentry when SENTRY_DSN is set. Use this to check it&apos;s connected.</span>
+      <button className="btn btn-sm" style={{ alignSelf: "flex-start" }} disabled={busy} onClick={send}>
+        {busy ? "Sending…" : "Send a test error"}
+      </button>
+      {msg && <div role="status" className={`alert ${msg.ok ? "alert-success" : "alert-warning"}`}>{msg.text}</div>}
+    </section>
   );
 }
 

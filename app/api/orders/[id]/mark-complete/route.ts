@@ -39,7 +39,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
 
   // Calls included in the package have to happen first (or be skipped by
-  // the student, or forfeited after the 48-hour booking window).
+  // the student, or forfeited after the 48-hour booking window). A call
+  // the mentor missed doesn't count, so the student's free rebook is
+  // still owed.
   const calls = callSummary(order);
   if (!calls.satisfied) {
     return NextResponse.json(
@@ -47,7 +49,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         error:
           calls.toBook > 0
             ? "This package includes a call that hasn't been booked yet. You can mark it complete once the call happens."
-            : "This package includes a call that hasn't happened yet. You can mark it complete after the call.",
+            : calls.awaitingAdmin > 0
+              ? "The MentorsMD team is checking what happened at the call. You can mark it complete once that's settled."
+              : calls.checking > 0
+                ? "We're checking who joined the call. This usually takes under an hour after it ends."
+                : "This package includes a call that hasn't happened yet. You can mark it complete after the call.",
       },
       { status: 400 }
     );

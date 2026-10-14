@@ -500,6 +500,13 @@ model CallBooking {
   morningReminderStudentAt DateTime?
   morningReminderMentorAt  DateTime?
   hourReminderAt           DateTime?
+  // What happened at the call, decided from Daily's attendance about 30
+  // minutes after the end (lib/callOutcomes.ts), or set by an admin:
+  // HELD | STUDENT_NO_SHOW | MENTOR_NO_SHOW | NOBODY_JOINED | UNCLEAR | FREE_REBOOK.
+  // Null = not decided yet. outcomeById null = decided automatically.
+  outcome                  String?
+  outcomeAt                DateTime?
+  outcomeById              String?
 
   order   Order  @relation(fields: [orderId], references: [id])
   orderId String
@@ -690,7 +697,7 @@ model RateLimitBucket {
 model Flag {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
-  kind      String // REPORT, DISPUTE, LANGUAGE, OFF_SITE, GHOSTWRITING, CREDENTIALS, LINK, AI, PERFORMANCE, BLOCKED_MESSAGE
+  kind      String // REPORT, DISPUTE, LANGUAGE, OFF_SITE, GHOSTWRITING, CREDENTIALS, LINK, AI, PERFORMANCE, BLOCKED_MESSAGE, MINOR, CALL
   source    String   @default("AUTO") // USER, AUTO, AI, CRON, SYSTEM
   severity  Int      @default(1)
   status    String   @default("OPEN")

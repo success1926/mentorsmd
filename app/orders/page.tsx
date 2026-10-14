@@ -13,6 +13,7 @@ const ACTIVE = ["IN_ESCROW", "COMPLETED"];
 function nextStep(o: any, isSeller: boolean) {
   const calls = callSummary(o);
   if (o.disputed && ACTIVE.includes(o.status)) return "An admin is reviewing this order.";
+  if (calls.refundDisputeOpen && ACTIVE.includes(o.status) && !isSeller) return "Your mentor missed two calls. You can open a dispute for a full refund.";
   if (o.status === "IN_ESCROW") {
     if (calls.onHold) return isSeller ? "On hold: the student hasn't booked the call." : "Book your call or tell us you don't need it.";
     if (calls.upcoming[0]) return `Call on ${fmtDateTime(calls.upcoming[0].startTime)}`;

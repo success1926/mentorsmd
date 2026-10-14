@@ -235,6 +235,18 @@ export async function sendCallForfeitedEmail(toEmail: string, gigTitle: string, 
   await sendTemplate("call_forfeited", toEmail, { packageTitle: gigTitle, orderLink: orderUrl });
 }
 
+// What happened at a call (lib/callOutcomeRunner.ts): a no-show or
+// nobody joined. One email per person; the key picks the wording.
+export type CallOutcomeEmailKey =
+  | "call_student_no_show_student"
+  | "call_student_no_show_mentor"
+  | "call_mentor_no_show_student"
+  | "call_mentor_no_show_mentor"
+  | "call_nobody_joined";
+export async function sendCallOutcomeEmail(toEmail: string, key: CallOutcomeEmailKey, c: CallEmail, secondMissed = "") {
+  await sendTemplate(key, toEmail, { ...callValues(c), secondMissed });
+}
+
 // ---- Mentor applications ----
 
 // Where new mentor applications are sent. Set APPLICATIONS_EMAIL in Vercel

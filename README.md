@@ -724,7 +724,7 @@ New look (Iris colors, Fraunces + Instrument Sans, Leland-style layout) on every
 - **Fixes**: checkout cancel URL 404, mentor shown at checkout, confirm before removing a package, Stripe debug data no longer sent to the browser.
 
 Database: run `npx prisma db push` (or paste `prisma/redesign-2026-09.sql` into the Neon SQL editor) **before** deploying.
-Marketing content (schools strip, testimonials, acceptance rate, photos) lives in `lib/content.ts`; empty items are hidden.
+Marketing content (schools strip, testimonials, photos) started in `lib/content.ts`; it's now edited in Admin -> Website, and `lib/content.ts` only holds the built-in defaults. Empty items are hidden.
 
 ## Phase 3 (Oct 2026): built-in calendar, calls and reminders
 
@@ -738,6 +738,7 @@ Cal.com is gone. Everything happens on the site:
 - **Calls**: `/calls/<id>` is the pre-join screen (recording notice), then the private room with a per-person token. Attendance (join/leave times) and recordings come in through `/api/webhooks/daily`; attendance shows on the order page and in Admin -> Calls & recordings, recordings are admin-only ("Watch recording") and deleted 60 days after the order closes (daily, with the auto-release cron).
 - **My calendar** (`/calendar`): upcoming and past calls, plus due dates and busy dates for mentors. The private subscribe feed on `/account#calendar` stays.
 - **Reminders**: 8am on the day (each person's own time zone) and 1 hour before, with the Join link, sent once and reset when a call moves. `/api/cron/call-reminders` runs every 15 minutes from `vercel.json` (needs Vercel Pro, which the project is on).
+- **Call outcomes and no-shows** (Oct 14, 2026): the same cron decides, about 30 minutes after each call, whether it was held, a student no-show, a mentor no-show (free rebook; a second one lets the student dispute for a full refund) or nobody joined, from Daily's attendance (`lib/callOutcomes.ts`, `lib/callOutcomeRunner.ts`). Admins can change any outcome in Admin -> Calls & recordings. Details: items 4 and 5 in `docs/open-questions.md`. SQL: `prisma/call-outcomes-2026-10.sql`.
 - **Time zones**: every account stores one (detected in the browser, editable on Account).
 
 Setup: run `prisma/phase3-2026-10.sql` in the Neon SQL editor (after a backup branch) before deploying. Env vars: `DAILY_API_KEY` (video), `DAILY_RECORDING_ENABLED="true"` (recording, paid Daily plan), `DAILY_WEBHOOK_SECRET` (from Admin -> Calls & recordings -> Connect Daily webhook).

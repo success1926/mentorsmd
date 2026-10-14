@@ -42,6 +42,8 @@ export const RATE_LIMITS = {
   waitlistPerIpHour: { name: "waitlist-ip", max: 10, windowSec: 3600 },
   contactPerIpHour: { name: "contact-ip", max: 5, windowSec: 3600 },
   contactPerEmailDay: { name: "contact-email-d", max: 5, windowSec: 86400 },
+  // Browser error reports forwarded to Sentry (Oct 2026)
+  clientErrorPerIpHour: { name: "client-error-ip", max: 20, windowSec: 3600 },
 } satisfies Record<string, Limit>;
 
 function upstash() {
