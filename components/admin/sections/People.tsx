@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { PeopleTabs } from "@/components/admin/AdminTabs";
 import { statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { SEVERITY, kindLabel } from "@/components/admin/Flags";
 import { BACKGROUNDS, SCHOOL_TYPES, STAGES, labelFor, money } from "@/lib/options";
@@ -11,7 +13,8 @@ import { BACKGROUNDS, SCHOOL_TYPES, STAGES, labelFor, money } from "@/lib/option
 const fmtDay = (d: string) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 
 export function People() {
-  const [role, setRole] = useState<"SELLER" | "BUYER">("SELLER");
+  // Mentors or students, from the tabs (?role=BUYER for students).
+  const role = useSearchParams()?.get("role") === "BUYER" ? "BUYER" : "SELLER";
   const [q, setQ] = useState("");
   const [users, setUsers] = useState<any[] | null>(null);
   const [counts, setCounts] = useState<{ mentors: number; students: number } | null>(null);
@@ -63,15 +66,7 @@ export function People() {
 
   return (
     <section className="stack-sm">
-      <h2 style={{ fontSize: 30 }}>People</h2>
-      <div className="tabs" role="tablist">
-        <button role="tab" className="tab" aria-selected={role === "SELLER"} onClick={() => setRole("SELLER")}>
-          Mentors {counts && <span className="tab-count">{counts.mentors}</span>}
-        </button>
-        <button role="tab" className="tab" aria-selected={role === "BUYER"} onClick={() => setRole("BUYER")}>
-          Students {counts && <span className="tab-count">{counts.students}</span>}
-        </button>
-      </div>
+      <PeopleTabs role={role} counts={counts} />
       <div className="row" style={{ gap: 8 }}>
         <input className="input grow" style={{ marginBottom: 0 }} placeholder="Search by name or email" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
         <a className="btn btn-sm" href={`/api/admin/users?${new URLSearchParams({ role, format: "csv", ...(q.trim() ? { q: q.trim() } : {}) })}`} download>Download CSV</a>
