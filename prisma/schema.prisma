@@ -227,6 +227,10 @@ model User {
   reviewsReceived       Review[]             @relation("ReviewsOfSeller")
   disputeMessages       DisputeMessage[]
   passwordResetTokens   PasswordResetToken[]
+  // Leads inbox (Admin -> Leads)
+  leadsAssigned         Lead[]               @relation("LeadAssignee")
+  applicationsAssigned  MentorApplication[]  @relation("ApplicationAssignee")
+  leadNotes             LeadNote[]           @relation("LeadNoteAuthor")
 }
 
 // One row per "forgot password" request. Only a SHA-256 hash of the
@@ -642,6 +646,10 @@ model MentorApplication {
   createdAt     DateTime          @default(now())
   decidedAt     DateTime?
   inviteId      String?
+  // Leads inbox: the team member looking after it, and internal notes.
+  assignedToId  String?
+  assignedTo    User?             @relation("ApplicationAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  notes         LeadNote[]
 
   @@index([status, createdAt])
   @@index([email, createdAt])
@@ -958,4 +966,54 @@ model EmailLog {
   @@index([createdAt])
   @@index([templateKey, createdAt])
   @@index([toEmail, createdAt])
+}
+
+// ---------------- Leads inbox (Oct 2026) ----------------
+
+// Waitlist signups ("Tell me when mentors join") and contact-form
+// messages. Mentor applications stay in MentorApplication; Admin -> Leads
+// shows all three. See lib/leads.ts.
+model Lead {
+  id           String     @id @default(cuid())
+  kind         String // WAITLIST | CONTACT
+  // "waitlist:<email>" for waitlist signups (one per email); null for
+  // contact messages, which can repeat.
+  dedupeKey    String?    @unique
+  email        String
+  name         String?
+  topic        String? // contact: STUDENT | MENTOR | PARENT | PRESS | OTHER
+  message      String?
+  service      String? // waitlist: what they need help with (lib/options.ts SERVICES)
+  applyYear    String? // waitlist: the year they plan to apply
+  source       String? // waitlist: the page they signed up on
+  status       String     @default("NEW") // NEW | IN_PROGRESS | DONE
+  assignedToId String?
+  assignedTo   User?      @relation("LeadAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  // Waitlist: when the "Mentors are now available" email went out.
+  notifiedAt   DateTime?
+  ipHash       String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @default(now()) @updatedAt
+  notes        LeadNote[]
+
+  @@index([kind, status, createdAt])
+  @@index([kind, notifiedAt])
+  @@index([email, createdAt])
+  @@index([ipHash, createdAt])
+}
+
+// Internal notes on a lead or a mentor application (never shown to them).
+model LeadNote {
+  id            String             @id @default(cuid())
+  leadId        String?
+  lead          Lead?              @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  applicationId String?
+  application   MentorApplication? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  body          String
+  authorId      String?
+  author        User?              @relation("LeadNoteAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  createdAt     DateTime           @default(now())
+
+  @@index([leadId, createdAt])
+  @@index([applicationId, createdAt])
 }

@@ -3,14 +3,17 @@ import { can, type PermissionCheck } from "@/lib/adminPermissions";
 // The admin sidebar, in groups. Adding a page is one line here. Each
 // person only sees the items their role allows (and a group only if it
 // has any). `ready: false` hides an item whose page hasn't shipped yet.
-export type AdminNavItem = { href: string; label: string; perm: PermissionCheck; group: string; ready?: boolean; exact?: boolean };
+// `hideIfCan` hides an item for people who can open a page that replaces
+// it (Mentor applications live inside Leads for anyone with "leads").
+// `badge` is a count shown next to the label (filled in by the layout).
+export type AdminNavItem = { href: string; label: string; perm: PermissionCheck; group: string; ready?: boolean; exact?: boolean; hideIfCan?: PermissionCheck; badge?: number };
 
 export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin", label: "Overview", perm: "overview", group: "General", exact: true },
 
   { href: "/admin/mentors", label: "Mentors", perm: "mentors", group: "Marketplace" },
-  { href: "/admin/applications", label: "Mentor applications", perm: "applications", group: "Marketplace" },
-  { href: "/admin/leads", label: "Leads", perm: "leads", group: "Marketplace", ready: false },
+  { href: "/admin/leads", label: "Leads", perm: "leads", group: "Marketplace" },
+  { href: "/admin/applications", label: "Mentor applications", perm: "applications", group: "Marketplace", hideIfCan: "leads" },
   { href: "/admin/people", label: "People", perm: "people", group: "Marketplace" },
   { href: "/admin/orders", label: "Orders & payouts", perm: "orders", group: "Marketplace" },
   { href: "/admin/services", label: "Services", perm: "services", group: "Marketplace" },
@@ -30,7 +33,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
 ];
 
 export function visibleAdminNav(user: { perms: readonly string[] }) {
-  return ADMIN_NAV.filter((n) => n.ready !== false && can(user, n.perm));
+  return ADMIN_NAV.filter((n) => n.ready !== false && can(user, n.perm) && !(n.hideIfCan && can(user, n.hideIfCan)));
 }
 
 // Where to send someone whose role can't see the Overview.

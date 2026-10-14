@@ -405,4 +405,31 @@ export async function sendTeamAccessChangedEmail(toEmail: string, name: string, 
   await sendTemplate("team_access_changed", toEmail, { firstName: first(name), message: text });
 }
 
+// ---- Leads: contact form and waitlist (Oct 2026) ----
+
+// To the team inbox (the same one as mentor applications). Reply-to is
+// the sender, so hitting Reply answers them directly.
+export async function sendContactMessageEmail(m: { name: string; email: string; topic: string; message: string }, adminUrl: string) {
+  await sendTemplate(
+    "contact_message",
+    APPLICATIONS_EMAIL,
+    { senderName: m.name, senderEmail: m.email, topic: m.topic, message: blocks.quote(m.message), adminLink: adminUrl },
+    { reply_to: m.email }
+  );
+}
+
+// To the sender, right after they use the contact form.
+// Only a plain first name is used (anything that looks like a link or is
+// long becomes "there"), so the form can't be used to send links.
+export async function sendContactReceivedEmail(toEmail: string, name: string) {
+  const f = first(name);
+  const firstName = f.length <= 30 && /^[\p{L}' -]+$/u.test(f) ? f : "there";
+  await sendTemplate("contact_received", toEmail, { firstName }, { reply_to: APPLICATIONS_EMAIL });
+}
+
+// To one waitlist signup (Admin -> Leads -> Waitlist -> Email everyone).
+export async function sendWaitlistMentorsAvailableEmail(toEmail: string, removeUrl: string) {
+  await sendTemplate("waitlist_mentors_available", toEmail, { mentorsLink: `${SITE_URL}/mentors`, removeLink: removeUrl });
+}
+
 export { SITE_URL };

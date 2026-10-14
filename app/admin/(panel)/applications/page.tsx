@@ -1,18 +1,13 @@
-"use client";
+import { redirect } from "next/navigation";
+import { currentAdmin } from "@/lib/adminTeam";
+import { ApplicationsPage } from "./ApplicationsPage";
 
-import { useState } from "react";
-import { Applications } from "@/components/admin/sections/Applications";
+export const dynamic = "force-dynamic";
 
-export default function AdminApplicationsPage() {
-  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
-  return (
-    <div className="page stack-lg" style={{ gap: 32 }}>
-      <div className="stack-sm">
-        <h1 className="page-title">Mentor applications</h1>
-        <p className="lede">People who applied to mentor. Invite sends them a mentor invite; Decline sends no email.</p>
-      </div>
-      {notice && <div role="status" className={`alert ${notice.ok ? "alert-success" : "alert-danger"}`}>{notice.text}</div>}
-      <Applications setNotice={setNotice} />
-    </div>
-  );
+// Mentor applications now live in Admin -> Leads (Applications tab), with
+// assignees and notes. Anyone whose role includes Leads goes there; a role
+// with only "Mentor applications" keeps this page.
+export default async function AdminApplicationsPage() {
+  if (await currentAdmin("leads")) redirect("/admin/leads?tab=APPLICATION");
+  return <ApplicationsPage />;
 }

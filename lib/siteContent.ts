@@ -290,6 +290,12 @@ export const SITE_PAGES = {
         emptyText: long("Text", "Every mentor goes through a rigorous interview with our senior team, so we add them carefully. Check back soon.", { max: 400 }),
         emptyLink: text("Link to Become a mentor", "Are you a med student or resident? Apply to mentor", { max: 100 }),
       }),
+      ...section("“Tell me when mentors join” box (shown with the no-mentors message)", {
+        waitlistTitle: text("Heading", "Get an email when mentors join", { max: 80 }),
+        waitlistText: long("Text", "Leave your email and we'll let you know as soon as you can book a mentor. No spam, one email.", { max: 300 }),
+        waitlistButton: text("Button", "Tell me when mentors join", { max: 40, required: true }),
+        waitlistSuccess: long("Thank-you message", "You're on the list. We'll email you as soon as mentors are available.", { max: 300, required: true }),
+      }),
     },
   },
 
@@ -310,6 +316,11 @@ export const SITE_PAGES = {
         mentorBoxBefore: text("Box 2 text before the link", "Please don't email your resume.", { max: 200 }),
         mentorBoxLink: text("Box 2 link", "Apply with the mentor application form", { max: 100 }),
         mentorBoxAfter: text("Box 2 text after the link", "so our senior team can review it.", { max: 200 }),
+      }),
+      ...section("Message form", {
+        formTitle: text("Heading", "Send us a message", { max: 80 }),
+        formIntro: long("Text above the form", "Or write to us here and we'll reply by email.", { max: 300 }),
+        formSuccess: long("Thank-you message", "Thanks, your message is on its way. We've emailed you a copy and usually reply within one business day.", { max: 300, required: true }),
       }),
       ...section("Contact page for future mentors (/contact?topic=mentor)", {
         mentorTitle: text("Heading", "Apply to mentor", { max: 60 }),

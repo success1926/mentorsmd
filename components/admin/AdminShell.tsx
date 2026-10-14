@@ -49,6 +49,7 @@ export function AdminShell({ me, nav, children }: { me: AdminMe; nav: AdminNavIt
                 {nav.filter((n) => n.group === g).map((n) => (
                   <Link key={n.href} href={n.href} className="adm-link" aria-current={isActive(pathname, n) ? "page" : undefined}>
                     {n.label}
+                    {!!n.badge && <span className="tab-count" aria-label={`${n.badge} new`}>{n.badge}</span>}
                   </Link>
                 ))}
               </div>

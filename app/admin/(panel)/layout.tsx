@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { currentAdmin, PENDING_2FA_ROLE } from "@/lib/adminTeam";
 import { visibleAdminNav } from "@/lib/adminNav";
+import { can } from "@/lib/adminPermissions";
+import { newLeadCount } from "@/lib/leads";
 import { AdminShell } from "@/components/admin/AdminShell";
 import "./admin.css";
 
@@ -26,8 +28,11 @@ export default async function AdminPanelLayout({ children }: { children: React.R
     );
   }
   const me = { id: admin.id, name: admin.name, isOwner: admin.adminRole === "OWNER", roleName: admin.roleName, perms: admin.perms };
+  // Leads badge: new contact messages + pending applications nobody has picked up.
+  const leadsBadge = can(admin, "leads") ? await newLeadCount(can(admin, "applications")) : 0;
+  const nav = visibleAdminNav(admin).map((n) => (n.href === "/admin/leads" && leadsBadge ? { ...n, badge: leadsBadge } : n));
   return (
-    <AdminShell me={me} nav={visibleAdminNav(admin)}>
+    <AdminShell me={me} nav={nav}>
       {children}
     </AdminShell>
   );

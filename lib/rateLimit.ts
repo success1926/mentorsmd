@@ -38,6 +38,10 @@ export const RATE_LIMITS = {
   // Phase 6
   invitePrefillPerIpHour: { name: "invite-prefill-ip", max: 30, windowSec: 3600 },
   trackPerIpHour: { name: "track-ip", max: 300, windowSec: 3600 },
+  // Leads (Oct 2026)
+  waitlistPerIpHour: { name: "waitlist-ip", max: 10, windowSec: 3600 },
+  contactPerIpHour: { name: "contact-ip", max: 5, windowSec: 3600 },
+  contactPerEmailDay: { name: "contact-email-d", max: 5, windowSec: 86400 },
 } satisfies Record<string, Limit>;
 
 function upstash() {
