@@ -336,7 +336,7 @@ export const SITE_PAGES = {
         tagline: text("Tagline under the logo", "Vetted mentors for the road to medical school.", { max: 120 }),
       }),
       ...section("Social links", {
-        instagram: link("Instagram", "", { help: "Full address, e.g. https://www.instagram.com/… Hidden when empty." }),
+        instagram: link("Instagram", "", { help: "Full address, e.g. https://www.instagram.com/… Until it is filled in, the icon shows greyed out as \"coming soon\"." }),
         tiktok: link("TikTok", ""),
         linkedin: link("LinkedIn", ""),
         x: link("X (Twitter)", ""),
