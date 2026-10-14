@@ -6,6 +6,13 @@ import { Icon, ICONS } from "@/components/ui";
 import { BUFFER_OPTIONS, BUSY_KINDS, NOTICE_OPTIONS, WEEKDAY_NAMES, WeeklyHours } from "@/lib/schedule";
 import { browserTimeZone, fmtDayLabel, timeZoneList } from "@/lib/tz";
 
+// The one-click "Connect Google Calendar" button stays hidden until Google
+// verifies the app (until then mentors would see Google's "unverified app"
+// warning). Set NEXT_PUBLIC_GOOGLE_CALENDAR_CONNECT=true in Vercel to show
+// it. Mentors can still paste their calendar's secret link meanwhile, and
+// anyone already connected keeps their connection and Disconnect button.
+const GOOGLE_CONNECT_ON = process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_CONNECT === "true";
+
 type Msg = { ok: boolean; text: string } | null;
 
 function Note({ m }: { m: Msg }) {
@@ -382,15 +389,15 @@ export function ExternalCalendarCard({ profile, onChanged }: { profile: any; onC
             {profile.externalCalError && <a className="btn btn-sm" href="/api/calendar/google/start">Reconnect Google Calendar</a>}
           </div>
         </div>
-      ) : (
+      ) : GOOGLE_CONNECT_ON ? (
         <div>
           <a className="btn btn-primary" href="/api/calendar/google/start">Connect Google Calendar</a>
         </div>
-      )}
+      ) : null}
       {profile.externalCalError && (google || connected) && <span className="alert alert-warning small">Last check failed: {profile.externalCalError}</span>}
 
-      <details className="collapse" open={!!connected}>
-        <summary style={{ fontSize: 15 }}>Using Apple or Outlook? Paste a calendar link instead</summary>
+      <details className="collapse" open={!!connected || (!GOOGLE_CONNECT_ON && !google)}>
+        <summary style={{ fontSize: 15 }}>{GOOGLE_CONNECT_ON || google ? "Using Apple or Outlook? Paste a calendar link instead" : "Paste your calendar link (Google, Apple or Outlook)"}</summary>
         <div className="collapse-body stack-sm">
           <span className="text-secondary small">
             Paste your calendar&apos;s secret address.{google ? " Busy times from it are added to the ones from Google Calendar." : ""}
