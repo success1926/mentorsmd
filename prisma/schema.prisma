@@ -913,3 +913,17 @@ model ActivityEvent {
   @@index([visitorId, createdAt])
   @@index([userId, createdAt])
 }
+
+// Admin -> Website: editable text and photos for the public pages. One row
+// per page; draft/live hold only the fields that differ from the built-in
+// defaults in lib/siteContent.ts. draft null = no unpublished changes.
+// (prisma/website-editor-2026-10.sql)
+model SiteContent {
+  key           String    @id
+  draft         Json?
+  live          Json?
+  updatedAt     DateTime  @default(now()) @updatedAt
+  updatedById   String?
+  publishedAt   DateTime?
+  publishedById String?
+}

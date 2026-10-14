@@ -3,57 +3,29 @@ import { HomeFeatures } from "@/components/HomeFeatures";
 import { RoleCta } from "@/components/RoleCta";
 import { Icon, ICONS, Vetted, Rating, tintFor, initialsOf } from "@/components/ui";
 import { getFeaturedMentors, getReviewStats, getWallReviews } from "@/lib/mentorQueries";
-import { MENTOR_ACCEPTANCE_RATE, MENTOR_SCHOOLS, PHOTOS, TESTIMONIALS } from "@/lib/content";
+import { paragraphs, safeHref } from "@/lib/siteContent";
+import { getSiteContent } from "@/lib/siteContentStore";
+import { focusPosition, stripFocus } from "@/lib/imageFocus";
+import { Fragment } from "react";
 import { labelFor, money, STAGES, serviceLabel } from "@/lib/options";
 
 export const dynamic = "force-dynamic"; // mentor cards and review counts read live data
 
-const QUICK = [
-  { label: "Personal statement", icon: ICONS.pen, href: "/mentors?service=PERSONAL_STATEMENT" },
-  { label: "Secondaries", icon: ICONS.doc, href: "/mentors?service=SECONDARIES" },
-  { label: "Interviews", icon: ICONS.chat, href: "/mentors?service=MMI&service=TRADITIONAL_INTERVIEW" },
-  { label: "MCAT", icon: ICONS.chart, href: "/mentors?service=MCAT" },
-  { label: "Reapplying", icon: ICONS.cycle, href: "/mentors?service=REAPPLICANT&bg=REAPPLICANT" },
+// Icons and card colors follow each item's position; the text, links and
+// photos are edited in Admin -> Website (defaults in lib/siteContent.ts).
+const QUICK_ICONS = [ICONS.pen, ICONS.doc, ICONS.chat, ICONS.chart, ICONS.cycle];
+const PATH_BGS = [
+  "linear-gradient(180deg, #CFC4FF 0%, #8E78F0 50%, #2B1F6B 100%)",
+  "linear-gradient(180deg, #F5B9CD 0%, #9A7BE8 50%, #2B1F6B 100%)",
+  "linear-gradient(180deg, #E4EEFF 0%, #8E9BF0 50%, #2B1F6B 100%)",
 ];
-
-const PATHS = [
-  {
-    title: "Write a standout application",
-    body: "Personal statement, activities and secondaries, shaped by someone who just wrote theirs.",
-    bg: "linear-gradient(180deg, #CFC4FF 0%, #8E78F0 50%, #2B1F6B 100%)",
-    photo: PHOTOS.pathApplication,
-    href: "/mentors?service=PERSONAL_STATEMENT&service=SECONDARIES&service=ACTIVITIES",
-  },
-  {
-    title: "Ace your interviews",
-    body: "MMI and traditional mock interviews with written feedback after every session.",
-    bg: "linear-gradient(180deg, #F5B9CD 0%, #9A7BE8 50%, #2B1F6B 100%)",
-    photo: PHOTOS.pathInterviews,
-    href: "/mentors?service=MMI&service=TRADITIONAL_INTERVIEW",
-  },
-  {
-    title: "Plan your path",
-    body: "School lists, MCAT strategy, gap years and reapplying, from people who made the same calls.",
-    bg: "linear-gradient(180deg, #E4EEFF 0%, #8E9BF0 50%, #2B1F6B 100%)",
-    photo: PHOTOS.pathPlan,
-    href: "/mentors?service=SCHOOL_LIST&service=MCAT&service=REAPPLICANT",
-  },
-];
-
-const VET = [
-  { title: "Interviewed", body: "Every mentor goes through a rigorous interview with each of our senior team members.", icon: ICONS.chat },
-  { title: "Real experience", body: "We make sure they have real, hands-on experience with what they offer.", icon: ICONS.doc },
-  { title: "Outstanding results", body: "Only mentors with outstanding results of their own are accepted.", icon: ICONS.check },
-  ...(MENTOR_ACCEPTANCE_RATE !== null
-    ? [{ title: "Selective", body: `Only ${MENTOR_ACCEPTANCE_RATE}% of people who apply to mentor are accepted.`, icon: ICONS.star }]
-    : [{ title: "Invite-only", body: "Nobody can sign up to mentor. Every mentor joins through an invite from our team.", icon: ICONS.star }]),
-];
+const VET_ICONS = [ICONS.chat, ICONS.doc, ICONS.check, ICONS.star];
 
 export default async function HomePage() {
-  const [mentors, stats, reviews] = await Promise.all([getFeaturedMentors(4), getReviewStats(), getWallReviews(8)]);
+  const [mentors, stats, reviews, c] = await Promise.all([getFeaturedMentors(4), getReviewStats(), getWallReviews(8), getSiteContent("home")]);
 
   const wall = [
-    ...TESTIMONIALS.map((t) => ({ key: `t-${t.name}`, name: t.name, detail: t.detail, quote: t.quote, rating: t.rating ?? 5 })),
+    ...c.testimonials.map((t, i) => ({ key: `t-${i}`, name: t.name, detail: t.detail, quote: t.quote, rating: Math.min(5, Math.max(1, Number(t.rating) || 5)) })),
     ...reviews.map((r) => ({
       key: r.id,
       name: r.buyer.name.split(" ")[0] + (r.buyer.name.split(" ")[1] ? ` ${r.buyer.name.split(" ")[1][0]}.` : ""),
@@ -72,20 +44,20 @@ export default async function HomePage() {
         <div className="blob" style={{ left: "35%", top: 40, width: 520, height: 200, background: "rgba(207,196,255,0.45)", filter: "blur(60px)" }} />
 
         <div className="hero-body">
-          <h1 className="hero-title">Your white coat starts here</h1>
-          <p className="hero-sub">One-on-one help from med students and residents, every one vetted by our senior team.</p>
+          <h1 className="hero-title">{c.heroTitle}</h1>
+          {c.heroSub && <p className="hero-sub">{c.heroSub}</p>}
           <form action="/mentors" method="get" className="hero-search" role="search">
             <Icon d={ICONS.search} size={22} />
-            <input name="q" aria-label="Search for help" placeholder="Search for help with your personal statement, MMI, MCAT…" />
+            <input name="q" aria-label="Search for help" placeholder={c.searchPlaceholder} />
             <button type="submit" aria-label="Search mentors">
               <Icon d={ICONS.arrow} size={22} />
             </button>
           </form>
           <div className="row-wrap" style={{ justifyContent: "center", gap: 10 }}>
-            {QUICK.map((c) => (
-              <Link key={c.label} href={c.href} className="chip">
-                <Icon d={c.icon} size={17} />
-                {c.label}
+            {c.quickTopics.map((q, i) => (
+              <Link key={i} href={safeHref(q.href)} className="chip">
+                <Icon d={QUICK_ICONS[i % QUICK_ICONS.length]} size={17} />
+                {q.label}
               </Link>
             ))}
           </div>
@@ -105,11 +77,11 @@ export default async function HomePage() {
           )}
         </div>
 
-        {MENTOR_SCHOOLS.length > 0 && (
+        {c.schools.length > 0 && (
           <div className="school-strip">
-            <span>Our mentors study at</span>
-            {MENTOR_SCHOOLS.map((s) => (
-              <b key={s}>{s}</b>
+            <span>{c.schoolsLabel}</span>
+            {c.schools.map((s, i) => (
+              <b key={i}>{s}</b>
             ))}
           </div>
         )}
@@ -120,27 +92,27 @@ export default async function HomePage() {
         <div className="wrap">
           <div className="center-head">
             <h2 className="big-title">
-              Getting into med school is hard.
-              <br />
-              You don&apos;t have to do it alone.
+              <Lines text={c.pathsTitle} />
             </h2>
-            <p className="lede" style={{ maxWidth: 880, fontSize: 21 }}>
-              The process is long, competitive and hard to read from the outside. MentorsMD pairs you with people who got in recently and know what works now.
-            </p>
+            {c.pathsText && (
+              <p className="lede" style={{ maxWidth: 880, fontSize: 21 }}>
+                {c.pathsText}
+              </p>
+            )}
           </div>
           <div className="grid-3" style={{ marginTop: 56 }}>
-            {PATHS.map((p) => (
-              <div key={p.title} className="path-card" style={{ background: p.bg }}>
+            {c.paths.map((p, i) => (
+              <div key={i} className="path-card" style={{ background: PATH_BGS[i % PATH_BGS.length] }}>
                 {p.photo && (
                   <>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img className="path-photo" src={p.photo} alt="" />
+                    <img className="path-photo" src={stripFocus(p.photo)} alt="" style={{ objectPosition: focusPosition(p.photo) }} />
                     <div className="path-shade" />
                   </>
                 )}
                 <h3>{p.title}</h3>
-                <p>{p.body}</p>
-                <Link href={p.href} className="btn">Find a mentor</Link>
+                {p.body && <p>{p.body}</p>}
+                {p.button && <Link href={safeHref(p.href)} className="btn">{p.button}</Link>}
               </div>
             ))}
           </div>
@@ -150,19 +122,21 @@ export default async function HomePage() {
       {/* ---------------- Vetting ---------------- */}
       <section id="vetting" style={{ paddingBottom: 120, scrollMarginTop: 150 }}>
         <div className="wrap stack-lg" style={{ gap: 56 }}>
-          <div className="vet-hero" style={PHOTOS.vetting ? { background: `linear-gradient(180deg, rgba(27,24,52,0.1), rgba(27,24,52,0.7)), url(${PHOTOS.vetting}) center/cover` } : undefined}>
-            <h2>Every mentor, vetted.</h2>
-            <p>
-              Anyone can call themselves an admissions coach. On MentorsMD, nobody mentors until they&apos;ve been through a rigorous interview with each of our senior team members, so every mentor has real experience and outstanding results.
-            </p>
-            <p>
-              <Link href="/senior-team" style={{ color: "inherit", textDecoration: "underline", textUnderlineOffset: 4 }}>Meet our senior team →</Link>
-            </p>
+          <div className="vet-hero" style={c.vetPhoto ? { background: `linear-gradient(180deg, rgba(27,24,52,0.1), rgba(27,24,52,0.7)), url("${stripFocus(c.vetPhoto)}") ${c.vetPhoto.includes("#") ? focusPosition(c.vetPhoto) : "center"}/cover` } : undefined}>
+            <h2>{c.vetTitle}</h2>
+            {paragraphs(c.vetText).map((t, i) => (
+              <p key={i}>{t}</p>
+            ))}
+            {c.vetLink && (
+              <p>
+                <Link href="/senior-team" style={{ color: "inherit", textDecoration: "underline", textUnderlineOffset: 4 }}>{c.vetLink}</Link>
+              </p>
+            )}
           </div>
           <div className="grid-4">
-            {VET.map((v) => (
-              <div key={v.title} className="vet-item">
-                <span className="icon-dot"><Icon d={v.icon} size={22} /></span>
+            {c.vetItems.map((v, i) => (
+              <div key={i} className="vet-item">
+                <span className="icon-dot"><Icon d={VET_ICONS[i % VET_ICONS.length]} size={22} /></span>
                 <h3 style={{ fontSize: 21, marginTop: 4 }}>{v.title}</h3>
                 <p className="text-secondary" style={{ fontSize: 17 }}>{v.body}</p>
               </div>
@@ -176,8 +150,8 @@ export default async function HomePage() {
         <section style={{ paddingBottom: 130 }}>
           <div className="wrap">
             <div className="between" style={{ alignItems: "flex-end", marginBottom: 40, flexWrap: "wrap" }}>
-              <h2 style={{ fontSize: "clamp(34px, 4.4vw, 64px)" }}>Meet a few of our mentors.</h2>
-              <Link href="/mentors" className="link" style={{ fontSize: 18 }}>Browse all mentors →</Link>
+              <h2 style={{ fontSize: "clamp(34px, 4.4vw, 64px)" }}>{c.featuredTitle}</h2>
+              {c.featuredLink && <Link href="/mentors" className="link" style={{ fontSize: 18 }}>{c.featuredLink}</Link>}
             </div>
             <div className="grid-4">
               {mentors.map((m) => {
@@ -217,8 +191,8 @@ export default async function HomePage() {
       {/* ---------------- Everything you need ---------------- */}
       <section style={{ paddingBottom: 140 }}>
         <div className="wrap">
-          <h2 className="big-title" style={{ textAlign: "center", marginBottom: 64 }}>Everything you need to get in.</h2>
-          <HomeFeatures />
+          <h2 className="big-title" style={{ textAlign: "center", marginBottom: 64 }}>{c.featuresTitle}</h2>
+          <HomeFeatures features={c.features.map((f) => ({ ...f, href: safeHref(f.href) }))} />
         </div>
       </section>
 
@@ -227,8 +201,8 @@ export default async function HomePage() {
         <section id="reviews" className="wall" style={{ scrollMarginTop: 150 }}>
           <div className="wrap">
             <div className="center-head" style={{ marginBottom: 56, gap: 18 }}>
-              <span className="eyebrow" style={{ color: "var(--ink)", fontSize: 18, fontWeight: 500 }}>Testimonials</span>
-              <h2 className="big-title">Don&apos;t just take our word for it.</h2>
+              <span className="eyebrow" style={{ color: "var(--ink)", fontSize: 18, fontWeight: 500 }}>{c.testimonialsEyebrow}</span>
+              <h2 className="big-title">{c.testimonialsTitle}</h2>
             </div>
             <div className="wall-grid">
               {wall.map((t, i) => (
@@ -244,9 +218,32 @@ export default async function HomePage() {
                       </span>
                     </div>
                     <span className="stars">{"★".repeat(Math.round(t.rating))}</span>
-                    <p style={{ fontSize: 18, lineHeight: 1.55 }}>{t.quote}</p>
+                    {(paragraphs(t.quote).length ? paragraphs(t.quote) : [""]).map((q, j) => (
+                      <p key={j} style={{ fontSize: 18, lineHeight: 1.55 }}>{q}</p>
+                    ))}
                   </div>
                 </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ---------------- FAQ (only once questions are added in Admin -> Website) ---------------- */}
+      {c.faq.length > 0 && (
+        <section id="faq" style={{ paddingBottom: 40, scrollMarginTop: 150 }}>
+          <div className="wrap" style={{ maxWidth: 900 }}>
+            <h2 className="big-title" style={{ textAlign: "center", marginBottom: 48 }}>{c.faqTitle}</h2>
+            <div>
+              {c.faq.map((q, i) => (
+                <details key={i} className="collapse">
+                  <summary style={{ fontSize: 18 }}>{q.question}</summary>
+                  <div className="collapse-body">
+                    {paragraphs(q.answer).map((a, j) => (
+                      <p key={j} className="text-secondary" style={{ fontSize: 17, lineHeight: 1.6 }}>{a}</p>
+                    ))}
+                  </div>
+                </details>
               ))}
             </div>
           </div>
@@ -256,13 +253,30 @@ export default async function HomePage() {
       {/* ---------------- Final CTA ---------------- */}
       <section className="home-section">
         <div className="wrap center-head" style={{ gap: 24 }}>
-          <h2 className="big-title">Ready when you are.</h2>
-          <p className="lede" style={{ fontSize: 21 }}>
-            Message any vetted mentor for free. When you book, we hold your payment until you approve the work.
-          </p>
-          <RoleCta href="/mentors" label="Get started" className="btn btn-primary btn-lg" style={{ padding: "20px 38px", fontSize: 19 }} />
+          <h2 className="big-title">{c.ctaTitle}</h2>
+          {c.ctaText && (
+            <p className="lede" style={{ fontSize: 21 }}>
+              {c.ctaText}
+            </p>
+          )}
+          <RoleCta href="/mentors" label={c.ctaButton} className="btn btn-primary btn-lg" style={{ padding: "20px 38px", fontSize: 19 }} />
         </div>
       </section>
     </div>
+  );
+}
+
+// A heading where each line break in the text starts a new line.
+function Lines({ text }: { text: string }) {
+  const parts = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  return (
+    <>
+      {parts.map((l, i) => (
+        <Fragment key={i}>
+          {i > 0 && <br />}
+          {l}
+        </Fragment>
+      ))}
+    </>
   );
 }
