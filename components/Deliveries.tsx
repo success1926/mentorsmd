@@ -3,7 +3,8 @@
 import { useRef, useState } from "react";
 import { Modal } from "@/components/Modal";
 import { Icon, ICONS } from "@/components/ui";
-import { DELIVERY_MAX_CHARS, DELIVERY_MAX_FILES, DELIVERY_MIN_CHARS, deliveryFiles } from "@/lib/deliveries";
+import { DELIVERY_MAX_CHARS, DELIVERY_MAX_FILES, DELIVERY_MIN_CHARS, deliveryFileHref, deliveryFiles } from "@/lib/deliveries";
+import { uploadFile } from "@/lib/upload";
 
 const fmt = (d: string | Date) => new Date(d).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
@@ -24,7 +25,7 @@ export function DeliveryCard({ delivery, latest, children }: { delivery: any; la
       {files.length > 0 && (
         <div className="stack-sm" style={{ gap: 4 }}>
           {files.map((f, i) => (
-            <a key={i} href={`${f.url}?download=1`} download={f.name} target="_blank" rel="noopener noreferrer" className="link small">
+            <a key={i} href={deliveryFileHref(delivery.id, i)} target="_blank" rel="noopener noreferrer" className="link small">
               📎 {f.name}
             </a>
           ))}
@@ -41,8 +42,8 @@ export function DeliveryCard({ delivery, latest, children }: { delivery: any; la
 }
 
 // The "Mark work as complete" form: a required description and optional
-// files. Files go up through /api/upload first (same as message
-// attachments), then the delivery is saved with their links.
+// files. Files go up to private storage first (same as message
+// attachments, lib/upload.ts), then the delivery is saved with their paths.
 export function DeliverWorkModal({
   open,
   onClose,
@@ -82,12 +83,12 @@ export function DeliverWorkModal({
     try {
       const uploaded: { url: string; name: string }[] = [];
       for (const file of files) {
-        const fd = new FormData();
-        fd.append("file", file);
-        const res = await fetch("/api/upload", { method: "POST", body: fd });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(`${file.name}: ${data.error || "upload failed"}`);
-        uploaded.push({ url: data.url, name: data.name });
+        try {
+          const up = await uploadFile("/api/upload", file, { orderId });
+          uploaded.push({ url: up.path, name: up.name });
+        } catch (e: any) {
+          throw new Error(`${file.name}: ${e?.message || "upload failed"}`);
+        }
       }
       const res = await fetch(`/api/orders/${orderId}/mark-complete`, {
         method: "POST",

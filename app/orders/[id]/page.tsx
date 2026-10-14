@@ -342,7 +342,7 @@ export default function OrderDetailPage() {
                     {m.body}
                     {m.attachmentUrl && (
                       <div style={{ marginTop: m.body ? 6 : 0 }}>
-                        <a href={`${m.attachmentUrl}?download=1`} download={m.attachmentName} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline", fontSize: 13 }}>
+                        <a href={`/api/files/message/${m.id}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline", fontSize: 13 }}>
                           📎 {m.attachmentName || "Attachment"}
                         </a>
                       </div>

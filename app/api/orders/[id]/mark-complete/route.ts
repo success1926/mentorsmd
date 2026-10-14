@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { sendWorkCompleteEmail, SITE_URL } from "@/lib/email";
 import { callSummary } from "@/lib/calls";
 import { parseDelivery } from "@/lib/deliveries";
+import { isOurPath } from "@/lib/storage";
 import { checkText } from "@/lib/moderation";
 import { createFlagsForFindings } from "@/lib/flags";
 import { aiCheckAndFlag } from "@/lib/messageSafety";
@@ -52,7 +53,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     );
   }
 
-  const parsed = parseDelivery(await req.json().catch(() => null));
+  const parsed = parseDelivery(await req.json().catch(() => null), (p) => isOurPath(p, "attachments", order.sellerId));
   if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
   // Conditional update so a refund landing at the same moment can't be

@@ -5,7 +5,7 @@ import { isPriceInRange } from "@/lib/options";
 // verified here on the server, never assumed.
 
 export const LIMITS = {
-  messageBody: 5000, // also keeps Pusher events under their 10KB size cap
+  messageBody: 5000, // also keeps live-update events small
   gigTitle: 120,
   gigDescription: 5000,
   gigDuration: 60,
@@ -51,19 +51,6 @@ export function parseDate(value: unknown, opts: { allowPast?: boolean; maxDaysAh
   if (!opts.allowPast && d.getTime() < now - 24 * 60 * 60 * 1000) return null;
   if (d.getTime() > now + (opts.maxDaysAhead ?? 365) * 24 * 60 * 60 * 1000) return null;
   return d;
-}
-
-// Attachments must be files WE stored via /api/upload (Vercel Blob).
-// Without this, someone could post a message whose "attachment" link
-// points anywhere - a phishing page, or a javascript: URL.
-export function isOurBlobUrl(url: unknown): url is string {
-  if (typeof url !== "string" || url.length > 1000) return false;
-  try {
-    const u = new URL(url);
-    return u.protocol === "https:" && u.hostname.endsWith(".public.blob.vercel-storage.com");
-  } catch {
-    return false;
-  }
 }
 
 export const PASSWORD_RULE = "Password must be at least 8 characters";

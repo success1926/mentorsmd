@@ -167,23 +167,30 @@ just riding along in the URL. If an email bounces or gets lost,
 `POST /api/invites/[id]/resend` sends it again without creating a new
 invite.
 
-## Instant messaging (Pusher)
+## Instant messaging (Supabase Realtime)
 
-Messages broadcast the moment they're sent - no polling. The pieces:
+Messages arrive the moment they're sent - no refresh. Replaced Pusher in
+Oct 2026. The pieces:
 
-- `lib/pusher.ts` - server client, plus a helper that names each
-  conversation's channel consistently (`private-conversation-{id}`)
-- `/api/pusher/auth` - approves a subscription only if the requesting
-  user is actually one of the two people in that conversation
-- `/api/conversations/[id]/messages` - saves the message, then triggers a
-  `new-message` event on that channel so it's delivered instantly
-- `lib/hooks/useConversation.ts` - a ready-to-use React hook for the
-  frontend: `const { messages, sendMessage } = useConversation(id)`
-  loads history once and then keeps the list live
-
-You'll need a free Pusher Channels account for the four `PUSHER_*` env
-vars (the `NEXT_PUBLIC_` versions are safe to expose to the browser; the
-secret one is not).
+- `lib/realtime.ts` (server) - `sendLive(userIds, event, payload)` sends an
+  event to each person's own private topic (`live:user:<id>`, or
+  `preview:user:<id>` on preview sites) through Realtime's REST broadcast
+  endpoint, using `SUPABASE_SERVICE_ROLE_KEY`. Never throws.
+- `/api/realtime/token` - gives a signed-in person a one-hour pass (a JWT
+  signed with `SUPABASE_JWT_SECRET`, `sub` = their user id). A Realtime
+  authorization rule on `realtime.messages`
+  (`prisma/supabase-storage-realtime-2026-10.sql`) only lets that pass
+  receive its own topic; browsers can never send.
+- `lib/realtimeClient.ts` (browser) - one shared connection per tab:
+  `onLive((event, payload) => ...)`. Events: `message`
+  `{ conversationId, message }` and `dispute-message` `{ orderId, message }`.
+- `/api/conversations/[id]/messages` - saves the message, then sends it to
+  both people; `/api/orders/[id]/dispute-messages` sends to the student,
+  the mentor and every admin with the Disputes permission.
+- `lib/hooks/useConversation.ts` / `useDisputeThread.ts` - load history,
+  then stay live. The top bar's unread badge and the inbox list refresh
+  on new messages too. Without Supabase (keys missing, or Realtime down)
+  threads check for new messages every 20 seconds instead.
 
 ## Choosing a Postgres host
 
@@ -199,8 +206,8 @@ platform independence matters to you.
 **Supabase** is the other strong option, especially if you'd rather not
 hand-roll some of what we built ourselves - it bundles Postgres with
 built-in auth, file storage, and realtime subscriptions, so you could
-potentially replace NextAuth and even Pusher with Supabase's own tools
-later. More convenient if you want fewer moving parts; less convenient if
+potentially replace NextAuth with Supabase's own tools later. (MentorsMD
+moved its file storage and live messages to Supabase in Oct 2026.) More convenient if you want fewer moving parts; less convenient if
 you want to swap pieces out independently.
 
 **Railway** is the simplest choice if you want your database and your
@@ -219,7 +226,7 @@ nothing here requires anything Vercel-specific). If you want options:
   slightly less native Next.js support for advanced features.
 - **Render** - supports persistent servers, not just serverless
   functions, which matters if you ever want to run something like a raw
-  Socket.io server instead of Pusher.
+  Socket.io server instead of Supabase Realtime.
 - **Railway** - can host the Next.js app and the Postgres database
   together in one project, which simplifies billing and dashboards if you
   want one place for everything.
@@ -275,11 +282,16 @@ filter and sort controls (`components/CoachFilters.tsx`) that rebuild the
 URL's query string, so results are shareable/bookmarkable, not just
 client-side hidden/shown.
 
-**File attachments** - uses Vercel Blob (`@vercel/blob`) for storage. You
-need a free Blob store from your Vercel project's Storage tab, and its
-token in `.env` as `BLOB_READ_WRITE_TOKEN`. `/api/upload` handles the
-upload itself; `useConversation`'s `sendMessage(body, file)` and the
-pre-booking thread on the coach profile page both use it.
+**File attachments** - Supabase Storage (replaced Vercel Blob in Oct 2026,
+see `lib/storage.ts`). Private files (message attachments, deliveries,
+résumés) live in the `private-files` bucket; the database stores their
+path, and downloads go through routes that check access and then send a
+5-minute link (`/api/files/message/[id]`, `/api/files/delivery/[id]/[index]`,
+`/api/admin/applications/[id]/resume`). Profile and website photos live in
+the public `public-media` bucket. The browser uploads straight to storage
+with a one-time link from our server (`lib/upload.ts`; `/api/upload` for
+attachments and deliveries). Old Vercel Blob addresses in the database
+keep working.
 
 **Revision requests & disputes** - both are lightweight flags + a note on
 the `Order` row, not a whole workflow engine. A revision request emails
@@ -385,7 +397,7 @@ an active admin session, and both are just buttons on `/admin`.
 Pieces involved:
 - `DisputeMessage` model - a flat list of messages tied to an order, separate from `Conversation`/`Message`.
 - `/api/orders/[id]/dispute-messages` - GET/POST, accessible to the order's buyer, its seller, or any admin.
-- `lib/hooks/useDisputeThread.ts` - same real-time pattern as `useConversation`, pointed at a `private-dispute-{orderId}` Pusher channel.
+- `lib/hooks/useDisputeThread.ts` - same real-time pattern as `useConversation`, listening for `dispute-message` events (lib/realtime.ts).
 - Opening a dispute automatically seeds the thread with the buyer's original reason as the first message, so there's no gap between "why they disputed" and "the conversation about it."
 - Whoever doesn't post gets emailed: admin posts -> buyer and seller are notified; buyer or seller posts -> every admin is notified.
 - On `/admin`, each disputed order has a "Respond / get more details" button that expands into the live thread, right above the Refund/Release buttons.
@@ -399,7 +411,7 @@ start:
 - `DATABASE_URL` (Neon)
 - `NEXTAUTH_SECRET`
 
-Everything else fails gracefully - Stripe, Pusher, Daily, Resend, and
+Everything else fails gracefully - Stripe, Supabase (files and live messages), Daily, Resend, and
 Google sign-in only throw an error when you actually click the specific
 feature that needs them (checkout, messaging, video, invite emails,
 "Continue with Google" respectively), not on startup. This makes it
@@ -629,14 +641,13 @@ clicked - no duplicated upload logic.
 
 ## Attachment links now download instead of opening inline
 
-Vercel Blob supports a `?download=1` query parameter that forces a real
-file download regardless of type - without it, image/PDF/video/text
-attachments open directly in the browser tab instead of saving to
-Downloads. All three attachment links (coach profile thread,
-`/messages/[id]`, order detail page) now include this, plus a `download`
-attribute suggesting the original filename to the browser. Works for
-both new and previously-sent attachments, since it's applied when
-rendering the link, not stored differently in the database.
+Attachment links point at our own download routes
+(`/api/files/message/[id]`, `/api/files/delivery/[id]/[index]`), which
+check the person may see the file and then send them to a 5-minute
+Supabase Storage link created with the original file name as a download,
+so images and PDFs save to Downloads instead of opening in the tab. Older
+attachments still stored on Vercel Blob are sent to their old address with
+`?download=1`, which does the same.
 
 ## Fixed: Vercel build failures on API routes ("Failed to collect page data")
 

@@ -46,7 +46,7 @@ function BuiltInPrivacyPage() {
         <div>
           <h2 style={{ fontSize: 22, marginBottom: 6 }}>2. Third-party services we use</h2>
           <p className="text-secondary">
-            Stripe (payments), Daily.co (video calls), Pusher (real-time messaging), Resend (email notifications), Sentry (error reports),
+            Stripe (payments), Daily.co (video calls), Supabase (file storage and real-time messaging), Resend (email notifications), Sentry (error reports),
             and our database host. Each has its own privacy practices governing the data that passes through them.
           </p>
         </div>

@@ -2,23 +2,22 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { upload } from "@vercel/blob/client";
+import { uploadFile } from "@/lib/upload";
 import {
   APPLICATION_LIMITS as L,
   BLURB_MAX_WORDS,
   BLURB_MIN_WORDS,
   HONEYPOT_FIELD,
   RESUME_MAX_BYTES,
-  RESUME_TYPES,
   countWords,
   resumeExtension,
 } from "@/lib/applicationRules";
 import { useRecaptcha } from "@/components/FormGuards";
 import { MedicalSchoolPicker } from "@/components/MedicalSchoolPicker";
 
-// The public "Apply to mentor" form. The resume goes straight to Vercel
-// Blob first (via /api/applications/resume), then the form is sent to
-// /api/applications with the file's link.
+// The public "Apply to mentor" form. The resume goes straight to private
+// storage first (upload link from /api/applications/resume, lib/upload.ts),
+// then the form is sent to /api/applications with the file's path.
 export function MentorApplicationForm() {
   const [form, setForm] = useState({ name: "", email: "", phone: "", medicalSchool: "", residency: "", blurb: "" });
   const [honeypot, setHoneypot] = useState("");
@@ -64,21 +63,14 @@ export function MentorApplicationForm() {
     setError("");
     setStatus("uploading");
     try {
-      const ext = resumeExtension(resume.name)!;
-      const safeName = resume.name.slice(0, 120).replace(/[^a-zA-Z0-9._-]+/g, "_") || `resume.${ext}`;
-      const blob = await upload(`applications/${safeName}`, resume, {
-        access: "public",
-        handleUploadUrl: "/api/applications/resume",
-        contentType: RESUME_TYPES[ext],
-        clientPayload: JSON.stringify({ [HONEYPOT_FIELD]: honeypot }),
-      });
+      const uploaded = await uploadFile("/api/applications/resume", resume, { [HONEYPOT_FIELD]: honeypot });
       setStatus("sending");
       const res = await fetch("/api/applications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          resumeUrl: blob.url,
+          resumeUrl: uploaded.path,
           resumeName: resume.name.slice(0, 150),
           [HONEYPOT_FIELD]: honeypot,
           recaptchaToken: await recaptcha("mentor_application"),
@@ -91,7 +83,7 @@ export function MentorApplicationForm() {
       setStatus("idle");
       const msg = err?.message || "";
       setError(
-        /client token|upload/i.test(msg) && !/PDF|Word|5MB|today|tomorrow/i.test(msg)
+        /upload|too large|type isn't/i.test(msg) && !/PDF|Word|5MB|today|tomorrow/i.test(msg)
           ? "We couldn't upload your resume. Check it's a PDF or Word file under 5MB and try again."
           : msg || "Something went wrong. Please try again."
       );

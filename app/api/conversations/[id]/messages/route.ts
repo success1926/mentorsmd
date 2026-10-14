@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { pusher, conversationChannel } from "@/lib/pusher";
+import { sendLive } from "@/lib/realtime";
+import { isOurPath } from "@/lib/storage";
 import { sendNewMessageEmail, SITE_URL } from "@/lib/email";
-import { LIMITS, isOurBlobUrl } from "@/lib/validate";
+import { LIMITS } from "@/lib/validate";
 import { markRead } from "@/lib/unread";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
 import { isEmailConfirmed } from "@/lib/emailVerification";
@@ -33,7 +34,7 @@ async function assertParticipant(conversationId: string, userId: string) {
 }
 
 // Still useful for loading history when a thread first opens, even though
-// new messages after that arrive instantly over Pusher.
+// new messages after that arrive instantly over Supabase Realtime.
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -74,11 +75,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (text.length > LIMITS.messageBody) {
     return NextResponse.json({ error: `Message is too long (${LIMITS.messageBody} characters max)` }, { status: 400 });
   }
-  if (attachmentUrl && !isOurBlobUrl(attachmentUrl)) {
+  const senderId = (session.user as any).id;
+  // Attachments must be files this person uploaded through /api/upload
+  // (a private storage path, lib/storage.ts). Without this, a message's
+  // "attachment" could point anywhere, or at someone else's file.
+  if (attachmentUrl && !isOurPath(attachmentUrl, "attachments", senderId)) {
     return NextResponse.json({ error: "Invalid attachment" }, { status: 400 });
   }
 
-  const senderId = (session.user as any).id;
   const sender = await prisma.user.findUnique({
     where: { id: senderId },
     select: { id: true, role: true, createdAt: true, emailVerified: true, safetyHoldAt: true },
@@ -148,14 +152,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     data: convo.buyerId === senderId ? { sellerUnread: { increment: 1 } } : { buyerUnread: { increment: 1 } },
   });
 
-  // Instant delivery for whoever's on the site right now. The message is
-  // already saved, so a Pusher hiccup must not fail the request (the
-  // client would retry and create a duplicate).
-  try {
-    await pusher.trigger(conversationChannel(params.id), "new-message", message);
-  } catch (err) {
-    console.error("Pusher trigger failed:", err);
-  }
+  // Instant delivery for whoever's on the site right now (both people, so
+  // the sender's other tabs update too). Never throws: the message is
+  // already saved.
+  await sendLive([convo.buyerId, convo.sellerId], "message", { conversationId: params.id, message });
 
   // Email the OTHER person, throttled per conversation.
   const recipientIsSeller = convo.buyerId === senderId;

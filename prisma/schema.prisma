@@ -440,7 +440,7 @@ model Delivery {
   id          String   @id @default(cuid())
   number      Int // 1, 2, 3... per order
   description String
-  // [{ url, name }] - files uploaded through /api/upload (Vercel Blob).
+  // [{ url, name }] - url is the private storage path (lib/storage.ts), or an old Vercel Blob address.
   files       Json     @default("[]")
   createdAt   DateTime @default(now())
 
@@ -613,7 +613,7 @@ model Conversation {
 model Message {
   id             String   @id @default(cuid())
   body           String
-  attachmentUrl  String? // set if a file was attached, via /api/upload
+  attachmentUrl  String? // private storage path of an attached file (lib/storage.ts); old rows hold a Vercel Blob address
   attachmentName String? // original filename, shown in the UI
   createdAt      DateTime @default(now())
 
@@ -637,7 +637,7 @@ model MentorApplication {
   medicalSchool String
   residency     String?
   blurb         String
-  resumeUrl     String
+  resumeUrl     String // private storage path (lib/storage.ts); old rows hold a Vercel Blob address
   resumeName    String
   status        ApplicationStatus @default(PENDING)
   // SHA-256 of the sender's IP (never the IP itself), for the simple

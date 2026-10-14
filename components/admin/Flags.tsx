@@ -205,7 +205,7 @@ function FlagCard({ flag: f, onDone }: { flag: any; onDone: () => void }) {
               <Highlighted text={m.body} matches={m.id === f.messageId ? f.matches : []} />
               {m.attachmentName && (
                 <div className="small" style={{ marginTop: 4 }}>
-                  📎 <a href={`${m.attachmentUrl}?download=1`} target="_blank" rel="noopener noreferrer" className="link">{m.attachmentName}</a>
+                  📎 <a href={`/api/files/message/${m.id}`} target="_blank" rel="noopener noreferrer" className="link">{m.attachmentName}</a>
                 </div>
               )}
             </div>

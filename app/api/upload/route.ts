@@ -1,17 +1,22 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { put } from "@vercel/blob";
 import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
+import { PRIVATE_BUCKET, fileExtension, newPath, safeFileName, uploadLinkResponse } from "@/lib/storage";
 
-// Used for attaching files (essay drafts, PDFs, images) to a message.
-// A 10MB cap keeps this from being used to upload huge files by mistake;
-// raise MAX_SIZE if your use case genuinely needs bigger attachments.
+// Upload link for a file attached to a message or a delivery (essay
+// drafts, PDFs, images). The browser then sends the file straight to
+// private storage (lib/upload.ts) and the message / delivery saves its path.
+// Body: { name, size, conversationId } or { name, size, orderId }.
+//
+// A 10MB cap keeps this from being used to upload huge files by mistake
+// (the private-files bucket enforces the same limit).
 const MAX_SIZE = 10 * 1024 * 1024;
 
 // Only document and image types a coaching conversation needs. Blocks
 // .html/.svg/.js etc, which could be used to host phishing pages or
-// scripts on a URL that looks like it came from your site.
+// scripts. (Downloads are always sent as attachments, never shown inline.)
 const ALLOWED_EXTENSIONS = new Set([
   "pdf", "doc", "docx", "txt", "rtf", "odt", "pages",
   "ppt", "pptx", "key", "xls", "xlsx", "csv",
@@ -21,31 +26,36 @@ const ALLOWED_EXTENSIONS = new Set([
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const userId = (session.user as any).id;
 
-  const limit = await rateLimit(RATE_LIMITS.uploadsPerHour, (session.user as any).id);
+  const limit = await rateLimit(RATE_LIMITS.uploadsPerHour, userId);
   if (!limit.ok) return tooMany(limit.retryAfterSec, "You've uploaded a lot of files in the last hour. Please try again later.");
 
-  const formData = await req.formData();
-  const file = formData.get("file");
-  if (!file || typeof file === "string") return NextResponse.json({ error: "No file provided" }, { status: 400 });
+  const body = await req.json().catch(() => null);
+  const name = typeof body?.name === "string" ? body.name : "";
+  const size = Number(body?.size);
+  if (!name) return NextResponse.json({ error: "No file provided" }, { status: 400 });
+  if (!Number.isFinite(size) || size <= 0) return NextResponse.json({ error: "That file is empty" }, { status: 400 });
+  if (size > MAX_SIZE) return NextResponse.json({ error: "File is too large (10MB max)" }, { status: 400 });
 
-  if (file.size > MAX_SIZE) {
-    return NextResponse.json({ error: "File is too large (10MB max)" }, { status: 400 });
-  }
-
-  // Strip path characters and anything unusual from the name.
-  const originalName = file.name.slice(0, 150);
-  const safeName = originalName.replace(/[^a-zA-Z0-9._-]+/g, "_") || "file";
-  const ext = safeName.split(".").pop()?.toLowerCase() || "";
-  if (!ALLOWED_EXTENSIONS.has(ext)) {
+  const safeName = safeFileName(name);
+  if (!ALLOWED_EXTENSIONS.has(fileExtension(safeName))) {
     return NextResponse.json({ error: "That file type isn't supported. Try a PDF, Word doc, or image." }, { status: 400 });
   }
 
-  const userId = (session.user as any).id;
-  const blob = await put(`messages/${userId}/${safeName}`, file, {
-    access: "public",
-    addRandomSuffix: true, // unguessable URL, and no overwriting someone else's file
-  });
+  // Only the two people in a conversation can attach to it; only the
+  // order's mentor can attach files to a delivery.
+  if (typeof body?.conversationId === "string") {
+    const convo = await prisma.conversation.findUnique({ where: { id: body.conversationId }, select: { buyerId: true, sellerId: true } });
+    if (!convo || (convo.buyerId !== userId && convo.sellerId !== userId)) {
+      return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
+    }
+  } else if (typeof body?.orderId === "string") {
+    const order = await prisma.order.findUnique({ where: { id: body.orderId }, select: { sellerId: true } });
+    if (!order || order.sellerId !== userId) return NextResponse.json({ error: "Order not found" }, { status: 404 });
+  } else {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
 
-  return NextResponse.json({ url: blob.url, name: originalName });
+  return uploadLinkResponse(PRIVATE_BUCKET, newPath("attachments", safeName, userId));
 }

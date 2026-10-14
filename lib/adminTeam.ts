@@ -66,6 +66,21 @@ export async function currentAdmin(perm?: PermissionCheck): Promise<CurrentAdmin
   return admin;
 }
 
+// Ids of every active admin whose role includes this area (for sending
+// them live updates, lib/realtime.ts).
+export async function adminIdsWith(perm: PermissionCheck): Promise<string[]> {
+  const admins = await prisma.user.findMany({
+    where: { role: "ADMIN", adminDisabledAt: null, removedByAdmin: false },
+    select: { id: true, adminRole: true, adminCustomRole: { select: { permissions: true } } },
+  });
+  return admins
+    .filter((a) => {
+      const custom = normalizeAdminRole(a.adminRole) === "OWNER" ? null : a.adminCustomRole;
+      return can({ perms: custom ? custom.permissions : [ALL_PERMISSIONS] }, perm);
+    })
+    .map((a) => a.id);
+}
+
 // For routes students and mentors use too (orders, calls, invites): is the
 // logged-in person an admin whose role includes this area?
 export async function adminCan(perm: PermissionCheck) {

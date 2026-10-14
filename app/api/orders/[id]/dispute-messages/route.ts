@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { adminCan } from "@/lib/adminTeam";
+import { adminCan, adminIdsWith } from "@/lib/adminTeam";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { pusher, disputeChannel } from "@/lib/pusher";
+import { sendLive } from "@/lib/realtime";
 import { sendDisputeMessageEmail, SITE_URL } from "@/lib/email";
 import { LIMITS } from "@/lib/validate";
 
@@ -64,11 +64,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     include: { sender: { select: { id: true, name: true, role: true } } },
   });
 
-  try {
-    await pusher.trigger(disputeChannel(params.id), "new-message", message);
-  } catch (err) {
-    console.error("Pusher trigger failed:", err);
-  }
+  // Live update for the student, the mentor and every admin who handles
+  // disputes. Never throws.
+  await sendLive([order.buyerId, order.sellerId, ...(await adminIdsWith("disputes").catch(() => []))], "dispute-message", {
+    orderId: params.id,
+    message,
+  });
 
   try {
     const senderName = message.sender.name;

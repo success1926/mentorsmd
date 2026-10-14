@@ -371,14 +371,24 @@ export function isSafeHref(h: string) {
 }
 export const safeHref = (h: string, fallback = "/") => (isSafeHref(h) ? h : fallback);
 
-// Photos: one of the site's own images, or an upload in Vercel Blob.
+// Photos: one of the site's own images, an upload in Supabase Storage
+// (public-media bucket, "site/" folder), or an older upload in Vercel Blob.
 export function isSafeImage(u: string) {
   const base = stripFocus(u);
   if (!base) return true;
   if (/^\/images\/[A-Za-z0-9._\-/]+$/.test(base) && !base.includes("..")) return true;
   try {
     const url = new URL(base);
-    return url.protocol === "https:" && url.hostname.endsWith(".public.blob.vercel-storage.com");
+    if (url.protocol !== "https:") return false;
+    if (url.hostname.endsWith(".public.blob.vercel-storage.com")) return true;
+    const supabase = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "");
+    return (
+      !!supabase &&
+      `${url.origin}` === supabase &&
+      /^\/storage\/v1\/object\/public\/public-media\/(live|preview)\/site\/[A-Za-z0-9._\-/%]+$/.test(url.pathname) &&
+      !url.pathname.includes("..") &&
+      !url.search
+    );
   } catch {
     return false;
   }
