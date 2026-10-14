@@ -1,10 +1,10 @@
 -- MentorsMD (Oct 2026): automatic call outcomes and no-shows.
 --
--- Open your Neon project -> SQL Editor, paste this whole file, and run it
--- once (make a Neon backup branch first). It only ADDS three empty
--- columns (with IF NOT EXISTS), so it's safe to run while the current site
--- is live, and safe to run twice. Run it BEFORE the new code goes live,
--- on both the production and preview branches.
+-- Run once in Supabase (MentorsMD project -> SQL Editor), on the live
+-- tables and again with `SET search_path TO preview;` first for the
+-- preview sites. It only ADDS three empty columns (with IF NOT EXISTS),
+-- so it's safe while the site is live and safe to run twice. Run it
+-- BEFORE the new code goes live.
 
 -- What happened at each call (held, student no-show, mentor no-show,
 -- nobody joined...), when that was decided, and which admin decided it
