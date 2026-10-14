@@ -45,7 +45,10 @@ async function currentToken(): Promise<string | null> {
 }
 
 async function start() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  let url = "";
+  try {
+    url = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "").origin;
+  } catch {}
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return;
   pass = await fetchPass().catch(() => null);

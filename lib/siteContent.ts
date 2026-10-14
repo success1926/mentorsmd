@@ -381,7 +381,10 @@ export function isSafeImage(u: string) {
     const url = new URL(base);
     if (url.protocol !== "https:") return false;
     if (url.hostname.endsWith(".public.blob.vercel-storage.com")) return true;
-    const supabase = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "");
+    let supabase = "";
+    try {
+      supabase = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "").origin;
+    } catch {}
     return (
       !!supabase &&
       `${url.origin}` === supabase &&

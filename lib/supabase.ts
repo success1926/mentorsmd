@@ -15,7 +15,16 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 // Tests on a preview never touch real files or reach real people.
 export const ENV_TAG = process.env.VERCEL_ENV === "production" ? "live" : "preview";
 
-export const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "");
+// Only the project origin is used, so a pasted ".../rest/v1/" address still works.
+export function supabaseOrigin(raw: string | undefined): string {
+  try {
+    return raw ? new URL(raw).origin : "";
+  } catch {
+    return "";
+  }
+}
+
+export const SUPABASE_URL = supabaseOrigin(process.env.NEXT_PUBLIC_SUPABASE_URL);
 
 let admin: SupabaseClient | null | undefined;
 
