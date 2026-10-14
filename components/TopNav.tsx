@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { markLoggedOutOnPurpose } from "@/components/SessionWatcher";
 import { MENTOR_QUICK_LINKS, quickLinkHref } from "@/lib/options";
+import { onLive } from "@/lib/realtimeClient";
 
 // The brand mark: a graduation cap whose tassel is a stethoscope.
 // Same drawing as app/icon.svg (browser tab) - keep the two in step.
@@ -129,7 +130,8 @@ export function TopNav() {
   const [navInfo, setNavInfo] = useState<{ unread: number; packageCount: number | null }>({ unread: 0, packageCount: null });
 
   // Unread badge + package count. Refreshes on page change, every minute,
-  // when the tab regains focus, and right after a thread is read.
+  // when the tab regains focus, right after a thread is read, and when a
+  // new message arrives.
   useEffect(() => {
     if (status !== "authenticated" || role === "ADMIN" || role === "ADMIN_2FA") return;
     let alive = true;
@@ -142,8 +144,18 @@ export function TopNav() {
     const timer = setInterval(load, 60_000);
     window.addEventListener("focus", load);
     window.addEventListener("mmd:unread-changed", load);
+    // A new message arrived (live updates, lib/realtimeClient.ts). Waits a
+    // moment so an open thread can mark it read first.
+    let liveTimer: ReturnType<typeof setTimeout> | undefined;
+    const off = onLive((event) => {
+      if (event !== "message") return;
+      clearTimeout(liveTimer);
+      liveTimer = setTimeout(load, 1500);
+    });
     return () => {
       alive = false;
+      off();
+      clearTimeout(liveTimer);
       clearInterval(timer);
       window.removeEventListener("focus", load);
       window.removeEventListener("mmd:unread-changed", load);

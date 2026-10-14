@@ -279,7 +279,7 @@ function LeadRow({
 
         {r.kind === "APPLICATION" && (
           <div className="row-wrap">
-            <a href={`${r.resumeUrl}?download=1`} download={r.resumeName} target="_blank" rel="noopener noreferrer" className="btn btn-sm">Download resume</a>
+            <a href={`/api/admin/applications/${r.id}/resume`} target="_blank" rel="noopener noreferrer" className="btn btn-sm">Download resume</a>
             {r.status !== "INVITED" && <button className="btn btn-sm btn-primary" disabled={busy} onClick={() => appAction("invite")}>Invite</button>}
             {r.status === "PENDING" && <button className="btn btn-sm btn-danger" disabled={busy} onClick={() => appAction("decline")}>Decline</button>}
             {r.status === "DECLINED" && <button className="btn btn-sm" disabled={busy} onClick={() => appAction("reopen")}>Move back to pending</button>}

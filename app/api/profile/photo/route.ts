@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { put, del } from "@vercel/blob";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { isOurBlobUrl } from "@/lib/validate";
+import { PUBLIC_BUCKET, newPath, publicPathFromUrl, publicUrl, removeFiles } from "@/lib/storage";
+import { supabaseAdmin, NOT_SET_UP } from "@/lib/supabase";
 
-// Profile photo upload. Stored in the same Vercel Blob storage as message
-// attachments. The browser already crops/resizes the image to a square
-// before sending (see app/account), so files here are small.
+// Profile photo upload, stored in the public-media bucket (lib/storage.ts).
+// The browser already crops/resizes the image to a square before sending
+// (see app/account), so files here are small enough to come through our
+// server, which checks the file really is an image before storing it.
 const MAX_SIZE = 2 * 1024 * 1024; // the browser sends ~100KB; this is headroom
 
 // Checks the file's first bytes, not just the type the browser claims.
@@ -57,21 +58,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "That file doesn't look like a valid image" }, { status: 400 });
   }
 
-  const blob = await put(`avatars/${userId}/photo.${ext}`, file, {
-    access: "public",
-    addRandomSuffix: true, // new URL each time, so browsers never show a cached old photo
-    contentType: file.type,
-  });
+  const sb = supabaseAdmin();
+  if (!sb) return NextResponse.json({ error: NOT_SET_UP }, { status: 503 });
+  // A new path each time, so browsers never show a cached old photo.
+  const path = newPath("avatars", `photo.${ext}`, userId);
+  const { error } = await sb.storage.from(PUBLIC_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
+  if (error) {
+    console.error("Profile photo upload failed:", error);
+    return NextResponse.json({ error: "Upload failed. Please try again." }, { status: 500 });
+  }
+  const photoUrl = publicUrl(path);
 
   const previous = await prisma.user.findUnique({ where: { id: userId }, select: { photoUrl: true } });
-  await prisma.user.update({ where: { id: userId }, data: { photoUrl: blob.url } });
+  await prisma.user.update({ where: { id: userId }, data: { photoUrl } });
 
   // Clean up the old file so storage doesn't fill with replaced photos.
-  if (previous?.photoUrl && isOurBlobUrl(previous.photoUrl)) {
-    del(previous.photoUrl).catch((err) => console.error("Couldn't delete old profile photo:", err));
-  }
+  await removeOldPhoto(previous?.photoUrl);
 
-  return NextResponse.json({ photoUrl: blob.url });
+  return NextResponse.json({ photoUrl });
 }
 
 export async function DELETE() {
@@ -81,8 +85,13 @@ export async function DELETE() {
 
   const previous = await prisma.user.findUnique({ where: { id: userId }, select: { photoUrl: true } });
   await prisma.user.update({ where: { id: userId }, data: { photoUrl: null } });
-  if (previous?.photoUrl && isOurBlobUrl(previous.photoUrl)) {
-    del(previous.photoUrl).catch((err) => console.error("Couldn't delete old profile photo:", err));
-  }
+  await removeOldPhoto(previous?.photoUrl);
   return NextResponse.json({ photoUrl: null });
+}
+
+// Deletes a replaced photo if it's one of ours in Supabase Storage. (Old
+// Vercel Blob photos are left alone; that store is being retired.)
+async function removeOldPhoto(url: string | null | undefined) {
+  const path = url ? publicPathFromUrl(url) : null;
+  if (path && /^(live|preview)\/avatars\//.test(path)) await removeFiles(PUBLIC_BUCKET, [path]);
 }

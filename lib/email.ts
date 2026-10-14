@@ -100,7 +100,7 @@ export async function sendSellerInviteEmail(toEmail: string, inviteUrl: string) 
 
 // Sent to whoever DIDN'T just send a message - so if a buyer messages a
 // coach, the coach gets this (not the buyer). Real-time delivery via
-// Pusher covers people actively on the site; this covers people who
+// Live updates (Supabase Realtime) cover people actively on the site; this covers people who
 // aren't, so a message doesn't sit unseen for days.
 export async function sendNewMessageEmail(toEmail: string, fromName: string, previewMessage: string, conversationUrl: string) {
   await sendTemplate("new_message", toEmail, { fromName, messagePreview: previewText(previewMessage), conversationLink: conversationUrl });
@@ -248,14 +248,13 @@ type ApplicationForEmail = {
   medicalSchool: string;
   residency: string | null;
   blurb: string;
-  resumeUrl: string;
   resumeName: string;
 };
 
 // To the MentorsMD team. Reply-to is the applicant, so hitting Reply in
 // the inbox answers them directly. The resume is attached when we could
 // read it; the link is always included as a backup.
-export async function sendApplicationEmail(app: ApplicationForEmail, adminUrl: string, resume?: { filename: string; content: Buffer }) {
+export async function sendApplicationEmail(app: ApplicationForEmail, adminUrl: string, resumeLink: string, resume?: { filename: string; content: Buffer }) {
   await sendTemplate(
     "mentor_application",
     APPLICATIONS_EMAIL,
@@ -268,7 +267,7 @@ export async function sendApplicationEmail(app: ApplicationForEmail, adminUrl: s
       about: blocks.quote(app.blurb),
       resumeStatus: resume ? "attached" : "not attached",
       resumeName: app.resumeName,
-      resumeLink: app.resumeUrl,
+      resumeLink, // admin-only download link (résumés are private files)
       adminLink: adminUrl,
     },
     { reply_to: app.email, attachments: resume ? [resume] : undefined }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useConversation, SendError } from "@/lib/hooks/useConversation";
+import { onLive } from "@/lib/realtimeClient";
 import { OrderCalls } from "@/components/Calls";
 import { Icon, ICONS, MinorBadge, StaffBadge, Vetted, statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { ConfirmEmailNotice, IntegrityBanner, MessageText, ReportDialog, SendWarnings, setBlocked, type SendWarning } from "@/components/Safety";
@@ -38,10 +39,24 @@ export function Inbox({ selectedId }: { selectedId?: string }) {
   const [conversations, setConversations] = useState<any[] | null>(null);
 
   useEffect(() => {
-    fetch("/api/conversations")
-      .then((r) => r.json())
-      .then((d) => setConversations(d.conversations || []))
-      .catch(() => setConversations([]));
+    const load = () =>
+      fetch("/api/conversations")
+        .then((r) => r.json())
+        .then((d) => setConversations(d.conversations || []))
+        .catch(() => setConversations((prev) => prev ?? []));
+    load();
+    // A new message anywhere moves that conversation up and updates its
+    // unread count (live updates, lib/realtimeClient.ts).
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const off = onLive((event) => {
+      if (event !== "message") return;
+      clearTimeout(timer);
+      timer = setTimeout(load, 800);
+    });
+    return () => {
+      off();
+      clearTimeout(timer);
+    };
   }, [selectedId]);
 
   return (
@@ -274,7 +289,7 @@ function Thread({ conversationId }: { conversationId: string }) {
               <MessageText text={m.body} />
               {m.attachmentUrl && (
                 <div style={{ marginTop: m.body ? 6 : 0 }}>
-                  <a href={`${m.attachmentUrl}?download=1`} download={m.attachmentName} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline", fontSize: 13 }}>
+                  <a href={`/api/files/message/${m.id}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline", fontSize: 13 }}>
                     📎 {m.attachmentName || "Attachment"}
                   </a>
                 </div>

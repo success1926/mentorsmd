@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { head } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
-import { normalizeEmail, isOurBlobUrl } from "@/lib/validate";
+import { normalizeEmail } from "@/lib/validate";
+import { PRIVATE_BUCKET, fileSize, isOurPath, readFile, removeFiles } from "@/lib/storage";
 import { sendApplicationEmail, sendApplicationReceivedEmail, SITE_URL } from "@/lib/email";
 import {
   APPLICATION_LIMITS as L,
@@ -46,6 +46,8 @@ export async function POST(req: Request) {
   const medicalSchool = text(body.medicalSchool, L.medicalSchool);
   const residency = typeof body.residency === "string" && body.residency.trim() ? text(body.residency, L.residency) : null;
   const blurb = text(body.blurb, L.blurbChars);
+  // Storage path from /api/applications/resume (field name kept from the
+  // Vercel Blob days).
   const resumeUrl = body.resumeUrl;
   const resumeName = text(body.resumeName, 150) || "resume";
 
@@ -62,7 +64,7 @@ export async function POST(req: Request) {
   }
 
   // The resume must be a file uploaded through /api/applications/resume.
-  if (!isOurBlobUrl(resumeUrl) || !new URL(resumeUrl).pathname.startsWith("/applications/") || !resumeExtension(new URL(resumeUrl).pathname)) {
+  if (!isOurPath(resumeUrl, "applications") || !resumeExtension(resumeUrl)) {
     return NextResponse.json({ error: "Please upload your resume (PDF or Word)." }, { status: 400 });
   }
 
@@ -70,17 +72,19 @@ export async function POST(req: Request) {
   const limit = await applicationLimitError(ipHash, email);
   if (limit) return NextResponse.json({ error: limit }, { status: 429 });
 
-  // Double-check the size with Blob itself, then read the file so it can
-  // be attached to the email. If anything goes wrong reading it, the
-  // email still goes out with a link to the resume.
+  // Double-check the real size in storage (the upload link can't limit it
+  // to 5MB by itself), then read the file so it can be attached to the
+  // email. If reading fails, the email still goes out with a link.
+  const size = await fileSize(PRIVATE_BUCKET, resumeUrl);
+  if (size === null) return NextResponse.json({ error: "Please upload your resume (PDF or Word)." }, { status: 400 });
+  if (size > RESUME_MAX_BYTES) {
+    await removeFiles(PRIVATE_BUCKET, [resumeUrl]);
+    return NextResponse.json({ error: "Your resume is larger than 5MB." }, { status: 400 });
+  }
   let attachment: { filename: string; content: Buffer } | undefined;
   try {
-    const info = await head(resumeUrl);
-    if (info.size > RESUME_MAX_BYTES) {
-      return NextResponse.json({ error: "Your resume is larger than 5MB." }, { status: 400 });
-    }
-    const res = await fetch(resumeUrl);
-    if (res.ok) attachment = { filename: resumeName, content: Buffer.from(await res.arrayBuffer()) };
+    const content = await readFile(resumeUrl);
+    if (content) attachment = { filename: resumeName, content };
   } catch (err) {
     console.error("Couldn't read the resume for the application email:", err);
   }
@@ -89,13 +93,15 @@ export async function POST(req: Request) {
     data: { name, email, phone, medicalSchool, residency, blurb, resumeUrl, resumeName, ipHash },
   });
 
+  // Résumés are private: the email's link goes through an admin-only route.
+  const resumeLink = `${SITE_URL}/api/admin/applications/${application.id}/resume`;
   try {
-    await sendApplicationEmail(application, `${SITE_URL}/admin/applications`, attachment);
+    await sendApplicationEmail(application, `${SITE_URL}/admin/applications`, resumeLink, attachment);
   } catch (err) {
     console.error("Failed to send the application email to the team:", err);
     // Fall back to a link if the attachment was the problem.
     if (attachment) {
-      await sendApplicationEmail(application, `${SITE_URL}/admin/applications`).catch((e) => console.error("Retry without attachment failed:", e));
+      await sendApplicationEmail(application, `${SITE_URL}/admin/applications`, resumeLink).catch((e) => console.error("Retry without attachment failed:", e));
     }
   }
   try {

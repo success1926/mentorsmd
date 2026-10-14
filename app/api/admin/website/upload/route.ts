@@ -1,30 +1,26 @@
 import { NextResponse } from "next/server";
-import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { currentAdmin } from "@/lib/adminTeam";
+import { PUBLIC_BUCKET, fileExtension, newPath, publicUrl, safeFileName, uploadLinkResponse } from "@/lib/storage";
 
-// Photo uploads for Admin -> Website. The browser uploads straight to
-// Vercel Blob (like the resume upload); this route only hands out a
-// short-lived permission, to admins only, for an image up to 8MB in "site/".
+// Photo uploads for Admin -> Website. The browser uploads straight to the
+// public-media bucket (lib/upload.ts); this route only hands out a one-time
+// upload link, to admins with the Website permission, for an image up to
+// 8MB in "site/". The bucket itself also only accepts these image types
+// and sizes. Returns the photo's public address for the page to save.
 const SITE_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"];
 const MAX_BYTES = 8 * 1024 * 1024;
 
 export async function POST(req: Request) {
-  const body = (await req.json().catch(() => null)) as HandleUploadBody | null;
-  if (!body) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-  try {
-    const result = await handleUpload({
-      body,
-      request: req,
-      onBeforeGenerateToken: async (pathname) => {
-        if (!(await currentAdmin("website"))) throw new Error("Admin access required");
-        if (!pathname.startsWith("site/") || pathname.includes("..")) throw new Error("Invalid file name");
-        if (!/\.(jpe?g|png|webp|gif|avif)$/i.test(pathname)) throw new Error("Photos must be JPG, PNG, WebP, GIF or AVIF");
-        return { allowedContentTypes: SITE_IMAGE_TYPES, maximumSizeInBytes: MAX_BYTES, addRandomSuffix: true };
-      },
-      onUploadCompleted: async () => {},
-    });
-    return NextResponse.json(result);
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Upload failed" }, { status: 400 });
+  if (!(await currentAdmin("website"))) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  const body = await req.json().catch(() => null);
+  const name = typeof body?.name === "string" ? body.name : "";
+  const size = Number(body?.size);
+  if (!SITE_IMAGE_TYPES.includes(body?.type) || !/^(jpe?g|png|webp|gif|avif)$/.test(fileExtension(name))) {
+    return NextResponse.json({ error: "Photos must be JPG, PNG, WebP, GIF or AVIF" }, { status: 400 });
   }
+  if (!Number.isFinite(size) || size <= 0 || size > MAX_BYTES) {
+    return NextResponse.json({ error: "Photos must be 8MB or smaller" }, { status: 400 });
+  }
+  const path = newPath("site", safeFileName(name, "photo.jpg"));
+  return uploadLinkResponse(PUBLIC_BUCKET, path, { publicUrl: publicUrl(path) });
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { upload } from "@vercel/blob/client";
+import { uploadFile } from "@/lib/upload";
 import type { FieldDef, ListDef, ScalarDef } from "@/lib/siteContent";
 import { focusPosition, parseFocus, stripFocus, withFocus } from "@/lib/imageFocus";
 
@@ -335,10 +335,9 @@ function ImageEditor({ value, onChange }: { value: string; onChange: (v: string)
     if (file.size > MAX_PHOTO_MB * 1024 * 1024) return setError(`That photo is over ${MAX_PHOTO_MB}MB. Please choose a smaller one.`);
     setUploading(true);
     try {
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z]/g, "") || "jpg";
-      const base = file.name.replace(/\.[^.]+$/, "").slice(0, 80).replace(/[^a-zA-Z0-9_-]+/g, "_") || "photo";
-      const blob = await upload(`site/${base}.${ext}`, file, { access: "public", handleUploadUrl: "/api/admin/website/upload", contentType: file.type });
-      onChange(blob.url);
+      const up = await uploadFile("/api/admin/website/upload", file);
+      if (!up.publicUrl) throw new Error("Upload failed. Please try again.");
+      onChange(up.publicUrl);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed. Please try again.");
     }

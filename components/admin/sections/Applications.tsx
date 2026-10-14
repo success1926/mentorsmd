@@ -71,7 +71,7 @@ export function Applications({ onInvited, setNotice }: { onInvited?: () => void;
               <span><b>Email:</b> <a className="link" href={`mailto:${a.email}`}>{a.email}</a> · <b>Phone:</b> {a.phone}</span>
               <p className="text-secondary" style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{a.blurb}</p>
               <div className="row-wrap">
-                <a href={`${a.resumeUrl}?download=1`} download={a.resumeName} target="_blank" rel="noopener noreferrer" className="btn btn-sm">Download resume</a>
+                <a href={`/api/admin/applications/${a.id}/resume`} target="_blank" rel="noopener noreferrer" className="btn btn-sm">Download resume</a>
                 {a.status !== "INVITED" && (
                   <button className="btn btn-sm btn-primary" disabled={busy === a.id} onClick={() => act(a, "invite")}>Invite</button>
                 )}
