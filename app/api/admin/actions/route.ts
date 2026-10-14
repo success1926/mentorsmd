@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { currentAdmin } from "@/lib/adminTeam";
 import { prisma } from "@/lib/prisma";
 import { csvBody, csvResponse } from "@/lib/csv";
 
 // Admin -> Action log. Newest first; ?before=<ISO date> pages back.
 // ?format=csv downloads the whole log (#84), up to 50,000 rows.
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
+  const admin = await currentAdmin("actionlog");
+  if (!admin) {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
   const sp = new URL(req.url).searchParams;

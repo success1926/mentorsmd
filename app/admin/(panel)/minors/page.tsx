@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { AdminGuard, AdminNav } from "@/components/admin/AdminNav";
+import { AdminGuard } from "@/components/admin/AdminNav";
 
 const fmtDay = (d: string) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 const fmtTime = (d: string) => new Date(d).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
@@ -65,7 +65,6 @@ export default function AdminMinorsPage() {
         <h1 className="page-title">Students under 18</h1>
         <p className="lede">Accounts for students aged 13 to 17, their parent or guardian, and the consent records.</p>
       </div>
-      <AdminNav />
       {notice && <div role="status" className={`alert ${notice.ok ? "alert-success" : "alert-danger"}`}>{notice.text}</div>}
       <div className="tabs" role="tablist">
         <button role="tab" className="tab" aria-selected={tab === "current"} onClick={() => setTab("current")}>Under 18 {users && <span className="tab-count">{current.length}</span>}</button>

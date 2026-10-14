@@ -2,19 +2,22 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { AdminGuard, AdminNav } from "@/components/admin/AdminNav";
+import { AdminGuard } from "@/components/admin/AdminNav";
 import { logOut } from "@/components/TopNav";
+import { TeamRoles, rolePickToBody, rolePickValue, type CustomRole } from "@/components/admin/TeamRoles";
 
 const fmtDay = (d: string) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 
-// Admin -> Team (#114-#118). Everyone on the team can see it; only Owners
-// can invite, change roles, disable, remove or reset 2-step verification.
+// Admin -> Team & roles (#114-#118). Anyone whose role includes Team can
+// see it; only Owners can invite, change roles, disable, remove, reset
+// 2-step verification or edit custom roles.
 export default function AdminTeamPage() {
   const { data: session, status } = useSession();
   const isAdmin = (session?.user as any)?.role === "ADMIN";
-  const [data, setData] = useState<{ me: { id: string; isOwner: boolean }; members: any[]; invites: any[] } | null>(null);
+  const [data, setData] = useState<{ me: { id: string; isOwner: boolean }; members: any[]; invites: any[]; roles: CustomRole[] } | null>(null);
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"ADMIN" | "OWNER">("ADMIN");
+  // "OWNER", "ADMIN" or "role:<id>" for a custom role.
+  const [role, setRole] = useState("ADMIN");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -33,7 +36,7 @@ export default function AdminTeamPage() {
   async function invite() {
     setBusy(true);
     setNotice(null);
-    const res = await fetch("/api/admin/team/invites", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, adminRole: role }) });
+    const res = await fetch("/api/admin/team/invites", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, ...rolePickToBody(role) }) });
     const d = await res.json().catch(() => ({}));
     setBusy(false);
     if (!res.ok) return setNotice({ ok: false, text: d.error || "Couldn't send the invite" });
@@ -72,10 +75,9 @@ export default function AdminTeamPage() {
   return (
     <div className="page stack-lg" style={{ gap: 32 }}>
       <div className="stack-sm">
-        <h1 className="page-title">Team</h1>
-        <p className="lede">Who can use Admin. Owners manage the team; Admins can do everything else.</p>
+        <h1 className="page-title">Team &amp; roles</h1>
+        <p className="lede">Who can use Admin. Owners manage the team and roles; Admins can do everything else; a custom role only opens the areas ticked for it.</p>
       </div>
-      <AdminNav />
       {notice && <div role="status" className={`alert ${notice.ok ? "alert-success" : "alert-danger"}`}>{notice.text}</div>}
       {data && !isOwner && <div className="alert alert-blue">Only Owners can invite or change team members.</div>}
 
@@ -85,10 +87,7 @@ export default function AdminTeamPage() {
           <span className="text-secondary">We email them a one-time link (valid 7 days). They choose their own password and set up 2-step verification. Use an email that isn&apos;t already a student or mentor account.</span>
           <div className="row-wrap">
             <input className="input grow" style={{ marginBottom: 0, minWidth: 220 }} type="email" placeholder="Their email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <div className="seg">
-              <button type="button" className="seg-opt" aria-pressed={role === "ADMIN"} onClick={() => setRole("ADMIN")}>Admin</button>
-              <button type="button" className="seg-opt" aria-pressed={role === "OWNER"} onClick={() => setRole("OWNER")}>Owner</button>
-            </div>
+            <RolePicker value={role} onChange={setRole} roles={data?.roles || []} label="Role for the new team member" />
             <button className="btn btn-primary" disabled={busy || !email.trim()} onClick={invite}>{busy ? "Sending…" : "Send invite"}</button>
           </div>
         </section>
@@ -108,17 +107,24 @@ export default function AdminTeamPage() {
                     {m.email} · joined {fmtDay(m.createdAt)}{m.lastActiveAt ? ` · last active ${fmtDay(m.lastActiveAt)}` : ""}
                   </span>
                 </div>
-                <span className={`badge ${m.adminRole === "OWNER" ? "badge-brand" : ""}`}>{m.adminRole === "OWNER" ? "Owner" : "Admin"}</span>
+                <span className={`badge ${m.adminRole === "OWNER" ? "badge-brand" : ""}`}>{m.roleName}</span>
                 <span className={`badge ${m.twoFactorMethod ? "badge-success" : "badge-warning"}`}>
                   {m.twoFactorMethod === "TOTP" ? "2-step: app" : m.twoFactorMethod === "EMAIL" ? "2-step: email" : "2-step not set up yet"}
                 </span>
                 {m.adminDisabledAt && <span className="badge badge-danger">Disabled {fmtDay(m.adminDisabledAt)}</span>}
                 {isOwner && (
                   <div className="row-wrap" style={{ gap: 6 }}>
-                    {m.adminRole === "OWNER" ? (
-                      <button className="btn btn-sm" onClick={() => memberAction(m, "role", { adminRole: "ADMIN" })}>Make Admin</button>
-                    ) : (
-                      <button className="btn btn-sm" onClick={() => memberAction(m, "role", { adminRole: "OWNER" })}>Make Owner</button>
+                    {/* Nobody changes their own role or an Owner's. */}
+                    {!me && m.adminRole !== "OWNER" && (
+                      <RolePicker
+                        value={rolePickValue(m)}
+                        roles={data.roles}
+                        label={`Role for ${m.name}`}
+                        onChange={(v) => {
+                          if (v === "OWNER" && !confirm(`Make ${m.name} an Owner? Owners have full access and manage the team, and an Owner's role can't be changed afterwards.`)) return;
+                          memberAction(m, "role", rolePickToBody(v));
+                        }}
+                      />
                     )}
                     {m.twoFactorMethod && <button className="btn btn-sm" onClick={() => memberAction(m, "reset-2fa")}>Reset 2-step</button>}
                     {!me && <button className="btn btn-sm" onClick={() => memberAction(m, "end-sessions")}>Log out everywhere</button>}
@@ -134,8 +140,10 @@ export default function AdminTeamPage() {
             );
           })}
         </div>
-        <span className="text-muted small">Disabling or removing someone logs them out immediately. There must always be at least one active Owner. Every change is in the action log on the Overview tab.</span>
+        <span className="text-muted small">Disabling or removing someone logs them out immediately. There must always be at least one active Owner. Every change is in the Action log.</span>
       </section>
+
+      {data && <TeamRoles roles={data.roles} isOwner={isOwner} onChanged={load} setNotice={setNotice} />}
 
       {(pendingInvites.length > 0 || expiredInvites.length > 0) && (
         <section className="stack-sm">
@@ -146,7 +154,7 @@ export default function AdminTeamPage() {
                 <div className="grow stack-sm" style={{ gap: 2 }}>
                   <b style={{ fontSize: 15 }}>{inv.email}</b>
                   <span className="text-muted">
-                    {inv.adminRole === "OWNER" ? "Owner" : "Admin"} · sent {fmtDay(inv.createdAt)}{inv.invitedBy?.name ? ` by ${inv.invitedBy.name}` : ""}
+                    {inv.roleName} · sent {fmtDay(inv.createdAt)}{inv.invitedBy?.name ? ` by ${inv.invitedBy.name}` : ""}
                   </span>
                 </div>
                 <span className={`badge ${inv.expired ? "" : "badge-warning"}`}>{inv.expired ? "Expired" : "Pending"}</span>
@@ -162,5 +170,17 @@ export default function AdminTeamPage() {
         </section>
       )}
     </div>
+  );
+}
+
+function RolePicker({ value, onChange, roles, label }: { value: string; onChange: (v: string) => void; roles: CustomRole[]; label: string }) {
+  return (
+    <select className="input" style={{ marginBottom: 0, width: "auto", minWidth: 160 }} value={value} onChange={(e) => onChange(e.target.value)} aria-label={label}>
+      <option value="ADMIN">Admin (full access)</option>
+      {roles.map((r) => (
+        <option key={r.id} value={`role:${r.id}`}>{r.name}</option>
+      ))}
+      <option value="OWNER">Owner</option>
+    </select>
   );
 }

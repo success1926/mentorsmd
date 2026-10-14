@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { adminCan } from "@/lib/adminTeam";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -16,7 +17,7 @@ async function load(params: { id: string }) {
   if (!session?.user) return { error: NextResponse.json({ error: "Not authenticated" }, { status: 401 }) };
   const user = session.user as any;
   const order = await prisma.order.findUnique({ where: { id: params.id }, include: orderForCallsInclude });
-  const isAdmin = user.role === "ADMIN";
+  const isAdmin = user.role === "ADMIN" && (await adminCan("calls"));
   if (!order || (order.buyerId !== user.id && order.sellerId !== user.id && !isAdmin)) {
     return { error: NextResponse.json({ error: "Order not found" }, { status: 404 }) };
   }

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ADMIN_INVITE_DAYS, ADMIN_ROLE_LABEL, currentAdmin, newInviteToken, normalizeAdminRole } from "@/lib/adminTeam";
+import { ADMIN_INVITE_DAYS, currentAdmin, newInviteToken, roleLabelFor } from "@/lib/adminTeam";
 import { SITE_URL, sendAdminInviteEmail } from "@/lib/email";
 import { logAdminAction } from "@/lib/adminLog";
 
 async function owner() {
-  const admin = await currentAdmin();
+  const admin = await currentAdmin("team");
   if (!admin) return { error: NextResponse.json({ error: "Admin access required" }, { status: 403 }) };
   if (admin.adminRole !== "OWNER") return { error: NextResponse.json({ error: "Only Owners can manage the team" }, { status: 403 }) };
   return { admin };
@@ -15,12 +15,12 @@ async function owner() {
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
   const { admin, error } = await owner();
   if (error) return error;
-  const invite = await prisma.adminInvite.findUnique({ where: { id: params.id } });
+  const invite = await prisma.adminInvite.findUnique({ where: { id: params.id }, include: { adminCustomRole: { select: { name: true } } } });
   if (!invite || invite.acceptedAt || invite.revokedAt) return NextResponse.json({ error: "Invite not found" }, { status: 404 });
   const { token, tokenHash } = newInviteToken();
   await prisma.adminInvite.update({ where: { id: invite.id }, data: { tokenHash, expiresAt: new Date(Date.now() + ADMIN_INVITE_DAYS * 86400_000) } });
   try {
-    await sendAdminInviteEmail(invite.email, admin!.name, ADMIN_ROLE_LABEL[normalizeAdminRole(invite.adminRole)], `${SITE_URL}/join-team?token=${token}`);
+    await sendAdminInviteEmail(invite.email, admin!.name, roleLabelFor(invite), `${SITE_URL}/join-team?token=${token}`);
   } catch (err) {
     console.error("Couldn't resend the team invite:", err);
     return NextResponse.json({ error: "The email failed to send. Try again in a minute." }, { status: 502 });

@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { adminCan } from "@/lib/adminTeam";
+import { ORDER_VIEW_PERMISSIONS } from "@/lib/adminPermissions";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -34,16 +36,19 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     },
   });
 
-  if (!order || (order.buyerId !== userId && order.sellerId !== userId && role !== "ADMIN")) {
+  // Admins can open any order if their role covers an area that links to
+  // orders (lib/adminPermissions.ts); recordings need Calls or Disputes.
+  const isAdmin = role === "ADMIN" && (await adminCan(ORDER_VIEW_PERMISSIONS));
+  if (!order || (order.buyerId !== userId && order.sellerId !== userId && !isAdmin)) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
 
-  const isAdmin = role === "ADMIN";
+  const showRecordings = isAdmin && (await adminCan(["calls", "disputes"]));
   const { weeklyHours, ...seller } = order.seller;
   const safe = {
     ...order,
     seller: { ...seller, hasAvailability: hasAvailability(weeklyHours) },
-    callBookings: order.callBookings.map(({ recordings, ...b }) => ({ ...b, ...(isAdmin ? { recordings } : {}) })),
+    callBookings: order.callBookings.map(({ recordings, ...b }) => ({ ...b, ...(showRecordings ? { recordings } : {}) })),
   };
   return NextResponse.json({
     order: safe,

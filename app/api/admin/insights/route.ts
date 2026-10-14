@@ -13,7 +13,7 @@ export const maxDuration = 60;
 //   Funnel: ?mentor=<id>   Activity log: ?kind= &who=
 //   CSV (#84): add ?format=csv&table=<table, chart or "summary" key>
 export async function GET(req: Request) {
-  const admin = await currentAdmin();
+  const admin = await currentAdmin("insights");
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
   const sp = new URL(req.url).searchParams;

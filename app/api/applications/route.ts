@@ -90,12 +90,12 @@ export async function POST(req: Request) {
   });
 
   try {
-    await sendApplicationEmail(application, `${SITE_URL}/admin#applications`, attachment);
+    await sendApplicationEmail(application, `${SITE_URL}/admin/applications`, attachment);
   } catch (err) {
     console.error("Failed to send the application email to the team:", err);
     // Fall back to a link if the attachment was the problem.
     if (attachment) {
-      await sendApplicationEmail(application, `${SITE_URL}/admin#applications`).catch((e) => console.error("Retry without attachment failed:", e));
+      await sendApplicationEmail(application, `${SITE_URL}/admin/applications`).catch((e) => console.error("Retry without attachment failed:", e));
     }
   }
   try {

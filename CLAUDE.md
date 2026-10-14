@@ -26,5 +26,6 @@ Next.js 14 (App Router) + TypeScript, Prisma on Neon Postgres, NextAuth (email a
 - Package prices are $50–$5,000. No discount codes or promos (removed Oct 13, 2026). Payment wording: "Payment held until you approve". Never "pay when you're happy".
 - Pushing to `main` deploys to production on Vercel. Do work on a branch and open a pull request; each branch gets a Vercel preview.
 - Database changes ship as a SQL file in `prisma/`, run in the Neon SQL Editor after making a Neon backup branch. Files that only add things run before the code goes live; files that remove things run after.
+- Admin: one page per area under `app/admin/(panel)/`, listed in the sidebar from `lib/adminNav.ts` (adding a page is one line). Each area has a permission key (`lib/adminPermissions.ts`); Owner and Admin have all of them, custom roles (Admin -> Team & roles) only the ticked ones. Every admin page's `layout.tsx` and every `/api/admin` route checks its key on the server with `currentAdmin("key")` (`lib/adminTeam.ts`); money (earnings, refunds, releases) needs `orders`.
 - Build links to the site with `siteUrl()` from `lib/siteUrl.ts`, never `process.env.NEXTAUTH_URL` directly.
 - This repository is public: never commit secrets, real customer data or personal email addresses.

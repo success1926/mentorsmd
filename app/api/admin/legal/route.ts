@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 // Admin -> Legal (#99): every version of each document, and how many
 // people accepted each published version.
 export async function GET() {
-  const admin = await currentAdmin();
+  const admin = await currentAdmin("legal");
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const [docs, counts] = await Promise.all([
     prisma.legalDocument.findMany({
@@ -35,7 +35,7 @@ export async function GET() {
 // Start a new draft of a document, copied from the latest version (or the
 // built-in text). One draft per document at a time.
 export async function POST(req: Request) {
-  const admin = await currentAdmin();
+  const admin = await currentAdmin("legal");
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   const { kind } = await req.json().catch(() => ({}));
   if (!isLegalKind(kind)) return NextResponse.json({ error: "Unknown document" }, { status: 400 });

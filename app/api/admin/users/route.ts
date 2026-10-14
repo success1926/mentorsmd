@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { currentAdmin } from "@/lib/adminTeam";
 import { prisma } from "@/lib/prisma";
 import { healthBadges, healthLabel } from "@/lib/health";
 import { csvBody, csvResponse } from "@/lib/csv";
@@ -12,8 +11,8 @@ import { SCHOOL_TYPES, STAGES, labelFor } from "@/lib/options";
 //   ?status=ACTIVE|PAUSED|REMOVED  (optional)
 //   ?format=csv          download the list (#84), up to 20,000 people
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
+  const admin = await currentAdmin("people");
+  if (!admin) {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
 

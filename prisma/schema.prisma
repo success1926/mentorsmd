@@ -164,16 +164,20 @@ model User {
   // ---- Legal, minors and admin team (Phase 5) ----
   // Date of birth (asked at signup; students who signed up earlier are
   // asked once). Under 13 can't have an account.
-  dateOfBirth        DateTime? @db.Date
+  dateOfBirth        DateTime?        @db.Date
   // Students under 18: PENDING (waiting for a parent or guardian to
   // consent), CONSENTED, WITHDRAWN (parent withdrew or declined). Null for
   // adults; cleared automatically on the 18th birthday (becameAdultAt).
   minorStatus        String?
   becameAdultAt      DateTime?
   // Mentors: false = "I only work with students 18 and over".
-  acceptsMinors      Boolean   @default(true)
+  acceptsMinors      Boolean          @default(true)
   // Admin team: OWNER (manages the team) or ADMIN. Null on an admin = ADMIN.
   adminRole          String?
+  // Custom role (Admin -> Team -> Roles). Set: only that role's ticked
+  // areas. Null: full access (Owner or Admin).
+  adminCustomRole    AdminCustomRole? @relation(fields: [adminRoleId], references: [id], onDelete: Restrict)
+  adminRoleId        String?
   adminDisabledAt    DateTime? // disabled admins can't log in
   sessionsRevokedAt  DateTime? // every login started before this is ended
   // Required 2-step verification for admins: TOTP (authenticator app) or EMAIL.
@@ -833,20 +837,37 @@ model ParentConsent {
 // Admin -> Team invites. The invitee opens the emailed link, picks a name
 // and password, and becomes an admin. Only the hash of the link is stored.
 model AdminInvite {
-  id             String    @id @default(cuid())
-  email          String
-  adminRole      String    @default("ADMIN") // OWNER or ADMIN
-  tokenHash      String    @unique
-  createdAt      DateTime  @default(now())
-  expiresAt      DateTime
-  acceptedAt     DateTime?
-  revokedAt      DateTime?
-  acceptedUserId String?
+  id              String           @id @default(cuid())
+  email           String
+  adminRole       String           @default("ADMIN") // OWNER or ADMIN
+  // Custom role the new member gets (null = full Admin or Owner).
+  adminCustomRole AdminCustomRole? @relation(fields: [adminRoleId], references: [id], onDelete: Restrict)
+  adminRoleId     String?
+  tokenHash       String           @unique
+  createdAt       DateTime         @default(now())
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  revokedAt       DateTime?
+  acceptedUserId  String?
 
   invitedBy   User?   @relation("AdminInvitesSent", fields: [invitedById], references: [id], onDelete: SetNull)
   invitedById String?
 
   @@index([createdAt])
+}
+
+// Custom admin roles (Admin -> Team -> Roles): a name and the admin areas
+// it can open (keys from lib/adminPermissions.ts). Only Owners manage them;
+// a role that someone (or an open invite) uses can't be deleted.
+model AdminCustomRole {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  permissions String[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members User[]
+  invites AdminInvite[]
 }
 
 // Admin 2-step verification: emailed codes (EMAIL_CODE) and the one-time

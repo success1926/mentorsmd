@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { currentAdmin } from "@/lib/adminTeam";
 import { prisma } from "@/lib/prisma";
 import { LIMITS } from "@/lib/validate";
 import { hasAvailability } from "@/lib/schedule";
@@ -10,8 +9,7 @@ import { healthFor } from "@/lib/health";
 import { describeFilters } from "@/lib/insights";
 
 async function requireAdmin(): Promise<string | null> {
-  const session = await getServerSession(authOptions);
-  return session?.user && (session.user as any).role === "ADMIN" ? ((session.user as any).id as string) : null;
+  return (await currentAdmin("people"))?.id ?? null;
 }
 
 const ACTIVE_STATUSES = ["IN_ESCROW", "COMPLETED"] as const;

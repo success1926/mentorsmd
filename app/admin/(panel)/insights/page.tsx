@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import { AdminGuard, AdminNav } from "@/components/admin/AdminNav";
+import { AdminGuard } from "@/components/admin/AdminNav";
 import { BarChart, DataTable, Funnel, StatCards, type CardData, type ChartData, type FunnelData, type TableData } from "@/components/admin/Insights";
 import { browserTimeZone } from "@/lib/tz";
 
@@ -117,7 +117,6 @@ export default function InsightsPage() {
         <h1 className="page-title">Insights</h1>
         <p className="lede">How MentorsMD is doing: money, mentors, students and what people look for.</p>
       </div>
-      <AdminNav />
 
       <div className="tabs" role="tablist" aria-label="Insights sections" style={{ marginBottom: 0 }}>
         {TABS.map((t) => (
