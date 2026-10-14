@@ -232,7 +232,9 @@ details.collapse > .collapse-body { padding: 0 22px 20px; display: flex; flex-di
   .nav-links { gap: 18px; }
   .nav-right { gap: 16px; }
 }
-.nav-right { margin-left: auto; display: flex; align-items: center; gap: 24px; }
+/* Logo on the left; the page links and the account buttons sit together on the right. */
+.nav-inner > .logo { margin-right: auto; }
+.nav-right { display: flex; align-items: center; gap: 24px; }
 .logo { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-display); font-size: 25px; font-weight: 400; letter-spacing: -0.02em; color: #2B1F6B; }
 .logo b { font-weight: 500; color: var(--primary); }
 .logo-mark { flex-shrink: 0; }
