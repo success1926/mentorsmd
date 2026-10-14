@@ -53,7 +53,7 @@ export default async function AdminOverviewPage() {
   return (
     <div className="page stack-lg" style={{ gap: 32 }}>
       <div className="stack-sm">
-        <h1 className="page-title">Admin</h1>
+        <h1 className="page-title">Overview</h1>
         <p className="lede">What needs attention right now. Everything else is in the menu.</p>
       </div>
       {cards.length === 0 ? (
@@ -61,11 +61,11 @@ export default async function AdminOverviewPage() {
       ) : (
         <div className="adm-overview">
           {cards.map((c) => (
-            <Link key={c.label} href={c.href} className="card stack-sm" style={{ padding: 20, gap: 4 }}>
+            <Link key={c.label} href={c.href} className="card adm-stat">
               <span className="text-secondary">{c.label}</span>
               <span className="stat-num">{c.value}</span>
               {c.note && <span className="text-muted small">{c.note}</span>}
-              {c.urgent && <span className="badge badge-warning" style={{ alignSelf: "flex-start" }}>Needs attention</span>}
+              {c.urgent && <span className="badge badge-warning adm-stat-flag">Needs attention</span>}
             </Link>
           ))}
         </div>

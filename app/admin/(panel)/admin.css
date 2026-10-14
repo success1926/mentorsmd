@@ -13,6 +13,8 @@
 .adm-me { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 10px 0; border-top: 1px solid var(--line); }
 .adm-main { min-width: 0; }
 .adm-main .page { max-width: 1100px; margin: 0; padding: 36px 32px 96px; }
+/* Admin headings are working titles, smaller than the public site's. */
+.adm-main .page-title { font-size: clamp(28px, 3vw, 36px); }
 
 /* Phones and small tablets: a top bar with a Menu button; the list opens below it. */
 @media (max-width: 860px) {
@@ -26,8 +28,12 @@
   .adm-main .page { padding: 24px 16px 80px; }
 }
 
-/* Overview cards. */
-.adm-overview { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+/* Overview cards. `a.adm-stat` beats the site-wide `a.card { display: block }`,
+   so the label, number and note stack instead of running onto one line. */
+.adm-overview { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+a.adm-stat { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 20px; }
+a.adm-stat .stat-num { margin-top: 2px; }
+.adm-stat-flag { margin-top: 6px; }
 
 /* Team & roles: tick-box matrix (components/admin/TeamRoles.tsx). */
 .adm-matrix { width: 100%; border-collapse: collapse; font-size: 14px; }
