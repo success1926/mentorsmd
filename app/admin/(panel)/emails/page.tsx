@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { EmailTabs } from "@/components/admin/AdminTabs";
 import { GROUP_LABELS, GROUP_ORDER, type EmailGroup } from "@/lib/emailTemplates";
 
 type Row = { key: string; name: string; description: string; group: EmailGroup; locked: boolean; edited: boolean; updatedAt: string | null; updatedBy: string | null };
@@ -38,10 +39,10 @@ export default function AdminEmailsPage() {
           The wording of every automatic email. Change a subject or text, preview it with sample data, and send yourself a test.
           Emails you haven&apos;t edited use the standard wording.
         </p>
-        <div className="row-wrap">
-          <Link href="/admin/email-log" className="btn btn-sm">Email log</Link>
-          {rows && <span className="text-muted">{rows.length} emails · {editedCount} edited</span>}
-        </div>
+      </div>
+      <div className="stack-sm">
+        <EmailTabs />
+        {rows && <span className="text-muted">{rows.length} emails · {editedCount} edited</span>}
       </div>
       {error && <div className="alert alert-danger">{error}</div>}
       {!rows && !error && <p className="text-muted">Loading…</p>}

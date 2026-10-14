@@ -50,11 +50,25 @@ export default async function AdminOverviewPage() {
   }
   if (consents !== null) cards.push({ label: "Under-18 consents waiting", value: String(consents), href: "/admin/minors", urgent: false });
 
+  // Shortcuts to the most common jobs, each only if the role includes it.
+  const quick = [
+    { label: "Invite a mentor", href: "/admin/mentors", perm: "mentors" },
+    { label: "Edit the website", href: "/admin/website", perm: "website" },
+    { label: "Open the inbox", href: "/admin/leads", perm: "leads" },
+  ].filter((q) => can(admin, q.perm as AdminPermission));
+
   return (
     <div className="page stack-lg" style={{ gap: 32 }}>
       <div className="stack-sm">
         <h1 className="page-title">Overview</h1>
         <p className="lede">What needs attention right now. Everything else is in the menu.</p>
+        {quick.length > 0 && (
+          <div className="row-wrap" style={{ paddingTop: 8 }}>
+            {quick.map((q) => (
+              <Link key={q.href} href={q.href} className="btn btn-soft btn-sm">{q.label}</Link>
+            ))}
+          </div>
+        )}
       </div>
       {cards.length === 0 ? (
         <p className="text-muted">Nothing to show for your role here. Use the menu to open your pages.</p>

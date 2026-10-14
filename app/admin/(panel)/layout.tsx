@@ -5,6 +5,7 @@ import { currentAdmin, PENDING_2FA_ROLE } from "@/lib/adminTeam";
 import { visibleAdminNav } from "@/lib/adminNav";
 import { can } from "@/lib/adminPermissions";
 import { newLeadCount } from "@/lib/leads";
+import { openSafetyCount } from "@/lib/flags";
 import { AdminShell } from "@/components/admin/AdminShell";
 import "./admin.css";
 
@@ -29,8 +30,13 @@ export default async function AdminPanelLayout({ children }: { children: React.R
   }
   const me = { id: admin.id, name: admin.name, isOwner: admin.adminRole === "OWNER", roleName: admin.roleName, perms: admin.perms };
   // Leads badge: new contact messages + pending applications nobody has picked up.
-  const leadsBadge = can(admin, "leads") ? await newLeadCount(can(admin, "applications")) : 0;
-  const nav = visibleAdminNav(admin).map((n) => (n.href === "/admin/leads" && leadsBadge ? { ...n, badge: leadsBadge } : n));
+  // Disputes & flags badge: open disputes + open flags, whichever the role includes.
+  const [leadsBadge, safetyBadge] = await Promise.all([
+    can(admin, "leads") ? newLeadCount(can(admin, "applications")) : 0,
+    openSafetyCount(can(admin, "disputes"), can(admin, "flags")),
+  ]);
+  const badges: Record<string, number> = { "/admin/leads": leadsBadge, "/admin/disputes": safetyBadge };
+  const nav = visibleAdminNav(admin).map((n) => (badges[n.href] ? { ...n, badge: badges[n.href] } : n));
   return (
     <AdminShell me={me} nav={nav}>
       {children}

@@ -246,3 +246,18 @@ export async function closeDisputeFlag(orderId: string, outcome: "REFUND" | "REL
     console.error("Couldn't close the dispute flag:", err);
   }
 }
+
+// Admin sidebar badge on Disputes & flags: open disputes (payment still
+// held) plus open flags, counting only what the role can see.
+export async function openSafetyCount(disputes: boolean, flags: boolean) {
+  try {
+    const [d, f] = await Promise.all([
+      disputes ? prisma.order.count({ where: { disputed: true, status: { in: ["IN_ESCROW", "COMPLETED"] } } }) : Promise.resolve(0),
+      flags ? prisma.flag.count({ where: { status: "OPEN" } }) : Promise.resolve(0),
+    ]);
+    return d + f;
+  } catch (err) {
+    console.error("Couldn't count open disputes and flags:", err);
+    return 0;
+  }
+}

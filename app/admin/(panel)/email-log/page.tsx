@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { EmailTabs } from "@/components/admin/AdminTabs";
 import { EMAILS, EMAIL_LIST, GROUP_LABELS, GROUP_ORDER } from "@/lib/emailTemplates";
 
 type Row = { id: string; createdAt: string; templateKey: string; toEmail: string; subject: string; status: string; providerId: string | null; error: string | null };
 
 const fmtWhen = (d: string) => new Date(d).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 
-// Admin -> Email log: every email the site tried to send in the last 90
+// Admin -> Emails -> Sent log: every email the site tried to send in the last 90
 // days (who, which email, subject, sent or failed). Bodies aren't kept.
 export default function AdminEmailLogPage() {
   const { data: session, status } = useSession();
@@ -51,13 +52,10 @@ export default function AdminEmailLogPage() {
   return (
     <div className="page stack-lg" style={{ gap: 28 }}>
       <div className="stack-sm">
-        <div className="row-wrap">
-          <span className="text-muted">/</span>
-          <Link href="/admin/emails" className="text-secondary">Emails</Link>
-        </div>
-        <h1 className="page-title">Email log</h1>
+        <h1 className="page-title">Emails</h1>
         <p className="lede">Every email the site tried to send in the last 90 days, newest first. The text of each email isn&apos;t kept, only who it went to, which email and whether it was sent.</p>
       </div>
+      <EmailTabs />
 
       <form
         className="ins-filters"

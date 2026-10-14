@@ -45,7 +45,7 @@ export function AdminShell({ me, nav, children }: { me: AdminMe; nav: AdminNavIt
           <div id="adm-nav-list" className="adm-nav-list">
             {groups.map((g) => (
               <div key={g} className="adm-group" role="group" aria-label={g}>
-                {g !== "General" && <div className="adm-group-label">{g}</div>}
+                {g !== "Home" && <div className="adm-group-label">{g}</div>}
                 {nav.filter((n) => n.group === g).map((n) => (
                   <Link key={n.href} href={n.href} className="adm-link" aria-current={isActive(pathname, n) ? "page" : undefined}>
                     {n.label}
@@ -66,6 +66,7 @@ export function AdminShell({ me, nav, children }: { me: AdminMe; nav: AdminNavIt
   );
 }
 
+// The item's own page, a page under it, or one of its `also` pages.
 function isActive(pathname: string, n: AdminNavItem) {
-  return pathname === n.href || (!n.exact && pathname.startsWith(n.href + "/"));
+  return [n.href, ...(n.also ?? [])].some((href) => pathname === href || (!n.exact && pathname.startsWith(href + "/")));
 }
