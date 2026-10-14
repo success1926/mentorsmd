@@ -25,6 +25,7 @@ export const ADMIN_PERMISSIONS = [
   { key: "emails", label: "Emails and email log", group: "Content & legal" },
   { key: "legal", label: "Legal documents", group: "Content & legal" },
   { key: "insights", label: "Insights", group: "Settings" },
+  { key: "analytics", label: "Analytics (website visitors, from PostHog)", group: "Settings" },
   { key: "actionlog", label: "Action log", group: "Settings" },
   { key: "team", label: "Team (view; only Owners can change it)", group: "Settings" },
 ] as const;
