@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 // the vetting panel and the questions come from Admin -> Website ->
 // Homepage, so they stay the same on both pages. Icons follow each
 // point's position.
-const PROTECT_ICONS = [ICONS.lock, ICONS.cycle, ICONS.video, ICONS.shield];
+const PROTECT_ICONS = [ICONS.lock, ICONS.cycle, ICONS.video, ICONS.shield, ICONS.clock];
 
 export default async function HowItWorksPage() {
   const [c, home] = await Promise.all([getSiteContent("howItWorks"), getSiteContent("home")]);

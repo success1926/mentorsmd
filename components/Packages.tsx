@@ -232,7 +232,7 @@ export function AddHoursModal({ open, onClose, order }: { open: boolean; onClose
         <div className="alert alert-blue stack-sm small">
           <b>{hoursLabel(hours * 60)} × {money(rate)}/hr = {money(price)}</b>
           {credit > 0 && <span>Credit applied: {money(Math.min(credit, price))}. {credit >= price ? "Nothing to pay by card." : `You pay ${money(price - Math.min(credit, price))} by card.`}</span>}
-          <span>Unused hours aren&apos;t refunded.</span>
+          <span>Unused hours aren&apos;t refunded if you finish early; mentors aren&apos;t penalised for working efficiently.</span>
         </div>
         {error && <div role="alert" className="alert alert-danger">{error}</div>}
         <div className="row-wrap">
@@ -284,7 +284,7 @@ export function DecisionBanner({ order, isBuyer, onChanged }: { order: any; isBu
         <b style={{ fontSize: 18 }}>{mentor} marked this package complete</b>
         <span className="text-secondary">
           You have <b>{left} hours</b> to respond. If you don&apos;t, it&apos;s approved automatically.
-          {can.lastCall ? " You can ask for one last call or one last revision (once)." : ""} Unused hours aren&apos;t refunded.
+          {can.lastCall ? " You can ask for one last call or one last revision (once)." : ""} Any unused hours aren&apos;t refunded (mentors aren&apos;t penalised for finishing efficiently). If something isn&apos;t right, open a dispute.
         </span>
       </div>
       {error && <div role="alert" className="alert alert-danger">{error}</div>}
