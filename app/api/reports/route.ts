@@ -6,9 +6,10 @@ import { createFlag } from "@/lib/flags";
 import { reportReason } from "@/lib/reportReasons";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
 
-// Report a student or mentor (from a conversation or a profile). Goes to
-// Admin -> Flags. Optionally blocks them at the same time.
-//   { subjectUserId, reason, details?, conversationId?, messageId?, block? }
+// Report a student or mentor (from a conversation, a profile or a package
+// page). Goes to Admin -> Flags. Optionally blocks them at the same time
+// (which also stops new calls on their packages, lib/callBooking.ts).
+//   { subjectUserId, reason, details?, conversationId?, messageId?, orderId?, block? }
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Log in to report someone" }, { status: 401 });
@@ -42,7 +43,18 @@ export async function POST(req: Request) {
       select: { id: true },
     });
     conversationId = c?.id ?? null;
-    if (!conversationId && subject.role !== "SELLER") return NextResponse.json({ error: "You can only report people you've talked to" }, { status: 403 });
+    // A shared package (checked below) counts too.
+    if (!conversationId && subject.role !== "SELLER" && typeof body.orderId !== "string") return NextResponse.json({ error: "You can only report people you've talked to" }, { status: 403 });
+  }
+
+  // A package (from its page): must be between these two people.
+  let orderId: string | null = null;
+  if (typeof body.orderId === "string") {
+    const o = await prisma.order.findUnique({ where: { id: body.orderId }, select: { id: true, buyerId: true, sellerId: true, conversationId: true } });
+    const pair = o && [o.buyerId, o.sellerId];
+    if (!pair || !pair.includes(userId) || !pair.includes(subject.id)) return NextResponse.json({ error: "Package not found" }, { status: 404 });
+    orderId = o!.id;
+    conversationId = conversationId ?? o!.conversationId;
   }
 
   // A specific message, quoted as evidence.
@@ -67,6 +79,7 @@ export async function POST(req: Request) {
     reporterId: userId,
     conversationId,
     messageId,
+    orderId,
   });
 
   if (body.block === true) {

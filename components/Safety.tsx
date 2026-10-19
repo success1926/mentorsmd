@@ -108,6 +108,7 @@ export function ReportDialog({
   subject,
   conversationId,
   messageId,
+  orderId,
   onDone,
 }: {
   open: boolean;
@@ -115,6 +116,7 @@ export function ReportDialog({
   subject: { id: string; name: string };
   conversationId?: string;
   messageId?: string;
+  orderId?: string;
   onDone?: (blocked: boolean) => void;
 }) {
   const [reason, setReason] = useState("");
@@ -132,7 +134,7 @@ export function ReportDialog({
     const res = await fetch("/api/reports", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subjectUserId: subject.id, reason, details, conversationId, messageId, block }),
+      body: JSON.stringify({ subjectUserId: subject.id, reason, details, conversationId, messageId, orderId, block }),
     });
     const d = await res.json().catch(() => ({}));
     setBusy(false);
@@ -177,7 +179,7 @@ export function ReportDialog({
           </label>
           <label className="check">
             <input type="checkbox" checked={block} onChange={(e) => setBlock(e.target.checked)} />
-            <span>Also block {first} (neither of you can message the other)</span>
+            <span>Also block {first} (neither of you can message the other or book calls)</span>
           </label>
           {error && <div role="alert" className="alert alert-danger">{error}</div>}
           <div className="row-wrap">
