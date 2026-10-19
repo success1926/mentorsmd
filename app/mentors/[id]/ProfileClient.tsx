@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Icon, ICONS, Vetted, Rating, tintFor, initialsOf } from "@/components/ui";
 import { Modal } from "@/components/Modal";
-import { SlotPicker } from "@/components/SlotPicker";
+import { Booker } from "@/components/Booker";
 import { ConfirmEmailNotice, ReportDialog, SendWarnings, setBlocked, type SendWarning } from "@/components/Safety";
 import { trackEvent } from "@/components/Tracker";
 import {
@@ -375,6 +375,7 @@ export function ProfileClient({ seller, offers, reviews }: { seller: any; offers
         open={dialog !== null}
         onClose={closeDialog}
         wide={dialog?.t !== "message"}
+        booker={dialog?.t === "intro"}
         label={
           dialog?.t === "all"
             ? `${first}'s packages`
@@ -706,16 +707,17 @@ function IntroCallPanel({ seller, first, unlock, onChanged, onMessage }: { selle
   }
 
   return (
-    <div className="stack">
-      {header}
-      <SlotPicker
-        slotsUrl={`/api/mentors/${seller.id}/intro-slots`}
-        mentorFirstName={first}
-        confirmLabel="Book intro call"
-        onConfirm={confirm}
-        emptyHint={`Send ${first} a message instead.`}
-      />
-    </div>
+    <Booker
+      slotsUrl={`/api/mentors/${seller.id}/intro-slots`}
+      mentor={{ id: seller.id, name: seller.name, photoUrl: seller.photoUrl }}
+      title="Free intro call"
+      durationMinutes={INTRO_CALL_MINUTES}
+      description={<>Say hello, talk through where you are in your application, and see if you&apos;re a good fit. There&apos;s nothing to pay. One intro call per mentor.</>}
+      confirmLabel="Confirm"
+      onConfirm={confirm}
+      onMessage={onMessage}
+      emptyHint={`Send ${first} a message instead.`}
+    />
   );
 }
 

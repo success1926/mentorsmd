@@ -4,8 +4,10 @@ import { useEffect, useRef } from "react";
 
 // A simple accessible pop-up: dims the page, closes on Esc or a click
 // outside, and keeps keyboard focus inside while open.
-// `wide`: a larger pop-up (package details, picking a call time).
-export function Modal({ open, onClose, label, children, dismissable = true, wide = false }: { open: boolean; onClose: () => void; label: string; children: React.ReactNode; dismissable?: boolean; wide?: boolean }) {
+// `wide`: a larger pop-up (package details).
+// `booker`: wider still, for picking a call time (components/Booker.tsx);
+// a full-screen sheet on phones.
+export function Modal({ open, onClose, label, children, dismissable = true, wide = false, booker = false }: { open: boolean; onClose: () => void; label: string; children: React.ReactNode; dismissable?: boolean; wide?: boolean; booker?: boolean }) {
   const boxRef = useRef<HTMLDivElement>(null);
   // Kept in a ref so re-renders (typing in a field) don't re-run the
   // open/focus effect below.
@@ -52,8 +54,8 @@ export function Modal({ open, onClose, label, children, dismissable = true, wide
 
   if (!open) return null;
   return (
-    <div className="modal-scrim" onMouseDown={(e) => { if (dismissable && e.target === e.currentTarget) onClose(); }}>
-      <div ref={boxRef} className={`modal${wide ? " modal-wide" : ""}`} role="dialog" aria-modal="true" aria-label={label}>
+    <div className={`modal-scrim${booker ? " modal-scrim-sheet" : ""}`} onMouseDown={(e) => { if (dismissable && e.target === e.currentTarget) onClose(); }}>
+      <div ref={boxRef} className={`modal${wide ? " modal-wide" : ""}${booker ? " modal-booker" : ""}`} role="dialog" aria-modal="true" aria-label={label}>
         {dismissable && (
           <button type="button" className="modal-close" aria-label="Close" onClick={onClose}>
             ×

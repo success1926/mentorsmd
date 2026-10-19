@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon, ICONS } from "@/components/ui";
-import { SlotPicker } from "@/components/SlotPicker";
+import { Booker } from "@/components/Booker";
 import {
   BookingLike,
   CANCEL_CUTOFF_HOURS,
@@ -178,15 +178,17 @@ export function CallRow({
       </div>
       {err && <div role="alert" className="alert alert-danger">{err}</div>}
       {moving && (
-        <div className="card card-tint stack" style={{ padding: 18 }}>
-          <b>Pick a new time</b>
-          <SlotPicker
-            orderId={order.id}
-            excludeBookingId={booking.id}
-            mentorFirstName={(order.seller?.name || "Your mentor").split(" ")[0]}
-            confirmLabel="Move the call"
+        <div className="stack">
+          <Booker
+            framed
+            slotsUrl={`/api/orders/${order.id}/slots?exclude=${encodeURIComponent(booking.id)}`}
+            mentor={isSeller ? { id: order.buyerId, name: order.buyer?.name || "Student", photoUrl: order.buyer?.photoUrl } : { id: order.sellerId, name: order.seller?.name || "Your mentor", photoUrl: order.seller?.photoUrl }}
+            title="Reschedule the call"
+            description={<>Now: {fmtDateTime(booking.startTime)}. Pick a new time; you&apos;ll both get an email with the updated calendar invite.</>}
+            confirmLabel="Move here"
             onConfirm={move}
             onCancel={() => setMoving(false)}
+            emptyHint="Message them to agree a time, and they can add it here."
           />
           {isSeller && (
             <div className="stack-sm">
@@ -324,10 +326,17 @@ export function OrderCalls({
 
       {bookable && isBuyer && (
         booking ? (
-          <div className="card card-tint stack" style={{ padding: 18 }}>
-            <b>Book a call with {mentorFirst}{calls.toBook > 1 ? ` (${calls.toBook} left)` : ""}</b>
-            <SlotPicker orderId={order.id} mentorFirstName={mentorFirst} confirmLabel="Book" onConfirm={book} onCancel={() => setBooking(false)} />
-          </div>
+          <Booker
+            framed
+            slotsUrl={`/api/orders/${order.id}/slots`}
+            mentor={{ id: order.sellerId, name: order.seller?.name || "Your mentor", photoUrl: order.seller?.photoUrl }}
+            title="Package call"
+            durationMinutes={order.gig?.callLength || undefined}
+            description={<>A one-to-one video call with {mentorFirst}, included in this package{calls.toBook > 1 ? ` (${calls.toBook} calls left to book)` : ""}. You&apos;ll both get an email with a calendar invite.</>}
+            onConfirm={book}
+            onCancel={() => setBooking(false)}
+            emptyHint="Message them to agree a time, and they can add it here."
+          />
         ) : (
           <div className="stack-sm">
             <button className="btn btn-primary" style={{ alignSelf: "flex-start" }} onClick={() => setBooking(true)}>

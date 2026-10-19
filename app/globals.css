@@ -521,12 +521,6 @@ a.footer-social:hover .bg { fill: var(--tint-2); }
 .cal-day:hover:not(:disabled) { border-color: var(--primary); }
 .cal-day[aria-pressed="true"] { background: var(--primary); color: #fff; }
 .cal-day:disabled { background: transparent; color: #C4C0CF; font-weight: 400; cursor: not-allowed; text-decoration: line-through; }
-.slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
-.slot-btn { padding: 10px 8px; border-radius: 999px; border: 1px solid var(--tint-2); background: #fff; color: var(--primary-deep); font-weight: 600; font-size: 14px; cursor: pointer; }
-.slot-btn:hover { border-color: var(--primary); }
-.slot-btn[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: #fff; }
-.picker-wrap { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
-.picker-wrap > .grow { min-width: 220px; }
 .hours-row { display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: start; padding: 10px 0; border-top: 1px solid var(--line); }
 .hours-row:first-child { border-top: none; }
 .time-input { width: auto; display: inline-block; margin-bottom: 0; padding: 8px 10px; }
@@ -655,4 +649,89 @@ a.footer-social:hover .bg { fill: var(--tint-2); }
 }
 @media (min-width: 761px) {
   .pkg-back { display: none; }
+}
+
+/* Booker: Cal.com-style call booking (components/Booker.tsx). Event info,
+   month calendar and the day's times side by side on wide screens,
+   stacked on narrow ones (sized by its own width, so it works in a
+   pop-up or on a page). */
+.modal.modal-booker { max-width: 960px; }
+.modal-booker .booker-times-head { padding-right: 36px; }
+@media (max-width: 640px) {
+  .modal-scrim.modal-scrim-sheet { padding: 0; align-items: stretch; }
+  .modal.modal-booker { max-width: none; max-height: none; height: 100%; border-radius: 0; padding: 22px 16px; }
+}
+.booker { container-type: inline-size; }
+.booker-framed { border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); }
+.booker-layout { display: grid; grid-template-columns: minmax(0, 1fr); }
+.booker-layout > * { min-width: 0; }
+.booker-info { display: flex; flex-direction: column; gap: 12px; padding: 4px 4px 18px; border-bottom: 1px solid var(--line); }
+.booker-framed .booker-info { padding: 18px; }
+.booker-title { font-family: var(--font-display); font-weight: 500; font-size: 24px; line-height: 1.2; }
+.booker-desc { color: var(--muted); font-size: 15px; line-height: 1.55; }
+.booker-facts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 15px; font-weight: 600; color: var(--ink); }
+.booker-facts li { display: flex; align-items: center; gap: 10px; }
+.booker-facts svg { color: var(--muted); flex-shrink: 0; }
+.booker-durations { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.booker-chip { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 5px 10px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.booker-chip:hover { border-color: var(--tint-2); }
+.booker-chip[aria-checked="true"] { background: var(--tint); border-color: var(--primary); color: var(--primary-deep); }
+.booker-tz { flex: 1; min-width: 0; }
+.booker-tz select { width: 100%; border: none; background: transparent; font: inherit; font-weight: 600; color: var(--ink); padding: 2px 0; cursor: pointer; text-overflow: ellipsis; }
+.booker-details { display: flex; flex-direction: column; gap: 8px; font-size: 14px; color: var(--ink-2, var(--ink)); }
+.booker-details .alert { font-size: 14px; padding: 10px 12px; }
+.booker-notice { font-size: 12px; line-height: 1.5; color: var(--faint); margin: 0; }
+.booker-cal, .booker-times, .booker-msg { padding: 18px 4px; }
+.booker-framed .booker-cal, .booker-framed .booker-times, .booker-framed .booker-msg { padding: 18px; }
+.booker-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.booker-month { font-size: 16px; }
+.booker-nav { width: 34px; height: 34px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--ink); font-size: 22px; line-height: 1; cursor: pointer; }
+.booker-nav:hover:not(:disabled) { background: var(--surface-2); border-color: var(--line); }
+.booker-nav:disabled { color: var(--line); cursor: default; }
+.booker-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.booker-weekdays { margin-bottom: 6px; }
+.booker-weekdays span { text-align: center; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--faint); }
+.booker-day { position: relative; aspect-ratio: 1; min-height: 38px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--faint); font: inherit; font-size: 15px; cursor: default; }
+.booker-day:disabled { opacity: 0.55; }
+.booker-day.open { background: var(--tint); color: var(--primary-deep); font-weight: 700; cursor: pointer; }
+.booker-day.open:hover { border-color: var(--primary); }
+.booker-day.open[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: #fff; }
+.booker-day.today::after { content: ""; position: absolute; left: 50%; bottom: 5px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: currentColor; }
+.booker-times-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.booker-times-head b { white-space: nowrap; }
+.booker-hour-toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+.booker-hour-toggle button { border: none; background: transparent; font: inherit; font-size: 12px; font-weight: 600; color: var(--muted); padding: 3px 8px; border-radius: 6px; cursor: pointer; }
+.booker-hour-toggle button[aria-checked="true"] { background: var(--surface-2); color: var(--ink); }
+.booker-time-list { display: flex; flex-direction: column; gap: 8px; }
+.booker-time, .booker-confirm { width: 100%; min-height: 44px; border-radius: 10px; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.booker-time { border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.booker-time:hover:not(:disabled) { border-color: var(--primary); }
+.booker-time.selected { background: var(--ink); border-color: var(--ink); color: #fff; }
+.booker-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--primary); }
+.booker-time-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.booker-confirm { border: 1px solid var(--primary); background: var(--primary); color: #fff; }
+.booker-confirm:hover:not(:disabled) { background: var(--primary-deep); }
+.booker-confirm:disabled { opacity: 0.7; cursor: default; }
+.booker-foot { display: flex; justify-content: flex-end; padding: 0 4px; }
+.booker-framed .booker-foot { padding: 0 18px 14px; }
+.booker-skel { background: var(--surface-2); border-radius: 8px; animation: booker-pulse 1.2s ease-in-out infinite; }
+.booker-skel-day { aspect-ratio: 1; }
+@keyframes booker-pulse { 50% { opacity: 0.5; } }
+@media (prefers-reduced-motion: reduce) { .booker-skel { animation: none; } }
+@container (min-width: 600px) {
+  .booker-layout { grid-template-columns: minmax(0, 1fr) 220px; }
+  .booker-layout > .booker-info { grid-column: 1 / -1; }
+  .booker-layout-msg { grid-template-columns: minmax(0, 1fr); }
+  .booker-times { border-left: 1px solid var(--line); padding-left: 18px; }
+  .booker-times .booker-time-list { max-height: 360px; overflow-y: auto; padding: 2px; }
+}
+@container (min-width: 840px) {
+  .booker-layout { grid-template-columns: 250px minmax(0, 1fr) 250px; }
+  .booker-layout-msg { grid-template-columns: 250px minmax(0, 1fr); }
+  .booker-layout > .booker-info { grid-column: auto; border-bottom: none; border-right: 1px solid var(--line); padding: 4px 22px 4px 4px; }
+  .booker-framed .booker-layout > .booker-info { padding: 18px 22px 18px 18px; }
+  .booker-cal, .booker-msg { padding: 4px 22px; }
+  .booker-framed .booker-cal, .booker-framed .booker-msg { padding: 18px 22px; }
+  .booker-times { padding: 4px 4px 4px 18px; }
+  .booker-framed .booker-times { padding: 18px; }
 }

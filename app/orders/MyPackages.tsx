@@ -150,7 +150,7 @@ export function MyPackages({ viewerId }: { viewerId: string }) {
 
       {current && (
         <>
-          <BookCallModal open={booking} onClose={() => setBooking(false)} mentorId={current.sellerId} mentorName={current.seller?.name} orderId={current.id} minutesLeft={hoursSummary(current).left} onBooked={load} />
+          <BookCallModal open={booking} onClose={() => setBooking(false)} mentorId={current.sellerId} mentorName={current.seller?.name} mentorPhotoUrl={current.seller?.photoUrl} orderId={current.id} minutesLeft={hoursSummary(current).left} onBooked={load} />
           <AddHoursModal open={adding} onClose={() => setAdding(false)} order={current} />
         </>
       )}
