@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { joinState, JOIN_CLOSES_MINUTES_AFTER, JOIN_OPENS_MINUTES_BEFORE } from "@/lib/calls";
 import { createMeetingToken, dailyConfigured, ensureRoom } from "@/lib/daily";
+import { blockBetween } from "@/lib/blocks";
 
 // The Join button. Calls happen in a private Daily room; each person gets
 // their own meeting token (with their name), and only:
@@ -40,13 +41,19 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   if (state === "ended") {
     return NextResponse.json({ error: `This call has ended (the room closes ${JOIN_CLOSES_MINUTES_AFTER} minutes after the scheduled end)` }, { status: 400 });
   }
+  // A block (e.g. after a report) also closes calls already booked.
+  const blocks = await blockBetween(studentId!, mentorId!);
+  if (blocks.iBlocked || blocks.theyBlocked) {
+    return NextResponse.json({ error: "This call isn't available. Contact us if you need help." }, { status: 403 });
+  }
   if (!dailyConfigured()) {
     return NextResponse.json({ error: "Video isn't set up yet. Message the other person, or contact us." }, { status: 503 });
   }
 
   // The room is made at booking; make sure it exists, is private and stays
-  // open until this booking's end (a moved call may have an old closing time).
-  const room = await ensureRoom(booking);
+  // open until this booking's end (a moved call may have an old closing
+  // time). If Daily has a blip, fall back to the saved room.
+  const room = (await ensureRoom(booking)) || (booking.roomName && booking.roomUrl ? { name: booking.roomName, url: booking.roomUrl } : null);
   if (!room) return NextResponse.json({ error: "Couldn't open the video room. Try again in a moment." }, { status: 502 });
   const roomName = room.name;
   const roomUrl = room.url;

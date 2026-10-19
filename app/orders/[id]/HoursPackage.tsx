@@ -61,6 +61,16 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
   const [addPreset, setAddPreset] = useState<number | undefined>(undefined);
   const [suggesting, setSuggesting] = useState(false);
   const [reporting, setReporting] = useState(false);
+  // Blocked either way: upcoming calls can be cancelled any time.
+  const [blocked, setBlocked] = useState(false);
+  const otherId = isSeller ? order.buyerId : isBuyer ? order.sellerId : "";
+  useEffect(() => {
+    if (!otherId) return;
+    fetch(`/api/blocks?userId=${encodeURIComponent(otherId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setBlocked(!!(d.iBlocked || d.theyBlocked)))
+      .catch(() => {});
+  }, [otherId]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [reviewRating, setReviewRating] = useState(0);
@@ -208,7 +218,7 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
             <div className="card stack" style={{ gap: 12 }}>
               <b style={{ fontSize: 18 }}>Calls</b>
               {upcoming.map((b: any) => (
-                <CallRow key={b.id} booking={b} order={order} canManage={isBuyer || isSeller} isSeller={isSeller} isAdmin={isAdmin} onChanged={reload} />
+                <CallRow key={b.id} booking={b} order={order} canManage={isBuyer || isSeller} isSeller={isSeller} isAdmin={isAdmin} blocked={blocked} onChanged={reload} />
               ))}
               {past.length > 0 && (
                 <div className="stack-sm">
@@ -350,7 +360,7 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
               <button className="btn btn-ghost btn-sm" style={{ color: "var(--muted)", alignSelf: "flex-start" }} onClick={() => setReporting(true)}>
                 Report a problem with {first(order.buyer?.name) || "this student"}
               </button>
-              <span className="text-muted small">Asked to do something you&apos;re not comfortable with? Tell us privately. You can also block them, which stops messages and new calls until we&apos;ve looked into it.</span>
+              <span className="text-muted small">Asked to do something you&apos;re not comfortable with? Tell us privately. You can also block them, which stops messages and calls (you can cancel booked calls any time) until we&apos;ve looked into it.</span>
             </div>
           )}
 
@@ -393,7 +403,11 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
           subject={{ id: order.buyerId, name: order.buyer.name || "Student" }}
           conversationId={order.conversationId || undefined}
           orderId={order.id}
-          onDone={(blocked) => blocked && reload()}
+          onDone={(didBlock) => {
+            if (!didBlock) return;
+            setBlocked(true);
+            reload();
+          }}
         />
       )}
     </div>

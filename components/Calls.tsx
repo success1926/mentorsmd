@@ -103,6 +103,7 @@ export function CallRow({
   canManage,
   isSeller,
   isAdmin,
+  blocked,
   onChanged,
 }: {
   booking: BookingLike & any;
@@ -110,6 +111,8 @@ export function CallRow({
   canManage: boolean;
   isSeller: boolean;
   isAdmin: boolean;
+  // One of them blocked the other: the call can be cancelled any time.
+  blocked?: boolean;
   onChanged?: () => void;
 }) {
   const now = useNow();
@@ -162,7 +165,7 @@ export function CallRow({
             {canManage && changeable && !order.disputed && (
               <button className="btn btn-sm" onClick={() => setMoving((m) => !m)} aria-expanded={moving}>Reschedule</button>
             )}
-            {(changeable && canManage) || isAdmin ? (
+            {((changeable || blocked) && canManage) || isAdmin ? (
               <button className="btn btn-sm btn-danger" disabled={busy} onClick={cancel}>Cancel</button>
             ) : null}
           </div>

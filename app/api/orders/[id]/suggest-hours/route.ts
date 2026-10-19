@@ -6,6 +6,7 @@ import { sendLive } from "@/lib/realtime";
 import { SITE_URL, sendMoreHoursSuggestedEmail } from "@/lib/email";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
 import { blockBetween } from "@/lib/blocks";
+import { gateBlockReason } from "@/lib/gate";
 import { aiCheckAndFlag, checkOutgoingMessage, flagSavedMessage } from "@/lib/messageSafety";
 import { runAfterResponse } from "@/lib/request";
 import { finishPhase } from "@/lib/finishing";
@@ -45,6 +46,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (finishPhase(order) !== "WORKING") return NextResponse.json({ error: "You can only suggest more hours while the package is in progress." }, { status: 400 });
   if (!order.conversationId) return NextResponse.json({ error: "This package has no message thread." }, { status: 400 });
 
+  // Same account checks as any message (updated legal documents etc.).
+  const gate = await gateBlockReason(mentorId);
+  if (gate) return NextResponse.json({ error: gate, code: "ACCOUNT_GATE" }, { status: 403 });
   const blocks = await blockBetween(mentorId, order.buyerId);
   if (blocks.iBlocked || blocks.theyBlocked) return NextResponse.json({ error: "You can't message this student." }, { status: 403 });
   for (const limit of [RATE_LIMITS.messagesPerMinute, RATE_LIMITS.messagesPerDay]) {
