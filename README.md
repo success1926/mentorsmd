@@ -59,19 +59,24 @@ you ever touching a bank transfer yourself:
    Stripe-hosted onboarding URL. Stripe collects their bank details, tax
    info, and identity verification directly - it never touches your
    database.
-2. **Buyer checks out**: `POST /api/checkout` creates a Stripe Checkout
-   Session for one gig package and an `Order` row (`PENDING_PAYMENT`). The
-   charge goes to *your* Stripe balance, not the seller's - this is what
-   makes escrow possible.
+2. **Student buys hours**: since the Oct 2026 hourly redesign, every
+   purchase (hourly, hour bundle, specialized package, "Add hours", pay per
+   call) goes through `lib/hourCheckout.ts`: MentorsMD credit is applied
+   first, then a Stripe Checkout Session for the rest. The charge goes to
+   *your* Stripe balance, not the mentor's (separate charges and
+   transfers). The old `POST /api/checkout` (fixed price + due date) now
+   answers 410.
 3. **Webhook confirms payment**: `POST /api/webhooks/stripe` listens for
-   `checkout.session.completed` and flips the order to `IN_ESCROW`. Always
-   trust this over the success-page redirect, since a user could hit that
-   URL without actually paying.
-4. **Release**: once the buyer (or an admin, in a dispute) confirms the
-   work is done, `POST /api/orders/[id]/release` calls Stripe's Transfer
-   API to send the seller 70% of the price. The 30% platform fee just
-   stays in your Stripe balance - no separate step needed. Adjust the cut
-   in `lib/fee.ts` (`PLATFORM_FEE_PERCENT`).
+   `checkout.session.completed` and fulfils the order or top-up once
+   (`IN_ESCROW` = active package). Always trust this over the success-page
+   redirect, since a user could hit that URL without actually paying.
+4. **Monthly payout**: on the 24th, `/api/cron/monthly-payouts`
+   (`lib/payouts.ts`) sends each mentor ONE Stripe Transfer for everything
+   not yet paid: hours logged since their last payout plus the unused
+   hours of packages approved by then, at 70%. The 30% platform fee just
+   stays in your Stripe balance. Adjust the cut in `lib/fee.ts`
+   (`PLATFORM_FEE_PERCENT`). Details in "Oct 2026 hourly redesign" at the
+   end of this file.
 
 For local testing, use the Stripe CLI to forward webhooks:
 
@@ -92,16 +97,18 @@ Included:
 - `/api/gigs` — public read, seller-only create
 - `/api/gigs/[id]` — edit/delete, ownership-checked so one seller can't touch another's packages
 - `/api/stripe/connect` — seller payout onboarding
-- `/api/checkout` — buyer payment, held on the platform for escrow
+- `lib/hourCheckout.ts` — student payment (credit first, then Stripe), held on the platform
 - `/api/webhooks/stripe` — confirms payment before trusting it
-- `/api/orders/[id]/release` — pays the seller their 70% cut
-- `/api/admin/earnings` — dashboard totals: collected, your cut, paid out, still in escrow
+- `lib/payouts.ts` + `/api/cron/monthly-payouts` — the monthly payout (70% to the mentor)
+- `/api/admin/earnings` — Admin -> Orders & payouts totals: sales, credit, collected, fee, paid out, not yet paid out
 - `/api/orders` — the current user's bookings (buyer view) or orders placed with them (seller view)
 - `/api/conversations` — get-or-create a buyer/seller thread, and list your own threads
 - `/api/conversations/[id]/messages` — send/list messages, restricted to the two participants
 - `/api/calls/[id]/join` — gives the student or mentor their own token for the call's private Daily.co room (from 10 min before until 30 min after)
 
 ## Due dates and messaging during the order
+
+> **Replaced (Oct 2026 hourly redesign).** Kept for history: packages no longer have due dates, the 96-hour auto-release and its cron are gone, and mentors are paid monthly. See "Oct 2026 hourly redesign" at the end of this file.
 
 The due date isn't free-standing - it's gated by an actual conversation:
 
@@ -322,6 +329,8 @@ to the current session.
 
 ## New completion flow: seller marks complete, 48-hour auto-release
 
+> **Replaced (Oct 2026 hourly redesign).** Kept for history: packages no longer have due dates, the 96-hour auto-release and its cron are gone, and mentors are paid monthly. See "Oct 2026 hourly redesign" at the end of this file.
+
 This replaces the old "buyer clicks release" flow entirely.
 
 **The sequence now:**
@@ -367,6 +376,8 @@ excluded from the auto-release query entirely until an admin manually
 resolves them (refund or release).
 
 ## Revision deadlines
+
+> **Replaced (Oct 2026 hourly redesign).** Kept for history: packages no longer have due dates, the 96-hour auto-release and its cron are gone, and mentors are paid monthly. See "Oct 2026 hourly redesign" at the end of this file.
 
 Every revision request (`/api/orders/[id]/request-revision`) automatically
 sets the order's due date to exactly 7 days from the moment it's
@@ -420,6 +431,8 @@ the person-facing setup guide for a suggested order.
 
 ## Review window is 96 hours, and the cron runs daily (not hourly)
 
+> **Replaced (Oct 2026 hourly redesign).** Kept for history: packages no longer have due dates, the 96-hour auto-release and its cron are gone, and mentors are paid monthly. See "Oct 2026 hourly redesign" at the end of this file.
+
 Two related changes:
 
 **The buyer's review window is now 96 hours** (was 48) - every place that
@@ -442,6 +455,8 @@ back to `"0 * * * *"` (hourly) is the only change needed to tighten it
 up - no code changes required.
 
 ## Funds-availability check (the "48/96-hour vs. card settlement" fix)
+
+> **Replaced (Oct 2026 hourly redesign).** Kept for history: packages no longer have due dates, the 96-hour auto-release and its cron are gone, and mentors are paid monthly. See "Oct 2026 hourly redesign" at the end of this file.
 
 Card payments don't become spendable in your Stripe balance the instant
 they're charged - Stripe holds them briefly before they're "available"
@@ -742,3 +757,15 @@ Cal.com is gone. Everything happens on the site:
 - **Time zones**: every account stores one (detected in the browser, editable on Account).
 
 Setup: run `prisma/phase3-2026-10.sql` in the Neon SQL editor (after a backup branch) before deploying. Env vars: `DAILY_API_KEY` (video), `DAILY_RECORDING_ENABLED="true"` (recording, paid Daily plan), `DAILY_WEBHOOK_SECRET` (from Admin -> Calls & recordings -> Connect Daily webhook).
+
+## Oct 2026 hourly redesign: orders, payments and crons
+
+Spec: `docs/redesign-2026-10.md`. Database: `prisma/hourly-redesign-2026-10.sql` (only adds things; run it on Supabase, live and preview, before the code goes live).
+
+- **Pricing**: one hourly rate per mentor; offers are Hourly, hour bundles and specialized packages, priced hours x rate (`lib/pricing.ts`, `lib/offers.ts`). Buying unlocks after the mentor replies or a free 15-minute intro call is held (`lib/unlock.ts`, `lib/introCalls.ts`).
+- **Orders** have a `kind` (HOURLY / BUNDLE / SPECIALIZED / PAY_PER_CALL), minutes bought (plus paid `HourTopUp`s), the rate paid and no due date. Statuses for these: `IN_ESCROW` = active (including waiting on the student), `COMPLETED` = approved and waiting for the monthly payout, `RELEASED` = paid to the mentor, `REFUNDED` = refunded in full as credit.
+- **Hours log** (`HourEntry`, `lib/hourLog.ts`): held calls are logged automatically at 30/60 minutes; mentors log written work. `lib/hours.ts` has the maths.
+- **Finishing** (`lib/finishing.ts`, `lib/orderFinish.ts`): Mark work complete -> the student has 48 hours to approve, ask for one last call or revision, or dispute; otherwise auto-approved.
+- **Monthly payouts** (`lib/payoutRules.ts` for the rules, `lib/payouts.ts` for the work): per mentor, unpaid non-voided hour entries plus unused minutes of approved packages, at the package rate; disputed packages held; one `MentorPayout` per mentor per month (`period` "YYYY-MM"), claimed in a transaction, then one `stripe.transfers.create` (idempotency key `payout-<mentor>-<period>`, `transfer_group` = payout id). Failures are marked FAILED, reported as "[NEEDS MANUAL CHECK]", badge Admin -> Orders & payouts and can be retried there (Stripe is checked for an existing transfer first). Owner-only "Run payouts now" runs the same function for the latest period.
+- **Credit** (`CreditEntry` ledger, `lib/credit.ts`, `lib/creditAdmin.ts`): used first at checkout; disputes are settled with "Refund as credit" (full or partial; a partial refund is taken off the mentor's final payout for that package); admins with Orders can adjust a student's credit with a reason.
+- **Crons** (`vercel.json`): `/api/cron/call-reminders` every 15 minutes (reminders, call outcomes, 48-hour auto-approval); `/api/cron/monthly-payouts` at 14:00 UTC on the 24th; `/api/cron/recordings-cleanup` daily at 03:00 UTC (recordings 60 days after a package closes); `/api/cron/safety` daily at 08:00 UTC. The old `/api/cron/auto-release` and `/api/cron/overdue-reminders` (due dates, on hold, forfeits, "book your call") are gone.

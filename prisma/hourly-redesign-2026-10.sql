@@ -15,7 +15,9 @@
 --
 -- Matches `prisma migrate diff` from the schema before the redesign to
 -- prisma/schema.prisma. No enum changes are needed: the new "kind" and
--- "status" values are text columns, like the existing ones.
+-- "status" values are text columns, like the existing ones (including
+-- MentorPayout.status PROCESSING / PAID / FAILED and the dispute outcome
+-- "CREDIT" added in part 3, which need no database change).
 
 -- ---------- Mentor profile sections and hourly rate ----------
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "admissionsRoles" JSONB;

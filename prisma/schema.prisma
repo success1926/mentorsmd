@@ -464,7 +464,7 @@ model Order {
 
   // ---- Dispute outcome, for the admin's Resolved list ----
   disputeResolvedAt DateTime?
-  disputeResolution String? // REFUNDED or RELEASED
+  disputeResolution String? // REFUNDED, RELEASED, or CREDIT (refunded as MentorsMD credit, hours packages)
 
   // The package's turnaround when the order was placed. Changing a
   // package's turnaround only affects new orders.
@@ -630,7 +630,7 @@ model MentorPayout {
   grossCents       Int       @default(0) // what students paid for those hours
   minutes          Int       @default(0)
   entryCount       Int       @default(0)
-  status           String    @default("PENDING") // PENDING | PAID | FAILED | SKIPPED
+  status           String    @default("PENDING") // PROCESSING (claimed, transfer being sent) | PAID | FAILED (see error; Retry in Admin)
   stripeTransferId String?
   error            String?
   createdAt        DateTime  @default(now())

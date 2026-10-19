@@ -1,186 +1,90 @@
-# MentorsMD live test: to-do list
+# MentorsMD test plan: hourly redesign
 
-*Updated Oct 13, 2026: all six phases are live. Calls use the built-in calendar and private Daily video rooms (Cal.com is gone). Packages cost $50 to $5,000. The fee is 30%.*
+*Updated Oct 18, 2026 for the hourly redesign (`docs/redesign-2026-10.md`): hourly rates, free intro calls, hours, no due dates, 48 hours to respond, monthly payouts on the 24th, MentorsMD credit.*
 
 **Who does what**
 
-- 🛠 **You as Admin**: the Owner admin account (it asks for your 2-step code).
-- 🩺 **You as Mentor**: a *new* account. One login can't be both admin and mentor, so you need a second email for this.
-  - Tip: use `youremail+mentor@gmail.com`. Gmail delivers it to your normal inbox, but the site treats it as a different email.
-- 🎓 **Friend as Student**: your friend's own account.
+- 🛠 **Admin**: the Owner admin account (asks for your 2-step code).
+- 🩺 **Mentor**: a separate account (tip: `youremail+mentor@gmail.com`).
+- 🎓 **Student**: a third account (a friend, or `youremail+student@gmail.com`).
 
-**Money:** the live site takes **real payments** (Stripe is in live mode; previews use test mode). Use a **$50 package** (the minimum). The admin refund test (section 9) gives the money back.
+**Where:** do the money tests on the **preview** first (Stripe test mode, card `4242 4242 4242 4242`, any future date, any CVC). On the live site payments are real, and refunds are given as MentorsMD **credit**, not back to the card (if you need your own test money back, refund it in the Stripe dashboard yourself).
 
-**Setup:** use 2 browsers so you can stay logged in twice. For example, Chrome for Admin and Safari for Mentor. Your friend uses their own device.
-
-**If something fails:** take a screenshot (⌘ + Shift + 4), note the section number, and keep going.
+**Before you start:** `prisma/hourly-redesign-2026-10.sql` has been run on Supabase (live and preview). Use 3 browsers (or private windows) to stay logged in as all three. If something fails, take a screenshot, note the section, keep going.
 
 ---
 
-## 1. First look (anyone, logged out, on phone *and* computer)
-- [ ] The homepage shows the new design. The search bar and the 5 quick chips work.
-- [ ] Top bar links work: Home, Browse mentors, How it works, Senior team, Reviews (only shown once there are at least 3 reviews/testimonials), Become a mentor, Log in, Get started. The current page is highlighted.
-- [ ] On a phone, the ☰ menu opens and closes, and no page scrolls sideways.
-- [ ] Footer links all open a page: About, Contact, Terms, Privacy, Become a mentor.
-- [ ] The Contact page shows your contact email.
-- [ ] A made-up address like `mentorsmd.com/xyz` shows the purple "We couldn't find that page".
+## 1. 🩺 Mentor side
 
-## 2. 🛠 Admin: invite yourself as a mentor
-- [ ] Log in as admin. Admin shows the stat cards, Disputes, Invite a mentor and People.
-- [ ] There is **no** discount-code section (discount codes were removed Oct 13).
-- [ ] Invite `youremail+mentor@gmail.com`. You see a green "Invite sent" message.
-- [ ] The invite shows under **Pending**. **Resend** sends it again.
-- [ ] Test cancelling: invite a fake email (e.g. `test123@example.com`), then click **Cancel**. It disappears.
+**Profile and offers**
+- [ ] The dashboard and Account show "Finish your profile (N of 10 sections)". Until all 10 are done, you're not in Browse mentors and can't be bought from.
+- [ ] Fill in: photo, credential, school; bio (40+ words); admissions experience; clinical & research; Who you're best for; 4 to 6 highlights; exactly 3 Known for; languages; fun fact; hourly rate.
+- [ ] Rate & offers: set the hourly rate (try $49 and $2,001: both refused). Turn Hourly on.
+- [ ] Add an hour bundle (e.g. 3 hours) and a specialized package (title, what's included, estimated hours, format, optional cover photo). Prices show as hours × rate; there's no due date, call count or typed-in price anywhere.
+- [ ] Connect payouts (Dashboard → Payouts → Connect bank account). Without it, the dashboard says "Connect payouts".
+- [ ] Set call hours on Account → Call availability.
 
-## 3. 🩺 Mentor: join and set up
-- [ ] Open the invite email and click the link. "Set up your mentor profile" shows your email badge.
-  - If you're still logged in as admin in that browser, it says "You're already logged in". Click **Log out and continue**.
-- [ ] Fill in name, credential, bio and password, then **Create my profile**. You land on **Account**.
-- [ ] 🛠 Back in Admin, the invite moved to **Joined** with your name and date, and **Profile** opens it.
-- [ ] Account → upload a **photo**. It shows square, top right in the menu and on your profile.
-- [ ] Account → **About you**: pick a stage and school type (plus any backgrounds), then **Save answers**.
-- [ ] Account → **Call availability**: set your weekly call hours and your time zone, then save. The dashboard's "Set your call hours" prompt goes away.
-- [ ] Optional: paste a private Google/iCloud calendar link so your busy times are hidden from students.
-- [ ] Account → **Sync to your calendar**: **Connect my calendar**, then **Add to Google Calendar**. A MentorsMD calendar appears in Google (it can take a few hours to fill in).
-- [ ] **Payouts**: **Connect bank account** takes you through Stripe and back, and shows **Connected**. There's no debug box.
+**Working on a package** (after the student buys, section 2)
+- [ ] You get the "New package" email. The package shows under Active packages on the dashboard.
+- [ ] The package page shows hours used / left, calls held, earned so far, next payout (the 24th).
+- [ ] Log written work: 30 or 60 minutes, a note, optional file. You can't log more than the hours left. The student gets "Written time logged".
+- [ ] After a call is held, it appears in the hours log automatically (30 or 60 minutes). You can watch its recording on the package page (students can't).
+- [ ] "Mark work complete" is blocked while a call is still booked; otherwise it works any time. The student gets "Work marked complete" with the 48-hour deadline.
+- [ ] If the student asks for one last call or revision, you get an email; deliver it and mark complete again.
 
-## 4. 🩺 Mentor: packages
-- [ ] With no packages yet, the top bar shows **+ Add package**.
-- [ ] My packages shows a yellow "Connect payouts" banner until payouts is connected.
-- [ ] **New package A** (the description needs at least 30 words):
-  - Title "Test written review"
-  - Price **$50**
-  - Service: Personal statement
-  - Format: **Written feedback**
-  - Turnaround: 3 to 5 days
-  - **Publish**. It should show **Live in search**.
-- [ ] **New package B:**
-  - Title "Test call"
-  - Price **$50**
-  - Service: MMI prep
-  - Format: **Live video session**
-  - Turnaround: Scheduled call
-  - 1 call, 30 min
-  - **Publish**.
-- [ ] Edit package A, change the price to $55, and save. Then change it back to $50.
-- [ ] Make a third throwaway package, then **Remove** it. It asks for confirmation, then it's gone.
-- [ ] **Dashboard**: shows "Hi, name", **+ Add package**, the availability switch and Needs your attention. Messages is empty.
+**Getting paid**
+- [ ] Dashboard: "Earned this month (not yet paid)" goes up as hours are logged (70% of each hour), "Next payout" shows the 24th, and "Past payouts" is empty until the first payout.
+- [ ] After a payout (section 3), the dashboard and Dashboard → Payouts list it, and you get "Monthly payout sent".
 
-## 5. 🎓 Friend: sign up and browse
-- [ ] Friend creates a student account (try **email**; Google also works).
-- [ ] **Browse mentors**: your mentor card shows Vetted, your tags, and both packages.
-- [ ] Filters:
-  - [ ] **MMI prep** shows only package B.
-  - [ ] **Written feedback** shows only package A.
-  - [ ] **$50 to $100** still shows you.
-  - [ ] **Resident** hides you (unless you picked Resident).
-- [ ] Filter pills appear above the results. **✕** removes one, and **Clear all** removes them all.
-- [ ] The quick links across the top work, and so does sort.
-- [ ] Searching your name finds you.
-- [ ] Open your profile:
-  - [ ] It shows packages, "No reviews yet", and the Message box.
-  - [ ] **Book** buttons are greyed out with "unlocks once you reply".
+## 2. 🎓 Student side
 
-## 6. Messaging
-- [ ] 🎓 Friend types a message on your profile and clicks **Send message**. The Messages page opens.
-- [ ] 🩺 You get an email "New message from …".
-  - [ ] **Messages** in the top bar shows a red **1**.
-  - [ ] Your **Dashboard** messages panel shows the count.
-- [ ] 🩺 Reply from **Messages**.
-  - [ ] Your badge clears.
-  - [ ] 🎓 The friend sees the reply appear **without refreshing**, and gets a red badge on any other page.
-- [ ] Both: attach a PDF and download the other person's. There's **no video button** anywhere in Messages.
-- [ ] 🎓 The friend's side panel now has **Book** enabled.
+**Before buying**
+- [ ] On a mentor's profile, every Buy button says "Message or book an intro call to unlock".
+- [ ] Book the free 15-minute intro call (pop-up on the profile). Both get "Intro call booked" with a calendar invite; reminders arrive on the day and 1 hour before. You can only book one per mentor.
+- [ ] After the mentor replies to your message (or the intro call is held), Buy unlocks.
 
-## 7. 🎓 Order A: written package (pay → deliver → approve → review)
-- [ ] Book package A. Checkout shows your mentor card, the package details and a due date picker.
-- [ ] Click Pay, then **Back / cancel** on the Stripe page. You return to checkout with "Payment was cancelled". This used to 404.
-- [ ] Pay for real ($50).
-  - [ ] The order page shows "Payment received". The tracker shows **Paid → Held**.
-- [ ] 🩺 You get a "New order" email. The order appears under **Dashboard → Active orders**.
-- [ ] 🩺 Change the due date on the order. It updates.
-- [ ] 🎓 **Request a revision** with a note.
-  - [ ] 🩺 You see the yellow "Revision requested" box with the note.
-  - [ ] You get an email.
-- [ ] 🩺 **Mark work as complete**. 🎓 The friend gets an email, and the tracker shows **Delivered**.
-- [ ] 🎓 **Approve and release payment**.
-  - [ ] Status shows **Complete**.
-  - [ ] 🩺 You get "Payment released".
-  - [ ] Payouts → "Paid to you" shows $35 (after the 30% fee).
-- [ ] 🎓 Leave a 5-star review. It shows on your profile, and 🩺 you get an email.
+**Buying and using hours**
+- [ ] Details pop-up shows hours, format, "Due date: none", the price math. Buy → Stripe → back to the package page. You get "You're set" (package bought).
+- [ ] With MentorsMD credit (give yourself some in section 3), checkout shows "Credit applied". If credit covers everything, there's no Stripe page.
+- [ ] Book a 30- or 60-minute call from your hours (no payment). Both get "Call booked" with an invite. Booked calls count against hours left. Cancel or reschedule works until 24 hours before.
+- [ ] Add hours (1, 2, 3 or 5) at the package's rate → Stripe → "Hours added" email, hours left goes up.
+- [ ] When 1 hour is left, you get "1 hour left" (once).
+- [ ] With no hours left, picking a time on the mentor's calendar offers a pay-per-call (30 or 60 minutes at the hourly rate).
+- [ ] Messages and shared files on the package page belong to that package. My packages shows Active / Waiting on you / Completed, and your credit balance.
 
-## 8. 🎓 Order B: call package (calls and calendar)
-- [ ] Book and pay for package B ($50).
-- [ ] On the order, **Book a call** appears. It opens a slot picker showing your call hours.
-- [ ] Pick a time at least 25 hours away and click **Book**.
-  - [ ] The call shows on the order straight away.
-  - [ ] Both of you get "Call booked" emails with a calendar (.ics) attachment.
-- [ ] 🩺 **Mark work as complete** is greyed out: "Available once the included call has happened".
-- [ ] More than 24 hours out, **Reschedule** (pick a new time on the site) and **Cancel** are visible. Inside 24 hours they're hidden.
-- [ ] 10 minutes before the call, **Join** turns on. Both of you click it and land in the **same** private Daily video room. A third account opening the call link sees "Call not found".
-- [ ] After the call ends, 🩺 **Mark work as complete** works.
-- [ ] Booked calls show up in the Google Calendar you connected.
-- [ ] *(Alternative)* On another order, the 🎓 friend clicks **I don't need the call**. 🩺 Mark complete then works.
+**Finishing**
+- [ ] After "Mark work complete", the package page shows the 48-hour banner: Approve, Request one last call, Request one last revision, Open a dispute.
+- [ ] Ask for one last revision: the banner goes away; after the mentor marks complete again, only Approve / Dispute are left.
+- [ ] Approve: both get "Package approved". Leave a review.
+- [ ] On another package, do nothing for 48 hours: it's approved automatically (both get the email, saying "automatically").
+- [ ] Open a dispute on an active package (Report a problem). You can reply in the dispute thread.
 
-## 9. Disputes (gets your money back)
-- [ ] 🎓 Book package A again ($50). On the order, click **Report a problem → Open a dispute** with a reason.
-- [ ] While disputed:
-  - [ ] Revision, Report a problem and Approve disappear for the friend.
-  - [ ] Mark complete disappears for 🩺 you.
-- [ ] 🛠 You get a "Dispute opened" email. Admin → Disputes → **Pending** shows it.
-- [ ] 🛠 **Respond / ask for details**: post a question.
-  - [ ] 🎓 The friend sees it on the order and replies.
-  - [ ] Emails go both ways.
-- [ ] 🛠 **Refund student**.
-  - [ ] The friend gets the $50 back on their card (Stripe shows it).
-  - [ ] It moves to **Resolved: Refunded to student**.
-- [ ] *(Optional)* Repeat with **Release to mentor** to see "Released to mentor".
+## 3. 🛠 Admin side
 
-## 10. 🛠 Admin: People
-- [ ] The **Mentors** and **Students** tabs show counts. Searching your name finds you.
-- [ ] **View** shows your credential, tags, call hours ("Call hours set" and your time zone), packages and recent orders.
-- [ ] **Pause** your mentor account.
-  - [ ] It disappears from Browse.
-  - [ ] **Unpause** brings it back.
-- [ ] **Remove** the friend's student account (type a reason).
-  - [ ] Within about 5 minutes they're logged out and can't log in.
-  - [ ] **Restore** lets them in again.
-- [ ] Removing someone with an active order shows how many active orders they have.
-- [ ] The earnings cards at the top roughly match Stripe.
+**Orders & payouts**
+- [ ] The cards show Sales (packages + added hours), Paid with credit, Collected by card, fee, Paid to mentors, Not yet paid out, Credit issued, Credit students still have. They match what you did.
+- [ ] Paid packages lists each one with kind, hours used / left, added hours, credit applied and a status (Active, Waiting on student, Disputed, Approved waiting for payout, Paid to mentor, Refunded as credit). Open shows the package page with a "For admins" box. CSV downloads work.
+- [ ] Monthly payouts: as Owner, press **Run payouts now**. The mentor gets one payout for the latest month: hours logged plus unused hours of approved packages, at 70%. A row appears with the amount, status Paid and the Stripe transfer id (check it in Stripe → Transfers). Approved packages it covered show Paid to mentor.
+- [ ] Press Run payouts now again: nobody is paid twice ("already paid this month").
+- [ ] A mentor without connected payouts is listed as skipped.
+- [ ] Hours on a disputed package are not in the payout; the mentor's dashboard shows them as held.
+- [ ] (Preview) Make a payout fail (e.g. a test mentor whose Stripe account isn't finished): it shows Failed with the error, the sidebar badge counts it, and Retry sends it once fixed.
+- [ ] On the 24th, the cron runs the payouts by itself (Vercel → Cron jobs shows `/api/cron/monthly-payouts`).
 
-## 11. 🩺 Mentor: pause and remove yourself
-- [ ] Turn the **Dashboard availability switch** off.
-  - [ ] It shows "Paused", and you're hidden from Browse.
-  - [ ] Turn it back on.
-- [ ] Account → **Availability**: pause with a return date tomorrow and a note.
-  - [ ] Your profile shows "away until …" with the note.
-  - [ ] Checkout is blocked.
-  - [ ] Tomorrow you're back automatically.
-- [ ] **Remove my profile**: the popup offers **Pause instead**. Click **Yes, remove**.
-  - [ ] You're hidden, but you can still log in.
-  - [ ] **Restore my profile** brings you back.
+**Disputes**
+- [ ] The open dispute shows hours used / left, added hours, credit used, and says the hours are held from the payout.
+- [ ] **Refund as credit**, partial (e.g. $20): the student gets "MentorsMD credit added", the package is approved and closed, and the mentor's next payout for it is the unpaid and unused hours minus $20.
+- [ ] **Refund as credit**, full (the default amount): the package shows Refunded as credit, its calls are cancelled, and nothing more is paid to the mentor.
+- [ ] **Approve for the mentor** settles a dispute in the mentor's favour (paid with the next payout).
+- [ ] Resolved disputes show how each was settled. The Disputes & flags badge only counts open ones.
 
-## 12. Accounts and passwords
-- [ ] **Forgot password**:
-  - [ ] The email arrives and the link works.
-  - [ ] The old password stops working.
-  - [ ] Using the link a second time fails.
-- [ ] Account → **Sign-in & security → Change password** opens a pop-up and ends on a "Your password has been changed" screen.
-- [ ] Logging in sends each role to its own page: student → Browse, mentor → Dashboard, admin → Admin.
-- [ ] Google sign-in with your **mentor** email is refused (expected: mentors use email login).
-- [ ] 🛠 Admin left idle for about 58 minutes shows "Still there?", then logs out at 60 minutes.
+**People, calls, insights, emails**
+- [ ] People → a student → MentorsMD credit: balance and history. Add $10 with a reason: the student is emailed (without the reason), the Action log has it. Removing more than the balance is refused. Without the Orders permission you can see it but not change it.
+- [ ] Calls & recordings lists intro calls too (badge INTRO, no package link) next to package calls.
+- [ ] Insights → Overview: Money collected includes added hours and is net of credit; Credit issued shows. Breakdowns has "By offer kind" (no turnaround). CSV downloads work.
+- [ ] Admin → Emails lists the new emails (package bought, new package, hours added, 1 hour left, call booked, written time logged, work marked complete, one last call or revision, package approved, intro call booked / reminder, monthly payout sent, MentorsMD credit added), each editable with a preview. The old due-date, overdue, on-hold, "book your call", forfeited, delivered (96 hours), released and revision emails are gone from the list.
 
-## 13. Things that happen on a timer (check over the next few days)
-- [ ] An order delivered and not approved for 96 hours releases automatically (runs daily at 3am UTC).
-- [ ] An order past its due date and not delivered: 🩺 you get a daily "overdue" email.
-- [ ] A paid call order with no call booked:
-  - [ ] The friend gets a "Book your call" email after a day.
-  - [ ] At the due date it goes **On hold**.
+## 4. Anyone
 
-## 14. Security spot-checks
-- [ ] Sign-up and login show the reCAPTCHA badge.
-- [ ] The Daily webhook (`/api/webhooks/daily`) called with a wrong secret returns 401. Claude can run this check for you.
-
----
-
-When you've finished, send me anything that failed (screenshot + section number) and I'll fix it. Also send anything that *felt* awkward, even if it technically worked.
+- [ ] Public pages (homepage, how it works, become a mentor, browse) no longer mention due dates, turnaround or the 96-hour release.
+- [ ] Vercel → Cron jobs shows four: call-reminders (every 15 minutes), monthly-payouts (24th), recordings-cleanup (daily), safety (daily).
