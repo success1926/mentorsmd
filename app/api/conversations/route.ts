@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { blockBetween } from "@/lib/blocks";
 import { gateBlockReason } from "@/lib/gate";
+import { hoursSummary } from "@/lib/hours";
 
 // New accounts (under NEW_ACCOUNT_DAYS old) can start at most
 // NEW_ACCOUNT_DAILY_CONVERSATIONS new conversations with mentors a day.
@@ -92,5 +93,39 @@ export async function GET() {
   const last = (c: (typeof conversations)[number]) => (c.messages[0]?.createdAt ?? c.createdAt).getTime();
   conversations.sort((a, b) => last(b) - last(a));
 
-  return NextResponse.json({ conversations });
+  // The context line under each name (redesign Oct 2026): the active
+  // package and its hours left, or a booked intro call.
+  const ids = conversations.map((c) => c.id);
+  const [orders, intros] = ids.length
+    ? await Promise.all([
+        prisma.order.findMany({
+          where: { conversationId: { in: ids }, kind: { not: null }, status: "IN_ESCROW" },
+          select: {
+            id: true, conversationId: true, packageTitle: true, minutesPurchased: true, createdAt: true,
+            gig: { select: { title: true } },
+            hourEntries: { select: { type: true, minutes: true, voidedAt: true, callBookingId: true } },
+            callBookings: { select: { id: true, startTime: true, endTime: true, status: true, outcome: true, kind: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        }),
+        prisma.callBooking.findMany({
+          where: { kind: "INTRO", status: "BOOKED", endTime: { gt: new Date() }, ...(role === "SELLER" ? { mentorId: userId } : { studentId: userId }) },
+          select: { studentId: true, mentorId: true, startTime: true },
+        }),
+      ])
+    : [[], []];
+  const withContext = conversations.map((c) => {
+    const pkgs = orders.filter((o) => o.conversationId === c.id);
+    const pkg = pkgs[0];
+    const intro = intros.find((i) => i.studentId === c.buyerId && i.mentorId === c.sellerId);
+    return {
+      ...c,
+      context: {
+        package: pkg ? { id: pkg.id, title: pkg.packageTitle || pkg.gig.title, minutesLeft: hoursSummary(pkg).left, count: pkgs.length } : null,
+        introCallAt: intro?.startTime ?? null,
+      },
+    };
+  });
+
+  return NextResponse.json({ conversations: withContext });
 }

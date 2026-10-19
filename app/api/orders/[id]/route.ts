@@ -21,8 +21,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     where: { id: params.id },
     include: {
       gig: true,
-      buyer: { select: { name: true, photoUrl: true, minorStatus: true } },
-      seller: { select: { name: true, credential: true, photoUrl: true, weeklyHours: true } },
+      buyer: { select: { id: true, name: true, photoUrl: true, minorStatus: true } },
+      seller: { select: { id: true, name: true, credential: true, photoUrl: true, weeklyHours: true, hourlyRateCents: true } },
       review: true,
       callBookings: {
         orderBy: { startTime: "asc" },
@@ -33,6 +33,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         },
       },
       deliveries: { orderBy: { number: "asc" } },
+      // Hours packages (redesign Oct 2026).
+      hourEntries: { orderBy: [{ workDate: "desc" }, { createdAt: "desc" }], include: { loggedBy: { select: { name: true } } } },
+      topUps: { where: { status: "PAID" }, orderBy: { paidAt: "desc" }, select: { id: true, minutes: true, amountCents: true, creditAppliedCents: true, paidAt: true } },
     },
   });
 
@@ -43,12 +46,26 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
 
-  const showRecordings = isAdmin && (await adminCan(["calls", "disputes"]));
+  // Mentors can watch recordings of their own calls on hours packages
+  // (their package workspace); students never see them.
+  const showRecordings = (!!order.kind && order.sellerId === userId) || (isAdmin && (await adminCan(["calls", "disputes"])));
+  // The package's shared files: attachments on its own messages.
+  const files = order.kind
+    ? await prisma.message.findMany({
+        where: { orderId: order.id, attachmentUrl: { not: null } },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, attachmentName: true, createdAt: true, senderId: true },
+        take: 200,
+      })
+    : [];
+  const callsRecorded = order.callBookings.filter((b) => b.recordings.some((r) => r.status === "ready" || r.deletedAt)).length;
   const { weeklyHours, ...seller } = order.seller;
   const safe = {
     ...order,
     seller: { ...seller, hasAvailability: hasAvailability(weeklyHours) },
     callBookings: order.callBookings.map(({ recordings, ...b }) => ({ ...b, ...(showRecordings ? { recordings } : {}) })),
+    files,
+    callsRecorded,
   };
   return NextResponse.json({
     order: safe,

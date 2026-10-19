@@ -42,7 +42,10 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   const convo = await assertParticipant(params.id, (session.user as any).id);
   if (!convo) return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
 
-  const before = new URL(req.url).searchParams.get("before");
+  const url = new URL(req.url);
+  const before = url.searchParams.get("before");
+  // ?orderId=: only that package's messages (its page shows its own thread).
+  const orderId = url.searchParams.get("orderId");
 
   // Opening the thread (first page) marks it read for this person.
   if (!before) await markRead(convo, (session.user as any).id);
@@ -50,7 +53,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
   // Newest PAGE_SIZE, then flipped back to oldest-first for display.
   const latest = await prisma.message.findMany({
-    where: { conversationId: params.id, ...(beforeMsg ? { createdAt: { lt: beforeMsg.createdAt } } : {}) },
+    where: { conversationId: params.id, ...(orderId ? { orderId } : {}), ...(beforeMsg ? { createdAt: { lt: beforeMsg.createdAt } } : {}) },
     orderBy: { createdAt: "desc" },
     take: PAGE_SIZE,
     include: { sender: { select: { id: true, name: true, role: true } } },
@@ -81,6 +84,17 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   // "attachment" could point anywhere, or at someone else's file.
   if (attachmentUrl && !isOurPath(attachmentUrl, "attachments", senderId)) {
     return NextResponse.json({ error: "Invalid attachment" }, { status: 400 });
+  }
+
+  // Sent from a package's page: tagged with that package (its own thread
+  // and shared files). It has to be a package between these two people.
+  let orderId: string | null = null;
+  if (typeof payload.orderId === "string" && payload.orderId) {
+    const order = await prisma.order.findUnique({ where: { id: payload.orderId }, select: { buyerId: true, sellerId: true } });
+    if (!order || order.buyerId !== convo.buyerId || order.sellerId !== convo.sellerId) {
+      return NextResponse.json({ error: "Package not found" }, { status: 400 });
+    }
+    orderId = payload.orderId;
   }
 
   const sender = await prisma.user.findUnique({
@@ -135,6 +149,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       attachmentName: cleanName,
       conversationId: params.id,
       senderId,
+      orderId,
     },
     include: { sender: { select: { id: true, name: true, role: true } } },
   });
@@ -169,7 +184,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         recipient.email,
         senderName,
         text || `${senderName} sent an attachment`,
-        `${SITE_URL}/messages/${convo.id}`
+        orderId ? `${SITE_URL}/orders/${orderId}` : `${SITE_URL}/messages/${convo.id}`
       );
       await prisma.conversation.update({
         where: { id: convo.id },
