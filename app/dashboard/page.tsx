@@ -7,6 +7,39 @@ import { MinorBadge, statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { callSummary, fmtDateTime } from "@/lib/calls";
 import { formatHasCall, money } from "@/lib/options";
 import { ProfileChecklist } from "@/components/ProfileChecklist";
+import { HoursBar, PackageBadge } from "@/components/Packages";
+import { finishPhase } from "@/lib/finishing";
+import { hoursSummary, shortHours } from "@/lib/hours";
+import { priceFor } from "@/lib/pricing";
+import { PLATFORM_FEE_PERCENT } from "@/lib/fee";
+import { StudentDashboard } from "./StudentDashboard";
+
+// One hours package on the mentor's dashboard (redesign Oct 2026).
+function PackageRow({ p }: { p: any }) {
+  const h = hoursSummary(p);
+  return (
+    <div className="list-row" style={{ flexWrap: "wrap" }}>
+      <span className="avatar" style={{ background: tintFor(p.buyer?.name || ""), width: 40, height: 40, fontSize: 15 }}>{initialsOf(p.buyer?.name || "")}</span>
+      <div className="grow stack-sm" style={{ gap: 4, minWidth: 200 }}>
+        <b style={{ fontSize: 15 }}>{p.title}</b>
+        <span className="text-muted">{p.buyer?.name} · {shortHours(h.left)} left of {shortHours(h.purchased)} · {h.callsHeld} call{h.callsHeld === 1 ? "" : "s"} held</span>
+        <HoursBar order={p} thin />
+      </div>
+      <MinorBadge person={p.buyer} />
+      <PackageBadge order={p} />
+      {p.newMessages > 0 && <span className="count-badge" aria-label={`${p.newMessages} new messages`}>{p.newMessages}</span>}
+      <Link href={`/orders/${p.id}`} className="btn btn-sm btn-soft">Open package</Link>
+    </div>
+  );
+}
+
+export default function DashboardPage() {
+  const { data: session, status } = useSession();
+  const user = session?.user as any;
+  if (status === "loading") return <div className="page text-muted">Loading…</div>;
+  if (user?.role === "BUYER") return <StudentDashboard name={user.name || ""} viewerId={user.id} />;
+  return <MentorDashboard />;
+}
 
 const ACTIVE = ["IN_ESCROW", "COMPLETED"];
 const DAY = 24 * 3600_000;
@@ -36,7 +69,7 @@ function OrderRow({ o }: { o: any }) {
   );
 }
 
-export default function MentorDashboard() {
+function MentorDashboard() {
   const { data: session, status } = useSession();
   const role = (session?.user as any)?.role;
   const first = (session?.user?.name || "").split(" ")[0];
@@ -46,6 +79,7 @@ export default function MentorDashboard() {
   const [profile, setProfile] = useState<any>(null);
   const [gigs, setGigs] = useState<any[]>([]);
   const [payouts, setPayouts] = useState<boolean | null>(null);
+  const [packages, setPackages] = useState<any[] | null>(null);
   const [toggling, setToggling] = useState(false);
 
   function loadProfile() {
@@ -56,6 +90,7 @@ export default function MentorDashboard() {
     if (role !== "SELLER") return;
     fetch("/api/orders").then((r) => r.json()).then((d) => setOrders((d.orders || []).filter((o: any) => !["PENDING_PAYMENT", "CANCELLED"].includes(o.status)))).catch(() => setOrders([]));
     fetch("/api/conversations").then((r) => r.json()).then((d) => setConvos(d.conversations || [])).catch(() => {});
+    fetch("/api/packages").then((r) => r.json()).then((d) => setPackages(d.packages || [])).catch(() => setPackages([]));
     fetch("/api/gigs?mine=true").then((r) => r.json()).then((d) => setGigs(d.gigs || [])).catch(() => {});
     fetch("/api/stripe/status").then((r) => r.json()).then((d) => setPayouts(!!d.connected)).catch(() => {});
     loadProfile();
@@ -65,7 +100,7 @@ export default function MentorDashboard() {
   if (role !== "SELLER") {
     return (
       <div className="page-narrow">
-        <div className="alert">The dashboard is for mentor accounts. <Link href="/orders" className="link">Go to my orders</Link></div>
+        <div className="alert">The dashboard is for mentor and student accounts. <Link href="/" className="link">Go home</Link></div>
       </div>
     );
   }
@@ -88,7 +123,10 @@ export default function MentorDashboard() {
     loadProfile();
   }
 
-  const list = orders || [];
+  // Orders from before the redesign (hours packages are listed separately).
+  const list = (orders || []).filter((o) => !o.kind);
+  const activePkgs = (packages || []).filter((p) => ["WORKING", "AWAITING_STUDENT", "DISPUTED"].includes(finishPhase(p)));
+  const earnedCents = (packages || []).reduce((s, p) => s + Math.round((priceFor(hoursSummary(p).used, p.rateCents || 0) * (100 - PLATFORM_FEE_PERCENT)) / 100), 0);
   const active = list.filter((o) => ACTIVE.includes(o.status));
   const done = list.filter((o) => !ACTIVE.includes(o.status));
   const dueSoon = active.filter((o) => o.status === "IN_ESCROW" && o.dueDate && new Date(o.dueDate).getTime() - now < 7 * DAY);
@@ -101,6 +139,13 @@ export default function MentorDashboard() {
   if (profile?.progress && !profile.progress.complete) attn.push({ key: "profile", tone: "warn", text: `Finish your profile (${profile.progress.done} of ${profile.progress.total} sections). Students can't find or buy from you until it's done.`, href: "/account", cta: "Finish" });
   if (profile?.hourlyRateCents && !gigs.some((g) => g.kind === "BUNDLE" || g.kind === "SPECIALIZED")) attn.push({ key: "gigs", tone: "warn", text: "Add hour bundles or a specialized package (optional).", href: "/dashboard/packages", cta: "Add offers" });
   if (profile && !profile.hasAvailability && gigs.some((g) => formatHasCall(g.format))) attn.push({ key: "cal", tone: "warn", text: "Set your call hours so students can book the calls in your packages.", href: "/account#call-hours", cta: "Set hours" });
+  for (const p of activePkgs) {
+    const who = p.buyer?.name?.split(" ")[0] || "Student";
+    if (p.disputed) attn.push({ key: `pd${p.id}`, tone: "danger", text: `${who} opened a dispute on ${p.title}.`, href: `/orders/${p.id}`, cta: "View" });
+    else if (finishPhase(p) === "WORKING" && p.lastRequestNote && (p.lastCallUsedAt || p.lastRevisionUsedAt)) attn.push({ key: `pl${p.id}`, tone: "warn", text: `${who} asked for ${p.lastCallUsedAt ? "one last call" : "one last revision"} on ${p.title}.`, href: `/orders/${p.id}`, cta: "Open" });
+    const next = hoursSummary(p).upcoming[0];
+    if (next && new Date(next.startTime).getTime() - now < DAY) attn.push({ key: `pc${next.id}`, tone: "", text: `Call with ${who}: ${fmtDateTime(next.startTime)}.`, href: `/orders/${p.id}`, cta: "Open" });
+  }
   for (const o of active) {
     const c = callSummary(o);
     const who = o.buyer?.name?.split(" ")[0] || "Student";
@@ -147,7 +192,7 @@ export default function MentorDashboard() {
       <ProfileChecklist progress={profile?.progress} compact />
 
       <div className="stat-cards">
-        <div className="stat-card"><span className="text-secondary">Active orders</span><span className="stat-num">{active.length}</span></div>
+        <div className="stat-card"><span className="text-secondary">Active packages</span><span className="stat-num">{activePkgs.length + active.length}</span></div>
         <div className="stat-card" style={{ background: "var(--pink-soft)" }}><span className="text-secondary">Due in 7 days</span><span className="stat-num">{dueSoon.length}</span></div>
         <div className="stat-card" style={{ background: "var(--blue)" }}><span className="text-secondary">Held for you</span><span className="stat-num">{money(heldCents)}</span></div>
         <div className="stat-card"><span className="text-secondary">Completed</span><span className="stat-num">{done.filter((o) => o.status === "RELEASED").length}</span></div>
@@ -170,7 +215,19 @@ export default function MentorDashboard() {
             )}
           </section>
 
-          <section>
+          <section className="stack-sm">
+            <h2 style={{ fontSize: 28 }}>Active packages</h2>
+            {packages === null && <span className="text-muted">Loading…</span>}
+            {packages !== null && activePkgs.length === 0 && <div className="empty">No active packages right now.</div>}
+            <div className="card" style={{ padding: "4px 20px" }} hidden={!activePkgs.length}>
+              {activePkgs.map((p) => <PackageRow key={p.id} p={p} />)}
+            </div>
+            {packages !== null && packages.length > 0 && (
+              <span className="text-muted small">Earned on packages so far: {money(earnedCents)} ({100 - PLATFORM_FEE_PERCENT}% of hours used). Paid monthly, on the 24th.</span>
+            )}
+          </section>
+
+          <section hidden={list.length === 0}>
             <details className="collapse" open>
               <summary>Active orders <span className="tab-count" style={{ marginRight: "auto", marginLeft: 8 }}>{active.length}</span></summary>
               <div className="collapse-body" style={{ gap: 0 }}>

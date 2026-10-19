@@ -58,8 +58,8 @@ const OTHER_LINKS: MainLink[] = [{ label: "Browse mentors", href: "/mentors" }];
 
 const RIGHT_LINKS: Record<string, NavLink[]> = {
   BUYER: [
+    { label: "My packages", href: "/orders" },
     { label: "Messages", href: "/messages" },
-    { label: "My orders", href: "/orders" },
   ],
   SELLER: [
     { label: "Dashboard", href: "/dashboard" },
@@ -73,9 +73,10 @@ const RIGHT_LINKS: Record<string, NavLink[]> = {
 
 const MENU: Record<string, NavLink[]> = {
   BUYER: [
+    { label: "Dashboard", href: "/dashboard" },
     { label: "Account settings", href: "/account" },
     { label: "My calendar", href: "/calendar" },
-    { label: "My orders", href: "/orders" },
+    { label: "My packages", href: "/orders" },
     { label: "Messages", href: "/messages" },
     { label: "Contact us", href: "/contact" },
   ],

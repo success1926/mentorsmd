@@ -6,6 +6,7 @@ import Link from "next/link";
 import { MinorBadge, statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { callSummary, fmtDateTime } from "@/lib/calls";
 import { money } from "@/lib/options";
+import { MyPackages } from "./MyPackages";
 
 const ACTIVE = ["IN_ESCROW", "COMPLETED"];
 
@@ -26,7 +27,17 @@ function nextStep(o: any, isSeller: boolean) {
   return "";
 }
 
+// Students: My packages (hours packages, redesign Oct 2026). Mentors (and
+// orders from before the redesign): the list below.
 export default function OrdersPage() {
+  const { data: session, status } = useSession();
+  const user = session?.user as any;
+  if (status === "loading") return <div className="page text-muted">Loading…</div>;
+  if (user?.role === "BUYER") return <MyPackages viewerId={user.id} />;
+  return <OrdersList />;
+}
+
+function OrdersList() {
   const { data: session } = useSession();
   const isSeller = (session?.user as any)?.role === "SELLER";
   const [orders, setOrders] = useState<any[] | null>(null);
@@ -85,7 +96,7 @@ export default function OrdersPage() {
       <div className="stack">
         {list.map((o) => {
           const other = isSeller ? o.buyer : o.seller;
-          const step = nextStep(o, isSeller);
+          const step = o.kind ? "" : nextStep(o, isSeller);
           return (
             <Link key={o.id} href={`/orders/${o.id}`} className="card row" style={{ gap: 16, alignItems: "flex-start" }}>
               {other?.photoUrl ? (
@@ -96,7 +107,7 @@ export default function OrdersPage() {
               )}
               <div className="grow stack-sm" style={{ gap: 4 }}>
                 <div className="between" style={{ alignItems: "flex-start" }}>
-                  <b style={{ fontSize: 17 }}>{o.gig.title}</b>
+                  <b style={{ fontSize: 17 }}>{o.packageTitle || o.gig.title}</b>
                   <b className="nowrap">{money(o.amount)}</b>
                 </div>
                 <span className="text-secondary">

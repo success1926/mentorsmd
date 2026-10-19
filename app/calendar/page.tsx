@@ -124,7 +124,7 @@ export default function MyCalendarPage() {
         {items.length === 0 ? (
           <p className="text-muted" style={{ padding: "14px 0" }}>
             Nothing coming up.{" "}
-            {isMentor ? "Booked calls and due dates show here." : <>Calls you book from an order show here. <Link href="/orders" className="link">My orders</Link></>}
+            {isMentor ? "Booked calls and due dates show here." : <>Calls you book from a package show here. <Link href="/orders" className="link">My packages</Link></>}
           </p>
         ) : (
           items.map((i) => i.node)
