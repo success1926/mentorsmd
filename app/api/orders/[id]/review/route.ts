@@ -26,24 +26,31 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "This order already has a review" }, { status: 409 });
   }
 
-  const { rating, comment } = await req.json();
+  const { rating, comment } = await req.json().catch(() => ({}));
   const ratingNum = Number(rating);
   if (!Number.isInteger(ratingNum) || ratingNum < 1 || ratingNum > 5) {
     return NextResponse.json({ error: "Rating must be between 1 and 5" }, { status: 400 });
   }
 
-  const review = await prisma.review.create({
-    data: {
-      rating: ratingNum,
-      comment: typeof comment === "string" && comment.trim() ? comment.trim().slice(0, 2000) : null,
-      orderId: order.id,
-      buyerId: userId,
-      sellerId: order.sellerId,
-    },
-  });
+  // One review per order; a second submit (another tab) gets the 409.
+  const review = await prisma.review
+    .create({
+      data: {
+        rating: ratingNum,
+        comment: typeof comment === "string" && comment.trim() ? comment.trim().slice(0, 2000) : null,
+        orderId: order.id,
+        buyerId: userId,
+        sellerId: order.sellerId,
+      },
+    })
+    .catch((err) => {
+      if (err?.code === "P2002") return null;
+      throw err;
+    });
+  if (!review) return NextResponse.json({ error: "This order already has a review" }, { status: 409 });
 
   try {
-    await sendReviewReceivedEmail(order.seller.email, ratingNum, order.gig.title, `${SITE_URL}/mentors/${order.sellerId}`);
+    await sendReviewReceivedEmail(order.seller.email, ratingNum, order.packageTitle || order.gig.title, `${SITE_URL}/mentors/${order.sellerId}`);
   } catch (err) {
     console.error("Failed to send review notification email:", err);
   }

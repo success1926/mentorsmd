@@ -10,7 +10,7 @@ import { createFlag } from "@/lib/flags";
 import { CallEmail, CallOutcomeEmailKey, SITE_URL, sendCallOutcomeEmail } from "@/lib/email";
 import { tzOrDefault } from "@/lib/tz";
 import { syncCallHourEntry } from "@/lib/hourLog";
-import { CallOutcome, DECIDE_AFTER_END_MINUTES, DECIDE_WITHIN_HOURS, FREES_THE_CALL, NEEDS_ADMIN, classifyCall } from "@/lib/callOutcomes";
+import { COUNTS_AS_HELD, CallOutcome, DECIDE_AFTER_END_MINUTES, DECIDE_WITHIN_HOURS, NEEDS_ADMIN, classifyCall } from "@/lib/callOutcomes";
 
 const BATCH = 100;
 
@@ -96,8 +96,9 @@ export async function runCallOutcomes(now: Date = new Date()) {
 
 // Free intro calls (no order, redesign Oct 2026) get an outcome on the
 // same rules, but no emails or flags: a held intro call unlocks buying
-// (lib/unlock.ts). If the mentor didn't show up, the student can book
-// another one (the one-per-pair key is cleared).
+// (lib/unlock.ts). If it wasn't held (mentor no-show, nobody joined,
+// unclear), the student can book another one (the one-per-pair key is
+// cleared).
 async function runIntroCallOutcomes(now: Date, webhookOn: boolean, results: { held: number; studentNoShow: number; mentorNoShow: number; needsAdmin: number; errors: number }) {
   const calls = await prisma.callBooking.findMany({
     where: {
@@ -119,7 +120,9 @@ async function runIntroCallOutcomes(now: Date, webhookOn: boolean, results: { he
       const outcome = classifyCall({ start: b.startTime, end: b.endTime, studentId: b.studentId, mentorId: b.mentorId, attendance: b.attendance, webhookOn });
       const claim = await prisma.callBooking.updateMany({
         where: { id: b.id, outcome: null, status: "BOOKED" },
-        data: { outcome, outcomeAt: now, outcomeById: null, ...(FREES_THE_CALL.includes(outcome) ? { introKey: null } : {}) },
+        // Unless it counts as held, the student can book another intro
+        // (nobody joining or an unclear call mustn't lock the pair out).
+        data: { outcome, outcomeAt: now, outcomeById: null, ...(COUNTS_AS_HELD.includes(outcome) ? {} : { introKey: null }) },
       });
       if (!claim.count) continue;
       if (outcome === "HELD") results.held++;

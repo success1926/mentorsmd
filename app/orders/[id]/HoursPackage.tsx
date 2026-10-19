@@ -61,6 +61,7 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
   const [addPreset, setAddPreset] = useState<number | undefined>(undefined);
   const [suggesting, setSuggesting] = useState(false);
   const [reporting, setReporting] = useState(false);
+  const [slowPayment, setSlowPayment] = useState(false);
   // Blocked either way: upcoming calls can be cancelled any time.
   const [blocked, setBlocked] = useState(false);
   const otherId = isSeller ? order.buyerId : isBuyer ? order.sellerId : "";
@@ -94,7 +95,10 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
     if (order.status !== "PENDING_PAYMENT" || flash !== "paid") return;
     let tries = 0;
     const t = setInterval(() => {
-      if (++tries >= 40) clearInterval(t);
+      if (++tries >= 40) {
+        clearInterval(t);
+        setSlowPayment(true);
+      }
       reload();
     }, 3000);
     return () => clearInterval(t);
@@ -151,7 +155,13 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
               {order.creditAppliedCents > 0 && order.creditAppliedCents >= order.amount ? "Paid with your MentorsMD credit." : "Payment received."} Your hours are ready: book a call or send your mentor something to review.
             </div>
           )}
-          {order.status === "PENDING_PAYMENT" && <div className="alert">Confirming your payment with Stripe… this page updates in a few seconds.</div>}
+          {order.status === "PENDING_PAYMENT" && (
+            <div className="alert">
+              {slowPayment
+                ? "Still confirming your payment with Stripe. Refresh this page in a minute. If you were charged and it still says this, contact us and we'll sort it out."
+                : "Confirming your payment with Stripe… this page updates in a few seconds."}
+            </div>
+          )}
           {flash === "hours" && <div className="alert alert-success">Thanks! Your hours are added as soon as the payment goes through (refresh in a few seconds if you don&apos;t see them yet).</div>}
           {flash === "topup-cancelled" && <div className="alert">No hours were added and nothing was charged.</div>}
           {takenSlot && isBuyer && (

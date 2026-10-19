@@ -40,7 +40,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "Revisions can only be requested on a pending or just-completed order" }, { status: 400 });
   }
 
-  const { note } = await req.json();
+  const { note } = await req.json().catch(() => ({}));
   if (typeof note !== "string" || !note.trim()) {
     return NextResponse.json({ error: "Add a note describing what needs to change" }, { status: 400 });
   }
