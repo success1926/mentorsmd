@@ -63,7 +63,11 @@ export async function runCallReminders(now: Date = new Date()) {
     if (!b.hourReminderAt && minsToStart <= HOUR_REMINDER_MINUTES) {
       // Claim first, so two overlapping runs can't both send.
       const claim = await prisma.callBooking.updateMany({ where: { id: b.id, hourReminderAt: null, status: "BOOKED" }, data: { hourReminderAt: now } });
-      if (claim.count) {
+      // Skip (but mark) when the call was booked or moved less than an hour
+      // before it starts: the booking email just went out.
+      const bookedLate = b.scheduledAt && b.scheduledAt.getTime() > b.startTime.getTime() - HOUR_REMINDER_MINUTES * 60_000;
+      if (claim.count && bookedLate) results.skipped++;
+      else if (claim.count) {
         for (const p of people) {
           try {
             await send(p, "hour");

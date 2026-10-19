@@ -22,7 +22,14 @@ export async function sendVerificationLink(user: { id: string; email: string; na
 export async function redeemVerificationToken(token: string): Promise<string | null> {
   if (!/^[a-f0-9]{64}$/.test(token)) return null;
   const row = await prisma.emailVerificationToken.findUnique({ where: { tokenHash: hash(token) } });
-  if (!row || row.usedAt || row.expiresAt < new Date()) return null;
+  if (!row) return null;
+  // Already used (often by a mail provider's link scanner opening it first):
+  // still fine if the email did get confirmed.
+  if (row.usedAt) {
+    const user = await prisma.user.findUnique({ where: { id: row.userId }, select: { emailVerified: true } });
+    return user?.emailVerified ? row.userId : null;
+  }
+  if (row.expiresAt < new Date()) return null;
   const claim = await prisma.emailVerificationToken.updateMany({ where: { id: row.id, usedAt: null }, data: { usedAt: new Date() } });
   if (claim.count === 0) return null;
   await prisma.user.update({ where: { id: row.userId }, data: { emailVerified: new Date() } });
