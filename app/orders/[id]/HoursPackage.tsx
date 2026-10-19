@@ -19,17 +19,19 @@ import { hoursLabel, priceFor } from "@/lib/pricing";
 import { FORMATS, labelFor, money } from "@/lib/options";
 import { PLATFORM_FEE_PERCENT } from "@/lib/fee";
 import { RECORDING_NOTICE, joinState } from "@/lib/calls";
+import { PAYOUT_STATUS_LABEL, nextPayoutDay, payoutDayLabel, periodLabel } from "@/lib/payoutRules";
 
 const KIND_LABEL: Record<string, string> = { HOURLY: "Hourly", BUNDLE: "Hour bundle", SPECIALIZED: "Specialized package", PAY_PER_CALL: "Pay-per-call" };
 const first = (n?: string | null) => (n || "").split(" ")[0];
+const ADMIN_PHASE: Record<string, string> = {
+  PAYING: "Awaiting payment",
+  WORKING: "Active",
+  AWAITING_STUDENT: "Marked complete, waiting on the student",
+  DISPUTED: "Disputed (hours held from payout)",
+  APPROVED: "Approved",
+  CLOSED: "Closed",
+};
 
-// The 24th of this month, or next month once it has passed (part 3 of the
-// redesign runs the payout).
-function nextPayoutDay(now = new Date()) {
-  const d = new Date(now.getFullYear(), now.getMonth(), 24);
-  if (now.getDate() > 24) d.setMonth(d.getMonth() + 1);
-  return d;
-}
 
 function Avatar({ person, size = 44 }: { person: any; size?: number }) {
   return person?.photoUrl ? (
@@ -279,6 +281,25 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
             )}
           </div>
 
+          {isAdmin && !isBuyer && !isSeller && (
+            <div className="card stack" style={{ gap: 10 }}>
+              <b>For admins</b>
+              <div className="stack-sm small">
+                <div className="between"><span className="text-secondary">Kind</span><span>{KIND_LABEL[order.kind] || order.kind}</span></div>
+                <div className="between"><span className="text-secondary">Status</span><span>{ADMIN_PHASE[phase] || phase}{phase === "AWAITING_STUDENT" && order.responseDeadline ? ` (until ${fmtWhen(order.responseDeadline)})` : ""}</span></div>
+                <div className="between"><span className="text-secondary">Hours bought</span><span>{shortHours(h.purchased)} at {money(order.rateCents || 0)}/hr</span></div>
+                <div className="between"><span className="text-secondary">Used / reserved / left</span><span>{shortHours(h.used)} / {shortHours(h.reserved)} / {shortHours(h.left)}</span></div>
+                <div className="between"><span className="text-secondary">Added hours</span><span>{money((order.topUps || []).reduce((s: number, t: any) => s + t.amountCents, 0))}</span></div>
+                <div className="between"><span className="text-secondary">Credit applied</span><span>{money((order.creditAppliedCents || 0) + (order.topUps || []).reduce((s: number, t: any) => s + (t.creditAppliedCents || 0), 0))}</span></div>
+                {order.refundedCreditCents > 0 && <div className="between"><span className="text-secondary">Refunded as credit</span><span>{money(order.refundedCreditCents)}</span></div>}
+                {(order.lastCallUsedAt || order.lastRevisionUsedAt) && <div className="between"><span className="text-secondary">Last request</span><span>{order.lastCallUsedAt ? "One last call" : "One last revision"}</span></div>}
+                {order.approvedAt && <div className="between"><span className="text-secondary">Approved</span><span>{fmtDay(order.approvedAt)}{order.autoApproved ? " (automatically)" : ""}</span></div>}
+                <div className="between"><span className="text-secondary">Hours paid to mentor</span><span>{shortHours((order.hourEntries || []).filter((e: any) => !e.voidedAt && e.payoutId).reduce((s: number, e: any) => s + e.minutes, 0) + (order.payout ? order.unusedMinutesPaid || 0 : 0))}</span></div>
+                <div className="between"><span className="text-secondary">Payout</span><span>{order.payout ? `${periodLabel(order.payout.period)} · ${PAYOUT_STATUS_LABEL[order.payout.status] || order.payout.status}` : order.status === "COMPLETED" ? `Next payout, ${payoutDayLabel(nextPayoutDay())}` : "Not settled yet"}</span></div>
+              </div>
+            </div>
+          )}
+
           {isSeller && (
             <div className="card stack" style={{ gap: 10 }}>
               <b>Your totals</b>
@@ -289,7 +310,12 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
                 <div className="between"><span className="text-secondary">Earned so far</span><b>{money(earnedCents)}</b></div>
                 {h.left > 0 && phase !== "CLOSED" && <div className="between"><span className="text-secondary">Unused hours, paid on approval</span><span>{money(unusedCents)}</span></div>}
               </div>
-              <span className="text-muted small">You earn {100 - PLATFORM_FEE_PERCENT}% of each hour, paid monthly. Next payout: {nextPayoutDay().toLocaleDateString(undefined, { month: "short", day: "numeric" })}.</span>
+              <span className="text-muted small">
+                {order.payout
+                  ? `Settled in your ${periodLabel(order.payout.period)} payout (${(PAYOUT_STATUS_LABEL[order.payout.status] || order.payout.status).toLowerCase()}).`
+                  : `You earn ${100 - PLATFORM_FEE_PERCENT}% of each hour, paid monthly. Next payout: ${payoutDayLabel(nextPayoutDay())}.`}
+                {order.disputed && !order.disputeResolvedAt ? " Hours on this package are held until the dispute is decided." : ""}
+              </span>
             </div>
           )}
 

@@ -36,6 +36,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       // Hours packages (redesign Oct 2026).
       hourEntries: { orderBy: [{ workDate: "desc" }, { createdAt: "desc" }], include: { loggedBy: { select: { name: true } } } },
       topUps: { where: { status: "PAID" }, orderBy: { paidAt: "desc" }, select: { id: true, minutes: true, amountCents: true, creditAppliedCents: true, paidAt: true } },
+      // The monthly payout that settled it, and credit refunded to settle a dispute.
+      payout: { select: { period: true, status: true, paidAt: true } },
+      creditEntries: { where: { reason: "DISPUTE_REFUND" }, select: { amountCents: true } },
     },
   });
 
@@ -60,8 +63,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     : [];
   const callsRecorded = order.callBookings.filter((b) => b.recordings.some((r) => r.status === "ready" || r.deletedAt)).length;
   const { weeklyHours, ...seller } = order.seller;
+  const { creditEntries, ...rest } = order;
   const safe = {
-    ...order,
+    ...rest,
+    refundedCreditCents: creditEntries.reduce((s, c) => s + c.amountCents, 0),
     seller: { ...seller, hasAvailability: hasAvailability(weeklyHours) },
     callBookings: order.callBookings.map(({ recordings, ...b }) => ({ ...b, ...(showRecordings ? { recordings } : {}) })),
     files,

@@ -13,12 +13,14 @@ export async function GET() {
   }
   const now = Date.now();
   const calls = await prisma.callBooking.findMany({
-    // Calls on orders (free intro calls have no order and aren't listed here yet).
-    where: { startTime: { gte: new Date(now - 60 * 24 * 3600_000), lte: new Date(now + 14 * 24 * 3600_000) }, orderId: { not: null } },
+    // Calls on packages, and free 15-minute intro calls (no order).
+    where: { startTime: { gte: new Date(now - 60 * 24 * 3600_000), lte: new Date(now + 14 * 24 * 3600_000) } },
     include: {
+      student: { select: { id: true, name: true } },
+      mentor: { select: { id: true, name: true } },
       order: {
         select: {
-          id: true, buyerId: true, sellerId: true, disputed: true, status: true,
+          id: true, buyerId: true, sellerId: true, disputed: true, disputeResolvedAt: true, status: true, packageTitle: true,
           gig: { select: { title: true } },
           buyer: { select: { name: true } },
           seller: { select: { name: true } },
@@ -30,8 +32,23 @@ export async function GET() {
     orderBy: { startTime: "desc" },
     take: 200,
   });
+  // One shape for both kinds: who's on the call and what it's for. Intro
+  // calls get a stand-in "order" with just the two people, so attendance
+  // can say who's the student and who's the mentor.
+  const rows = calls.map((c) => {
+    const intro = c.kind === "INTRO" || !c.order;
+    return {
+      ...c,
+      intro,
+      label: intro ? "Free intro call" : c.order!.packageTitle || c.order!.gig.title,
+      studentName: c.order?.buyer.name ?? c.student?.name ?? "Student",
+      mentorName: c.order?.seller.name ?? c.mentor?.name ?? "Mentor",
+      disputeOpen: !!c.order?.disputed && !c.order?.disputeResolvedAt,
+      order: c.order ?? { id: null, buyerId: c.studentId, sellerId: c.mentorId },
+    };
+  });
   return NextResponse.json({
-    calls,
+    calls: rows,
     setup: {
       video: dailyConfigured(),
       recording: recordingEnabled(),

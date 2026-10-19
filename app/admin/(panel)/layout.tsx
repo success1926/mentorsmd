@@ -6,6 +6,7 @@ import { visibleAdminNav } from "@/lib/adminNav";
 import { can } from "@/lib/adminPermissions";
 import { newLeadCount } from "@/lib/leads";
 import { openSafetyCount } from "@/lib/flags";
+import { prisma } from "@/lib/prisma";
 import { AdminShell } from "@/components/admin/AdminShell";
 import "./admin.css";
 
@@ -31,11 +32,13 @@ export default async function AdminPanelLayout({ children }: { children: React.R
   const me = { id: admin.id, name: admin.name, isOwner: admin.adminRole === "OWNER", roleName: admin.roleName, perms: admin.perms };
   // Leads badge: new contact messages + pending applications nobody has picked up.
   // Disputes & flags badge: open disputes + open flags, whichever the role includes.
-  const [leadsBadge, safetyBadge] = await Promise.all([
+  // Orders & payouts badge: monthly payouts that failed and need a Retry.
+  const [leadsBadge, safetyBadge, payoutsBadge] = await Promise.all([
     can(admin, "leads") ? newLeadCount(can(admin, "applications")) : 0,
     openSafetyCount(can(admin, "disputes"), can(admin, "flags")),
+    can(admin, "orders") ? prisma.mentorPayout.count({ where: { status: "FAILED" } }).catch(() => 0) : 0,
   ]);
-  const badges: Record<string, number> = { "/admin/leads": leadsBadge, "/admin/disputes": safetyBadge };
+  const badges: Record<string, number> = { "/admin/leads": leadsBadge, "/admin/disputes": safetyBadge, "/admin/orders": payoutsBadge };
   const nav = visibleAdminNav(admin).map((n) => (badges[n.href] ? { ...n, badge: badges[n.href] } : n));
   return (
     <AdminShell me={me} nav={nav}>

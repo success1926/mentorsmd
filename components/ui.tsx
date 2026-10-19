@@ -87,8 +87,16 @@ export function initialsOf(name: string) {
 }
 
 // Order status as the student/mentor sees it.
-export function statusBadge(order: { status: string; disputed?: boolean; callHoldAt?: any; workCompletedAt?: any }) {
-  if (order.disputed && ["IN_ESCROW", "COMPLETED"].includes(order.status)) return <span className="badge badge-danger">Disputed</span>;
+export function statusBadge(order: { status: string; kind?: string | null; disputed?: boolean; disputeResolvedAt?: any; markedCompleteAt?: any; callHoldAt?: any; workCompletedAt?: any }) {
+  if (order.disputed && !order.disputeResolvedAt && ["IN_ESCROW", "COMPLETED"].includes(order.status)) return <span className="badge badge-danger">Disputed</span>;
+  // Hours packages (redesign Oct 2026): COMPLETED = approved, waiting for
+  // the monthly payout; RELEASED = paid to the mentor.
+  if (order.kind) {
+    if (order.status === "IN_ESCROW") return order.markedCompleteAt ? <span className="badge badge-warning">Waiting on student</span> : <span className="badge badge-brand">Active</span>;
+    if (order.status === "COMPLETED") return <span className="badge badge-blue">Approved</span>;
+    if (order.status === "RELEASED") return <span className="badge badge-success">Paid to mentor</span>;
+    if (order.status === "REFUNDED") return <span className="badge badge-pink">Refunded as credit</span>;
+  }
   switch (order.status) {
     case "PENDING_PAYMENT":
       return <span className="badge">Awaiting payment</span>;
