@@ -71,10 +71,11 @@ export async function maybeSendLowHours(orderId: string) {
       orderUrl: `${SITE_URL}/orders/${order.id}`,
     };
     // Each send on its own, so one failing doesn't stop the other.
-    await Promise.allSettled([
+    const sent = await Promise.allSettled([
       sendHoursLowEmail(order.buyer.email, { ...v, mentorName: order.seller.name }),
       sendHoursLowMentorEmail(order.seller.email, { ...v, studentName: order.buyer.name }),
     ]);
+    for (const r of sent) if (r.status === "rejected") console.error("1-hour-left email failed", orderId, r.reason);
   } catch (err) {
     console.error("1-hour-left email failed", orderId, err);
   }

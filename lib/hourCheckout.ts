@@ -285,6 +285,13 @@ async function bookRequestedCall(orderId: string) {
     await bookCall(order, order.requestedCallStart, { id: order.buyerId, isMentor: false }, order.minutesPurchased);
     await prisma.order.update({ where: { id: orderId }, data: { requestedCallStart: null } });
   } catch (err) {
+    if (err instanceof CallError && err.status === 403) {
+      // Blocked between paying and booking: no other time will work either.
+      const note = `[NEEDS MANUAL CHECK] Pay-per-call order ${orderId} was paid but can't be booked: the student and mentor have blocked each other. Give the student MentorsMD credit.`;
+      console.error(note);
+      await reportError(note, undefined, { orderId }, "fatal");
+      return;
+    }
     if (!(err instanceof CallError)) console.error("Booking a paid call failed", orderId, err);
     await sendCallTimeTakenEmail(order.buyer.email, { mentorName: order.seller.name, packageTitle: order.packageTitle || order.gig.title, orderUrl: `${SITE_URL}/orders/${orderId}` }).catch(() => {});
   }

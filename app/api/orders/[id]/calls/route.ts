@@ -6,12 +6,13 @@ import { prisma } from "@/lib/prisma";
 import { parseDate } from "@/lib/validate";
 import { canChangeOnline, CANCEL_CUTOFF_HOURS } from "@/lib/calls";
 import { isBlockMinutes } from "@/lib/hours";
+import { blockBetween } from "@/lib/blocks";
 import { CallError, bookCall, cancelCall, orderForCallsInclude, rescheduleCall } from "@/lib/callBooking";
 
 // Calls on one order (built-in calendar):
 //   POST   { startTime }            book a call (student: an open slot; mentor: any agreed time)
 //   PATCH  { bookingId, startTime } move a call (either side, until 24h before)
-//   DELETE { bookingId }            cancel a call (either side until 24h before; admins any time)
+//   DELETE { bookingId }            cancel a call (either side until 24h before; admins, or either side after a block, any time)
 // Calls can only be booked on a paid order whose package includes one, or
 // (hours orders, redesign Oct 2026) { startTime, minutes: 30 | 60 } that
 // fits in the hours left.
@@ -91,7 +92,10 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   const body = await req.json().catch(() => ({}));
   const booking = order.callBookings.find((b) => b.id === body.bookingId);
   if (!booking || booking.status !== "BOOKED") return NextResponse.json({ error: "Call not found" }, { status: 404 });
-  if (!isAdmin && !canChangeOnline(booking)) {
+  // After a block (e.g. a report), either side can cancel at any time.
+  const blocks = await blockBetween(order.buyerId, order.sellerId);
+  const blocked = blocks.iBlocked || blocks.theyBlocked;
+  if (!isAdmin && !blocked && !canChangeOnline(booking)) {
     return NextResponse.json(
       { error: `Calls can't be cancelled on the site within ${CANCEL_CUTOFF_HOURS} hours of the start. Message the other person, or contact us.` },
       { status: 400 }
