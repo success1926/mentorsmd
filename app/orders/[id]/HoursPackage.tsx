@@ -76,11 +76,16 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
       setAdding(true);
     }
   }, []);
-  // Waiting for Stripe's confirmation: check again shortly.
+  // Waiting for Stripe's confirmation: keep checking every few seconds
+  // (for up to 2 minutes) until the webhook has marked it paid.
   useEffect(() => {
     if (order.status !== "PENDING_PAYMENT" || flash !== "paid") return;
-    const t = setTimeout(reload, 4000);
-    return () => clearTimeout(t);
+    let tries = 0;
+    const t = setInterval(() => {
+      if (++tries >= 40) clearInterval(t);
+      reload();
+    }, 3000);
+    return () => clearInterval(t);
   }, [order.status, flash, reload]);
 
   const canBook = isBuyer && phase === "WORKING" && h.left >= 30;

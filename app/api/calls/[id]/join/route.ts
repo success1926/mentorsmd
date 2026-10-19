@@ -44,14 +44,13 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ error: "Video isn't set up yet. Message the other person, or contact us." }, { status: 503 });
   }
 
-  // The room is made at booking; make sure it exists (and is private) now.
-  let roomName = booking.roomName;
-  let roomUrl = booking.roomUrl;
-  if (!roomName || !roomUrl) {
-    const room = await ensureRoom(booking);
-    if (!room) return NextResponse.json({ error: "Couldn't open the video room. Try again in a moment." }, { status: 502 });
-    roomName = room.name;
-    roomUrl = room.url;
+  // The room is made at booking; make sure it exists, is private and stays
+  // open until this booking's end (a moved call may have an old closing time).
+  const room = await ensureRoom(booking);
+  if (!room) return NextResponse.json({ error: "Couldn't open the video room. Try again in a moment." }, { status: 502 });
+  const roomName = room.name;
+  const roomUrl = room.url;
+  if (booking.roomName !== roomName || booking.roomUrl !== roomUrl) {
     await prisma.callBooking.update({ where: { id: booking.id }, data: { roomName, roomUrl } });
   }
 
