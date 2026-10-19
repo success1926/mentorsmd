@@ -7,7 +7,8 @@ import { createMeetingToken, dailyConfigured, ensureRoom } from "@/lib/daily";
 
 // The Join button. Calls happen in a private Daily room; each person gets
 // their own meeting token (with their name), and only:
-//   - if they're the student or the mentor on the order, and
+//   - if they're the student or the mentor on the order (or on the free
+//     intro call, which has no order), and
 //   - from 10 minutes before the start until 30 minutes after the end.
 // The token itself also stops working shortly after the call.
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
@@ -17,13 +18,19 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
 
   const booking = await prisma.callBooking.findUnique({
     where: { id: params.id },
-    include: { order: { include: { buyer: { select: { name: true } }, seller: { select: { name: true } } } } },
+    include: {
+      order: { include: { buyer: { select: { name: true } }, seller: { select: { name: true } } } },
+      student: { select: { name: true } },
+      mentor: { select: { name: true } },
+    },
   });
-  if (!booking || (booking.order.buyerId !== userId && booking.order.sellerId !== userId)) {
+  const studentId = booking?.order?.buyerId ?? booking?.studentId;
+  const mentorId = booking?.order?.sellerId ?? booking?.mentorId;
+  if (!booking || (studentId !== userId && mentorId !== userId)) {
     return NextResponse.json({ error: "Call not found" }, { status: 404 });
   }
   if (booking.status !== "BOOKED") return NextResponse.json({ error: "This call was cancelled" }, { status: 400 });
-  if (!["IN_ESCROW", "COMPLETED"].includes(booking.order.status)) {
+  if (booking.order && !["IN_ESCROW", "COMPLETED"].includes(booking.order.status)) {
     return NextResponse.json({ error: "This order is no longer active" }, { status: 400 });
   }
   const state = joinState(booking);
@@ -48,8 +55,8 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     await prisma.callBooking.update({ where: { id: booking.id }, data: { roomName, roomUrl } });
   }
 
-  const isMentor = booking.order.sellerId === userId;
-  const name = (isMentor ? booking.order.seller.name : booking.order.buyer.name) || (isMentor ? "Mentor" : "Student");
+  const isMentor = mentorId === userId;
+  const name = (booking.order ? (isMentor ? booking.order.seller.name : booking.order.buyer.name) : isMentor ? booking.mentor?.name : booking.student?.name) || (isMentor ? "Mentor" : "Student");
   const token = await createMeetingToken({
     roomName,
     userId,

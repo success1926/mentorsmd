@@ -36,7 +36,7 @@ export const orderForCallsInclude = {
 } satisfies Prisma.OrderInclude;
 
 export type OrderForCalls = Prisma.OrderGetPayload<{ include: typeof orderForCallsInclude }>;
-type MentorForSchedule = OrderForCalls["seller"];
+export type MentorForSchedule = OrderForCalls["seller"];
 
 // ---------- The mentor's own calendar (Google connection and/or iCal link) ----------
 
@@ -98,15 +98,26 @@ export async function busyRangesFor(mentorId: string, fromDay?: string): Promise
 
 // ---------- Open slots ----------
 
-// Calls already booked by the mentor (any order) or by this student, as
-// busy intervals.
-async function bookedIntervals(mentorId: string, studentId: string, excludeBookingId?: string): Promise<Interval[]> {
+// The calls that keep a mentor or a student busy: calls on their active
+// orders, and free intro calls (no order; redesign Oct 2026).
+export function busyCallsWhere(mentorId: string, studentId: string): Prisma.CallBookingWhereInput {
+  return {
+    OR: [
+      { order: { OR: [{ sellerId: mentorId }, { buyerId: studentId }], status: { in: ["IN_ESCROW", "COMPLETED"] } } },
+      { kind: "INTRO", OR: [{ mentorId }, { studentId }] },
+    ],
+  };
+}
+
+// Calls already booked by the mentor (any order, or an intro call) or by
+// this student, as busy intervals.
+export async function bookedIntervals(mentorId: string, studentId: string, excludeBookingId?: string): Promise<Interval[]> {
   const rows = await prisma.callBooking.findMany({
     where: {
       status: "BOOKED",
       endTime: { gt: new Date(Date.now() - 3600_000) },
       ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
-      order: { OR: [{ sellerId: mentorId }, { buyerId: studentId }], status: { in: ["IN_ESCROW", "COMPLETED"] } },
+      ...busyCallsWhere(mentorId, studentId),
     },
     select: { startTime: true, endTime: true },
     take: 2000,
@@ -114,12 +125,18 @@ async function bookedIntervals(mentorId: string, studentId: string, excludeBooki
   return rows.map((r) => ({ s: r.startTime.getTime(), e: r.endTime.getTime() }));
 }
 
-export async function openSlotsForOrder(order: OrderForCalls, opts: { excludeBookingId?: string; onlyDay?: string } = {}) {
-  const mentor = order.seller;
+// Open start times on a mentor's calendar for a call of this length, for
+// this student (their own other calls are kept free too).
+export async function openSlotsFor(
+  mentor: MentorForSchedule,
+  studentId: string,
+  lengthMinutes: number,
+  opts: { excludeBookingId?: string; onlyDay?: string } = {}
+) {
   const tz = tzOrDefault(mentor.timeZone);
   const [ranges, booked, external] = await Promise.all([
     busyRangesFor(mentor.id, addDays(dayInZone(new Date(), tz), -1)),
-    bookedIntervals(mentor.id, order.buyerId, opts.excludeBookingId),
+    bookedIntervals(mentor.id, studentId, opts.excludeBookingId),
     externalBusyFor(mentor),
   ]);
   return generateSlots({
@@ -130,9 +147,13 @@ export async function openSlotsForOrder(order: OrderForCalls, opts: { excludeBoo
     daysOff: mentor.daysOff || [],
     busyRanges: ranges,
     busy: [...booked, ...external],
-    lengthMinutes: order.gig.callLength || 30,
+    lengthMinutes,
     onlyDay: opts.onlyDay,
   });
+}
+
+export async function openSlotsForOrder(order: OrderForCalls, opts: { excludeBookingId?: string; onlyDay?: string } = {}) {
+  return openSlotsFor(order.seller, order.buyerId, order.gig.callLength || 30, opts);
 }
 
 // ---------- Emails + invites ----------
@@ -191,11 +212,21 @@ export class CallError extends Error {
 
 // Locks the mentor's calendar for the rest of the transaction, so two
 // students can't grab the same slot at the same moment.
-async function lockMentor(tx: Prisma.TransactionClient, mentorId: string) {
+export async function lockMentor(tx: Prisma.TransactionClient, mentorId: string) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${mentorId}))`;
 }
 
-async function assertNoClash(tx: Prisma.TransactionClient, order: OrderForCalls, start: Date, end: Date, bufferMin: number, excludeId?: string) {
+// Any booked call (an order call or an intro call) of this mentor or this
+// student within the buffer of [start, end)?
+export async function assertNoClashFor(
+  tx: Prisma.TransactionClient,
+  mentorId: string,
+  studentId: string,
+  start: Date,
+  end: Date,
+  bufferMin: number,
+  excludeId?: string
+) {
   const buffer = bufferMin * 60_000;
   const clash = await tx.callBooking.findFirst({
     where: {
@@ -203,11 +234,15 @@ async function assertNoClash(tx: Prisma.TransactionClient, order: OrderForCalls,
       ...(excludeId ? { id: { not: excludeId } } : {}),
       startTime: { lt: new Date(end.getTime() + buffer) },
       endTime: { gt: new Date(start.getTime() - buffer) },
-      order: { OR: [{ sellerId: order.sellerId }, { buyerId: order.buyerId }], status: { in: ["IN_ESCROW", "COMPLETED"] } },
+      ...busyCallsWhere(mentorId, studentId),
     },
     select: { id: true },
   });
   if (clash) throw new CallError("That time was just taken. Please pick another.", 409);
+}
+
+function assertNoClash(tx: Prisma.TransactionClient, order: OrderForCalls, start: Date, end: Date, bufferMin: number, excludeId?: string) {
+  return assertNoClashFor(tx, order.sellerId, order.buyerId, start, end, bufferMin, excludeId);
 }
 
 // Books a new call on the order. Students must pick an open slot; the

@@ -6,21 +6,27 @@ import { RECORDING_NOTICE } from "@/lib/calls";
 import { browserTimeZone, dayInZone, isValidTimeZone } from "@/lib/tz";
 
 // Lets the student (or mentor) pick an open call time from the mentor's
-// availability. Times are shown in the viewer's own time zone.
+// availability. Times are shown in the viewer's own time zone. Open times
+// come from an order's slots (orderId) or any other slots address
+// (slotsUrl, e.g. a mentor's free intro call times).
 export function SlotPicker({
   orderId,
+  slotsUrl,
   excludeBookingId,
   mentorFirstName,
   confirmLabel,
   onConfirm,
   onCancel,
+  emptyHint = "Message them to agree a time, and they can add it here.",
 }: {
-  orderId: string;
+  orderId?: string;
+  slotsUrl?: string;
   excludeBookingId?: string;
   mentorFirstName: string;
   confirmLabel: string;
   onConfirm: (startIso: string) => Promise<string | null>; // returns an error message, or null
   onCancel?: () => void;
+  emptyHint?: string; // shown after "no open times"
 }) {
   const [data, setData] = useState<{ slots: string[]; lengthMinutes: number; hasAvailability: boolean } | null>(null);
   const [error, setError] = useState("");
@@ -34,7 +40,7 @@ export function SlotPicker({
     setData(null);
     setDay("");
     setLoadError("");
-    fetch(`/api/orders/${orderId}/slots${excludeBookingId ? `?exclude=${encodeURIComponent(excludeBookingId)}` : ""}`)
+    fetch(slotsUrl || `/api/orders/${orderId}/slots${excludeBookingId ? `?exclude=${encodeURIComponent(excludeBookingId)}` : ""}`)
       .then(async (r) => {
         const d = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(d.error || "Couldn't load times");
@@ -42,7 +48,7 @@ export function SlotPicker({
       })
       .catch((e) => setLoadError(e.message || "Couldn't load times"));
   }
-  useEffect(load, [orderId, excludeBookingId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(load, [orderId, slotsUrl, excludeBookingId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const byDay = useMemo(() => {
     const m = new Map<string, string[]>();
@@ -68,7 +74,7 @@ export function SlotPicker({
           {data.hasAvailability
             ? `${mentorFirstName} has no open times in the next few weeks.`
             : `${mentorFirstName} hasn't set their call hours yet.`}{" "}
-          Message them to agree a time, and they can add it here.
+          {emptyHint}
         </span>
         {onCancel && <button className="btn btn-sm" style={{ alignSelf: "flex-start" }} onClick={onCancel}>Close</button>}
       </div>

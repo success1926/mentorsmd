@@ -33,9 +33,17 @@ export async function GET(_req: Request, { params }: { params: { token: string }
       where: {
         status: "BOOKED",
         startTime: { gte: since },
-        order: { OR: [{ buyerId: user.id }, { sellerId: user.id }], status: { in: ["IN_ESCROW", "COMPLETED", "RELEASED"] } },
+        OR: [
+          { order: { OR: [{ buyerId: user.id }, { sellerId: user.id }], status: { in: ["IN_ESCROW", "COMPLETED", "RELEASED"] } } },
+          // Free intro calls (no order).
+          { kind: "INTRO", OR: [{ studentId: user.id }, { mentorId: user.id }] },
+        ],
       },
-      include: { order: { include: { gig: { select: { title: true } }, buyer: { select: { name: true } }, seller: { select: { name: true } } } } },
+      include: {
+        order: { include: { gig: { select: { title: true } }, buyer: { select: { name: true } }, seller: { select: { name: true } } } },
+        student: { select: { name: true } },
+        mentor: { select: { name: true } },
+      },
       take: 500,
     }),
     user.role === "SELLER"
@@ -59,7 +67,7 @@ export async function GET(_req: Request, { params }: { params: { token: string }
   ];
 
   for (const b of bookings) {
-    const other = b.order.buyerId === user.id ? b.order.seller.name : b.order.buyer.name;
+    const other = b.order ? (b.order.buyerId === user.id ? b.order.seller.name : b.order.buyer.name) : (b.studentId === user.id ? b.mentor?.name : b.student?.name) || "";
     lines.push(
       "BEGIN:VEVENT",
       `UID:call-${b.id}@mentorsmd`,
@@ -67,7 +75,7 @@ export async function GET(_req: Request, { params }: { params: { token: string }
       `DTSTART:${stamp(b.startTime)}`,
       `DTEND:${stamp(b.endTime)}`,
       `SUMMARY:${esc(`MentorsMD call with ${other}`)}`,
-      `DESCRIPTION:${esc(`${b.order.gig.title}\nJoin here: ${SITE_URL}/calls/${b.id}\nOrder: ${SITE_URL}/orders/${b.orderId}`)}`,
+      `DESCRIPTION:${esc(b.order ? `${b.order.gig.title}\nJoin here: ${SITE_URL}/calls/${b.id}\nOrder: ${SITE_URL}/orders/${b.orderId}` : `Free 15-minute intro call\nJoin here: ${SITE_URL}/calls/${b.id}`)}`,
       `URL:${SITE_URL}/calls/${b.id}`,
       "END:VEVENT"
     );

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { CallEmail, SITE_URL, sendCallReminderEmail } from "@/lib/email";
+import { CallEmail, SITE_URL, sendCallReminderEmail, sendIntroCallReminderEmail } from "@/lib/email";
 import { dayInZone, tzOrDefault, zonedToUtc } from "@/lib/tz";
 
 // Call reminders, for both the student and the mentor:
@@ -8,6 +8,7 @@ import { dayInZone, tzOrDefault, zonedToUtc } from "@/lib/tz";
 // Each is sent once (the sent time is stored on the call). Moving a call
 // clears them so they're sent again for the new time; cancelled calls are
 // skipped. Meant to run every 15 minutes (see /api/cron/call-reminders).
+// Free intro calls (no order) get the same reminders, with their own email.
 export const MORNING_REMINDER_TIME = "08:00";
 export const HOUR_REMINDER_MINUTES = 60;
 
@@ -17,8 +18,10 @@ export async function runCallReminders(now: Date = new Date()) {
     where: {
       status: "BOOKED",
       startTime: { gt: now, lt: new Date(now.getTime() + 26 * 3600_000) },
-      order: { status: { in: ["IN_ESCROW", "COMPLETED"] } },
-      OR: [{ hourReminderAt: null }, { morningReminderStudentAt: null }, { morningReminderMentorAt: null }],
+      AND: [
+        { OR: [{ order: { status: { in: ["IN_ESCROW", "COMPLETED"] } } }, { kind: "INTRO" }] },
+        { OR: [{ hourReminderAt: null }, { morningReminderStudentAt: null }, { morningReminderMentorAt: null }] },
+      ],
     },
     include: {
       order: {
@@ -28,6 +31,8 @@ export async function runCallReminders(now: Date = new Date()) {
           seller: { select: { name: true, email: true, timeZone: true } },
         },
       },
+      student: { select: { name: true, email: true, timeZone: true } },
+      mentor: { select: { name: true, email: true, timeZone: true } },
     },
     orderBy: { startTime: "asc" },
     take: 300,
@@ -35,13 +40,24 @@ export async function runCallReminders(now: Date = new Date()) {
 
   for (const b of calls) {
     const o = b.order;
+    const student = o ? o.buyer : b.student;
+    const mentor = o ? o.seller : b.mentor;
+    if (!student || !mentor) continue;
     const minsToStart = (b.startTime.getTime() - now.getTime()) / 60_000;
-    const base = { gigTitle: o.gig.title, start: b.startTime, end: b.endTime, orderUrl: `${SITE_URL}/orders/${o.id}`, joinUrl: `${SITE_URL}/calls/${b.id}` };
+    const base = {
+      gigTitle: o ? o.gig.title : "Free 15-minute intro call",
+      start: b.startTime,
+      end: b.endTime,
+      orderUrl: o ? `${SITE_URL}/orders/${o.id}` : `${SITE_URL}/messages`,
+      joinUrl: `${SITE_URL}/calls/${b.id}`,
+    };
     const people = [
-      { key: "morningReminderStudentAt" as const, me: o.buyer, other: o.seller },
-      { key: "morningReminderMentorAt" as const, me: o.seller, other: o.buyer },
+      { key: "morningReminderStudentAt" as const, me: student, other: mentor },
+      { key: "morningReminderMentorAt" as const, me: mentor, other: student },
     ];
     const email = (p: (typeof people)[number]): CallEmail => ({ ...base, timeZone: tzOrDefault(p.me.timeZone), otherName: p.other.name });
+    const send = (p: (typeof people)[number], kind: "morning" | "hour") =>
+      o ? sendCallReminderEmail(p.me.email, email(p), kind) : sendIntroCallReminderEmail(p.me.email, email(p), kind);
 
     // 1 hour before.
     if (!b.hourReminderAt && minsToStart <= HOUR_REMINDER_MINUTES) {
@@ -50,7 +66,7 @@ export async function runCallReminders(now: Date = new Date()) {
       if (claim.count) {
         for (const p of people) {
           try {
-            await sendCallReminderEmail(p.me.email, email(p), "hour");
+            await send(p, "hour");
             results.hour++;
           } catch (err) {
             console.error("Hour reminder failed", b.id, err);
@@ -77,7 +93,7 @@ export async function runCallReminders(now: Date = new Date()) {
         continue;
       }
       try {
-        await sendCallReminderEmail(p.me.email, email(p), "morning");
+        await send(p, "morning");
         results.morning++;
       } catch (err) {
         console.error("Morning reminder failed", b.id, err);

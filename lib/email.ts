@@ -213,6 +213,26 @@ export async function sendCallReminderEmail(toEmail: string, c: CallEmail, kind:
   await sendTemplate(kind === "hour" ? "call_reminder_hour" : "call_reminder_today", toEmail, callValues(c));
 }
 
+// Free 15-minute intro calls (redesign Oct 2026). orderUrl in the
+// CallEmail is the conversation link (there's no order).
+const introValues = (c: CallEmail): Values => ({ otherName: c.otherName, when: callWhen(c), joinLink: c.joinUrl, manageLink: c.orderUrl });
+
+export async function sendIntroCallBookedEmail(toEmail: string, c: CallEmail) {
+  await sendTemplate("intro_call_booked", toEmail, introValues(c), { attachments: icsAttachment(c) });
+}
+
+export async function sendIntroCallCancelledEmail(toEmail: string, c: CallEmail, cancelledBy: string) {
+  await sendTemplate("intro_call_cancelled", toEmail, { ...introValues(c), cancelledBy }, { attachments: icsAttachment(c, true) });
+}
+
+export async function sendIntroCallReminderEmail(toEmail: string, c: CallEmail, kind: "morning" | "hour") {
+  await sendTemplate("intro_call_reminder", toEmail, {
+    ...introValues(c),
+    soon: kind === "hour" ? "Starting in 1 hour" : "Today",
+    soonLower: kind === "hour" ? "in about an hour" : "today",
+  });
+}
+
 // Mentor added busy dates that cover due dates they already agreed to.
 export async function sendBusyClashEmail(toEmail: string, clashes: { gigTitle: string; studentName: string; due: string; url: string }[]) {
   await sendTemplate("busy_dates_clash", toEmail, {

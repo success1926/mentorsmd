@@ -13,7 +13,8 @@ export async function GET() {
   }
   const now = Date.now();
   const calls = await prisma.callBooking.findMany({
-    where: { startTime: { gte: new Date(now - 60 * 24 * 3600_000), lte: new Date(now + 14 * 24 * 3600_000) } },
+    // Calls on orders (free intro calls have no order and aren't listed here yet).
+    where: { startTime: { gte: new Date(now - 60 * 24 * 3600_000), lte: new Date(now + 14 * 24 * 3600_000) }, orderId: { not: null } },
     include: {
       order: {
         select: {

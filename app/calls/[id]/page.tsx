@@ -54,7 +54,7 @@ export default function CallPage() {
 
   return (
     <div className="page-narrow">
-      <Link href={`/orders/${call.orderId}`} className="link small" style={{ display: "inline-block", marginBottom: 20 }}>← Back to the order</Link>
+      <Link href={call.backHref || `/orders/${call.orderId}`} className="link small" style={{ display: "inline-block", marginBottom: 20 }}>{call.backLabel || "← Back to the order"}</Link>
       <div className="card-narrow stack" style={{ maxWidth: 560 }}>
         <span className="eyebrow">Video call</span>
         <h1 className="page-title" style={{ fontSize: 34 }}>Call with {call.otherName}</h1>
@@ -71,11 +71,11 @@ export default function CallPage() {
         </div>
 
         {cancelled ? (
-          <div className="alert alert-warning">This call was cancelled. A new time can be booked from the order page.</div>
+          <div className="alert alert-warning">This call was cancelled. {call.kind === "INTRO" ? "A new intro call can be booked from the mentor's profile." : "A new time can be booked from the order page."}</div>
         ) : inactive ? (
           <div className="alert">This order is no longer active.</div>
         ) : !call.canJoin ? (
-          <div className="alert">Only the student and mentor on this order can join.</div>
+          <div className="alert">Only the student and mentor on this call can join.</div>
         ) : state === "ended" ? (
           <div className="alert">This call has ended. The room closes {JOIN_CLOSES_MINUTES_AFTER} minutes after the scheduled end.</div>
         ) : (

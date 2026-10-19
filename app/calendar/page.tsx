@@ -67,7 +67,7 @@ export default function MyCalendarPage() {
             </div>
             <div className="row" style={{ gap: 6 }}>
               <Link href={`/calls/${c.id}`} className={`btn btn-sm ${open ? "btn-deep" : ""}`}>{open ? "Join" : "Call page"}</Link>
-              <Link href={`/orders/${c.orderId}`} className="btn btn-sm">Order</Link>
+              {c.orderId && <Link href={`/orders/${c.orderId}`} className="btn btn-sm">Order</Link>}
             </div>
           </div>
         ),
@@ -153,7 +153,7 @@ export default function MyCalendarPage() {
           <summary>Past calls <span className="tab-count" style={{ marginRight: "auto", marginLeft: 8 }}>{data.past.length}</span></summary>
           <div className="collapse-body" style={{ gap: 0 }}>
             {data.past.map((c: any) => (
-              <Link key={c.id} href={`/orders/${c.orderId}`} className="list-row">
+              <Link key={c.id} href={c.orderId ? `/orders/${c.orderId}` : `/calls/${c.id}`} className="list-row">
                 <span className="grow">
                   <b style={{ fontSize: 15 }}>Call with {c.withName}</b>
                   <span className="text-muted small" style={{ display: "block" }}>{new Date(c.startTime).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · {c.title}</span>

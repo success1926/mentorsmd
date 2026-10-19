@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { createFlag } from "@/lib/flags";
 import { CallEmail, CallOutcomeEmailKey, SITE_URL, sendCallOutcomeEmail } from "@/lib/email";
 import { tzOrDefault } from "@/lib/tz";
-import { CallOutcome, DECIDE_AFTER_END_MINUTES, DECIDE_WITHIN_HOURS, NEEDS_ADMIN, classifyCall } from "@/lib/callOutcomes";
+import { CallOutcome, DECIDE_AFTER_END_MINUTES, DECIDE_WITHIN_HOURS, FREES_THE_CALL, NEEDS_ADMIN, classifyCall } from "@/lib/callOutcomes";
 
 const BATCH = 100;
 
@@ -87,7 +87,47 @@ export async function runCallOutcomes(now: Date = new Date()) {
       results.errors++;
     }
   }
+  await runIntroCallOutcomes(now, webhookOn, results);
   return results;
+}
+
+// Free intro calls (no order, redesign Oct 2026) get an outcome on the
+// same rules, but no emails or flags: a held intro call unlocks buying
+// (lib/unlock.ts). If the mentor didn't show up, the student can book
+// another one (the one-per-pair key is cleared).
+async function runIntroCallOutcomes(now: Date, webhookOn: boolean, results: { held: number; studentNoShow: number; mentorNoShow: number; needsAdmin: number; errors: number }) {
+  const calls = await prisma.callBooking.findMany({
+    where: {
+      kind: "INTRO",
+      status: "BOOKED",
+      outcome: null,
+      endTime: {
+        lt: new Date(now.getTime() - DECIDE_AFTER_END_MINUTES * 60_000),
+        gt: new Date(now.getTime() - DECIDE_WITHIN_HOURS * 3600_000),
+      },
+    },
+    include: { attendance: { select: { userId: true, joinedAt: true, leftAt: true } } },
+    orderBy: { endTime: "asc" },
+    take: BATCH,
+  });
+  for (const b of calls) {
+    if (!b.studentId || !b.mentorId) continue;
+    try {
+      const outcome = classifyCall({ start: b.startTime, end: b.endTime, studentId: b.studentId, mentorId: b.mentorId, attendance: b.attendance, webhookOn });
+      const claim = await prisma.callBooking.updateMany({
+        where: { id: b.id, outcome: null, status: "BOOKED" },
+        data: { outcome, outcomeAt: now, outcomeById: null, ...(FREES_THE_CALL.includes(outcome) ? { introKey: null } : {}) },
+      });
+      if (!claim.count) continue;
+      if (outcome === "HELD") results.held++;
+      else if (outcome === "STUDENT_NO_SHOW") results.studentNoShow++;
+      else if (outcome === "MENTOR_NO_SHOW") results.mentorNoShow++;
+      else results.needsAdmin++;
+    } catch (err) {
+      console.error("Intro call outcome failed", b.id, err);
+      results.errors++;
+    }
+  }
 }
 
 // Loads one call in the shape afterOutcome needs (for admin changes).
