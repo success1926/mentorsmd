@@ -381,7 +381,7 @@ function Thread({ conversationId }: { conversationId: string }) {
         )}
       </div>
       {isBuyer && other && (
-        <BookCallModal open={bookOpen} onClose={() => setBookOpen(false)} mentorId={convo.sellerId} mentorName={other.name} onBooked={loadCtx} />
+        <BookCallModal open={bookOpen} onClose={() => setBookOpen(false)} mentorId={convo.sellerId} mentorName={other.name} mentorPhotoUrl={other.photoUrl} onBooked={loadCtx} />
       )}
       {report && other && (
         <ReportDialog

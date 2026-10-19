@@ -101,7 +101,7 @@ export function canChangeOnline(b: BookingLike, now: Date = new Date()) {
 // the Terms and Privacy pages. "May be" because recording only runs when
 // it's switched on (DAILY_RECORDING_ENABLED).
 export const RECORDING_RETENTION_DAYS = 60;
-export const RECORDING_NOTICE = `Calls may be recorded for safety and quality. Only the MentorsMD team can watch a recording, and only if there's a problem with an order. Recordings are deleted ${RECORDING_RETENTION_DAYS} days after the order is closed.`;
+export const RECORDING_NOTICE = `Calls may be recorded for safety and quality. Only the mentor on the call and the MentorsMD team can watch a recording; the team only looks if there's a problem with an order. Recordings are deleted ${RECORDING_RETENTION_DAYS} days after the order is closed.`;
 
 export function fmtDateTime(d: DateLike) {
   return new Date(d).toLocaleString(undefined, {

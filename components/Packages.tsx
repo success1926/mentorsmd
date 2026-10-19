@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Modal } from "@/components/Modal";
-import { SlotPicker } from "@/components/SlotPicker";
+import { Booker } from "@/components/Booker";
 import { Icon, ICONS, StaffBadge } from "@/components/ui";
 import { MessageText, SendWarnings, type SendWarning } from "@/components/Safety";
 import { useConversation, SendError } from "@/lib/hooks/useConversation";
@@ -87,6 +87,7 @@ export function BookCallModal({
   onClose,
   mentorId,
   mentorName,
+  mentorPhotoUrl,
   orderId,
   minutesLeft,
   onBooked,
@@ -95,6 +96,7 @@ export function BookCallModal({
   onClose: () => void;
   mentorId: string;
   mentorName: string;
+  mentorPhotoUrl?: string | null;
   orderId?: string;
   minutesLeft?: number; // with orderId: what's left on it
   onBooked?: () => void;
@@ -142,64 +144,66 @@ export function BookCallModal({
     return null;
   }
 
+  const canBook = orderId ? !orderTooShort : info !== null && !!(chosen || ppc?.available);
+  const using = (left: number) => (
+    <span>Uses {minutes} min of your hours · {shortHours(left)} left. No payment needed.</span>
+  );
+
+  // Left column of the booker: which hours pay for it, or the price.
+  const details = orderId ? (
+    orderTooShort ? null : minutesLeft !== undefined ? using(minutesLeft) : <span>Uses {minutes} min of this package&apos;s hours. No payment needed.</span>
+  ) : info === null ? null : fitting.length > 1 ? (
+    <>
+      <label className="stack-sm small">
+        <span className="text-secondary">Use the hours from</span>
+        <select className="input" value={chosen} onChange={(e) => setPick(e.target.value)} style={{ marginBottom: 0 }}>
+          {fitting.map((p) => <option key={p.id} value={p.id}>{p.title} ({shortHours(p.left)} left)</option>)}
+        </select>
+      </label>
+      {using(fitting.find((p) => p.id === chosen)?.left ?? fitting[0].left)}
+    </>
+  ) : fitting.length === 1 ? (
+    <span>Uses {minutes} min of your hours from <b>{fitting[0].title}</b> · {shortHours(fitting[0].left)} left. No payment needed.</span>
+  ) : ppc?.available ? (
+    <>
+      <b>Paid on its own: {minutes === 60 ? money(ppc.price60) : money(ppc.price30)}</b>
+      <span className="text-secondary small">
+        {info.packages.length ? "Not enough hours left on your package for this call, so" : "You don't have a package with " + first + ", so"} this is a pay-per-call ({money(ppc.rateCents)}/hr). Your MentorsMD credit is used first; you pay any rest on the next page, then the call is booked.
+      </span>
+    </>
+  ) : null;
+
+  // When booking isn't possible, this replaces the calendar.
+  const blocked = orderTooShort ? (
+    <div className="alert alert-warning">Only {minutesLeft} minutes are left on this package. Pick 30 minutes, or add hours first.</div>
+  ) : !orderId && info !== null && !canBook ? (
+    <div className="alert alert-warning">
+      {ppc ? `Message ${first} or book a free intro call first to unlock booking.` : `${first} can't take paid calls right now.`}
+    </div>
+  ) : undefined;
+
   return (
-    <Modal open={open} onClose={onClose} label={`Book a call with ${first}`} wide>
-      <div className="stack" style={{ gap: 14 }}>
-        <h2 style={{ fontSize: 24, paddingRight: 36 }}>Book a call with {first}</h2>
-        {done ? (
-          <div className="stack">
-            <div className="alert alert-success">Booked for {fmtWhen(done)}. You&apos;ll both get an email with a calendar invite.</div>
-            <button className="btn" style={{ alignSelf: "flex-start" }} onClick={onClose}>Done</button>
-          </div>
-        ) : (
-          <>
-            <div className="row-wrap" role="radiogroup" aria-label="Call length">
-              {([30, 60] as const).map((m) => (
-                <button key={m} type="button" role="radio" aria-checked={minutes === m} className={`btn btn-sm ${minutes === m ? "btn-primary" : ""}`} onClick={() => setMinutes(m)}>
-                  {m} minutes
-                </button>
-              ))}
-            </div>
-            {orderId ? (
-              orderTooShort ? (
-                <div className="alert alert-warning">Only {minutesLeft} minutes are left on this package. Pick 30 minutes, or add hours first.</div>
-              ) : (
-                <span className="text-secondary small">Uses {minutes} minutes of this package&apos;s hours{minutesLeft !== undefined ? ` (${shortHours(minutesLeft)} left)` : ""}. No payment needed.</span>
-              )
-            ) : info === null ? (
-              <span className="text-muted">Loading…</span>
-            ) : fitting.length > 1 ? (
-              <label className="stack-sm small">
-                <span className="text-secondary">Use the hours from</span>
-                <select className="input" value={chosen} onChange={(e) => setPick(e.target.value)} style={{ marginBottom: 0 }}>
-                  {fitting.map((p) => <option key={p.id} value={p.id}>{p.title} ({shortHours(p.left)} left)</option>)}
-                </select>
-              </label>
-            ) : fitting.length === 1 ? (
-              <span className="text-secondary small">Uses {minutes} minutes from <b>{fitting[0].title}</b> ({shortHours(fitting[0].left)} left). No payment needed.</span>
-            ) : ppc?.available ? (
-              <div className="alert alert-blue small">
-                {info.packages.length ? "Not enough hours left on your package for this call, so" : "You don't have a package with " + first + ", so"} this is a pay-per-call:{" "}
-                <b>{minutes === 60 ? money(ppc.price60) : money(ppc.price30)}</b> ({money(ppc.rateCents)}/hr). Your MentorsMD credit is used first; you pay any rest on the next page, then the call is booked.
-              </div>
-            ) : (
-              <div className="alert alert-warning small">
-                {ppc ? `Message ${first} or book a free intro call first to unlock booking.` : `${first} can't take paid calls right now.`}
-              </div>
-            )}
-            {(orderId ? !orderTooShort : chosen || ppc?.available) && (
-              <SlotPicker
-                key={`${minutes}-${chosen}`}
-                slotsUrl={orderId ? `/api/orders/${orderId}/slots?minutes=${minutes}` : `/api/mentors/${mentorId}/call-slots?minutes=${minutes}`}
-                mentorFirstName={first}
-                confirmLabel={payPerCall ? "Continue to payment" : "Book"}
-                onConfirm={confirm}
-                onCancel={onClose}
-              />
-            )}
-          </>
-        )}
-      </div>
+    <Modal open={open} onClose={onClose} label={`Book a call with ${first}`} booker>
+      {done ? (
+        <div className="stack" style={{ gap: 14 }}>
+          <h2 style={{ fontSize: 24, paddingRight: 36 }}>Book a call with {first}</h2>
+          <div className="alert alert-success">Booked for {fmtWhen(done)}. You&apos;ll both get an email with a calendar invite.</div>
+          <button className="btn" style={{ alignSelf: "flex-start" }} onClick={onClose}>Done</button>
+        </div>
+      ) : (
+        <Booker
+          slotsUrl={canBook ? (orderId ? `/api/orders/${orderId}/slots?minutes=${minutes}` : `/api/mentors/${mentorId}/call-slots?minutes=${minutes}`) : null}
+          mentor={{ id: mentorId, name: mentorName, photoUrl: mentorPhotoUrl }}
+          title={payPerCall && ppc?.available ? "Pay-per-call" : "Package call"}
+          description={`A one-to-one video call with ${first}.`}
+          durations={{ options: [30, 60], value: minutes, onChange: (m) => setMinutes(m === 30 ? 30 : 60) }}
+          details={details}
+          blocked={blocked}
+          confirmLabel={payPerCall ? "Continue to payment" : "Confirm"}
+          onConfirm={confirm}
+          onCancel={onClose}
+        />
+      )}
     </Modal>
   );
 }

@@ -97,7 +97,7 @@ export default async function ParentPage({ params }: { params: { token: string }
             </div>
           ))}
         </div>
-        <span className="text-muted small">Calls happen in a private MentorsMD video room and may be recorded for safety; only the MentorsMD team can watch a recording, and only if there&apos;s a problem.</span>
+        <span className="text-muted small">Calls happen in a private MentorsMD video room and may be recorded for safety; only the mentor on the call and the MentorsMD team can watch a recording, and the team only looks if there&apos;s a problem.</span>
       </section>
 
       <section className="card stack-sm">

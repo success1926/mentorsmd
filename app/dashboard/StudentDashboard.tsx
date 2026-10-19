@@ -126,7 +126,7 @@ export function StudentDashboard({ name, viewerId }: { name: string; viewerId: s
       </div>
 
       {booking && (
-        <BookCallModal open onClose={() => setBooking(null)} mentorId={booking.sellerId} mentorName={booking.seller?.name} orderId={booking.id} minutesLeft={hoursSummary(booking).left} onBooked={load} />
+        <BookCallModal open onClose={() => setBooking(null)} mentorId={booking.sellerId} mentorName={booking.seller?.name} mentorPhotoUrl={booking.seller?.photoUrl} orderId={booking.id} minutesLeft={hoursSummary(booking).left} onBooked={load} />
       )}
     </div>
   );

@@ -405,7 +405,7 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
 
       {isBuyer && (
         <>
-          <BookCallModal open={booking} onClose={() => setBooking(false)} mentorId={order.sellerId} mentorName={order.seller?.name} orderId={order.id} minutesLeft={h.left} onBooked={reload} />
+          <BookCallModal open={booking} onClose={() => setBooking(false)} mentorId={order.sellerId} mentorName={order.seller?.name} mentorPhotoUrl={order.seller?.photoUrl} orderId={order.id} minutesLeft={h.left} onBooked={reload} />
           <AddHoursModal open={adding} onClose={() => setAdding(false)} order={order} initialHours={addPreset} />
         </>
       )}
