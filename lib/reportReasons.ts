@@ -7,6 +7,7 @@ export const REPORT_REASONS = [
   { value: "CREDENTIALS", label: "Asked for my password or login details (AMCAS etc.)", severity: 3 },
   { value: "HARASSMENT", label: "Harassment, threats or hateful language", severity: 3 },
   { value: "INAPPROPRIATE", label: "Sexual or otherwise inappropriate messages", severity: 3 },
+  { value: "UNCOMFORTABLE", label: "Asked me to do something unethical or that I'm not comfortable with", severity: 3 },
   { value: "SCAM", label: "Scam, fake credentials or impersonation", severity: 3 },
   { value: "SPAM", label: "Spam or advertising", severity: 1 },
   { value: "QUALITY", label: "Didn't do what was promised / unprofessional", severity: 1 },

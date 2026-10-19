@@ -13,6 +13,7 @@ import { useDisputeThread } from "@/lib/hooks/useDisputeThread";
 import { Attendance, CallRow, PastCallOutcome, Recordings } from "@/components/Calls";
 import { AddHoursModal, BookCallModal, DecisionBanner, HoursLog, HoursMeter, LogWrittenWork, PackageBadge, showLowHours, PackageThread, SuggestHoursModal, ReportProblem, SharedFiles, fmtDay, fmtWhen, postJson } from "@/components/Packages";
 import { MinorBadge, StaffBadge, tintFor, initialsOf } from "@/components/ui";
+import { ReportDialog } from "@/components/Safety";
 import { hoursSummary, shortHours, LOW_HOURS_MINUTES } from "@/lib/hours";
 import { finishPhase, markCompleteBlocker } from "@/lib/finishing";
 import { hoursLabel, priceFor } from "@/lib/pricing";
@@ -59,6 +60,7 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
   const [adding, setAdding] = useState(false);
   const [addPreset, setAddPreset] = useState<number | undefined>(undefined);
   const [suggesting, setSuggesting] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [reviewRating, setReviewRating] = useState(0);
@@ -343,6 +345,15 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
             </div>
           )}
 
+          {isSeller && (
+            <div className="stack-sm">
+              <button className="btn btn-ghost btn-sm" style={{ color: "var(--muted)", alignSelf: "flex-start" }} onClick={() => setReporting(true)}>
+                Report a problem with {first(order.buyer?.name) || "this student"}
+              </button>
+              <span className="text-muted small">Asked to do something you&apos;re not comfortable with? Tell us privately. You can also block them, which stops messages and new calls until we&apos;ve looked into it.</span>
+            </div>
+          )}
+
           {isSeller && phase === "WORKING" && (
             <div className="card stack-sm">
               <button className="btn btn-deep btn-block" disabled={!!blocker || busy} onClick={markComplete}>Mark work complete</button>
@@ -375,6 +386,16 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
         </>
       )}
       {isSeller && <SuggestHoursModal open={suggesting} onClose={() => setSuggesting(false)} order={order} />}
+      {isSeller && order.buyer && (
+        <ReportDialog
+          open={reporting}
+          onClose={() => setReporting(false)}
+          subject={{ id: order.buyerId, name: order.buyer.name || "Student" }}
+          conversationId={order.conversationId || undefined}
+          orderId={order.id}
+          onDone={(blocked) => blocked && reload()}
+        />
+      )}
     </div>
   );
 }

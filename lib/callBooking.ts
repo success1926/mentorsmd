@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { callSummary } from "@/lib/calls";
 import { callMinutes, hoursSummary, isBlockMinutes } from "@/lib/hours";
 import { finishPhase } from "@/lib/finishing";
+import { blockBetween } from "@/lib/blocks";
 import { maybeSendLowHours } from "@/lib/hourLog";
 import { BusyRange, Interval, generateSlots, BOOKING_HORIZON_DAYS } from "@/lib/schedule";
 import { addDays, dayInZone, tzOrDefault } from "@/lib/tz";
@@ -237,6 +238,13 @@ export class CallError extends Error {
   }
 }
 
+// A block (e.g. after a report) also stops booking or moving calls, even on
+// hours already bought; an admin sorts out the package.
+async function assertNotBlocked(order: { buyerId: string; sellerId: string }) {
+  const blocks = await blockBetween(order.buyerId, order.sellerId);
+  if (blocks.iBlocked || blocks.theyBlocked) throw new CallError("Calls can't be booked between you two right now. Contact us if you need help.", 403);
+}
+
 // Locks the mentor's calendar for the rest of the transaction, so two
 // students can't grab the same slot at the same moment.
 export async function lockMentor(tx: Prisma.TransactionClient, mentorId: string) {
@@ -281,6 +289,7 @@ export async function bookCall(order: OrderForCalls, start: Date, by: { id: stri
   const length = minutes * 60_000;
   const end = new Date(start.getTime() + length);
   if (start.getTime() < Date.now() + 5 * 60_000) throw new CallError("Pick a time in the future.");
+  await assertNotBlocked(order);
   if (!by.isMentor) {
     const slots = await openSlotsForOrder(order, { onlyDay: dayInZone(start, tzOrDefault(order.seller.timeZone)), lengthMinutes: minutes });
     if (!slots.some((s) => s.getTime() === start.getTime())) throw new CallError("That time isn't available anymore. Please pick another.", 409);
@@ -337,6 +346,7 @@ export async function rescheduleCall(order: OrderForCalls, bookingId: string, st
   const length = minutes * 60_000;
   const end = new Date(start.getTime() + length);
   if (start.getTime() < Date.now() + 5 * 60_000) throw new CallError("Pick a time in the future.");
+  await assertNotBlocked(order);
   if (!by.isMentor) {
     const slots = await openSlotsForOrder(order, { excludeBookingId: bookingId, onlyDay: dayInZone(start, tzOrDefault(order.seller.timeZone)), lengthMinutes: minutes });
     if (!slots.some((s) => s.getTime() === start.getTime())) throw new CallError("That time isn't available anymore. Please pick another.", 409);
