@@ -4,6 +4,9 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { callSummary } from "@/lib/calls";
+import { callMinutes, hoursSummary, isBlockMinutes } from "@/lib/hours";
+import { finishPhase } from "@/lib/finishing";
+import { maybeSendLowHours } from "@/lib/hourLog";
 import { BusyRange, Interval, generateSlots, BOOKING_HORIZON_DAYS } from "@/lib/schedule";
 import { addDays, dayInZone, tzOrDefault } from "@/lib/tz";
 import { EXTERNAL_CAL_CACHE_MINUTES, fetchIcal, parseIcalBusy } from "@/lib/icalBusy";
@@ -31,6 +34,8 @@ export const mentorScheduleSelect = {
 export const orderForCallsInclude = {
   gig: true,
   callBookings: true,
+  // Hours orders (redesign Oct 2026): what's used, for the hours-left check.
+  hourEntries: { select: { type: true, minutes: true, voidedAt: true, callBookingId: true } },
   buyer: { select: { id: true, name: true, email: true, timeZone: true } },
   seller: { select: mentorScheduleSelect },
 } satisfies Prisma.OrderInclude;
@@ -152,13 +157,35 @@ export async function openSlotsFor(
   });
 }
 
-export async function openSlotsForOrder(order: OrderForCalls, opts: { excludeBookingId?: string; onlyDay?: string } = {}) {
-  return openSlotsFor(order.seller, order.buyerId, order.gig.callLength || 30, opts);
+// The title shown for an order: the package snapshot taken at checkout
+// (hours orders), or the package itself (orders from before the redesign).
+export const orderTitle = (o: { packageTitle?: string | null; gig: { title: string } }) => o.packageTitle || o.gig.title;
+
+// Length of a call on this order: hours orders choose 30 or 60 minutes per
+// call (lengthMinutes); older packages have a fixed call length.
+function lengthFor(order: OrderForCalls, lengthMinutes?: number) {
+  if (order.kind) return isBlockMinutes(lengthMinutes) ? lengthMinutes : 60;
+  return order.gig.callLength || 30;
+}
+
+export async function openSlotsForOrder(order: OrderForCalls, opts: { excludeBookingId?: string; onlyDay?: string; lengthMinutes?: number } = {}) {
+  return openSlotsFor(order.seller, order.buyerId, lengthFor(order, opts.lengthMinutes), opts);
+}
+
+// Why a call of this length can't be booked from this hours order, or null.
+export function hoursBookingBlocker(order: Pick<OrderForCalls, "status" | "disputed" | "minutesPurchased" | "hourEntries" | "callBookings" | "markedCompleteAt" | "responseDeadline" | "approvedAt" | "lastCallUsedAt" | "lastRevisionUsedAt">, minutes: number) {
+  if (order.status !== "IN_ESCROW") return "This package isn't active.";
+  if (order.disputed) return "Calls can't be booked while a dispute is open.";
+  if (finishPhase(order) === "AWAITING_STUDENT") return "Your mentor marked this package complete. To book another call, choose \"Request one last call\" first.";
+  const left = hoursSummary(order).left;
+  if (left < minutes) return left > 0 ? `Only ${left} minutes are left on this package. Add hours, or book a shorter call.` : "No hours are left on this package. Add hours to book another call.";
+  return null;
 }
 
 // ---------- Emails + invites ----------
 
 function callEmail(order: OrderForCalls, booking: { id: string; startTime: Date; endTime: Date; icsSequence: number }, to: "buyer" | "seller", method: "REQUEST" | "CANCEL"): CallEmail & { email: string } {
+  const title = orderTitle(order);
   const me = to === "buyer" ? order.buyer : order.seller;
   const other = to === "buyer" ? order.seller : order.buyer;
   const orderUrl = `${SITE_URL}/orders/${order.id}`;
@@ -170,14 +197,14 @@ function callEmail(order: OrderForCalls, booking: { id: string; startTime: Date;
     start: booking.startTime,
     end: booking.endTime,
     summary: `MentorsMD call with ${other.name}`,
-    description: `${order.gig.title}\nJoin here: ${joinUrl}\nOrder: ${orderUrl}`,
+    description: `${title}\nJoin here: ${joinUrl}\nOrder: ${orderUrl}`,
     url: joinUrl,
     organizerEmail: fromAddress(),
     attendees: [{ name: me.name, email: me.email }],
   });
   return {
     email: me.email,
-    gigTitle: order.gig.title,
+    gigTitle: title,
     start: booking.startTime,
     end: booking.endTime,
     timeZone: tzOrDefault(me.timeZone),
@@ -246,24 +273,38 @@ function assertNoClash(tx: Prisma.TransactionClient, order: OrderForCalls, start
 }
 
 // Books a new call on the order. Students must pick an open slot; the
-// mentor can enter any future time they agreed with the student.
-export async function bookCall(order: OrderForCalls, start: Date, by: { id: string; isMentor: boolean }) {
-  const length = (order.gig.callLength || 30) * 60_000;
+// mentor can enter any future time they agreed with the student. On an
+// hours order the call is 30 or 60 minutes (lengthMinutes) and has to fit
+// in the hours left (booked calls hold their minutes until they're logged).
+export async function bookCall(order: OrderForCalls, start: Date, by: { id: string; isMentor: boolean }, lengthMinutes?: number) {
+  const minutes = lengthFor(order, lengthMinutes);
+  const length = minutes * 60_000;
   const end = new Date(start.getTime() + length);
   if (start.getTime() < Date.now() + 5 * 60_000) throw new CallError("Pick a time in the future.");
   if (!by.isMentor) {
-    const slots = await openSlotsForOrder(order, { onlyDay: dayInZone(start, tzOrDefault(order.seller.timeZone)) });
+    const slots = await openSlotsForOrder(order, { onlyDay: dayInZone(start, tzOrDefault(order.seller.timeZone)), lengthMinutes: minutes });
     if (!slots.some((s) => s.getTime() === start.getTime())) throw new CallError("That time isn't available anymore. Please pick another.", 409);
   }
 
   const booking = await prisma.$transaction(async (tx) => {
     await lockMentor(tx, order.sellerId);
-    const fresh = await tx.order.findUnique({ where: { id: order.id }, include: { gig: true, callBookings: true } });
-    if (!fresh || !callSummary(fresh).canBook || fresh.disputed) throw new CallError("No calls are left to book on this order.");
+    // Same lock as logging written work (lib/hourLog.ts), so the two can't
+    // both use the last minutes.
+    if (order.kind) await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"hours:" + order.id}))`;
+    const fresh = await tx.order.findUnique({ where: { id: order.id }, include: { gig: true, callBookings: true, hourEntries: true } });
+    if (!fresh) throw new CallError("Order not found", 404);
+    if (fresh.kind) {
+      const blocked = hoursBookingBlocker(fresh, minutes);
+      if (blocked) throw new CallError(blocked);
+    } else if (!callSummary(fresh).canBook || fresh.disputed) {
+      throw new CallError("No calls are left to book on this order.");
+    }
     await assertNoClash(tx, order, start, end, by.isMentor ? 0 : order.seller.bufferMinutes);
     const created = await tx.callBooking.create({
       data: {
         orderId: order.id,
+        studentId: order.buyerId,
+        mentorId: order.sellerId,
         startTime: start,
         endTime: end,
         status: "BOOKED",
@@ -272,7 +313,8 @@ export async function bookCall(order: OrderForCalls, start: Date, by: { id: stri
         bookedById: by.id,
       },
     });
-    await tx.order.update({ where: { id: order.id }, data: { scheduledCallTime: start, callHoldAt: null } });
+    // Due-date era fields; hours orders don't use them.
+    if (!fresh.kind) await tx.order.update({ where: { id: order.id }, data: { scheduledCallTime: start, callHoldAt: null } });
     return created;
   });
 
@@ -281,17 +323,20 @@ export async function bookCall(order: OrderForCalls, start: Date, by: { id: stri
     ? await prisma.callBooking.update({ where: { id: booking.id }, data: { roomName: room.name, roomUrl: room.url } })
     : booking;
   await emailBoth(order, saved, "booked");
+  if (order.kind) await maybeSendLowHours(order.id);
   return saved;
 }
 
 export async function rescheduleCall(order: OrderForCalls, bookingId: string, start: Date, by: { id: string; isMentor: boolean }) {
   const current = order.callBookings.find((b) => b.id === bookingId);
   if (!current || current.status !== "BOOKED") throw new CallError("Call not found", 404);
-  const length = (order.gig.callLength || 30) * 60_000;
+  // A moved call keeps its length (hours orders: the 30 or 60 booked).
+  const minutes = order.kind ? callMinutes(current) : lengthFor(order);
+  const length = minutes * 60_000;
   const end = new Date(start.getTime() + length);
   if (start.getTime() < Date.now() + 5 * 60_000) throw new CallError("Pick a time in the future.");
   if (!by.isMentor) {
-    const slots = await openSlotsForOrder(order, { excludeBookingId: bookingId, onlyDay: dayInZone(start, tzOrDefault(order.seller.timeZone)) });
+    const slots = await openSlotsForOrder(order, { excludeBookingId: bookingId, onlyDay: dayInZone(start, tzOrDefault(order.seller.timeZone)), lengthMinutes: minutes });
     if (!slots.some((s) => s.getTime() === start.getTime())) throw new CallError("That time isn't available anymore. Please pick another.", 409);
   }
 
@@ -314,7 +359,7 @@ export async function rescheduleCall(order: OrderForCalls, bookingId: string, st
       },
     });
     if (res.count === 0) throw new CallError("This call changed. Refresh the page.", 409);
-    await tx.order.update({ where: { id: order.id }, data: { scheduledCallTime: start, callHoldAt: null } });
+    if (!order.kind) await tx.order.update({ where: { id: order.id }, data: { scheduledCallTime: start, callHoldAt: null } });
     return tx.callBooking.findUniqueOrThrow({ where: { id: bookingId } });
   });
 

@@ -45,7 +45,7 @@ export async function runCallReminders(now: Date = new Date()) {
     if (!student || !mentor) continue;
     const minsToStart = (b.startTime.getTime() - now.getTime()) / 60_000;
     const base = {
-      gigTitle: o ? o.gig.title : "Free 15-minute intro call",
+      gigTitle: o ? o.packageTitle || o.gig.title : "Free 15-minute intro call",
       start: b.startTime,
       end: b.endTime,
       orderUrl: o ? `${SITE_URL}/orders/${o.id}` : `${SITE_URL}/messages`,

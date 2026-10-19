@@ -233,6 +233,48 @@ export async function sendIntroCallReminderEmail(toEmail: string, c: CallEmail, 
   });
 }
 
+// ---- Packages and hours (redesign Oct 2026) ----
+
+export async function sendPackagePurchasedEmail(toEmail: string, v: { packageTitle: string; mentorName: string; hours: string; rate: string; amount: string; creditApplied: string; orderUrl: string }) {
+  await sendTemplate("package_purchased", toEmail, { ...v, orderLink: v.orderUrl });
+}
+
+export async function sendHoursAddedEmail(toEmail: string, v: { packageTitle: string; hours: string; hoursLeft: string; creditApplied: string; orderUrl: string }) {
+  await sendTemplate("hours_added", toEmail, { ...v, orderLink: v.orderUrl });
+}
+
+export async function sendHoursLowEmail(toEmail: string, v: { packageTitle: string; mentorName: string; hoursLeft: string; orderUrl: string }) {
+  await sendTemplate("hours_low", toEmail, { ...v, orderLink: v.orderUrl });
+}
+
+export async function sendWrittenTimeLoggedEmail(toEmail: string, v: { mentorName: string; packageTitle: string; minutes: string; note: string; hoursLeft: string; orderUrl: string }) {
+  await sendTemplate("written_time_logged", toEmail, { ...v, note: v.note ? blocks.quote(v.note) : "", orderLink: v.orderUrl });
+}
+
+export async function sendWorkMarkedCompleteEmail(toEmail: string, v: { mentorName: string; packageTitle: string; deadline: Date; orderUrl: string }) {
+  const deadline = v.deadline.toLocaleString("en-US", { timeZone: "UTC", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " UTC";
+  await sendTemplate("work_marked_complete", toEmail, { mentorName: v.mentorName, packageTitle: v.packageTitle, deadline, orderLink: v.orderUrl });
+}
+
+export async function sendLastRequestEmail(toEmail: string, v: { studentName: string; request: string; packageTitle: string; note: string; orderUrl: string }) {
+  await sendTemplate("last_request", toEmail, { ...v, note: v.note ? blocks.quote(v.note) : "", orderLink: v.orderUrl });
+}
+
+export async function sendPackageApprovedEmail(toEmail: string, v: { packageTitle: string; studentName: string; mentorName: string; auto: boolean; forMentor: boolean; orderUrl: string }) {
+  await sendTemplate("package_approved", toEmail, {
+    packageTitle: v.packageTitle,
+    studentName: v.studentName,
+    mentorName: v.mentorName,
+    how: v.auto ? "approved automatically after 48 hours" : "approved",
+    mentorLine: v.forMentor ? "Your earnings for it, including any unused hours, are paid with the monthly payout on the 24th." : "",
+    orderLink: v.orderUrl,
+  });
+}
+
+export async function sendCallTimeTakenEmail(toEmail: string, v: { mentorName: string; packageTitle: string; orderUrl: string }) {
+  await sendTemplate("call_time_taken", toEmail, { mentorName: v.mentorName, packageTitle: v.packageTitle, orderLink: v.orderUrl });
+}
+
 // Mentor added busy dates that cover due dates they already agreed to.
 export async function sendBusyClashEmail(toEmail: string, clashes: { gigTitle: string; studentName: string; due: string; url: string }[]) {
   await sendTemplate("busy_dates_clash", toEmail, {
