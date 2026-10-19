@@ -1,17 +1,17 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { searchableGigWhere, searchableSellerWhere, visibleMentorWhere } from "@/lib/mentor";
-import { BACKGROUNDS, FORMATS, PRICE_BANDS, SCHOOL_TYPES, SERVICES, STAGES, TURNAROUNDS, isValue } from "@/lib/options";
+import { searchableGigWhere, visibleMentorWhere } from "@/lib/mentor";
+import { completeProfileWhere } from "@/lib/profileCompleteness";
+import { BEST_FOR, FORMATS, PRICE_BANDS, SCHOOL_TYPES, SERVICES, SERVICE_TO_STAGE, STAGES, isValue } from "@/lib/options";
 
 export type BrowseFilters = {
   q: string;
   service: string[];
   format: string[];
-  turnaround: string[];
   price: string[];
   stage: string[];
   school: string[];
-  bg: string[];
+  best: string[];
   rating: number | null;
   sort: string;
 };
@@ -31,11 +31,10 @@ export function parseBrowseFilters(sp: SP): BrowseFilters {
     q: one("q").trim().slice(0, 100),
     service: list(sp, "service", SERVICES),
     format: list(sp, "format", FORMATS),
-    turnaround: list(sp, "turnaround", TURNAROUNDS),
     price: list(sp, "price", PRICE_BANDS),
     stage: list(sp, "stage", STAGES),
     school: list(sp, "school", SCHOOL_TYPES),
-    bg: list(sp, "bg", BACKGROUNDS),
+    best: list(sp, "best", BEST_FOR),
     rating: rating === 4 || rating === 4.5 ? rating : null,
     sort: ["rated", "low", "high", "new"].includes(one("sort")) ? one("sort") : "best",
   };
@@ -50,22 +49,14 @@ export type MentorCardData = {
   photoUrl: string | null;
   mentorStage: string | null;
   schoolType: string | null;
-  backgrounds: string[];
+  bestFor: string[];
   avgRating: number | null;
   reviewCount: number;
-  minPrice: number;
-  totalPackages: number;
-  packages: {
-    id: string;
-    title: string;
-    price: number;
-    service: string | null;
-    serviceOther: string | null;
-    format: string | null;
-    turnaround: string | null;
-    callsIncluded: number;
-    callLength: number | null;
-  }[];
+  hourlyRateCents: number | null;
+  // The lowest per-hour rate across the mentor's offers ("from $X/hr").
+  fromRateCents: number | null;
+  totalPackages: number; // specialized packages
+  packages: { id: string; title: string; minutes: number | null; format: string | null }[];
   createdAt: Date;
 };
 
@@ -83,37 +74,47 @@ async function ratingsFor(ids: string[]): Promise<Map<string, RatingInfo>> {
 
 const gigSelect = {
   id: true,
+  kind: true,
   title: true,
   price: true,
-  service: true,
-  serviceOther: true,
+  minutes: true,
+  rateCents: true,
   format: true,
-  turnaround: true,
-  callsIncluded: true,
-  callLength: true,
+  sortOrder: true,
 } as const;
 
-// Browse: every visible mentor with at least one searchable package that
-// matches the package filters. Mentor filters apply to the mentor.
+// Browse: every listed mentor (visible, profile complete) who matches the
+// filters. Offer filters (format, price) need at least one matching offer;
+// a service matches a specialized package of that service OR one of the
+// mentor's strongest stages, so hourly-only mentors can be found too.
 export async function searchMentors(f: BrowseFilters): Promise<MentorCardData[]> {
   const now = new Date();
 
   const gigWhere: Prisma.GigWhereInput = {
     ...searchableGigWhere,
-    ...(f.service.length ? { service: { in: f.service } } : {}),
     ...(f.format.length ? { format: { in: f.format } } : {}),
-    ...(f.turnaround.length ? { turnaround: { in: f.turnaround } } : {}),
   };
   if (f.price.length) {
     gigWhere.OR = PRICE_BANDS.filter((b) => f.price.includes(b.value)).map((b) => ({
       price: b.max === null ? { gte: b.min } : { gte: b.min, lt: b.max },
     }));
   }
+  const offerFiltered = f.format.length + f.price.length > 0;
 
-  const sellerAnd: Prisma.UserWhereInput[] = [visibleMentorWhere(now), searchableSellerWhere];
+  const sellerAnd: Prisma.UserWhereInput[] = [visibleMentorWhere(now), completeProfileWhere];
+  if (offerFiltered) sellerAnd.push({ gigs: { some: gigWhere } });
+  if (f.service.length) {
+    const stages = Array.from(new Set(f.service.map((s) => SERVICE_TO_STAGE[s]).filter(Boolean)));
+    sellerAnd.push({
+      OR: [
+        { gigs: { some: { ...searchableGigWhere, service: { in: f.service } } } },
+        ...(stages.length ? [{ strongestStages: { hasSome: stages } }] : []),
+      ],
+    });
+  }
   if (f.stage.length) sellerAnd.push({ mentorStage: { in: f.stage } });
   if (f.school.length) sellerAnd.push({ schoolType: { in: f.school } });
-  if (f.bg.length) sellerAnd.push({ backgrounds: { hasEvery: f.bg } });
+  if (f.best.length) sellerAnd.push({ bestFor: { hasEvery: f.best } });
   if (f.q) {
     sellerAnd.push({
       OR: [
@@ -121,6 +122,8 @@ export async function searchMentors(f: BrowseFilters): Promise<MentorCardData[]>
         { credential: { contains: f.q, mode: "insensitive" } },
         { medicalSchool: { contains: f.q, mode: "insensitive" } },
         { bio: { contains: f.q, mode: "insensitive" } },
+        { specialtyInterest: { contains: f.q, mode: "insensitive" } },
+        { researchSummary: { contains: f.q, mode: "insensitive" } },
         {
           gigs: {
             some: {
@@ -139,7 +142,7 @@ export async function searchMentors(f: BrowseFilters): Promise<MentorCardData[]>
   }
 
   const mentors = await prisma.user.findMany({
-    where: { AND: [...sellerAnd, { gigs: { some: gigWhere } }] },
+    where: { AND: sellerAnd },
     select: {
       id: true,
       name: true,
@@ -149,10 +152,10 @@ export async function searchMentors(f: BrowseFilters): Promise<MentorCardData[]>
       photoUrl: true,
       mentorStage: true,
       schoolType: true,
-      backgrounds: true,
+      bestFor: true,
+      hourlyRateCents: true,
       createdAt: true,
-      gigs: { where: gigWhere, select: gigSelect, orderBy: { price: "asc" } },
-      _count: { select: { gigs: { where: searchableGigWhere } } },
+      gigs: { where: searchableGigWhere, select: gigSelect, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
     },
     take: 200,
   });
@@ -160,6 +163,8 @@ export async function searchMentors(f: BrowseFilters): Promise<MentorCardData[]>
   const ratings = await ratingsFor(mentors.map((m) => m.id));
   let cards: MentorCardData[] = mentors.map((m) => {
     const r = ratings.get(m.id);
+    const rates = [m.hourlyRateCents, ...m.gigs.map((g) => g.rateCents ?? m.hourlyRateCents)].filter((x): x is number => !!x);
+    const specialized = m.gigs.filter((g) => g.kind === "SPECIALIZED");
     return {
       id: m.id,
       name: m.name,
@@ -169,28 +174,30 @@ export async function searchMentors(f: BrowseFilters): Promise<MentorCardData[]>
       photoUrl: m.photoUrl,
       mentorStage: m.mentorStage,
       schoolType: m.schoolType,
-      backgrounds: m.backgrounds,
+      bestFor: m.bestFor,
       avgRating: r?.avg ?? null,
       reviewCount: r?.count ?? 0,
-      minPrice: m.gigs.length ? m.gigs[0].price : 0,
-      totalPackages: m._count.gigs,
-      packages: m.gigs,
+      hourlyRateCents: m.hourlyRateCents,
+      fromRateCents: rates.length ? Math.min(...rates) : null,
+      totalPackages: specialized.length,
+      packages: specialized.map((g) => ({ id: g.id, title: g.title, minutes: g.minutes, format: g.format })),
       createdAt: m.createdAt,
     };
   });
 
   if (f.rating !== null) cards = cards.filter((c) => c.avgRating !== null && c.avgRating >= f.rating!);
 
+  const rateOf = (c: MentorCardData) => c.fromRateCents ?? Number.MAX_SAFE_INTEGER;
   const byRating = (a: MentorCardData, b: MentorCardData) => (b.avgRating ?? 0) - (a.avgRating ?? 0) || b.reviewCount - a.reviewCount;
   switch (f.sort) {
     case "rated":
       cards.sort(byRating);
       break;
     case "low":
-      cards.sort((a, b) => a.minPrice - b.minPrice);
+      cards.sort((a, b) => rateOf(a) - rateOf(b));
       break;
     case "high":
-      cards.sort((a, b) => b.minPrice - a.minPrice);
+      cards.sort((a, b) => (b.fromRateCents ?? 0) - (a.fromRateCents ?? 0));
       break;
     case "new":
       cards.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());

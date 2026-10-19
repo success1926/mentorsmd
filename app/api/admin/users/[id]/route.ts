@@ -7,6 +7,7 @@ import { logAdminAction } from "@/lib/adminLog";
 import { placeSafetyHold } from "@/lib/flags";
 import { healthFor } from "@/lib/health";
 import { describeFilters } from "@/lib/insights";
+import { profileFieldsSelect, profileProgress } from "@/lib/profileCompleteness";
 
 async function requireAdmin(): Promise<string | null> {
   return (await currentAdmin("people"))?.id ?? null;
@@ -24,7 +25,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       id: true, name: true, email: true, role: true, credential: true, bio: true, photoUrl: true, createdAt: true,
       profileStatus: true, pausedUntil: true, awayNote: true, removedAt: true, removedReason: true, removedByAdmin: true,
       safetyHoldAt: true, safetyHoldReason: true, lastActiveAt: true, emailVerified: true, mentorAgreementVersion: true, mentorAgreementAt: true, dateOfBirth: true, minorStatus: true, becameAdultAt: true, acceptsMinors: true,
-      mentorStage: true, schoolType: true, backgrounds: true, medicalSchool: true, signupSource: true, signupDetail: true, weeklyHours: true, timeZone: true, externalCalUrl: true, googleCalConnectedAt: true,
+      mentorStage: true, schoolType: true, medicalSchool: true, ...profileFieldsSelect, bestForOther: true, profileCompleteAt: true, signupSource: true, signupDetail: true, weeklyHours: true, timeZone: true, externalCalUrl: true, googleCalConnectedAt: true,
       gigs: { where: { active: true }, select: { id: true, title: true, price: true, service: true, format: true } },
     },
   });
@@ -69,7 +70,13 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   // The mentor's secret calendar address stays private, even from admins.
   const { weeklyHours, externalCalUrl, googleCalConnectedAt, ...rest } = user;
   return NextResponse.json({
-    user: { ...rest, hasAvailability: hasAvailability(weeklyHours), externalCalConnected: !!externalCalUrl || !!googleCalConnectedAt },
+    user: {
+      ...rest,
+      hasAvailability: hasAvailability(weeklyHours),
+      externalCalConnected: !!externalCalUrl || !!googleCalConnectedAt,
+      // Mentor profile completeness ("Finish your profile", N of 10).
+      ...(user.role === "SELLER" ? { progress: profileProgress(user) } : {}),
+    },
     orders,
     health,
     flags,

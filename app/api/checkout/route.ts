@@ -45,6 +45,15 @@ export async function POST(req: Request) {
   if (!gig || !gig.active) {
     return NextResponse.json({ error: "Package not found" }, { status: 404 });
   }
+  // Hourly offers, bundles and specialized packages (redesign Oct 2026)
+  // are bought from the mentor's profile through the new checkout.
+  if (gig.kind) {
+    return NextResponse.json({ error: "Buy this from the mentor's profile page" }, { status: 400 });
+  }
+  // Mentors with an unfinished profile can't be bought from.
+  if (!gig.seller.profileCompleteAt) {
+    return NextResponse.json({ error: "This mentor isn't taking new orders right now" }, { status: 400 });
+  }
   if (gigPriceOutOfRange(gig)) {
     return NextResponse.json({ error: "This package isn't available to book right now" }, { status: 400 });
   }

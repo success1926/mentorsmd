@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { MinorBadge, statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { callSummary, fmtDateTime } from "@/lib/calls";
 import { formatHasCall, money } from "@/lib/options";
+import { ProfileChecklist } from "@/components/ProfileChecklist";
 
 const ACTIVE = ["IN_ESCROW", "COMPLETED"];
 const DAY = 24 * 3600_000;
@@ -95,10 +96,10 @@ export default function MentorDashboard() {
 
   const attn: Attn[] = [];
   if (payouts === false) attn.push({ key: "payouts", tone: "danger", text: "Connect payouts so students can book you.", href: "/dashboard/payouts", cta: "Connect" });
-  if (profile && (!profile.mentorStage || !profile.schoolType)) attn.push({ key: "q", tone: "warn", text: "Answer the mentor questions. Your packages are hidden from search until you do.", href: "/account#search", cta: "Answer" });
-  // Mentors who joined before the medical school question (#85).
-  if (profile && profile.role === "SELLER" && !profile.medicalSchool) attn.push({ key: "school", tone: "warn", text: "Add your medical school. It shows on your profile and helps students find you.", href: "/account#search", cta: "Add school" });
-  if (gigs.length === 0) attn.push({ key: "gigs", tone: "warn", text: "Create your first package.", href: "/dashboard/packages?new=1", cta: "Add package" });
+  // Profile sections and the hourly rate: the "Finish your profile"
+  // checklist below shows each one.
+  if (profile?.progress && !profile.progress.complete) attn.push({ key: "profile", tone: "warn", text: `Finish your profile (${profile.progress.done} of ${profile.progress.total} sections). Students can't find or buy from you until it's done.`, href: "/account", cta: "Finish" });
+  if (profile?.hourlyRateCents && gigs.length === 0) attn.push({ key: "gigs", tone: "warn", text: "Add hour bundles or a specialized package (optional).", href: "/dashboard/packages", cta: "Add offers" });
   if (profile && !profile.hasAvailability && gigs.some((g) => formatHasCall(g.format))) attn.push({ key: "cal", tone: "warn", text: "Set your call hours so students can book the calls in your packages.", href: "/account#call-hours", cta: "Set hours" });
   for (const o of active) {
     const c = callSummary(o);
@@ -118,8 +119,8 @@ export default function MentorDashboard() {
           <h1 className="page-title">Hi{first ? `, ${first}` : ""}</h1>
           <p className="lede">Here&apos;s what&apos;s happening with your mentoring.</p>
           <div className="row" style={{ marginTop: 6 }}>
-            <Link href="/dashboard/packages?new=1" className="btn btn-primary btn-sm">+ Add package</Link>
-            {gigs.length > 0 && <Link href="/dashboard/packages" className="btn btn-sm">My packages</Link>}
+            <Link href="/dashboard/packages" className="btn btn-primary btn-sm">Rate &amp; offers</Link>
+            <Link href="/account" className="btn btn-sm">Edit profile</Link>
           </div>
         </div>
         <div className="card row" style={{ padding: "14px 18px", gap: 14 }}>
@@ -142,6 +143,8 @@ export default function MentorDashboard() {
           <Link href="/account#availability" className="link small">Options</Link>
         </div>
       </div>
+
+      <ProfileChecklist progress={profile?.progress} compact />
 
       <div className="stat-cards">
         <div className="stat-card"><span className="text-secondary">Active orders</span><span className="stat-num">{active.length}</span></div>

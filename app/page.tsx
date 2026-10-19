@@ -11,7 +11,7 @@ import { safeHref } from "@/lib/siteContent";
 import { getSiteContent } from "@/lib/siteContentStore";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
 import { Fragment } from "react";
-import { labelFor, money, STAGES, serviceLabel } from "@/lib/options";
+import { BEST_FOR, labelFor, money, STAGES } from "@/lib/options";
 
 export const dynamic = "force-dynamic"; // mentor cards and review counts read live data
 
@@ -125,7 +125,7 @@ export default async function HomePage() {
             </div>
             <div className="grid-4">
               {mentors.map((m) => {
-                const firstService = m.packages[0]?.service;
+                const firstBestFor = m.bestFor[0];
                 return (
                   <Link key={m.id} href={`/mentors/${m.id}`} className="mentor-tile">
                     <div className="mentor-tile-photo" style={{ background: tintFor(m.id) }}>
@@ -145,10 +145,12 @@ export default async function HomePage() {
                       <span className="text-secondary" style={{ fontSize: 16 }}>
                         {m.credential || labelFor(STAGES, m.mentorStage)}
                       </span>
-                      {firstService && <span style={{ fontSize: 16 }}>{serviceLabel(firstService, m.packages[0]?.serviceOther)}</span>}
-                      <span className="text-secondary" style={{ fontSize: 15 }}>
-                        From <b style={{ color: "var(--ink)" }}>{money(m.minPrice)}</b>
-                      </span>
+                      {firstBestFor && <span style={{ fontSize: 16 }}>Best for: {labelFor(BEST_FOR, firstBestFor)}</span>}
+                      {m.fromRateCents && (
+                        <span className="text-secondary" style={{ fontSize: 15 }}>
+                          From <b style={{ color: "var(--ink)" }}>{money(m.fromRateCents)}/hr</b>
+                        </span>
+                      )}
                     </div>
                   </Link>
                 );

@@ -3,7 +3,12 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { LIMITS, isNonEmptyString } from "@/lib/validate";
-import { BACKGROUNDS, SCHOOL_TYPES, STAGES, isValue } from "@/lib/options";
+import { SCHOOL_TYPES, STAGES, isValue } from "@/lib/options";
+import { parseMentorProfile } from "@/lib/mentorProfileInput";
+import { profileFieldsSelect, profileProgress } from "@/lib/profileCompleteness";
+import { syncProfileComplete } from "@/lib/profileSync";
+import { checkText } from "@/lib/moderation";
+import { createFlagsForFindings } from "@/lib/flags";
 import { hasAvailability } from "@/lib/schedule";
 import { isValidTimeZone } from "@/lib/tz";
 import { RESERVED_NAME_ERROR, isReservedName } from "@/lib/reservedNames";
@@ -29,7 +34,8 @@ export async function GET() {
     where: { id: (session.user as any).id },
     select: {
       id: true, name: true, email: true, role: true, credential: true, bio: true, photoUrl: true, passwordHash: true,
-      mentorStage: true, schoolType: true, backgrounds: true, medicalSchool: true,
+      mentorStage: true, schoolType: true, medicalSchool: true,
+      ...profileFieldsSelect, bestForOther: true, profileCompleteAt: true,
       profileStatus: true, pausedUntil: true, awayNote: true, removedAt: true, removedByAdmin: true,
       timeZone: true, weeklyHours: true, bufferMinutes: true, minNoticeHours: true, daysOff: true,
       externalCalUrl: true, externalCalError: true, externalBusyFetchedAt: true, googleCalEmail: true, googleCalConnectedAt: true,
@@ -47,6 +53,8 @@ export async function GET() {
       ...profile,
       hasPassword: !!passwordHash,
       hasAvailability: hasAvailability(user.weeklyHours),
+      // "Finish your profile" checklist (mentors only).
+      ...(user.role === "SELLER" ? { progress: profileProgress(user) } : {}),
       externalCal: externalCalUrl ? { host: safeHost(externalCalUrl) } : null,
       googleCal: googleCalConnectedAt ? { email: googleCalEmail, connectedAt: googleCalConnectedAt } : null,
     },
@@ -66,10 +74,10 @@ export async function PATCH(req: Request) {
     bio?: string | null;
     mentorStage?: string;
     schoolType?: string;
-    backgrounds?: string[];
     timeZone?: string;
     acceptsMinors?: boolean;
     medicalSchool?: string | null;
+    [section: string]: unknown; // the profile sections (lib/mentorProfileInput.ts)
   } = {};
 
   // Time zone: anyone. `onlyIfEmpty` is the automatic browser detection,
@@ -128,18 +136,33 @@ export async function PATCH(req: Request) {
       if (typeof body.acceptsMinors !== "boolean") return NextResponse.json({ error: "Invalid setting" }, { status: 400 });
       data.acceptsMinors = body.acceptsMinors;
     }
-    if (body.backgrounds !== undefined) {
-      if (!Array.isArray(body.backgrounds) || !body.backgrounds.every((b: unknown) => isValue(BACKGROUNDS, b))) {
-        return NextResponse.json({ error: "Unknown background option" }, { status: 400 });
-      }
-      data.backgrounds = Array.from(new Set(body.backgrounds as string[]));
-    }
+    // The profile sections behind "Finish your profile" (redesign Oct 2026).
+    const sections = parseMentorProfile(body);
+    if ("error" in sections) return NextResponse.json({ error: sections.error }, { status: 400 });
+    Object.assign(data, sections.data);
   }
 
   const updated = await prisma.user.update({
     where: { id: userId },
-    data,
-    select: { id: true, name: true, credential: true, bio: true, photoUrl: true, mentorStage: true, schoolType: true, backgrounds: true, medicalSchool: true, timeZone: true, acceptsMinors: true },
+    data: data as any,
+    select: { id: true, name: true, credential: true, bio: true, photoUrl: true, mentorStage: true, schoolType: true, medicalSchool: true, timeZone: true, acceptsMinors: true },
   });
+
+  if (isSeller) {
+    // Listed (or hidden) as soon as the checklist is (or isn't) complete.
+    await syncProfileComplete(userId);
+    // Contact details or "pay me outside" anywhere on the profile: flagged
+    // for review, as for packages.
+    const text = [data.bio, data.researchSummary, data.funFact, data.specialtyInterest, ...((data.highlights as string[]) || []), ...((data.knownFor as string[]) || [])]
+      .filter((t) => typeof t === "string" && t)
+      .join("\n");
+    if (text) {
+      await createFlagsForFindings(checkText(text).findings, {
+        evidence: text.slice(0, 2000),
+        subjectUserId: userId,
+        dedupeKey: `profile:${userId}:${text.length}`,
+      });
+    }
+  }
   return NextResponse.json({ profile: updated });
 }

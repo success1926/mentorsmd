@@ -504,7 +504,8 @@ async function activity(r: Range, now = new Date()): Promise<InsightsResult> {
     }),
     prisma.conversation.count({ where: { createdAt: inRange(r), messages: { some: {} } } }),
     prisma.callBooking.findMany({
-      where: { startTime: inRange(r), endTime: { lt: now }, status: { not: "CANCELLED" } },
+      // Calls on orders only (free intro calls have no order and aren't counted here).
+      where: { startTime: inRange(r), endTime: { lt: now }, status: { not: "CANCELLED" }, orderId: { not: null } },
       select: {
         id: true, startTime: true, roomName: true,
         attendance: { select: { userId: true } },

@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { PeopleTabs } from "@/components/admin/AdminTabs";
 import { statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { SEVERITY, kindLabel } from "@/components/admin/Flags";
-import { BACKGROUNDS, SCHOOL_TYPES, STAGES, labelFor, money } from "@/lib/options";
+import { BEST_FOR, SCHOOL_TYPES, STAGES, labelFor, money } from "@/lib/options";
 
 // Admin -> People: mentors and students, with pause / remove / restore,
 // health badges and the "View" panel.
@@ -150,10 +150,23 @@ function PersonDetail({ id }: { id: string }) {
             {u.credential && <span><b>Credential:</b> {u.credential}</span>}
             {u.mentorStage && <span className="badge">{labelFor(STAGES, u.mentorStage)}</span>}
             {u.schoolType && <span className="badge">{labelFor(SCHOOL_TYPES, u.schoolType)}</span>}
-            {(u.backgrounds || []).map((b: string) => <span key={b} className="badge">{labelFor(BACKGROUNDS, b)}</span>)}
+            {(u.bestFor || []).map((b: string) => <span key={b} className="badge">{labelFor(BEST_FOR, b)}</span>)}
+            {u.hourlyRateCents ? <span><b>Rate:</b> {money(u.hourlyRateCents)}/hr</span> : <span className="text-muted">No hourly rate</span>}
             {d.rating?.count > 0 && <span>★ {d.rating.avg?.toFixed(1)} ({d.rating.count})</span>}
             <span>{u.hasAvailability ? "Call hours set" : "No call hours"}{u.timeZone ? ` · ${u.timeZone}` : ""}{u.externalCalConnected ? " · Own calendar connected" : ""}</span>
           </div>
+          {u.progress && (
+            <div className="small">
+              <b>Profile: {u.progress.done} of {u.progress.total} sections</b>{" "}
+              {u.progress.complete ? (
+                <span className="badge badge-success">Listed</span>
+              ) : (
+                <span className="text-secondary">
+                  (hidden from Browse until finished; missing: {u.progress.sections.filter((x: any) => !x.done).map((x: any) => x.label).join(", ")})
+                </span>
+              )}
+            </div>
+          )}
           {u.bio && <p className="text-secondary small" style={{ whiteSpace: "pre-wrap" }}>{u.bio}</p>}
           <div className="row-wrap small">
             {u.gigs.map((g: any) => <span key={g.id} className="badge badge-brand">{g.title} · {money(g.price)}</span>)}

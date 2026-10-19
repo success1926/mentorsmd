@@ -10,7 +10,8 @@ import { attributionFromCookieHeader, isBotUserAgent, recordActivity } from "@/l
 import { runAfterResponse } from "@/lib/request";
 import { getSiteContent } from "@/lib/siteContentStore";
 import { WaitlistBox } from "@/components/WaitlistBox";
-import { BACKGROUNDS, FILTER_GROUPS, FORMATS, MENTOR_QUICK_LINKS as QUICK, SCHOOL_TYPES, STAGES, TURNAROUNDS, labelFor, money, quickLinkHref, serviceLabel } from "@/lib/options";
+import { BEST_FOR, FILTER_GROUPS, FORMATS, MENTOR_QUICK_LINKS as QUICK, SCHOOL_TYPES, STAGES, labelFor, money, quickLinkHref } from "@/lib/options";
+import { hoursLabel } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Find your mentor · MentorsMD" };
@@ -22,7 +23,7 @@ type SP = Record<string, string | string[] | undefined>;
 // bots, mentors and admins aren't logged.
 async function logSearch(f: Filters, resultCount: number) {
   const picked: Record<string, string[]> = {};
-  for (const k of ["service", "format", "turnaround", "price", "stage", "school", "bg"] as const) {
+  for (const k of ["service", "format", "price", "stage", "school", "best"] as const) {
     if (f[k].length) picked[k] = [...f[k]].sort();
   }
   if (f.rating !== null) picked.rating = [String(f.rating)];
@@ -78,7 +79,6 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
   }
   // Any filter, search or quick link (sorting alone doesn't count).
   const anyFilter = [...params.keys()].some((k) => k !== "sort");
-  const pkgFiltered = filters.service.length + filters.format.length + filters.turnaround.length + filters.price.length > 0;
   const activeQuick = QUICK.find((q) => (q.qs ? params.toString() === q.qs : params.toString() === "" || params.toString().startsWith("sort=")))?.label;
 
   return (
@@ -175,10 +175,8 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
             )}
 
             {mentors.map((m) => {
-              const tags = [labelFor(STAGES, m.mentorStage), labelFor(SCHOOL_TYPES, m.schoolType), ...m.backgrounds.map((b) => labelFor(BACKGROUNDS, b))].filter(Boolean);
-              const head = pkgFiltered
-                ? `${m.packages.length} ${m.packages.length === 1 ? "package matches" : "packages match"}`
-                : `${m.totalPackages} ${m.totalPackages === 1 ? "package" : "packages"}`;
+              const tags = [labelFor(STAGES, m.mentorStage), labelFor(SCHOOL_TYPES, m.schoolType)].filter(Boolean);
+              const bestFor = m.bestFor.map((b) => labelFor(BEST_FOR, b));
               return (
                 <article key={m.id} className="mentor-card">
                   <Link href={`/mentors/${m.id}`} aria-hidden="true" tabIndex={-1}>
@@ -202,24 +200,35 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
                         {m.bio}
                       </p>
                     )}
-                    {tags.length > 0 && (
+                    {(tags.length > 0 || bestFor.length > 0) && (
                       <div className="row-wrap" style={{ gap: 6 }}>
                         {tags.map((t) => <span key={t} className="badge">{t}</span>)}
+                        {bestFor.slice(0, 4).map((t) => <span key={t} className="badge badge-brand">{t}</span>)}
                       </div>
                     )}
-                    <div className="stack-sm" style={{ marginTop: 4 }}>
-                      <span className="text-muted" style={{ fontWeight: 600 }}>{head}</span>
-                      {m.packages.slice(0, 4).map((p) => (
-                        <Link key={p.id} href={`/mentors/${m.id}#pkg-${p.id}`} className="pkg-line">
-                          <span className="stack-sm" style={{ gap: 2, minWidth: 0 }}>
-                            <b style={{ fontSize: 15, fontWeight: 600 }}>{p.title}</b>
-                            <span className="text-muted">
-                              {[serviceLabel(p.service, p.serviceOther), labelFor(FORMATS, p.format), labelFor(TURNAROUNDS, p.turnaround)].filter(Boolean).join(" · ")}
+                    <div className="between" style={{ marginTop: 4, gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+                      <div className="stack-sm" style={{ gap: 2, minWidth: 0 }}>
+                        {m.totalPackages > 0 ? (
+                          <>
+                            <span className="text-muted" style={{ fontWeight: 600 }}>
+                              {m.totalPackages} {m.totalPackages === 1 ? "package" : "packages"}
                             </span>
-                          </span>
-                          <b className="nowrap">{money(p.price)}</b>
+                            {m.packages.slice(0, 3).map((p) => (
+                              <Link key={p.id} href={`/mentors/${m.id}?package=${p.id}`} className="text-secondary" style={{ fontSize: 15 }}>
+                                {p.title}
+                                <span className="text-muted">{[p.minutes ? ` · about ${hoursLabel(p.minutes)}` : "", p.format ? ` · ${labelFor(FORMATS, p.format)}` : ""].join("")}</span>
+                              </Link>
+                            ))}
+                          </>
+                        ) : (
+                          <span className="text-muted">Hourly help · free 15-min intro call</span>
+                        )}
+                      </div>
+                      {m.fromRateCents && (
+                        <Link href={`/mentors/${m.id}`} className="nowrap" style={{ fontSize: 15 }}>
+                          from <b className="display" style={{ fontSize: 26 }}>{money(m.fromRateCents)}</b>/hr
                         </Link>
-                      ))}
+                      )}
                     </div>
                   </div>
                 </article>
