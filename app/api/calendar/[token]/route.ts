@@ -75,7 +75,7 @@ export async function GET(_req: Request, { params }: { params: { token: string }
       `DTSTART:${stamp(b.startTime)}`,
       `DTEND:${stamp(b.endTime)}`,
       `SUMMARY:${esc(`MentorsMD call with ${other}`)}`,
-      `DESCRIPTION:${esc(b.order ? `${b.order.gig.title}\nJoin here: ${SITE_URL}/calls/${b.id}\nOrder: ${SITE_URL}/orders/${b.orderId}` : `Free 15-minute intro call\nJoin here: ${SITE_URL}/calls/${b.id}`)}`,
+      `DESCRIPTION:${esc(b.order ? `${b.order.packageTitle || b.order.gig.title}\nJoin here: ${SITE_URL}/calls/${b.id}\nOrder: ${SITE_URL}/orders/${b.orderId}` : `Free 15-minute intro call\nJoin here: ${SITE_URL}/calls/${b.id}`)}`,
       `URL:${SITE_URL}/calls/${b.id}`,
       "END:VEVENT"
     );

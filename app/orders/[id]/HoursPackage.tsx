@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useDisputeThread } from "@/lib/hooks/useDisputeThread";
 import { Attendance, CallRow, PastCallOutcome, Recordings } from "@/components/Calls";
-import { AddHoursModal, BookCallModal, DecisionBanner, HoursLog, HoursMeter, LogWrittenWork, PackageBadge, PackageThread, SharedFiles, fmtDay, fmtWhen, postJson } from "@/components/Packages";
+import { AddHoursModal, BookCallModal, DecisionBanner, HoursLog, HoursMeter, LogWrittenWork, PackageBadge, PackageThread, ReportProblem, SharedFiles, fmtDay, fmtWhen, postJson } from "@/components/Packages";
 import { MinorBadge, StaffBadge, tintFor, initialsOf } from "@/components/ui";
 import { hoursSummary, shortHours, LOW_HOURS_MINUTES } from "@/lib/hours";
 import { finishPhase, markCompleteBlocker } from "@/lib/finishing";
@@ -304,6 +304,13 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
             <div className="card stack-sm">
               <b>Shared files</b>
               <SharedFiles files={order.files} viewerId={viewer.id} />
+            </div>
+          )}
+
+          {isBuyer && phase === "WORKING" && (
+            <div className="card stack-sm">
+              <span className="text-muted small">Something wrong? Message your mentor first. If that doesn&apos;t sort it out:</span>
+              <ReportProblem orderId={order.id} onChanged={reload} />
             </div>
           )}
 

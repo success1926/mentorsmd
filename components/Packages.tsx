@@ -484,3 +484,32 @@ export function LogWrittenWork({ order, onLogged }: { order: any; onLogged: () =
     </div>
   );
 }
+
+// "Report a problem" while the package is in progress: opens a dispute
+// (the only route for problems; an admin decides).
+export function ReportProblem({ orderId, onChanged }: { orderId: string; onChanged: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  if (!open) return <button className="btn btn-ghost btn-sm" style={{ color: "var(--muted)", alignSelf: "flex-start" }} onClick={() => setOpen(true)}>Report a problem</button>;
+  async function send() {
+    setBusy(true);
+    setError("");
+    const r = await postJson(`/api/orders/${orderId}/dispute`, { reason });
+    setBusy(false);
+    if (!r.ok) return setError(r.data.error || "Something went wrong.");
+    setOpen(false);
+    onChanged();
+  }
+  return (
+    <div className="stack-sm">
+      <textarea className="input" style={{ marginBottom: 0 }} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Describe the problem. An admin reviews it and decides; the package is on hold meanwhile." aria-label="The problem" />
+      {error && <div role="alert" className="alert alert-danger">{error}</div>}
+      <div className="row-wrap">
+        <button className="btn btn-danger btn-sm" disabled={busy || !reason.trim()} onClick={send}>Open a dispute</button>
+        <button className="btn btn-ghost btn-sm" onClick={() => setOpen(false)}>Cancel</button>
+      </div>
+    </div>
+  );
+}

@@ -20,7 +20,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     include: {
       order: {
         select: {
-          id: true, status: true, buyerId: true, sellerId: true,
+          id: true, status: true, buyerId: true, sellerId: true, packageTitle: true,
           gig: { select: { title: true, callLength: true } },
           buyer: { select: { name: true } },
           seller: { select: { name: true, photoUrl: true } },
@@ -52,7 +52,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       orderId: booking.order?.id ?? null,
       // Intro calls have no order, so they're always "active".
       orderStatus: booking.order ? booking.order.status : "IN_ESCROW",
-      title: booking.order ? booking.order.gig.title : INTRO_TITLE,
+      title: booking.order ? booking.order.packageTitle || booking.order.gig.title : INTRO_TITLE,
       otherName: booking.order
         ? isMentor ? booking.order.buyer.name : booking.order.seller.name
         : (isMentor ? booking.student?.name : booking.mentor?.name) || "",

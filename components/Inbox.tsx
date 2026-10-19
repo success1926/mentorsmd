@@ -22,7 +22,6 @@ function contextLine(c: any, userId: string, role: string): { text: string; mute
   if (intro) return { text: `No package yet · intro call booked ${new Date(intro).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}`, muted: false };
   const last = c.messages?.[0];
   if (last && last.senderId === userId) return { text: "Waiting for a reply", muted: true };
-  if (role !== "SELLER" && !last) return null;
   return null;
 }
 
@@ -116,7 +115,7 @@ export function Inbox({ selectedId }: { selectedId?: string }) {
             return (
               <Link key={c.id} href={`/messages/${c.id}`} className={`inbox-item ${unread ? "unread" : ""}`} aria-current={c.id === selectedId ? "true" : undefined}>
                 <PersonAvatar person={other} />
-                <div className="grow stack-sm" style={{ gap: 2 }}>
+                <div className="grow stack-sm" style={{ gap: 2, minWidth: 0 }}>
                   <div className="between">
                     <span className="row" style={{ gap: 6, minWidth: 0 }}>
                       <b className="nowrap" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{other?.name}</b>
