@@ -42,6 +42,10 @@ export type EmailDef = {
   body: string;
   vars: EmailVar[];
   required?: string[]; // variables that must stay in the body (security-sensitive emails)
+  // Only sent for orders from before the hourly redesign (Oct 2026), which
+  // no longer exist: kept so that old code still works, but not listed in
+  // Admin -> Emails.
+  retired?: boolean;
 };
 
 export const GROUP_LABELS: Record<EmailGroup, string> = {
@@ -84,8 +88,6 @@ export const blocks = {
   deliveryNote: (text: string) => `<p><strong>Their note:</strong></p><p style="color:#555;white-space:pre-wrap;">${esc(text)}</p>`,
   // Longer text someone typed, line breaks kept, in grey.
   quote: (text: string) => `<p style="color:#555;white-space:pre-wrap;">${esc(text)}</p>`,
-  clashList: (clashes: { gigTitle: string; studentName: string; due: string; url: string }[]) =>
-    `<ul>${clashes.map((c) => `<li><a href="${esc(c.url)}">${esc(c.gigTitle)}</a> for ${esc(c.studentName)}, due ${esc(c.due)}</li>`).join("")}</ul>`,
   topFlags: (top: { reason: string; subjectName: string | null }[]) =>
     top.length ? `<p><strong>Most serious open flags</strong></p><ul>${top.map((t) => `<li>${esc(t.reason)}${t.subjectName ? ` (${esc(t.subjectName)})` : ""}</li>`).join("")}</ul>` : "",
 };
@@ -125,6 +127,7 @@ const LIST: EmailDef[] = [
   // ----- Students -----
   {
     key: "work_delivered",
+    retired: true,
     name: "Work delivered",
     description: "Sent to the student when the mentor marks the work complete. Starts the 96-hour review window.",
     group: "STUDENTS",
@@ -144,32 +147,6 @@ const LIST: EmailDef[] = [
       text("fileNames", "The file names, separated by commas", "Essay-v2.docx, Notes.pdf", { optional: true }),
       V.orderLink,
     ],
-  },
-  {
-    key: "book_call_reminder",
-    name: "Book your call",
-    description: "Reminds the student while a call included in their package isn't booked yet.",
-    group: "STUDENTS",
-    subject: "Book your call: {{packageTitle}}",
-    body: [
-      "Your package **{{packageTitle}}** includes a call with your mentor that isn't booked yet.",
-      "Please book it before **{{bookBy}}**.",
-      "[Book a call]({{orderLink}})",
-    ].join("\n\n"),
-    vars: [V.packageTitle, text("bookBy", "The order's due date (the line is left out if there's none)", "Fri Oct 24 2026", { optional: true }), V.orderLink],
-  },
-  {
-    key: "call_on_hold_student",
-    name: "Order on hold (student)",
-    description: "Sent to the student when the due date passes and the included call still isn't booked. They have 48 hours.",
-    group: "STUDENTS",
-    subject: "Action needed: {{packageTitle}}",
-    body: [
-      "The due date for **{{packageTitle}}** has passed and the call included in it isn't booked.",
-      "You have 48 hours to book it, or to tell us you don't need it. After that, the call is forfeited and your mentor can complete the order.",
-      "[Book now or skip the call]({{orderLink}})",
-    ].join("\n\n"),
-    vars: [V.packageTitle, V.orderLink],
   },
   {
     key: "email_verification",
@@ -273,15 +250,20 @@ const LIST: EmailDef[] = [
   },
   {
     key: "new_order",
-    name: "New order",
-    description: "Sent to the mentor when a student pays for a package.",
+    name: "New package (mentor)",
+    description: "Sent to the mentor when a student pays for a package, hour bundle, hourly offer or pay-per-call.",
     group: "MENTORS",
-    subject: "New order: {{packageTitle}}",
-    body: ["**{{studentName}}** just booked and paid for **{{packageTitle}}**.", "[View the order]({{orderLink}})"].join("\n\n"),
+    subject: "New package: {{packageTitle}}",
+    body: [
+      "**{{studentName}}** just bought **{{packageTitle}}** with you.",
+      "Their hours are ready: they can book calls on your calendar, and you can log written work on the package page. You earn 70% of each hour, paid monthly on the 24th.",
+      "[Open the package]({{orderLink}})",
+    ].join("\n\n"),
     vars: [V.studentName, V.packageTitle, V.orderLink],
   },
   {
     key: "payment_released",
+    retired: true,
     name: "Payment released",
     description: "Sent to the mentor when payment for an order is released to them.",
     group: "MENTORS",
@@ -294,6 +276,7 @@ const LIST: EmailDef[] = [
   },
   {
     key: "revision_requested",
+    retired: true,
     name: "Revision requested",
     description: "Sent to the mentor when the student asks for a revision.",
     group: "MENTORS",
@@ -309,51 +292,6 @@ const LIST: EmailDef[] = [
     subject: "New {{rating}}-star review",
     body: ["You received a new {{rating}}-star review for **{{packageTitle}}**.", "[View your profile]({{profileLink}})"].join("\n\n"),
     vars: [text("rating", "Star rating, 1 to 5", "5"), V.packageTitle, link("profileLink", "Link to the mentor's profile", `${SITE}/mentors/sample`)],
-  },
-  {
-    key: "overdue_reminder",
-    name: "Work overdue",
-    description: "Sent once a day to the mentor while work is past its due date and not marked complete.",
-    group: "MENTORS",
-    subject: "Reminder: {{packageTitle}} is overdue",
-    body: [
-      "**{{packageTitle}}** was due on {{dueDate}} and hasn't been marked complete yet.",
-      "Mark it done as soon as it's ready so the student can review it.",
-      "[View the order]({{orderLink}})",
-    ].join("\n\n"),
-    vars: [V.packageTitle, text("dueDate", "The due date", "10/20/2026"), V.orderLink],
-  },
-  {
-    key: "busy_dates_clash",
-    name: "Busy dates overlap deadlines",
-    description: "Sent to a mentor who adds busy dates that cover due dates they already agreed to.",
-    group: "MENTORS",
-    subject: "Your new busy dates overlap existing deadlines",
-    body: [
-      "The busy dates you just added cover {{dueDatesPhrase}} you already have:",
-      "{{clashList}}",
-      "Existing orders keep their due dates. Deliver early, or message the student and change the due date on the order.",
-    ].join("\n\n"),
-    vars: [
-      text("dueDatesPhrase", 'Says "a due date" or "due dates"', "due dates"),
-      block("clashList", "The list of affected orders, with links", blocks.clashList([
-        { gigTitle: "Personal statement review", studentName: "Jordan Lee", due: "Oct 24", url: `${SITE}/orders/sample-order` },
-        { gigTitle: "Mock interview", studentName: "Sam Patel", due: "Oct 26", url: `${SITE}/orders/sample-order-2` },
-      ])),
-    ],
-  },
-  {
-    key: "call_on_hold_mentor",
-    name: "Order on hold (mentor)",
-    description: "Sent to the mentor when the due date passes and the student hasn't booked the included call.",
-    group: "MENTORS",
-    subject: "Action needed: {{packageTitle}}",
-    body: [
-      "The due date for **{{packageTitle}}** has passed and the student hasn't booked the included call.",
-      "The order is paused. We've asked the student to book within 48 hours. You can extend the due date, message them, or contact us.",
-      "[View the order]({{orderLink}})",
-    ].join("\n\n"),
-    vars: [V.packageTitle, V.orderLink],
   },
   {
     key: "account_paused_mentor",
@@ -426,6 +364,228 @@ const LIST: EmailDef[] = [
     ].join("\n\n"),
     vars: [V.otherName, V.packageTitle, V.when, V.joinLink, V.orderLink],
   },
+  // ----- Packages and hours (redesign Oct 2026) -----
+  {
+    key: "package_purchased",
+    name: "Package bought (student)",
+    description: "Sent to the student when a package, hour bundle, hourly offer or pay-per-call is paid for.",
+    group: "STUDENTS",
+    subject: "You're set: {{packageTitle}} with {{mentorName}}",
+    body: [
+      "Thanks for your purchase. **{{packageTitle}}** with **{{mentorName}}** is ready: {{hours}} at {{rate}} an hour.",
+      "Paid: {{amount}}",
+      "Credit applied: {{creditApplied}}",
+      "Book 30- or 60-minute calls on your mentor's calendar, or send work for written feedback. Every call and every block of written work is logged on your package page, so you can always see your hours.",
+      "[[Open your package]]({{orderLink}})",
+      "> There's no due date. When your mentor marks the work complete, you'll have 48 hours to approve it or ask for one last call or revision. Unused hours aren't refunded.",
+    ].join("\n\n"),
+    vars: [
+      V.packageTitle,
+      V.mentorName,
+      text("hours", "Hours bought", "3 hours"),
+      text("rate", "The per-hour rate", "$80"),
+      text("amount", "The full price", "$240"),
+      text("creditApplied", "MentorsMD credit used (the line is left out if none)", "$40", { optional: true }),
+      V.orderLink,
+    ],
+  },
+  {
+    key: "hours_added",
+    name: "Hours added",
+    description: "Sent to the student when a top-up (Add hours) is paid and the hours are added to their package.",
+    group: "STUDENTS",
+    subject: "{{hours}} added to {{packageTitle}}",
+    body: [
+      "We've added **{{hours}}** to **{{packageTitle}}**. You now have {{hoursLeft}} left.",
+      "Credit applied: {{creditApplied}}",
+      "[Open your package]({{orderLink}})",
+    ].join("\n\n"),
+    vars: [V.packageTitle, text("hours", "Hours added", "2 hours"), text("hoursLeft", "Hours left now", "3 hours"), text("creditApplied", "MentorsMD credit used (the line is left out if none)", "$40", { optional: true }), V.orderLink],
+  },
+  {
+    key: "hours_low",
+    name: "1 hour left",
+    description: "Sent to the student once when a package gets down to 1 hour (or less) left.",
+    group: "STUDENTS",
+    subject: "{{hoursLeft}} left on {{packageTitle}}",
+    body: [
+      "You have **{{hoursLeft}}** left on **{{packageTitle}}** with {{mentorName}} (booked calls count as used).",
+      "If you'd like more time, you can add hours at the same rate on your package page. Nothing to do otherwise.",
+      "[Add hours]({{orderLink}})",
+    ].join("\n\n"),
+    vars: [V.packageTitle, V.mentorName, text("hoursLeft", "Hours left", "1 hour"), V.orderLink],
+  },
+  {
+    key: "written_time_logged",
+    name: "Written time logged",
+    description: "Sent to the student when their mentor logs written work on their package.",
+    group: "STUDENTS",
+    subject: "{{mentorName}} logged {{minutes}} on {{packageTitle}}",
+    body: [
+      "{{mentorName}} logged **{{minutes}}** of written work on **{{packageTitle}}**.",
+      "{{note}}",
+      "You have {{hoursLeft}} left.",
+      "[See the hours log]({{orderLink}})",
+    ].join("\n\n"),
+    vars: [V.mentorName, V.packageTitle, text("minutes", "How long", "1 hour"), block("note", "The mentor's note", blocks.quote("Edited the second draft of your personal statement.")), text("hoursLeft", "Hours left", "2 hours"), V.orderLink],
+  },
+  {
+    key: "work_marked_complete",
+    name: "Work marked complete (student)",
+    description: "Sent to the student when the mentor marks a package complete. Starts the 48-hour window.",
+    group: "STUDENTS",
+    subject: "{{mentorName}} marked {{packageTitle}} complete",
+    body: [
+      "{{mentorName}} marked **{{packageTitle}}** complete.",
+      "You have **48 hours** (until {{deadline}}) to approve it, ask for one last call or one last revision, or open a dispute if something's wrong. If you don't respond, it's approved automatically.",
+      "[[Review and respond]]({{orderLink}})",
+    ].join("\n\n"),
+    vars: [V.mentorName, V.packageTitle, text("deadline", "When the 48 hours end (UTC)", "Oct 23, 4:00 PM UTC"), V.orderLink],
+  },
+  {
+    key: "last_request",
+    name: "One last call or revision requested",
+    description: "Sent to the mentor when the student asks for one last call or one last revision after the work was marked complete.",
+    group: "MENTORS",
+    subject: "{{studentName}} asked for {{request}}",
+    body: [
+      "**{{studentName}}** asked for {{request}} on **{{packageTitle}}**.",
+      "{{note}}",
+      "When you've delivered it, mark the work complete again. They'll then have 48 hours to approve.",
+      "[Open the package]({{orderLink}})",
+    ].join("\n\n"),
+    vars: [V.studentName, text("request", '"one last call" or "one last revision"', "one last revision"), V.packageTitle, block("note", "What the student asked for", blocks.quote("Could you look at the conclusion once more?")), V.orderLink],
+  },
+  {
+    key: "package_approved",
+    name: "Package approved",
+    description: "Sent to the student and the mentor when a package is approved, by the student or automatically after 48 hours.",
+    group: "BOTH",
+    subject: "{{packageTitle}} is approved",
+    body: [
+      "**{{packageTitle}}** ({{studentName}} with {{mentorName}}) was {{how}}.",
+      "{{mentorLine}}",
+      "[Open the package]({{orderLink}})",
+    ].join("\n\n"),
+    vars: [
+      V.packageTitle,
+      V.studentName,
+      V.mentorName,
+      text("how", '"approved" or "approved automatically after 48 hours"', "approved"),
+      text("mentorLine", "Mentors only: when they're paid (left out for the student)", "Your earnings for it, including any unused hours, are paid with the monthly payout on the 24th.", { optional: true }),
+      V.orderLink,
+    ],
+  },
+  {
+    key: "call_time_taken",
+    name: "Pick another call time",
+    description: "Sent to the student when they paid for a call but the time they picked was booked by someone else meanwhile.",
+    group: "STUDENTS",
+    subject: "Please pick another time for your call with {{mentorName}}",
+    body: [
+      "Your payment for **{{packageTitle}}** went through, but the time you picked was taken while you were paying.",
+      "Your call is paid for and waiting: please pick another time on your package page.",
+      "[[Pick a new time]]({{orderLink}})",
+    ].join("\n\n"),
+    vars: [V.mentorName, V.packageTitle, V.orderLink],
+  },
+  // ----- Monthly payouts and MentorsMD credit (redesign Oct 2026) -----
+  {
+    key: "payout_sent",
+    name: "Monthly payout sent",
+    description: "Sent to the mentor on the 24th when their monthly payout is sent to their bank through Stripe.",
+    group: "MENTORS",
+    subject: "Your MentorsMD payout for {{period}}: {{amount}}",
+    body: [
+      "Hi {{firstName}},",
+      "Your monthly payout of **{{amount}}** is on its way to your bank account through Stripe.",
+      "It covers {{hours}} of mentoring: calls held and written work logged since your last payout, plus the unused hours of packages approved by now.",
+      "Held back: {{heldNote}}",
+      "[[See your earnings]]({{dashboardLink}})",
+      "> Stripe usually takes 2 to 7 business days to reach your bank, depending on your bank and country. You earn 70% of each hour; MentorsMD keeps 30%.",
+    ].join("\n\n"),
+    vars: [
+      V.firstName,
+      text("period", 'The payout month, e.g. "October 2026"', "October 2026"),
+      text("amount", "What the mentor receives", "$560.00"),
+      text("hours", "Hours paid in this payout", "8 hours"),
+      text("heldNote", "Hours held back by an open dispute (the line is left out if none)", "$70.00 on a package with an open dispute, paid once it's decided.", { optional: true }),
+      link("dashboardLink", "Link to the mentor's dashboard", `${SITE}/dashboard`),
+    ],
+  },
+  {
+    key: "credit_issued",
+    name: "MentorsMD credit added",
+    description: "Sent to the student when MentorsMD credit is added to their account: a dispute refunded as credit, or an adjustment by the team.",
+    group: "STUDENTS",
+    subject: "{{amount}} of MentorsMD credit added to your account",
+    body: [
+      "Hi {{firstName}},",
+      "We've added **{{amount}}** of MentorsMD credit to your account{{forPackage}}.",
+      "{{note}}",
+      "Your credit balance is now **{{balance}}**. Credit never expires and you can use it with any mentor: it's applied automatically at checkout.",
+      "[[Find a mentor]]({{mentorsLink}})",
+    ].join("\n\n"),
+    vars: [
+      V.firstName,
+      text("amount", "How much credit was added", "$80.00"),
+      text("forPackage", 'Says " for <package title>" when it\'s about a package; empty otherwise', " for Personal statement review"),
+      block("note", "A note from the team (left out if there's none)", blocks.quote("Refunded as credit to settle your dispute.")),
+      text("balance", "The student's credit balance now", "$120.00"),
+      link("mentorsLink", "Link to Browse mentors", `${SITE}/mentors`),
+    ],
+  },
+  // ----- Free intro calls (redesign Oct 2026) -----
+  {
+    key: "intro_call_booked",
+    name: "Intro call booked",
+    description: "Sent to the student and mentor when a free 15-minute intro call is booked, with a calendar invite attached.",
+    group: "BOTH",
+    subject: "Intro call booked with {{otherName}}",
+    body: [
+      "Your free 15-minute intro call with **{{otherName}}** is set for:",
+      "## **{{when}}**",
+      "Join from [your call page]({{joinLink}}). The Join button opens 10 minutes before the start. The attached invite adds it to your calendar.",
+      "It's a chance to say hello, talk through where you are and see if you're a good fit. There's nothing to pay.",
+      "Need to change it? You can cancel from [your messages]({{manageLink}}) up to 24 hours before the call, then book a new time.",
+      CALL_FOOTER,
+    ].join("\n\n"),
+    vars: [V.otherName, V.when, V.joinLink, link("manageLink", "Link to the conversation, where the call can be cancelled", `${SITE}/messages/sample-conversation`)],
+  },
+  {
+    key: "intro_call_cancelled",
+    name: "Intro call cancelled",
+    description: "Sent to the student and mentor when a free intro call is cancelled; removes it from their calendar.",
+    group: "BOTH",
+    subject: "Intro call cancelled",
+    body: [
+      "{{cancelledBy}} cancelled the free intro call with {{otherName}} that was set for {{when}}.",
+      "The student can book a new time from the mentor's profile.",
+      "[Open your messages]({{manageLink}})",
+    ].join("\n\n"),
+    vars: [text("cancelledBy", "Who cancelled", "Priya Shah"), V.otherName, V.when, link("manageLink", "Link to the conversation", `${SITE}/messages/sample-conversation`)],
+  },
+  {
+    key: "intro_call_reminder",
+    name: "Intro call reminder",
+    description: "Sent at 8am (recipient's time) on the day of a free intro call, and about an hour before it, to the student and mentor.",
+    group: "BOTH",
+    subject: "{{soon}}: your intro call with {{otherName}}",
+    body: [
+      "Just a reminder: your free 15-minute intro call with **{{otherName}}** is {{soonLower}}.",
+      "{{when}}",
+      "[[Join the call]]({{joinLink}})",
+      "> The Join button works from 10 minutes before the start. Use a quiet spot and allow camera and microphone access when your browser asks.",
+      CALL_FOOTER,
+    ].join("\n\n"),
+    vars: [
+      text("soon", 'When it is: "Today" or "Starting in 1 hour"', "Today"),
+      text("soonLower", 'The same in a sentence: "today" or "in about an hour"', "today"),
+      V.otherName,
+      V.when,
+      V.joinLink,
+    ],
+  },
   {
     key: "call_rescheduled",
     name: "Call moved",
@@ -483,19 +643,6 @@ const LIST: EmailDef[] = [
       CALL_FOOTER,
     ].join("\n\n"),
     vars: [V.otherName, V.packageTitle, V.when, V.joinLink],
-  },
-  {
-    key: "call_forfeited",
-    name: "Call forfeited",
-    description: "Sent to the student and mentor when the included call wasn't booked within 48 hours of the due date.",
-    group: "BOTH",
-    subject: "Call not booked: {{packageTitle}}",
-    body: [
-      "The call included in **{{packageTitle}}** wasn't booked within 48 hours of the due date, so it has been marked as forfeited.",
-      "The mentor can now mark the order complete.",
-      "[View the order]({{orderLink}})",
-    ].join("\n\n"),
-    vars: [V.packageTitle, V.orderLink],
   },
   {
     key: "call_student_no_show_student",
@@ -832,7 +979,7 @@ function PARENT_CONSENT_VARS(): EmailVar[] {
 }
 
 export const EMAILS: Record<string, EmailDef> = Object.fromEntries(LIST.map((d) => [d.key, d]));
-export const EMAIL_LIST: EmailDef[] = LIST;
+export const EMAIL_LIST: EmailDef[] = LIST.filter((d) => !d.retired);
 export type EmailKey = string;
 
 // ---- Rendering ----

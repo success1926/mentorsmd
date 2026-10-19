@@ -2,20 +2,28 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PLATFORM_FEE_PERCENT } from "@/lib/stripe";
 import { DEFAULT_TIME_ZONE, addDays, dayInZone, fmtDayLabel, isDayString, isValidTimeZone, weekdayOfDay, zonedToUtc } from "@/lib/tz";
-import { FILTER_GROUPS, FORMATS, PRICE_BANDS, SCHOOL_TYPES, SERVICES, STAGES, TURNAROUNDS, isValue, labelFor } from "@/lib/options";
+import { FILTER_GROUPS, FORMATS, PRICE_BANDS, SCHOOL_TYPES, SERVICES, STAGES, isValue, labelFor } from "@/lib/options";
 import { bookableGigWhere, searchableGigWhere } from "@/lib/mentor";
 import { sourceLabel } from "@/lib/attribution";
 import { csvCell } from "@/lib/csv";
+import { unpaidValueCents } from "@/lib/payoutRules";
 
 // Admin -> Insights (#77-#86). Everything is worked out from the
 // database on request (orders, accounts, messages, calls, reviews and the
 // private activity log), so the numbers always match the rest of the site.
 //
-// Money rules:
-//  - Sales: orders paid in the period (including ones refunded later).
-//  - Refunds: orders refunded in the period.
-//  - MentorsMD fee and Paid to mentors: orders whose payment was released
-//    to the mentor in the period (the fee is only earned on release).
+// Money rules (hourly redesign, Oct 2026):
+//  - Sales: packages paid in the period plus "Add hours" top-ups paid in
+//    the period, at full price (including any part paid with credit).
+//  - Money collected: sales minus the MentorsMD credit used on them, i.e.
+//    what was actually charged to cards.
+//  - Credit issued: MentorsMD credit given in the period (disputes refunded
+//    as credit, and manual additions by the team).
+//  - MentorsMD fee and Paid to mentors: monthly payouts sent in the period
+//    (plus orders from before the redesign released in the period).
+//  - Not yet paid out: hours bought that haven't been paid to a mentor.
+//  - Refunds: packages refunded in the period (since the redesign, always
+//    as credit).
 //  - Orders from before Phase 6 have no payment date; their order date is used.
 //
 // Each tab returns stat cards, charts and tables. Every table (and chart)
@@ -139,7 +147,6 @@ function priceBandOf(cents: number) {
   return b ? b.label : "Under $50";
 }
 
-const turnaroundLabel = (v: string | null | undefined) => (v ? labelFor(TURNAROUNDS, v) : "Not set");
 const serviceGroupLabel = (v: string | null | undefined) => (v === "OTHER" ? "Other (custom)" : v ? labelFor(SERVICES, v) : "Not set");
 
 // "Personal statement, MD" from a search's saved filters.
@@ -157,33 +164,56 @@ export function describeFilters(filters: unknown): string {
 // ---------------- 77. Overview ----------------
 
 async function overview(r: Range): Promise<InsightsResult> {
-  const [paid, refunded, released, held, students, mentors] = await Promise.all([
+  const [paid, topUps, refunded, released, payouts, credit, open, students, mentors] = await Promise.all([
     prisma.order.findMany({
       where: paidInRange(r),
-      select: { id: true, amount: true, status: true, paidAt: true, createdAt: true, gig: { select: { title: true } }, buyer: { select: { name: true } }, seller: { select: { name: true } } },
+      select: { id: true, kind: true, amount: true, creditAppliedCents: true, status: true, paidAt: true, createdAt: true, packageTitle: true, gig: { select: { title: true } }, buyer: { select: { name: true } }, seller: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
       take: BIG,
     }),
+    prisma.hourTopUp.findMany({ where: { status: "PAID", paidAt: inRange(r) }, select: { amountCents: true, creditAppliedCents: true, paidAt: true }, take: BIG }),
     prisma.order.findMany({ where: refundedInRange(r), select: { amount: true, refundedAt: true, disputeResolvedAt: true, paidAt: true, createdAt: true }, take: BIG }),
-    prisma.order.findMany({ where: releasedInRange(r), select: { amount: true, completedAt: true }, take: BIG }),
-    prisma.order.aggregate({ where: { status: { in: ["IN_ESCROW", "COMPLETED"] } }, _sum: { amount: true }, _count: { _all: true } }),
+    prisma.order.findMany({ where: { ...releasedInRange(r), kind: null }, select: { amount: true, completedAt: true }, take: BIG }),
+    prisma.mentorPayout.findMany({ where: { status: "PAID", paidAt: inRange(r) }, select: { amountCents: true, grossCents: true, paidAt: true }, take: BIG }),
+    prisma.creditEntry.findMany({ where: { reason: { in: ["DISPUTE_REFUND", "ADMIN_ADJUST"] }, amountCents: { gt: 0 }, createdAt: inRange(r) }, select: { amountCents: true, reason: true, createdAt: true }, take: BIG }),
+    prisma.order.findMany({
+      where: { status: { in: ["IN_ESCROW", "COMPLETED"] } },
+      select: {
+        kind: true, status: true, amount: true, rateCents: true, minutesPurchased: true, unusedMinutesPaid: true,
+        hourEntries: { select: { minutes: true, voidedAt: true, payoutId: true } },
+        creditEntries: { where: { reason: "DISPUTE_REFUND" }, select: { amountCents: true } },
+      },
+      take: BIG,
+    }),
     prisma.user.findMany({ where: { role: "BUYER", createdAt: inRange(r) }, select: { createdAt: true }, take: BIG }),
     prisma.user.findMany({ where: { role: "SELLER", createdAt: inRange(r) }, select: { createdAt: true }, take: BIG }),
   ]);
-  const sales = paid.reduce((s, o) => s + o.amount, 0);
+  const topUpSales = topUps.reduce((s, t) => s + t.amountCents, 0);
+  const sales = paid.reduce((s, o) => s + o.amount, 0) + topUpSales;
+  const creditUsed = paid.reduce((s, o) => s + o.creditAppliedCents, 0) + topUps.reduce((s, t) => s + t.creditAppliedCents, 0);
+  const collected = sales - creditUsed;
   const refunds = refunded.reduce((s, o) => s + o.amount, 0);
-  const releasedSum = released.reduce((s, o) => s + o.amount, 0);
-  const feeSum = released.reduce((s, o) => s + fee(o.amount), 0);
+  const oldReleased = released.reduce((s, o) => s + o.amount, 0);
+  const feeSum = released.reduce((s, o) => s + fee(o.amount), 0) + payouts.reduce((s, p) => s + (p.grossCents - p.amountCents), 0);
+  const paidToMentors = oldReleased - released.reduce((s, o) => s + fee(o.amount), 0) + payouts.reduce((s, p) => s + p.amountCents, 0);
+  const creditIssued = credit.reduce((s, c) => s + c.amountCents, 0);
+  const creditFromDisputes = credit.filter((c) => c.reason === "DISPUTE_REFUND").reduce((s, c) => s + c.amountCents, 0);
+  const notPaidOut = open.reduce(
+    (s, o) => s + (o.kind ? unpaidValueCents({ ...o, refundedCreditCents: o.creditEntries.reduce((x, c) => x + c.amountCents, 0) }) : o.amount),
+    0
+  );
 
   const cards: Card[] = [
-    { key: "sales", label: "Sales", value: sales, kind: "money", hint: `${paid.length} paid order${paid.length === 1 ? "" : "s"}` },
-    { key: "aov", label: "Average order", value: paid.length ? Math.round(sales / paid.length) : null, kind: "money" },
-    { key: "fee", label: `MentorsMD fee (${PLATFORM_FEE_PERCENT}%)`, value: feeSum, kind: "money", hint: "On payments released in this period" },
-    { key: "payouts", label: "Paid to mentors", value: releasedSum - feeSum, kind: "money", hint: `${released.length} order${released.length === 1 ? "" : "s"} released` },
-    { key: "refunds", label: "Refunds", value: refunds, kind: "money", hint: `${refunded.length} order${refunded.length === 1 ? "" : "s"}` },
-    { key: "net", label: "Sales after refunds", value: sales - refunds, kind: "money" },
-    { key: "held", label: "Held right now", value: held._sum.amount || 0, kind: "money", hint: `${held._count._all} order${held._count._all === 1 ? "" : "s"}, waiting for approval` },
-    { key: "orders", label: "Paid orders", value: paid.length, kind: "count" },
+    { key: "collected", label: "Money collected", value: collected, kind: "money", hint: "Packages and added hours, minus credit used" },
+    { key: "sales", label: "Sales", value: sales, kind: "money", hint: `${paid.length} package${paid.length === 1 ? "" : "s"}${topUps.length ? `, ${topUps.length} top-up${topUps.length === 1 ? "" : "s"}` : ""}` },
+    { key: "creditUsed", label: "Paid with credit", value: creditUsed, kind: "money" },
+    { key: "creditIssued", label: "Credit issued", value: creditIssued, kind: "money", hint: creditFromDisputes ? `${fmtMoneyHint(creditFromDisputes)} from disputes` : "Disputes refunded as credit, and additions" },
+    { key: "aov", label: "Average package", value: paid.length ? Math.round(paid.reduce((s, o) => s + o.amount, 0) / paid.length) : null, kind: "money" },
+    { key: "fee", label: `MentorsMD fee (${PLATFORM_FEE_PERCENT}%)`, value: feeSum, kind: "money", hint: "On payouts sent in this period" },
+    { key: "payouts", label: "Paid to mentors", value: paidToMentors, kind: "money", hint: `${payouts.length} monthly payout${payouts.length === 1 ? "" : "s"}` },
+    { key: "refunds", label: "Refunds", value: refunds, kind: "money", hint: `${refunded.length} package${refunded.length === 1 ? "" : "s"}` },
+    { key: "held", label: "Not yet paid out", value: notPaidOut, kind: "money", hint: "Hours bought, not yet paid to mentors" },
+    { key: "orders", label: "Paid packages", value: paid.length, kind: "count" },
     { key: "students", label: "New students", value: students.length, kind: "count" },
     { key: "mentors", label: "New mentors", value: mentors.length, kind: "count" },
   ];
@@ -191,21 +221,26 @@ async function overview(r: Range): Promise<InsightsResult> {
   return {
     cards,
     charts: [
-      series(r, "chart-sales", "Sales", "money", paid.map((o) => ({ at: paidDate(o), value: o.amount }))),
-      series(r, "chart-orders", "Paid orders", "count", paid.map((o) => ({ at: paidDate(o), value: 1 }))),
+      series(r, "chart-sales", "Money collected", "money", [
+        ...paid.map((o) => ({ at: paidDate(o), value: o.amount - o.creditAppliedCents })),
+        ...topUps.map((t) => ({ at: t.paidAt as Date, value: t.amountCents - t.creditAppliedCents })),
+      ]),
+      series(r, "chart-orders", "Paid packages", "count", paid.map((o) => ({ at: paidDate(o), value: 1 }))),
       series(r, "chart-students", "New students", "count", students.map((u) => ({ at: u.createdAt, value: 1 }))),
-      series(r, "chart-refunds", "Refunds", "money", refunded.map((o) => ({ at: refundDate(o), value: o.amount }))),
+      series(r, "chart-credit", "Credit issued", "money", credit.map((c) => ({ at: c.createdAt, value: c.amountCents }))),
     ],
     tables: [
       {
         key: "orders",
-        title: "Paid orders in this period",
+        title: "Paid packages in this period",
         columns: [
           { key: "paid", label: "Paid", kind: "date" },
           { key: "package", label: "Package" },
+          { key: "kind", label: "Kind" },
           { key: "student", label: "Student" },
           { key: "mentor", label: "Mentor" },
-          { key: "amount", label: "Amount", kind: "money" },
+          { key: "amount", label: "Price", kind: "money" },
+          { key: "credit", label: "Credit used", kind: "money" },
           { key: "fee", label: `Fee (${PLATFORM_FEE_PERCENT}%)`, kind: "money" },
           { key: "status", label: "Status" },
         ],
@@ -213,17 +248,31 @@ async function overview(r: Range): Promise<InsightsResult> {
           id: o.id,
           href: `/orders/${o.id}`,
           paid: paidDate(o).toISOString(),
-          package: o.gig.title,
+          package: o.packageTitle || o.gig.title,
+          kind: offerKindLabel(o.kind),
           student: o.buyer.name,
           mentor: o.seller.name,
           amount: o.amount,
+          credit: o.creditAppliedCents,
           fee: fee(o.amount),
-          status: ORDER_STATUS[o.status] || o.status,
+          status: (o.kind ? HOURS_STATUS[o.status] : null) || ORDER_STATUS[o.status] || o.status,
         })),
       },
     ],
   };
 }
+
+const fmtMoneyHint = (cents: number) => `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+
+// Hours packages (redesign Oct 2026).
+const HOURS_STATUS: Record<string, string> = {
+  IN_ESCROW: "Active",
+  COMPLETED: "Approved, waiting for payout",
+  RELEASED: "Paid to mentor",
+  REFUNDED: "Refunded as credit",
+};
+const OFFER_KIND_LABEL: Record<string, string> = { HOURLY: "Hourly", BUNDLE: "Hour bundle", SPECIALIZED: "Specialized package", PAY_PER_CALL: "Pay-per-call" };
+const offerKindLabel = (k: string | null | undefined) => (k ? OFFER_KIND_LABEL[k] || k : "Before hourly pricing");
 
 const ORDER_STATUS: Record<string, string> = {
   IN_ESCROW: "Paid, in progress",
@@ -301,7 +350,7 @@ async function mentorsTab(r: Range, sp: URLSearchParams): Promise<InsightsResult
   const [paid, refunded, released, ratings, reviewsInRange, convos, pv] = await Promise.all([
     prisma.order.findMany({ where: { AND: [paidInRange(r), sellerIn] }, select: { sellerId: true, amount: true, disputed: true }, take: BIG }),
     prisma.order.findMany({ where: { AND: [refundedInRange(r), sellerIn] }, select: { sellerId: true, amount: true }, take: BIG }),
-    prisma.order.findMany({ where: { AND: [releasedInRange(r), sellerIn] }, select: { sellerId: true, amount: true }, take: BIG }),
+    prisma.order.findMany({ where: { AND: [releasedInRange(r), sellerIn, { kind: null }] }, select: { sellerId: true, amount: true }, take: BIG }),
     prisma.review.groupBy({ by: ["sellerId"], where: sellerIn, _avg: { rating: true }, _count: { _all: true } }),
     prisma.review.groupBy({ by: ["sellerId"], where: { ...sellerIn, createdAt: inRange(r) }, _count: { _all: true } }),
     prisma.conversation.groupBy({ by: ["sellerId"], where: { ...sellerIn, createdAt: inRange(r), messages: { some: {} } }, _count: { _all: true } }),
@@ -325,6 +374,9 @@ async function mentorsTab(r: Range, sp: URLSearchParams): Promise<InsightsResult
     a.refundCount++;
   }
   for (const o of released) get(o.sellerId).earned += o.amount - fee(o.amount);
+  // Monthly payouts sent in the period (hours packages).
+  const payoutsSent = await prisma.mentorPayout.findMany({ where: { mentorId: { in: ids }, status: "PAID", paidAt: inRange(r) }, select: { mentorId: true, amountCents: true }, take: BIG });
+  for (const p of payoutsSent) get(p.mentorId).earned += p.amountCents;
   const rating = new Map(ratings.map((x) => [x.sellerId, x]));
   const revIn = new Map(reviewsInRange.map((x) => [x.sellerId, x._count._all]));
   const conv = new Map(convos.map((x) => [x.sellerId, x._count._all]));
@@ -400,8 +452,8 @@ async function breakdowns(r: Range): Promise<InsightsResult> {
     prisma.order.findMany({
       where: paidInRange(r),
       select: {
-        amount: true, turnaround: true,
-        gig: { select: { service: true, format: true, turnaround: true } },
+        amount: true, kind: true,
+        gig: { select: { service: true, format: true, kind: true } },
         seller: { select: { id: true, medicalSchool: true, schoolType: true, mentorStage: true } },
         review: { select: { rating: true } },
       },
@@ -409,19 +461,19 @@ async function breakdowns(r: Range): Promise<InsightsResult> {
     }),
     prisma.order.findMany({
       where: refundedInRange(r),
-      select: { amount: true, turnaround: true, gig: { select: { service: true, format: true, turnaround: true } }, seller: { select: { medicalSchool: true, schoolType: true, mentorStage: true } } },
+      select: { amount: true, kind: true, gig: { select: { service: true, format: true, kind: true } }, seller: { select: { medicalSchool: true, schoolType: true, mentorStage: true } } },
       take: BIG,
     }),
     prisma.user.findMany({ where: { role: "SELLER", profileStatus: { not: "REMOVED" } }, select: { id: true, medicalSchool: true, schoolType: true, mentorStage: true }, take: 5000 }),
     prisma.gig.findMany({
       where: { ...searchableGigWhere, seller: { role: "SELLER", profileStatus: { not: "REMOVED" } } },
-      select: { price: true, service: true, format: true, turnaround: true, seller: { select: { id: true, medicalSchool: true, schoolType: true, mentorStage: true } } },
+      select: { price: true, service: true, format: true, kind: true, seller: { select: { id: true, medicalSchool: true, schoolType: true, mentorStage: true } } },
       take: BIG,
     }),
   ]);
 
-  type O = { amount: number; turnaround: string | null; gig: { service: string | null; format: string | null; turnaround: string | null }; seller: { medicalSchool: string | null; schoolType: string | null; mentorStage: string | null } };
-  type G = { price: number; service: string | null; format: string | null; turnaround: string | null; seller: { id: string; medicalSchool: string | null; schoolType: string | null; mentorStage: string | null } };
+  type O = { amount: number; kind: string | null; gig: { service: string | null; format: string | null; kind: string | null }; seller: { medicalSchool: string | null; schoolType: string | null; mentorStage: string | null } };
+  type G = { price: number; service: string | null; format: string | null; kind: string | null; seller: { id: string; medicalSchool: string | null; schoolType: string | null; mentorStage: string | null } };
   type M = { id: string; medicalSchool: string | null; schoolType: string | null; mentorStage: string | null };
   const dims: { key: string; title: string; order: (o: O) => string; gig: (g: G) => string; mentor?: (m: M) => string }[] = [
     { key: "school", title: "By medical school", order: (o) => o.seller.medicalSchool || "Not set", gig: (g) => g.seller.medicalSchool || "Not set", mentor: (m) => m.medicalSchool || "Not set" },
@@ -430,7 +482,7 @@ async function breakdowns(r: Range): Promise<InsightsResult> {
     { key: "service", title: "By service", order: (o) => serviceGroupLabel(o.gig.service), gig: (g) => serviceGroupLabel(g.service) },
     { key: "format", title: "By format", order: (o) => (o.gig.format ? labelFor(FORMATS, o.gig.format) : "Not set"), gig: (g) => (g.format ? labelFor(FORMATS, g.format) : "Not set") },
     { key: "price", title: "By price band", order: (o) => priceBandOf(o.amount), gig: (g) => priceBandOf(g.price) },
-    { key: "turnaround", title: "By turnaround", order: (o) => turnaroundLabel(o.turnaround ?? o.gig.turnaround), gig: (g) => turnaroundLabel(g.turnaround) },
+    { key: "kind", title: "By offer kind", order: (o) => offerKindLabel(o.kind), gig: (g) => offerKindLabel(g.kind) },
   ];
   const totalSales = paid.reduce((s, o) => s + o.amount, 0);
 
@@ -504,7 +556,8 @@ async function activity(r: Range, now = new Date()): Promise<InsightsResult> {
     }),
     prisma.conversation.count({ where: { createdAt: inRange(r), messages: { some: {} } } }),
     prisma.callBooking.findMany({
-      where: { startTime: inRange(r), endTime: { lt: now }, status: { not: "CANCELLED" } },
+      // Calls on orders only (free intro calls have no order and aren't counted here).
+      where: { startTime: inRange(r), endTime: { lt: now }, status: { not: "CANCELLED" }, orderId: { not: null } },
       select: {
         id: true, startTime: true, roomName: true,
         attendance: { select: { userId: true } },

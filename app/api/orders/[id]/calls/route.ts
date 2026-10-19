@@ -5,13 +5,16 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseDate } from "@/lib/validate";
 import { canChangeOnline, CANCEL_CUTOFF_HOURS } from "@/lib/calls";
+import { isBlockMinutes } from "@/lib/hours";
 import { CallError, bookCall, cancelCall, orderForCallsInclude, rescheduleCall } from "@/lib/callBooking";
 
 // Calls on one order (built-in calendar):
 //   POST   { startTime }            book a call (student: an open slot; mentor: any agreed time)
 //   PATCH  { bookingId, startTime } move a call (either side, until 24h before)
 //   DELETE { bookingId }            cancel a call (either side until 24h before; admins any time)
-// Calls can only be booked on a paid order whose package includes one.
+// Calls can only be booked on a paid order whose package includes one, or
+// (hours orders, redesign Oct 2026) { startTime, minutes: 30 | 60 } that
+// fits in the hours left.
 async function load(params: { id: string }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return { error: NextResponse.json({ error: "Not authenticated" }, { status: 401 }) };
@@ -36,14 +39,18 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const { order, user, isMentor, isStudent } = ctx;
   if (!isMentor && !isStudent) return NextResponse.json({ error: "Only the student or mentor can book a call" }, { status: 403 });
   if (order.status !== "IN_ESCROW") return NextResponse.json({ error: "Calls can be booked once the order is paid and in progress" }, { status: 400 });
-  if (order.gig.callsIncluded === 0) return NextResponse.json({ error: "This package doesn't include a call" }, { status: 400 });
+  // Hours orders: any 30- or 60-minute call that fits in the hours left
+  // (checked in bookCall). Older packages: only the calls they include.
+  if (!order.kind && order.gig.callsIncluded === 0) return NextResponse.json({ error: "This package doesn't include a call" }, { status: 400 });
   if (order.disputed) return NextResponse.json({ error: "Calls can't be booked while a dispute is open" }, { status: 400 });
 
   const body = await req.json().catch(() => ({}));
   const start = parseDate(body.startTime, { maxDaysAhead: 120 });
   if (!start) return NextResponse.json({ error: "Pick a time" }, { status: 400 });
+  const minutes = Number(body.minutes);
+  if (order.kind && !isBlockMinutes(minutes)) return NextResponse.json({ error: "Pick a 30- or 60-minute call" }, { status: 400 });
   try {
-    const booking = await bookCall(order, start, { id: user.id, isMentor });
+    const booking = await bookCall(order, start, { id: user.id, isMentor }, minutes);
     return NextResponse.json({ booking });
   } catch (err) {
     return fail(err);
@@ -55,7 +62,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if ("error" in ctx) return ctx.error;
   const { order, user, isMentor, isStudent } = ctx;
   if (!isMentor && !isStudent) return NextResponse.json({ error: "Only the student or mentor can move a call" }, { status: 403 });
-  if (!["IN_ESCROW", "COMPLETED"].includes(order.status)) return NextResponse.json({ error: "This order is no longer active" }, { status: 400 });
+  if (!(order.kind ? ["IN_ESCROW"] : ["IN_ESCROW", "COMPLETED"]).includes(order.status)) return NextResponse.json({ error: "This order is no longer active" }, { status: 400 });
   if (order.disputed) return NextResponse.json({ error: "Calls can't be moved while a dispute is open" }, { status: 400 });
 
   const body = await req.json().catch(() => ({}));

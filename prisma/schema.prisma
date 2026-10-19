@@ -111,7 +111,36 @@ model User {
   // ---- Mentor-level search answers (asked once, used by every package) ----
   mentorStage String? // MS1, MS2, MS3, MS4, RESIDENT
   schoolType  String? // MD, DO, MD_PHD
+  // No longer used since the Oct 2026 redesign: "Who you're best for"
+  // (bestFor below) replaced it everywhere. Kept so old data isn't lost.
   backgrounds String[] @default([]) // REAPPLICANT, NON_TRADITIONAL, FIRST_GEN, GAP_YEARS, CAREER_CHANGER
+
+  // ---- Mentor profile sections (redesign Oct 2026, docs/redesign-2026-10.md section 2) ----
+  // A mentor is listed only once every section is filled in
+  // (lib/profileCompleteness.ts). The bio is the `bio` field above.
+  // Admissions experience: [{ type: COMMITTEE | INTERVIEWER | SCREENER, place, years, former }]
+  admissionsRoles     Json?
+  yearsAdvising       Int?
+  applicantsSupported Int? // approximate number of applicants helped
+  strongestStages     String[]  @default([]) // SCHOOL_LIST, PERSONAL_STATEMENT, ... (lib/options.ts STRONGEST_STAGES)
+  // Clinical & research
+  specialtyInterest   String?
+  researchSummary     String? // research interests and accomplishments, 3-4 sentences
+  // Who you're best for (lib/options.ts BEST_FOR), plus an optional "Other".
+  bestFor             String[]  @default([])
+  bestForOther        String?
+  highlights          String[]  @default([]) // credentials & highlights, 4-6 bullets
+  knownFor            String[]  @default([]) // exactly 3 short bullets
+  // [{ name, level: NATIVE | FLUENT | CONVERSATIONAL, canAdvise }]
+  languages           Json?
+  funFact             String?
+  // One hourly rate per mentor, in cents (min $50, whole dollars). Every
+  // offer's price is hours x rate (lib/pricing.ts).
+  hourlyRateCents     Int?
+  // Set by lib/profileCompleteness.ts whenever the profile or rate is
+  // saved: when all 10 sections were last complete. Null = incomplete,
+  // hidden from Browse and can't be bought from.
+  profileCompleteAt   DateTime?
 
   // ---- Calls & calendars ----
   // calLink / calWebhookSecret: Cal.com, no longer used since Phase 3
@@ -231,6 +260,15 @@ model User {
   leadsAssigned         Lead[]               @relation("LeadAssignee")
   applicationsAssigned  MentorApplication[]  @relation("ApplicationAssignee")
   leadNotes             LeadNote[]           @relation("LeadNoteAuthor")
+
+  // ---- Redesign Oct 2026 ----
+  introCallsAsStudent CallBooking[]  @relation("IntroCallStudent")
+  introCallsAsMentor  CallBooking[]  @relation("IntroCallMentor")
+  hourEntriesLogged   HourEntry[]    @relation("HourEntryLoggedBy")
+  hourTopUps          HourTopUp[]    @relation("HourTopUpBuyer")
+  creditEntries       CreditEntry[]  @relation("CreditOwner")
+  creditEntriesByMe   CreditEntry[]  @relation("CreditAdmin")
+  mentorPayouts       MentorPayout[] @relation("MentorPayouts")
 }
 
 // One row per "forgot password" request. Only a SHA-256 hash of the
@@ -324,12 +362,29 @@ model Gig {
   agreementVersion String?
   agreementAt      DateTime?
 
+  // ---- Offers (redesign Oct 2026, docs/redesign-2026-10.md section 3) ----
+  // HOURLY (one per mentor: 1 hour at the hourly rate; `active` is its
+  // on/off switch), BUNDLE (N hours) or SPECIALIZED (a titled package with
+  // estimated hours). Null = a package from before the redesign (priced by
+  // hand, with due dates and calls); those are no longer shown to students.
+  // For new offers, `price` is kept equal to minutes/60 x the rate
+  // (lib/pricing.ts), so browse can still filter by price band; the
+  // turnaround / callsIncluded / callLength / duration columns are unused.
+  kind      String?
+  minutes   Int? // hours in the offer (bundle) or estimated hours (package), in minutes
+  rateCents Int? // its own per-hour rate; null = the mentor's hourly rate
+  // Optional cover photo (public-media), with its focus point saved on the
+  // address like Admin -> Website photos (lib/imageFocus.ts).
+  coverUrl  String?
+  sortOrder Int     @default(0)
+
   seller   User   @relation("SellerGigs", fields: [sellerId], references: [id])
   sellerId String
 
   orders Order[]
 
   @@index([sellerId, active])
+  @@index([sellerId, kind, active])
   @@index([active, category, createdAt])
   @@index([active, service])
 }
@@ -409,7 +464,7 @@ model Order {
 
   // ---- Dispute outcome, for the admin's Resolved list ----
   disputeResolvedAt DateTime?
-  disputeResolution String? // REFUNDED or RELEASED
+  disputeResolution String? // REFUNDED, RELEASED, or CREDIT (refunded as MentorsMD credit, hours packages)
 
   // The package's turnaround when the order was placed. Changing a
   // package's turnaround only affects new orders.
@@ -421,6 +476,53 @@ model Order {
   paidAt     DateTime?
   refundedAt DateTime?
 
+  // ---- Hours (redesign Oct 2026, docs/redesign-2026-10.md sections 4-7) ----
+  // Orders made after the redesign have a kind; for them dueDate, turnaround,
+  // scheduledCallTime, revisionRequested/revisionNote, reminderLastSentAt,
+  // the call hold/forfeit columns and workCompletedAt are unused.
+  // kind: HOURLY | BUNDLE | SPECIALIZED | PAY_PER_CALL. A pay-per-call
+  // order points at the mentor's HOURLY offer (gigId is required).
+  kind               String?
+  // Hours bought, in minutes, including paid top-ups (HourTopUp adds to it).
+  minutesPurchased   Int           @default(0)
+  // The per-hour rate this order paid, in cents. Top-ups use the same
+  // rate; changing an offer's rate never changes an existing order.
+  rateCents          Int?
+  format             String? // WRITTEN, LIVE or WRITTEN_CALL, copied from the offer
+  // What was bought, copied at checkout (offers can change later).
+  packageTitle       String?
+  packageDescription String?
+  // MentorsMD credit spent on this order at checkout, in cents (the rest
+  // was charged by Stripe; `amount` is the full price).
+  creditAppliedCents Int           @default(0)
+  // Finishing (section 5): the mentor clicks "Mark work complete"; the
+  // student has until responseDeadline (48 hours) to approve, ask for one
+  // last call / one last revision (once each), or open a dispute.
+  markedCompleteAt   DateTime?
+  responseDeadline   DateTime?
+  lastCallUsedAt     DateTime?
+  lastRevisionUsedAt DateTime?
+  lastRequestNote    String?
+  approvedAt         DateTime?
+  autoApproved       Boolean       @default(false)
+  // "1 hour left" reminder sent to the student (once per order).
+  lowHoursEmailAt    DateTime?
+  // Pay-per-call orders: the call time the student picked before paying.
+  // Booked when the payment clears; left set (with no call booked) when
+  // that time was taken meanwhile, so the order page asks them to pick
+  // another time.
+  requestedCallStart DateTime?
+  // Unused hours are paid to the mentor once the order is approved: how
+  // many minutes that was, and the monthly payout that paid them.
+  unusedMinutesPaid  Int?
+  payout             MentorPayout? @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+  payoutId           String?
+
+  hourEntries   HourEntry[]
+  topUps        HourTopUp[]
+  messages      Message[]
+  creditEntries CreditEntry[]
+
   // Postgres doesn't index foreign keys automatically. Without these,
   // every "my orders" page and every cron run scans the whole table.
   @@index([buyerId, createdAt])
@@ -430,6 +532,119 @@ model Order {
   @@index([disputed, status])
   @@index([gigId])
   @@index([conversationId])
+  @@index([status, responseDeadline])
+  @@index([payoutId])
+}
+
+// ---------------- Hours (redesign Oct 2026) ----------------
+
+// The hours log of one order (docs/redesign-2026-10.md section 4): each
+// call held (added automatically, using the booked length) or block of
+// written work the mentor logged, 30 or 60 minutes. Paid to the mentor in
+// the monthly payout (payoutId) once logged.
+model HourEntry {
+  id        String    @id @default(cuid())
+  type      String // CALL | WRITTEN
+  minutes   Int // 30 or 60
+  workDate  DateTime // the day the work was done / the call started
+  note      String?
+  // Optional file with written work: private storage path (lib/storage.ts).
+  fileUrl   String?
+  fileName  String?
+  createdAt DateTime  @default(now())
+  // Taken back by an admin (e.g. after a dispute). Voided entries don't
+  // count as used and aren't paid.
+  voidedAt  DateTime?
+
+  order         Order         @relation(fields: [orderId], references: [id])
+  orderId       String
+  loggedBy      User?         @relation("HourEntryLoggedBy", fields: [loggedById], references: [id], onDelete: SetNull)
+  loggedById    String? // null = added automatically (a call that was held)
+  // The call this entry is for (CALL entries); one entry per call.
+  callBooking   CallBooking?  @relation(fields: [callBookingId], references: [id])
+  callBookingId String?       @unique
+  payout        MentorPayout? @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+  payoutId      String?
+
+  @@index([orderId, workDate])
+  @@index([payoutId])
+  @@index([createdAt])
+}
+
+// "Add hours" to an active order (section 4): 1, 2, 3 or 5 hours at the
+// order's own per-hour rate. PENDING until Stripe confirms the payment;
+// then the minutes are added to Order.minutesPurchased.
+model HourTopUp {
+  id                    String    @id @default(cuid())
+  minutes               Int
+  rateCents             Int
+  amountCents           Int // full price; creditAppliedCents of it paid with credit
+  creditAppliedCents    Int       @default(0)
+  status                String    @default("PENDING") // PENDING | PAID | CANCELLED
+  stripeSessionId       String?   @unique
+  stripePaymentIntentId String?
+  createdAt             DateTime  @default(now())
+  paidAt                DateTime?
+
+  order   Order  @relation(fields: [orderId], references: [id])
+  orderId String
+  buyer   User   @relation("HourTopUpBuyer", fields: [buyerId], references: [id])
+  buyerId String
+
+  @@index([orderId, createdAt])
+  @@index([buyerId, createdAt])
+}
+
+// MentorsMD credit (section 6): one row per change to a student's
+// balance, in cents (+ issued, - spent). Balance = sum of amountCents.
+// Credit never expires and can be spent with any mentor.
+model CreditEntry {
+  id          String   @id @default(cuid())
+  amountCents Int
+  // DISPUTE_REFUND | ADMIN_ADJUST | SPENT | SPENT_REVERSED
+  reason      String
+  note        String?
+  createdAt   DateTime @default(now())
+
+  user    User    @relation("CreditOwner", fields: [userId], references: [id])
+  userId  String
+  order   Order?  @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  orderId String?
+  topUpId String? // a top-up the credit was spent on
+  admin   User?   @relation("CreditAdmin", fields: [adminId], references: [id], onDelete: SetNull)
+  adminId String? // the admin who issued/adjusted it; null = automatic
+
+  @@index([userId, createdAt])
+  @@index([orderId])
+}
+
+// One Stripe transfer per mentor per month (section 7), made on the 24th:
+// everything not yet paid (hours logged or held up to then, plus the
+// unused hours of orders approved by then). period = "YYYY-MM", so a run
+// can't pay the same mentor twice in a month.
+model MentorPayout {
+  id               String    @id @default(cuid())
+  period           String
+  cutoffAt         DateTime // entries and approvals up to this moment are included
+  amountCents      Int // what the mentor receives (70%)
+  grossCents       Int       @default(0) // what students paid for those hours
+  minutes          Int       @default(0)
+  entryCount       Int       @default(0)
+  status           String    @default("PENDING") // PROCESSING (claimed, transfer being sent) | PAID | FAILED (see error; Retry in Admin)
+  stripeTransferId String?
+  error            String?
+  createdAt        DateTime  @default(now())
+  paidAt           DateTime?
+
+  mentor   User   @relation("MentorPayouts", fields: [mentorId], references: [id])
+  mentorId String
+
+  hourEntries HourEntry[]
+  orders      Order[]
+
+  @@unique([mentorId, period])
+  @@index([period, status])
+  @@index([status, createdAt])
 }
 
 // One row each time the mentor marks the work complete. A revision
@@ -508,13 +723,29 @@ model CallBooking {
   outcomeAt                DateTime?
   outcomeById              String?
 
-  order   Order  @relation(fields: [orderId], references: [id])
-  orderId String
+  // ORDER = a call on an order (uses its hours); INTRO = the free
+  // 15-minute intro call (redesign Oct 2026): no order, no payment, never
+  // counts as hours, one per student and mentor (introKey).
+  kind      String  @default("ORDER")
+  order     Order?  @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  orderId   String?
+  // Who the call is between. Always set for INTRO calls (there's no
+  // order to read them from); new ORDER calls set them too.
+  student   User?   @relation("IntroCallStudent", fields: [studentId], references: [id])
+  studentId String?
+  mentor    User?   @relation("IntroCallMentor", fields: [mentorId], references: [id])
+  mentorId  String?
+  // "<studentId>:<mentorId>" on an INTRO call while it counts (cleared
+  // when it's cancelled, so they can book again). Unique: one per pair.
+  introKey  String? @unique
 
   attendance CallAttendance[]
   recordings CallRecording[]
+  hourEntry  HourEntry?
 
   @@index([orderId, startTime])
+  @@index([mentorId, status, startTime])
+  @@index([studentId, status, startTime])
   @@index([status, startTime])
   @@index([roomName])
 }
@@ -628,9 +859,14 @@ model Message {
   conversationId String
   sender         User         @relation(fields: [senderId], references: [id])
   senderId       String
+  // The order (package) this message and its attachment belong to; null =
+  // a general message, e.g. before anything was bought (redesign Oct 2026).
+  order          Order?       @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  orderId        String?
 
   @@index([conversationId, createdAt])
   @@index([conversationId, senderId])
+  @@index([orderId, createdAt])
 }
 
 // Someone applying to mentor via /become-a-mentor/apply. An admin reviews

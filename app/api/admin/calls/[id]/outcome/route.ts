@@ -25,6 +25,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const booking = await bookingForOutcome(params.id);
   if (!booking) return NextResponse.json({ error: "Call not found" }, { status: 404 });
+  // Free intro calls have no order (their outcome is set automatically).
+  if (!booking.order) return NextResponse.json({ error: "Intro calls can't be changed here" }, { status: 400 });
   if (booking.status === "CANCELLED") return NextResponse.json({ error: "This call was cancelled" }, { status: 400 });
   if (booking.endTime.getTime() > Date.now()) return NextResponse.json({ error: "This call hasn't ended yet" }, { status: 400 });
   if (booking.outcome === outcome) return NextResponse.json({ ok: true, outcome });

@@ -11,9 +11,9 @@ import { browserTimeZone } from "@/lib/tz";
 // activity log. Every table and chart downloads as CSV (#84).
 
 const TABS = [
-  { key: "overview", label: "Overview", lede: "Sales, fees, payouts, refunds and new accounts." },
+  { key: "overview", label: "Overview", lede: "Money collected (packages and added hours, net of credit), credit issued, fees, monthly payouts, refunds and new accounts." },
   { key: "mentors", label: "Mentor leaderboard", lede: "Every mentor side by side. Click a column to sort." },
-  { key: "breakdowns", label: "Breakdowns", lede: "Sales and supply by school, MD/DO, stage, service, format, price and turnaround." },
+  { key: "breakdowns", label: "Breakdowns", lede: "Sales and supply by school, MD/DO, stage, service, format, price and offer kind (hourly, bundle, specialized, pay-per-call)." },
   { key: "activity", label: "Activity", lede: "Who is using the site, messages, calls, no-shows and quiet mentors." },
   { key: "funnel", label: "Funnel", lede: "From first visit to approved work, site-wide and for each mentor." },
   { key: "demand", label: "Student demand", lede: "What students search and filter for, and what they don't find." },

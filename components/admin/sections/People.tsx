@@ -6,7 +6,9 @@ import { useSearchParams } from "next/navigation";
 import { PeopleTabs } from "@/components/admin/AdminTabs";
 import { statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { SEVERITY, kindLabel } from "@/components/admin/Flags";
-import { BACKGROUNDS, SCHOOL_TYPES, STAGES, labelFor, money } from "@/lib/options";
+import { BEST_FOR, SCHOOL_TYPES, STAGES, labelFor, money } from "@/lib/options";
+import { CREDIT_REASON_LABEL } from "@/lib/hours";
+import { useAdminCan } from "@/components/admin/AdminShell";
 
 // Admin -> People: mentors and students, with pause / remove / restore,
 // health badges and the "View" panel.
@@ -150,10 +152,23 @@ function PersonDetail({ id }: { id: string }) {
             {u.credential && <span><b>Credential:</b> {u.credential}</span>}
             {u.mentorStage && <span className="badge">{labelFor(STAGES, u.mentorStage)}</span>}
             {u.schoolType && <span className="badge">{labelFor(SCHOOL_TYPES, u.schoolType)}</span>}
-            {(u.backgrounds || []).map((b: string) => <span key={b} className="badge">{labelFor(BACKGROUNDS, b)}</span>)}
+            {(u.bestFor || []).map((b: string) => <span key={b} className="badge">{labelFor(BEST_FOR, b)}</span>)}
+            {u.hourlyRateCents ? <span><b>Rate:</b> {money(u.hourlyRateCents)}/hr</span> : <span className="text-muted">No hourly rate</span>}
             {d.rating?.count > 0 && <span>★ {d.rating.avg?.toFixed(1)} ({d.rating.count})</span>}
             <span>{u.hasAvailability ? "Call hours set" : "No call hours"}{u.timeZone ? ` · ${u.timeZone}` : ""}{u.externalCalConnected ? " · Own calendar connected" : ""}</span>
           </div>
+          {u.progress && (
+            <div className="small">
+              <b>Profile: {u.progress.done} of {u.progress.total} sections</b>{" "}
+              {u.progress.complete ? (
+                <span className="badge badge-success">Listed</span>
+              ) : (
+                <span className="text-secondary">
+                  (hidden from Browse until finished; missing: {u.progress.sections.filter((x: any) => !x.done).map((x: any) => x.label).join(", ")})
+                </span>
+              )}
+            </div>
+          )}
           {u.bio && <p className="text-secondary small" style={{ whiteSpace: "pre-wrap" }}>{u.bio}</p>}
           <div className="row-wrap small">
             {u.gigs.map((g: any) => <span key={g.id} className="badge badge-brand">{g.title} · {money(g.price)}</span>)}
@@ -175,16 +190,87 @@ function PersonDetail({ id }: { id: string }) {
           </div>
         </details>
       )}
-      <b className="small" style={{ marginTop: 6 }}>Recent orders</b>
-      {d.orders.length === 0 && <span className="text-muted">No orders.</span>}
+      {u.role === "BUYER" && <StudentCredit userId={u.id} />}
+      <b className="small" style={{ marginTop: 6 }}>Recent packages</b>
+      {d.orders.length === 0 && <span className="text-muted">No packages.</span>}
       {d.orders.map((o: any) => (
         <Link key={o.id} href={`/orders/${o.id}`} className="between small" style={{ gap: 10 }}>
-          <span className="grow">{o.gig.title} · {isMentor ? o.buyer.name : o.seller.name}</span>
+          <span className="grow">{o.packageTitle || o.gig.title} · {isMentor ? o.buyer.name : o.seller.name}</span>
           <span>{money(o.amount)}</span>
           {statusBadge(o)}
         </Link>
       ))}
     </div>
+  );
+}
+
+// A student's MentorsMD credit: balance, history, and (Orders permission)
+// a manual adjustment with a required reason (saved in the action log).
+function StudentCredit({ userId }: { userId: string }) {
+  const canAdjust = useAdminCan("orders");
+  const [data, setData] = useState<{ balanceCents: number; entries: any[] } | null>(null);
+  const [amount, setAmount] = useState("");
+  const [sign, setSign] = useState<1 | -1>(1);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    fetch(`/api/admin/users/${userId}/credit`).then((r) => r.json()).then(setData).catch(() => setData({ balanceCents: 0, entries: [] }));
+  }, [userId]);
+
+  async function save() {
+    setError("");
+    const cents = Math.round(Number(amount) * 100);
+    if (!Number.isFinite(cents) || cents <= 0) return setError("Enter an amount.");
+    if (!reason.trim()) return setError("Say why (it's saved in the action log).");
+    if (!confirm(`${sign > 0 ? "Add" : "Remove"} ${money(cents)} of credit ${sign > 0 ? "to" : "from"} this student?`)) return;
+    setBusy(true);
+    const res = await fetch(`/api/admin/users/${userId}/credit`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amountCents: sign * cents, reason }) });
+    const d = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) return setError(d.error || "That didn't work");
+    setData({ balanceCents: d.balanceCents, entries: d.entries || [] });
+    setAmount("");
+    setReason("");
+  }
+
+  return (
+    <details className="collapse">
+      <summary><span className="row" style={{ gap: 8 }}>MentorsMD credit <span className="tab-count">{data ? money(data.balanceCents) : "…"}</span></span></summary>
+      <div className="collapse-body" style={{ gap: 8 }}>
+        {data && data.entries.length === 0 && <span className="text-muted small">No credit history.</span>}
+        {(data?.entries || []).map((e: any) => (
+          <div key={e.id} className="list-row small" style={{ flexWrap: "wrap" }}>
+            <span className="text-muted nowrap">{fmtDay(e.createdAt)}</span>
+            <span className="grow">
+              {CREDIT_REASON_LABEL[e.reason] || e.reason}
+              {e.packageTitle ? ` · ${e.packageTitle}` : ""}
+              {e.note ? ` · ${e.note}` : ""}
+              {e.adminName ? ` · by ${e.adminName}` : ""}
+            </span>
+            <b style={{ color: e.amountCents < 0 ? "var(--danger)" : undefined }}>{e.amountCents < 0 ? "−" : "+"}{money(Math.abs(e.amountCents))}</b>
+          </div>
+        ))}
+        {canAdjust ? (
+          <div className="stack-sm" style={{ paddingTop: 6 }}>
+            <b className="small">Adjust credit</b>
+            <div className="row-wrap">
+              <select className="input" style={{ marginBottom: 0, width: "auto" }} value={sign} onChange={(e) => setSign(Number(e.target.value) as 1 | -1)} aria-label="Add or remove">
+                <option value={1}>Add</option>
+                <option value={-1}>Remove</option>
+              </select>
+              <input className="input" inputMode="decimal" placeholder="Amount, e.g. 25" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))} style={{ marginBottom: 0, maxWidth: 140 }} />
+              <input className="input grow" placeholder="Reason (required, for the action log)" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} style={{ marginBottom: 0, minWidth: 200 }} />
+              <button className="btn btn-sm" disabled={busy} onClick={save}>Save</button>
+            </div>
+            <span className="text-muted small">Added credit emails the student (without the reason). Credit never expires and works with any mentor.</span>
+            {error && <div role="alert" className="alert alert-danger small">{error}</div>}
+          </div>
+        ) : (
+          <span className="text-muted small">Changing credit needs the Orders permission.</span>
+        )}
+      </div>
+    </details>
   );
 }
 

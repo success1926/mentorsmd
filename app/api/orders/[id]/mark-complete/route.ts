@@ -30,6 +30,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (order.sellerId !== (session.user as any).id) {
     return NextResponse.json({ error: "Only the mentor on this order can mark it complete" }, { status: 403 });
   }
+  // Hours packages finish through /api/orders/[id]/finish (no deliveries,
+  // no included calls, 48 hours to respond).
+  if (order.kind) return NextResponse.json({ error: "Use Mark work complete on the package page" }, { status: 400 });
   if (order.status !== "IN_ESCROW") {
     return NextResponse.json({ error: `Order isn't awaiting completion (currently ${order.status})` }, { status: 400 });
   }

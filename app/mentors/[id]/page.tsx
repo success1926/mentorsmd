@@ -2,8 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { bookableGigWhere, isMentorVisible } from "@/lib/mentor";
-import { ProfileClient } from "./ProfileClient";
+import { isMentorListed, isMentorVisible } from "@/lib/mentor";
+import { offersFor } from "@/lib/offers";
+import { offerPrice, offerMinutes, offerRate } from "@/lib/pricing";
+import { languagesOf, rolesOf } from "@/lib/profileCompleteness";
+import { ProfileClient, type PublicOffer } from "./ProfileClient";
 
 export const dynamic = "force-dynamic";
 
@@ -23,19 +26,26 @@ export default async function MentorProfilePage({ params }: { params: { id: stri
       mentorStage: true,
       schoolType: true,
       medicalSchool: true,
-      backgrounds: true,
       profileStatus: true,
       pausedUntil: true,
       awayNote: true,
       acceptsMinors: true,
-      gigs: {
-        where: bookableGigWhere,
-        orderBy: { price: "asc" },
-        select: {
-          id: true, title: true, description: true, price: true, duration: true,
-          service: true, serviceOther: true, format: true, turnaround: true, callsIncluded: true, callLength: true,
-        },
-      },
+      safetyHoldAt: true,
+      profileCompleteAt: true,
+      // Profile sections (redesign Oct 2026)
+      admissionsRoles: true,
+      yearsAdvising: true,
+      applicantsSupported: true,
+      strongestStages: true,
+      specialtyInterest: true,
+      researchSummary: true,
+      bestFor: true,
+      bestForOther: true,
+      highlights: true,
+      knownFor: true,
+      languages: true,
+      funFact: true,
+      hourlyRateCents: true,
     },
   });
 
@@ -47,12 +57,19 @@ export default async function MentorProfilePage({ params }: { params: { id: stri
   // Removed profiles are gone for everyone except admins and the mentor themselves.
   if (seller.profileStatus === "REMOVED" && viewerRole !== "ADMIN" && viewerId !== seller.id) notFound();
 
-  const reviews = await prisma.review.findMany({
-    where: { sellerId: params.id },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-    select: { id: true, rating: true, comment: true, createdAt: true, buyer: { select: { name: true } } },
-  });
+  const [offers, reviews] = await Promise.all([
+    offersFor(seller.id, { onlyBookable: true }),
+    prisma.review.findMany({
+      where: { sellerId: params.id },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: {
+        id: true, rating: true, comment: true, createdAt: true,
+        buyer: { select: { name: true } },
+        order: { select: { packageTitle: true, gig: { select: { title: true } } } },
+      },
+    }),
+  ]);
 
   // A student under 18 looking at a mentor who works with 18+ only.
   const viewerIsMinor =
@@ -60,17 +77,41 @@ export default async function MentorProfilePage({ params }: { params: { id: stri
       ? !!(await prisma.user.findUnique({ where: { id: viewerId }, select: { minorStatus: true } }))?.minorStatus
       : false;
 
-  const { role, profileStatus, pausedUntil, acceptsMinors, ...publicSeller } = seller;
+  const rate = seller.hourlyRateCents;
+  const toOffer = (g: (typeof offers.packages)[number]): PublicOffer => ({
+    id: g.id,
+    kind: g.kind as PublicOffer["kind"],
+    title: g.title,
+    description: g.description,
+    minutes: offerMinutes(g),
+    rateCents: offerRate(g, rate) ?? 0,
+    price: offerPrice(g, rate) ?? g.price,
+    format: g.format,
+    service: g.service,
+    serviceOther: g.serviceOther,
+    coverUrl: g.coverUrl,
+  });
+
+  const { role, profileStatus, pausedUntil, acceptsMinors, safetyHoldAt, profileCompleteAt, admissionsRoles, languages, ...publicSeller } = seller;
   const available = isMentorVisible({ profileStatus, pausedUntil });
+  const listed = isMentorListed({ profileStatus, pausedUntil, safetyHoldAt, profileCompleteAt });
 
   return (
     <ProfileClient
       seller={{
         ...publicSeller,
+        admissionsRoles: rolesOf(admissionsRoles),
+        languages: languagesOf(languages),
         available,
+        listed,
         status: profileStatus,
         pausedUntil: pausedUntil ? pausedUntil.toISOString() : null,
         adultsOnlyForViewer: viewerIsMinor,
+      }}
+      offers={{
+        hourly: offers.hourly ? toOffer(offers.hourly) : null,
+        bundles: offers.bundles.map(toOffer),
+        packages: offers.packages.map(toOffer),
       }}
       reviews={reviews.map((r) => ({
         id: r.id,
@@ -79,6 +120,8 @@ export default async function MentorProfilePage({ params }: { params: { id: stri
         createdAt: r.createdAt.toISOString(),
         // first name + last initial only
         author: r.buyer.name.split(" ")[0] + (r.buyer.name.split(" ")[1] ? ` ${r.buyer.name.split(" ")[1][0]}.` : ""),
+        // which package was bought
+        bought: r.order.packageTitle || r.order.gig.title,
       }))}
     />
   );

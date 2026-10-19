@@ -10,6 +10,20 @@ import { OrderCalls } from "@/components/Calls";
 import { Icon, ICONS, MinorBadge, StaffBadge, Vetted, statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { ConfirmEmailNotice, IntegrityBanner, MessageText, ReportDialog, SendWarnings, setBlocked, type SendWarning } from "@/components/Safety";
 import { money } from "@/lib/options";
+import { BookCallModal, HoursBar, PackageBadge, SharedFiles } from "@/components/Packages";
+import { hoursSummary, shortHours } from "@/lib/hours";
+
+// The line under a name in the list (redesign Oct 2026): the package and
+// its hours left, a booked intro call, or "Waiting for a reply".
+function contextLine(c: any, userId: string, role: string): { text: string; muted: boolean } | null {
+  const pkg = c.context?.package;
+  if (pkg) return { text: `${pkg.title} · ${shortHours(pkg.minutesLeft)} left${pkg.count > 1 ? ` (+${pkg.count - 1} more)` : ""}`, muted: false };
+  const intro = c.context?.introCallAt;
+  if (intro) return { text: `No package yet · intro call booked ${new Date(intro).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}`, muted: false };
+  const last = c.messages?.[0];
+  if (last && last.senderId === userId) return { text: "Waiting for a reply", muted: true };
+  return null;
+}
 
 function PersonAvatar({ person, size = 44 }: { person: any; size?: number }) {
   if (!person) return null;
@@ -36,7 +50,9 @@ function when(d: string) {
 export function Inbox({ selectedId }: { selectedId?: string }) {
   const { data: session } = useSession();
   const role = (session?.user as any)?.role;
+  const userId = (session?.user as any)?.id;
   const [conversations, setConversations] = useState<any[] | null>(null);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     const load = () =>
@@ -64,6 +80,11 @@ export function Inbox({ selectedId }: { selectedId?: string }) {
       <h1 className="page-title" style={{ fontSize: 40, marginBottom: 20 }}>Messages</h1>
       <div className={`inbox ${selectedId ? "" : "inbox-2"}`}>
         <div className={`inbox-list ph-no-capture ${selectedId ? "has-thread" : ""}`}>
+          {(conversations?.length || 0) > 0 && (
+            <div className="inbox-search">
+              <input className="input" type="search" placeholder={role === "SELLER" ? "Search students" : "Search mentors"} value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search conversations" />
+            </div>
+          )}
           {conversations === null && <p className="text-muted" style={{ padding: 20 }}>Loading…</p>}
           {conversations?.length === 0 && (
             <div style={{ padding: 24 }} className="stack-sm">
@@ -78,15 +99,23 @@ export function Inbox({ selectedId }: { selectedId?: string }) {
               )}
             </div>
           )}
-          {conversations?.map((c) => {
+          {conversations
+            ?.filter((c) => {
+              const q = search.trim().toLowerCase();
+              if (!q) return true;
+              const other = role === "SELLER" ? c.buyer : c.seller;
+              return [other?.name, c.context?.package?.title, c.messages?.[0]?.body].some((v) => (v || "").toLowerCase().includes(q));
+            })
+            .map((c) => {
             const other = role === "SELLER" ? c.buyer : c.seller;
             const last = c.messages?.[0];
+            const ctx = contextLine(c, userId, role);
             // The open conversation is being read right now.
             const unread = c.id !== selectedId ? (role === "SELLER" ? c.sellerUnread : c.buyerUnread) || 0 : 0;
             return (
               <Link key={c.id} href={`/messages/${c.id}`} className={`inbox-item ${unread ? "unread" : ""}`} aria-current={c.id === selectedId ? "true" : undefined}>
                 <PersonAvatar person={other} />
-                <div className="grow stack-sm" style={{ gap: 2 }}>
+                <div className="grow stack-sm" style={{ gap: 2, minWidth: 0 }}>
                   <div className="between">
                     <span className="row" style={{ gap: 6, minWidth: 0 }}>
                       <b className="nowrap" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{other?.name}</b>
@@ -94,6 +123,7 @@ export function Inbox({ selectedId }: { selectedId?: string }) {
                     </span>
                     {last && <span className="text-muted nowrap">{when(last.createdAt)}</span>}
                   </div>
+                  {ctx && <span className={`context-line ${ctx.muted ? "muted" : ""}`}>{ctx.text}</span>}
                   <div className="row" style={{ gap: 8 }}>
                     <span className="text-muted last-line grow" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
                       {last ? (last.body || "Attachment") : "No messages yet"}
@@ -137,6 +167,7 @@ function Thread({ conversationId }: { conversationId: string }) {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const [showSide, setShowSide] = useState(false);
+  const [bookOpen, setBookOpen] = useState(false);
   // Safety: warnings to confirm, "confirm your email", report / block.
   const [warnings, setWarnings] = useState<SendWarning[] | null>(null);
   const [needsEmail, setNeedsEmail] = useState(false);
@@ -242,8 +273,11 @@ function Thread({ conversationId }: { conversationId: string }) {
             </div>
             {role !== "SELLER" && convo.seller.credential && <span className="text-muted">{convo.seller.credential}</span>}
           </div>
+          {isBuyer && (
+            <button className="btn btn-sm btn-primary" onClick={() => setBookOpen(true)}>Book a call</button>
+          )}
           <button className="btn btn-sm" onClick={() => setShowSide((s) => !s)} aria-expanded={showSide}>
-            Orders{activeOrders.length ? ` (${activeOrders.length})` : ""}
+            Package · files{activeOrders.length ? ` (${activeOrders.length})` : ""}
           </button>
           <div className="menu-wrap">
             <button className="btn btn-sm btn-ghost" aria-label="Report or block" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>⋯</button>
@@ -278,7 +312,7 @@ function Thread({ conversationId }: { conversationId: string }) {
         >
           {messages.length === 0 && (
             <p className="text-muted" style={{ textAlign: "center", margin: "auto" }}>
-              {isBuyer ? "Say hello. Booking unlocks once your mentor replies." : "No messages yet."}
+              {isBuyer ? "Say hello. Buying unlocks once your mentor replies, or after your free intro call." : "No messages yet."}
             </p>
           )}
           {messages.map((m: any) => (
@@ -346,6 +380,9 @@ function Thread({ conversationId }: { conversationId: string }) {
         </div>
         )}
       </div>
+      {isBuyer && other && (
+        <BookCallModal open={bookOpen} onClose={() => setBookOpen(false)} mentorId={convo.sellerId} mentorName={other.name} onBooked={loadCtx} />
+      )}
       {report && other && (
         <ReportDialog
           open
@@ -366,8 +403,23 @@ function Thread({ conversationId }: { conversationId: string }) {
           )}
         </div>
 
-        {activeOrders.length > 0 && <b>Active orders</b>}
-        {activeOrders.map((o) => (
+        {activeOrders.length > 0 && <b>Active packages</b>}
+        {activeOrders.filter((o) => o.kind).map((o) => {
+          const h = hoursSummary(o);
+          return (
+            <div key={o.id} className="card stack-sm" style={{ padding: 16 }}>
+              <div className="between" style={{ alignItems: "flex-start", gap: 8 }}>
+                <b style={{ fontSize: 15 }}>{o.packageTitle || o.gig.title}</b>
+                <PackageBadge order={o} />
+              </div>
+              <HoursBar order={o} thin />
+              <span className="text-muted small">{shortHours(h.left)} left of {shortHours(h.purchased)} · {h.callsHeld} call{h.callsHeld === 1 ? "" : "s"} held</span>
+              {h.upcoming[0] && <Link href={`/calls/${h.upcoming[0].id}`} className="link small">Next call {new Date(h.upcoming[0].startTime).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</Link>}
+              <Link href={`/orders/${o.id}`} className="btn btn-sm">Open package</Link>
+            </div>
+          );
+        })}
+        {activeOrders.filter((o) => !o.kind).map((o) => (
           <div key={o.id} className="card stack-sm" style={{ padding: 16 }}>
             <div className="between" style={{ alignItems: "flex-start" }}>
               <b style={{ fontSize: 15 }}>{o.gig.title}</b>
@@ -379,6 +431,9 @@ function Thread({ conversationId }: { conversationId: string }) {
           </div>
         ))}
 
+        <b style={{ marginTop: 6 }}>Files</b>
+        <SharedFiles files={messages.filter((m: any) => m.attachmentUrl).reverse()} viewerId={userId} />
+
         {isBuyer && gigs.length > 0 && (
           <>
             <b style={{ marginTop: 6 }}>{convo.seller.name.split(" ")[0]}&apos;s packages</b>
@@ -389,9 +444,9 @@ function Thread({ conversationId }: { conversationId: string }) {
                   <b style={{ fontSize: 15 }}>{g.title}</b>
                   <b>{money(g.price)}</b>
                 </div>
-                {g.callsIncluded > 0 && <span className="text-muted">Includes {g.callsIncluded} × {g.callLength} min call</span>}
-                <button disabled={!bookable} onClick={() => router.push(`/gigs/${g.id}/checkout`)} className="btn btn-primary btn-sm">
-                  Book
+                {/* Bought from the mentor's profile (a pop-up there) since the hourly redesign. */}
+                <button onClick={() => router.push(`/mentors/${convo.sellerId}?package=${g.id}`)} className="btn btn-primary btn-sm">
+                  Details
                 </button>
               </div>
             ))}
@@ -404,8 +459,8 @@ function Thread({ conversationId }: { conversationId: string }) {
             <div className="collapse-body" style={{ padding: "0 16px 14px" }}>
               {pastOrders.map((o) => (
                 <Link key={o.id} href={`/orders/${o.id}`} className="between small">
-                  <span>{o.gig.title}</span>
-                  {statusBadge(o)}
+                  <span>{o.packageTitle || o.gig.title}</span>
+                  {o.kind ? <PackageBadge order={o} /> : statusBadge(o)}
                 </Link>
               ))}
             </div>

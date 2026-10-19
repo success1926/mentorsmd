@@ -10,7 +10,7 @@ import { ENV_TAG, NOT_SET_UP, SUPABASE_URL, supabaseAdmin } from "@/lib/supabase
 //    Nobody can read these directly. The database stores the file's PATH,
 //    and a download goes through one of our routes, which checks who is
 //    asking and then sends them to a link that works for 5 minutes.
-//  - public-media: mentor profile photos and Admin -> Website photos.
+//  - public-media: mentor profile photos, package cover photos and Admin -> Website photos.
 //    Anyone can view these; the database stores the full public address.
 //
 // Uploads never go through our server (Vercel caps requests at 4.5MB):
@@ -26,7 +26,7 @@ export const PUBLIC_BUCKET = "public-media";
 
 type Bucket = typeof PRIVATE_BUCKET | typeof PUBLIC_BUCKET;
 // Folders inside the buckets. Each path is <live|preview>/<folder>/...
-export type Folder = "attachments" | "applications" | "avatars" | "site";
+export type Folder = "attachments" | "applications" | "avatars" | "site" | "covers"; // covers: package cover photos (public-media)
 
 export const isLegacyUrl = (v: unknown): boolean => typeof v === "string" && /^https?:\/\//i.test(v);
 

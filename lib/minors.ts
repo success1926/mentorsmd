@@ -209,8 +209,9 @@ export async function withdrawConsent(viewToken: string) {
   return { ok: true };
 }
 
-// The parent's receipt for a newly paid order (#109).
-export async function sendParentReceipt(orderId: string) {
+// The parent's receipt for a newly paid order (#109), or for hours added
+// to one (topUpId; redesign Oct 2026).
+export async function sendParentReceipt(orderId: string, topUpId?: string) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: { buyer: { select: { id: true, name: true, minorStatus: true } }, seller: { select: { name: true } }, gig: { select: { title: true } } },
@@ -218,11 +219,18 @@ export async function sendParentReceipt(orderId: string) {
   if (!order || order.buyer.minorStatus !== "CONSENTED") return;
   const consent = await prisma.parentConsent.findFirst({ where: { userId: order.buyer.id, status: "CONSENTED", viewToken: { not: null } }, orderBy: { consentedAt: "desc" } });
   if (!consent?.viewToken) return;
+  const topUp = topUpId ? await prisma.hourTopUp.findUnique({ where: { id: topUpId }, select: { amountCents: true } }) : null;
   await sendParentReceiptEmail(
     consent.parentEmail,
     consent.parentName,
     order.buyer.name,
-    { gigTitle: order.gig.title, mentorName: order.seller.name, amountCents: order.amount, paidAt: new Date(), dueDate: order.dueDate },
+    {
+      gigTitle: (topUp ? "Hours added: " : "") + (order.packageTitle || order.gig.title),
+      mentorName: order.seller.name,
+      amountCents: topUp ? topUp.amountCents : order.amount,
+      paidAt: new Date(),
+      dueDate: order.kind ? null : order.dueDate,
+    },
     parentUrl(consent.viewToken)
   );
 }

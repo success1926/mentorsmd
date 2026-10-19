@@ -24,7 +24,7 @@ async function bookingForRoom(room: unknown) {
   if (typeof room !== "string" || !room) return null;
   return prisma.callBooking.findFirst({
     where: { roomName: room },
-    select: { id: true, order: { select: { buyerId: true, sellerId: true } } },
+    select: { id: true, studentId: true, mentorId: true, order: { select: { buyerId: true, sellerId: true } } },
   });
 }
 
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
       const booking = await bookingForRoom(p.room);
       const sessionId = typeof p.session_id === "string" ? p.session_id : null;
       if (!booking || !sessionId) return NextResponse.json({ ok: true, ignored: "unknown room" });
-      const userId = typeof p.user_id === "string" && [booking.order.buyerId, booking.order.sellerId].includes(p.user_id) ? p.user_id : null;
+      const userId = typeof p.user_id === "string" && [booking.order?.buyerId ?? booking.studentId, booking.order?.sellerId ?? booking.mentorId].includes(p.user_id) ? p.user_id : null;
       const joinedAt = toDate(p.joined_at) || toDate(event.event_ts) || new Date();
       const left = event.type === "participant.left";
       const duration = typeof p.duration === "number" ? Math.round(p.duration) : null;

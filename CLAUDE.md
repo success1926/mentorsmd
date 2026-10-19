@@ -7,12 +7,13 @@ A freelance marketplace for getting into medical school. Students book packages 
 ## Docs
 - `docs/change-list.md`: the numbered change list (items 1–119), grouped into Phases 1–6 (all live). Commits refer to these numbers.
 - `docs/open-questions.md`: product rules (all decided as of Oct 14, 2026) and what the code does for each.
-- `docs/live-test.md`: the full live test, section by section.
+- `docs/live-test.md`: the live test plan for the hourly redesign (mentor, student and admin side).
+- `docs/redesign-2026-10.md`: the hourly-pricing redesign spec (Oct 2026), the source of truth for packages, hours, credit and payouts.
 - `docs/phase-checklist.md`: how Phases 1–6 were taken live (kept for reference).
 - `docs/design-direction.md`: design decisions. The Leland-style design (joinleland.com) is the main design, always in the Iris colors.
 
 ## Stack and services
-Next.js 14 (App Router) + TypeScript, Prisma on Neon Postgres, NextAuth (email and Google login), Stripe (Checkout + Connect payouts, 30% platform fee so mentors get 70% (`lib/fee.ts`), payment held until the student approves), Resend (email), Supabase Realtime (live messages, `lib/realtime.ts`), Supabase Storage (uploads, `lib/storage.ts`), Daily (private video call rooms), Google reCAPTCHA v3 (bot protection). Scheduling is the site's own built-in calendar (call hours, slot picker, reminders); Cal.com is gone. Hosted on Vercel; crons are in `vercel.json`.
+Next.js 14 (App Router) + TypeScript, Prisma on Neon Postgres, NextAuth (email and Google login), Stripe (Checkout + Connect, separate charges and transfers; 30% platform fee so mentors get 70% (`lib/fee.ts`); mentors are paid once a month, on the 24th, by `/api/cron/monthly-payouts` (`lib/payouts.ts`)), Resend (email), Supabase Realtime (live messages, `lib/realtime.ts`), Supabase Storage (uploads, `lib/storage.ts`), Daily (private video call rooms), Google reCAPTCHA v3 (bot protection). Scheduling is the site's own built-in calendar (call hours, slot picker, reminders); Cal.com is gone. Hosted on Vercel; crons are in `vercel.json`.
 
 ## Environments
 - **Production** (mentorsmd.com): Stripe in live mode (real payments), reCAPTCHA on, Neon branch `production`.
@@ -23,7 +24,9 @@ Next.js 14 (App Router) + TypeScript, Prisma on Neon Postgres, NextAuth (email a
 ## Conventions
 - Visible wording says "mentor" and "student" (never seller, buyer or coach), even though some database fields still use the old names.
 - Pages: `/mentors` (was `/coaches`), `/become-a-mentor/join` (was `/onboard-coach`), `/signup` (was `/signup/buyer`).
-- Package prices are $50–$5,000. No discount codes or promos (removed Oct 13, 2026). Payment wording: "Payment held until you approve". Never "pay when you're happy".
+- Hourly pricing (redesign Oct 2026, `docs/redesign-2026-10.md`): each mentor sets an hourly rate ($50–$2,000); offers are Hourly, hour bundles and specialized packages priced hours x rate. No due dates. The student has 48 hours to respond after "Mark work complete". Refunds are only ever MentorsMD credit (`lib/credit.ts`, `lib/creditAdmin.ts`), never back to the card. No discount codes or promos (removed Oct 13, 2026). Never say "pay when you're happy".
+- Orders since the redesign have a `kind`: `IN_ESCROW` = active, `COMPLETED` = approved and waiting for the monthly payout, `RELEASED` = paid to the mentor, `REFUNDED` = refunded in full as credit. Payout rules: `lib/payoutRules.ts` (pure) and `lib/payouts.ts`.
+- Crons (`vercel.json`): call reminders + call outcomes + 48-hour auto-approval every 15 minutes, monthly payouts on the 24th (14:00 UTC), recordings cleanup and safety checks daily.
 - Pushing to `main` deploys to production on Vercel. Do work on a branch and open a pull request; each branch gets a Vercel preview.
 - Database changes ship as a SQL file in `prisma/`, run in the Neon SQL Editor after making a Neon backup branch. Files that only add things run before the code goes live; files that remove things run after.
 - Admin: one page per area under `app/admin/(panel)/`, listed in the sidebar from `lib/adminNav.ts` (adding a page is one line). Each area has a permission key (`lib/adminPermissions.ts`); Owner and Admin have all of them, custom roles (Admin -> Team & roles) only the ticked ones. Every admin page's `layout.tsx` and every `/api/admin` route checks its key on the server with `currentAdmin("key")` (`lib/adminTeam.ts`); money (earnings, refunds, releases) needs `orders`.

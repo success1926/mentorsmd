@@ -6,11 +6,13 @@ import { useSession } from "next-auth/react";
 import { Avatar } from "@/components/Avatar";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 import { Icon, ICONS } from "@/components/ui";
-import { BACKGROUNDS, SCHOOL_TYPES, STAGES } from "@/lib/options";
+import { SCHOOL_TYPES, STAGES } from "@/lib/options";
+import { MentorProfileEditor } from "@/components/MentorProfileEditor";
+import { ProfileChecklist } from "@/components/ProfileChecklist";
 import { MedicalSchoolPicker } from "@/components/MedicalSchoolPicker";
 import { BusyDatesCard, CallHoursCard, ExternalCalendarCard, TimeZoneCard } from "@/components/AvailabilitySettings";
 
-const LIMITS = { name: 100, credential: 200, bio: 3000, awayNote: 300 };
+const LIMITS = { name: 100, credential: 200, awayNote: 300 };
 
 // Crops the chosen image to a centered square and shrinks it to 600x600
 // JPEG in the browser, so uploads are small and every photo is the same shape.
@@ -75,7 +77,6 @@ export default function AccountPage() {
   // profile details
   const [name, setName] = useState("");
   const [credential, setCredential] = useState("");
-  const [bio, setBio] = useState("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -86,7 +87,6 @@ export default function AccountPage() {
   // search answers
   const [stage, setStage] = useState("");
   const [school, setSchool] = useState("");
-  const [bgs, setBgs] = useState<string[]>([]);
   const [medSchool, setMedSchool] = useState("");
   const [searchMsg, setSearchMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -112,11 +112,9 @@ export default function AccountPage() {
         setProfile(profile);
         setName(profile.name || "");
         setCredential(profile.credential || "");
-        setBio(profile.bio || "");
         setPhotoUrl(profile.photoUrl);
         setStage(profile.mentorStage || "");
         setSchool(profile.schoolType || "");
-        setBgs(profile.backgrounds || []);
         setMedSchool(profile.medicalSchool || "");
         setAwayNote(profile.awayNote || "");
         setReturnDate(profile.pausedUntil ? String(profile.pausedUntil).slice(0, 10) : "");
@@ -202,7 +200,7 @@ export default function AccountPage() {
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await patchProfile(isSeller ? { name, credential, bio } : { name }, setSaveMsg, "Saved.");
+    await patchProfile(isSeller ? { name, credential } : { name }, setSaveMsg, "Saved.");
     setSaving(false);
   }
 
@@ -236,9 +234,11 @@ export default function AccountPage() {
         <p className="lede">{isSeller ? "This is what students see on your profile and mentor cards." : "Update your name, calendar and password."}</p>
       </div>
 
+      {isSeller && <ProfileChecklist progress={profile.progress} />}
+
       {/* ---------- Profile ---------- */}
       {isSeller && (
-        <section className="card row" style={{ gap: 20, flexWrap: "wrap" }}>
+        <section id="profile" className="card row" style={{ gap: 20, flexWrap: "wrap", scrollMarginTop: 100 }}>
           <Avatar name={name || "?"} photoUrl={photoUrl} style={{ width: 96, height: 96, fontSize: 34 }} />
           <div className="stack-sm grow" style={{ minWidth: 220 }}>
             <b>Profile photo</b>
@@ -264,12 +264,8 @@ export default function AccountPage() {
         {isSeller && (
           <>
             <label className="field">
-              <span className="field-label">Credential</span>
+              <span className="field-label">One-line credential</span>
               <input className="input" placeholder="e.g. MS3 at [school] · Admissions interviewer" value={credential} maxLength={LIMITS.credential} onChange={(e) => setCredential(e.target.value)} />
-            </label>
-            <label className="field">
-              <span className="field-label between">Bio <span className="text-muted">{bio.length} / {LIMITS.bio}</span></span>
-              <textarea className="input" style={{ minHeight: 160 }} placeholder="Your path to med school, what you're best at helping with, and who you love working with." value={bio} maxLength={LIMITS.bio} onChange={(e) => setBio(e.target.value)} />
             </label>
           </>
         )}
@@ -284,8 +280,8 @@ export default function AccountPage() {
       {isSeller && (
         <section id="search" className="card stack" style={{ scrollMarginTop: 100 }}>
           <div className="stack-sm">
-            <h2 style={{ fontSize: 26 }}>About you (for search)</h2>
-            <span className="text-secondary">Asked once and used for all your packages. Stage and school type are required for your packages to show in search.</span>
+            <h2 style={{ fontSize: 26 }}>Medical school, stage and school type</h2>
+            <span className="text-secondary">Shown on your profile and used by the Browse mentors filters. All three are required.</span>
           </div>
           <MedicalSchoolPicker value={medSchool} onChange={setMedSchool} required help="Shown on your profile. Start typing and pick your school; not listed? Type its full name." />
           <div className="field">
@@ -304,33 +300,20 @@ export default function AccountPage() {
               ))}
             </div>
           </div>
-          <div className="field">
-            <span className="field-label">Been where they are (optional, pick any)</span>
-            <div className="seg">
-              {BACKGROUNDS.map((o) => (
-                <button
-                  type="button"
-                  key={o.value}
-                  className="seg-opt"
-                  aria-pressed={bgs.includes(o.value)}
-                  onClick={() => setBgs((prev) => (prev.includes(o.value) ? prev.filter((x) => x !== o.value) : [...prev, o.value]))}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </div>
           <button
             className="btn btn-primary"
             style={{ alignSelf: "flex-start" }}
             disabled={!stage || !school || !medSchool.trim()}
-            onClick={() => patchProfile({ mentorStage: stage, schoolType: school, backgrounds: bgs, medicalSchool: medSchool }, setSearchMsg, "Saved. Your packages can now show in search.")}
+            onClick={() => patchProfile({ mentorStage: stage, schoolType: school, medicalSchool: medSchool }, setSearchMsg, "Saved.")}
           >
             Save answers
           </button>
           <Msg m={searchMsg} />
         </section>
       )}
+
+      {/* ---------- Profile sections (redesign Oct 2026) ---------- */}
+      {isSeller && <MentorProfileEditor key={profile.id} profile={profile} onSaved={loadProfile} />}
 
       {/* ---------- Students under 18 (mentors) ---------- */}
       {isSeller && <MinorsCard profile={profile} onSaved={loadProfile} />}

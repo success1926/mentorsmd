@@ -146,12 +146,6 @@ export async function sendWorkCompleteEmail(
   });
 }
 
-// Sent once per day to a seller whose work is past the buyer's due date
-// and hasn't been marked complete yet. See /api/cron/overdue-reminders.
-export async function sendOverdueReminderEmail(sellerEmail: string, gigTitle: string, dueDate: Date, orderUrl: string) {
-  await sendTemplate("overdue_reminder", sellerEmail, { packageTitle: gigTitle, dueDate: dueDate.toLocaleDateString(), orderLink: orderUrl });
-}
-
 // Sent whenever someone posts in a dispute thread - to whoever DIDN'T
 // just post. If an admin asks a question, the buyer and seller both get
 // notified; if either of them replies, every admin gets notified.
@@ -213,26 +207,83 @@ export async function sendCallReminderEmail(toEmail: string, c: CallEmail, kind:
   await sendTemplate(kind === "hour" ? "call_reminder_hour" : "call_reminder_today", toEmail, callValues(c));
 }
 
-// Mentor added busy dates that cover due dates they already agreed to.
-export async function sendBusyClashEmail(toEmail: string, clashes: { gigTitle: string; studentName: string; due: string; url: string }[]) {
-  await sendTemplate("busy_dates_clash", toEmail, {
-    dueDatesPhrase: clashes.length === 1 ? "a due date" : "due dates",
-    clashList: blocks.clashList(clashes),
+// Free 15-minute intro calls (redesign Oct 2026). orderUrl in the
+// CallEmail is the conversation link (there's no order).
+const introValues = (c: CallEmail): Values => ({ otherName: c.otherName, when: callWhen(c), joinLink: c.joinUrl, manageLink: c.orderUrl });
+
+export async function sendIntroCallBookedEmail(toEmail: string, c: CallEmail) {
+  await sendTemplate("intro_call_booked", toEmail, introValues(c), { attachments: icsAttachment(c) });
+}
+
+export async function sendIntroCallCancelledEmail(toEmail: string, c: CallEmail, cancelledBy: string) {
+  await sendTemplate("intro_call_cancelled", toEmail, { ...introValues(c), cancelledBy }, { attachments: icsAttachment(c, true) });
+}
+
+export async function sendIntroCallReminderEmail(toEmail: string, c: CallEmail, kind: "morning" | "hour") {
+  await sendTemplate("intro_call_reminder", toEmail, {
+    ...introValues(c),
+    soon: kind === "hour" ? "Starting in 1 hour" : "Today",
+    soonLower: kind === "hour" ? "in about an hour" : "today",
   });
 }
 
-// Nudges the student while a call included in their package is unbooked.
-export async function sendBookCallReminderEmail(buyerEmail: string, gigTitle: string, dueDate: Date | null, orderUrl: string) {
-  await sendTemplate("book_call_reminder", buyerEmail, { packageTitle: gigTitle, bookBy: dueDate ? dueDate.toDateString() : "", orderLink: orderUrl });
+// ---- Packages and hours (redesign Oct 2026) ----
+
+export async function sendPackagePurchasedEmail(toEmail: string, v: { packageTitle: string; mentorName: string; hours: string; rate: string; amount: string; creditApplied: string; orderUrl: string }) {
+  await sendTemplate("package_purchased", toEmail, { ...v, orderLink: v.orderUrl });
 }
 
-// The due date passed with a call still unbooked: the order is paused.
-export async function sendCallHoldEmail(toEmail: string, gigTitle: string, orderUrl: string, forStudent: boolean) {
-  await sendTemplate(forStudent ? "call_on_hold_student" : "call_on_hold_mentor", toEmail, { packageTitle: gigTitle, orderLink: orderUrl });
+export async function sendHoursAddedEmail(toEmail: string, v: { packageTitle: string; hours: string; hoursLeft: string; creditApplied: string; orderUrl: string }) {
+  await sendTemplate("hours_added", toEmail, { ...v, orderLink: v.orderUrl });
 }
 
-export async function sendCallForfeitedEmail(toEmail: string, gigTitle: string, orderUrl: string) {
-  await sendTemplate("call_forfeited", toEmail, { packageTitle: gigTitle, orderLink: orderUrl });
+export async function sendHoursLowEmail(toEmail: string, v: { packageTitle: string; mentorName: string; hoursLeft: string; orderUrl: string }) {
+  await sendTemplate("hours_low", toEmail, { ...v, orderLink: v.orderUrl });
+}
+
+export async function sendWrittenTimeLoggedEmail(toEmail: string, v: { mentorName: string; packageTitle: string; minutes: string; note: string; hoursLeft: string; orderUrl: string }) {
+  await sendTemplate("written_time_logged", toEmail, { ...v, note: v.note ? blocks.quote(v.note) : "", orderLink: v.orderUrl });
+}
+
+export async function sendWorkMarkedCompleteEmail(toEmail: string, v: { mentorName: string; packageTitle: string; deadline: Date; orderUrl: string }) {
+  const deadline = v.deadline.toLocaleString("en-US", { timeZone: "UTC", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " UTC";
+  await sendTemplate("work_marked_complete", toEmail, { mentorName: v.mentorName, packageTitle: v.packageTitle, deadline, orderLink: v.orderUrl });
+}
+
+export async function sendLastRequestEmail(toEmail: string, v: { studentName: string; request: string; packageTitle: string; note: string; orderUrl: string }) {
+  await sendTemplate("last_request", toEmail, { ...v, note: v.note ? blocks.quote(v.note) : "", orderLink: v.orderUrl });
+}
+
+export async function sendPackageApprovedEmail(toEmail: string, v: { packageTitle: string; studentName: string; mentorName: string; auto: boolean; forMentor: boolean; orderUrl: string }) {
+  await sendTemplate("package_approved", toEmail, {
+    packageTitle: v.packageTitle,
+    studentName: v.studentName,
+    mentorName: v.mentorName,
+    how: v.auto ? "approved automatically after 48 hours" : "approved",
+    mentorLine: v.forMentor ? "Your earnings for it, including any unused hours, are paid with the monthly payout on the 24th." : "",
+    orderLink: v.orderUrl,
+  });
+}
+
+// Monthly payout sent (lib/payouts.ts).
+export async function sendPayoutSentEmail(toEmail: string, v: { name: string; period: string; amount: string; hours: string; heldNote: string }) {
+  await sendTemplate("payout_sent", toEmail, { firstName: first(v.name), period: v.period, amount: v.amount, hours: v.hours, heldNote: v.heldNote, dashboardLink: `${SITE_URL}/dashboard` });
+}
+
+// MentorsMD credit added (a dispute refunded as credit, or an admin adjustment).
+export async function sendCreditIssuedEmail(toEmail: string, v: { name: string; amount: string; packageTitle?: string | null; note?: string | null; balance: string }) {
+  await sendTemplate("credit_issued", toEmail, {
+    firstName: first(v.name),
+    amount: v.amount,
+    forPackage: v.packageTitle ? ` for ${v.packageTitle}` : "",
+    note: v.note ? blocks.quote(v.note) : "",
+    balance: v.balance,
+    mentorsLink: `${SITE_URL}/mentors`,
+  });
+}
+
+export async function sendCallTimeTakenEmail(toEmail: string, v: { mentorName: string; packageTitle: string; orderUrl: string }) {
+  await sendTemplate("call_time_taken", toEmail, { mentorName: v.mentorName, packageTitle: v.packageTitle, orderLink: v.orderUrl });
 }
 
 // What happened at a call (lib/callOutcomeRunner.ts): a no-show or

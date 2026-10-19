@@ -29,7 +29,9 @@ function addMessage(list: any[], message: any) {
   return list.some((m) => m.id === message.id) ? list : [...list, message];
 }
 
-export function useConversation(conversationId: string) {
+// orderId (redesign Oct 2026): a package's own thread. Only that package's
+// messages are shown, and messages sent are tagged with it.
+export function useConversation(conversationId: string, orderId?: string) {
   const [messages, setMessages] = useState<any[]>([]);
   // The last uploaded file, so "Send anyway" after a warning doesn't
   // upload the same file twice.
@@ -41,7 +43,7 @@ export function useConversation(conversationId: string) {
 
     // Loading the thread also marks it read on the server.
     const load = () =>
-      fetch(`/api/conversations/${conversationId}/messages`)
+      fetch(`/api/conversations/${conversationId}/messages${orderId ? `?orderId=${encodeURIComponent(orderId)}` : ""}`)
         .then((res) => res.json())
         .then((data) => {
           if (!alive) return;
@@ -53,6 +55,7 @@ export function useConversation(conversationId: string) {
 
     const off = onLive((event, payload) => {
       if (event !== "message" || payload?.conversationId !== conversationId || !payload.message) return;
+      if (orderId && payload.message.orderId !== orderId) return;
       setMessages((prev) => addMessage(prev, payload.message));
       // The thread is open on screen, so this message counts as read.
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
@@ -72,7 +75,7 @@ export function useConversation(conversationId: string) {
       off();
       clearInterval(timer);
     };
-  }, [conversationId]);
+  }, [conversationId, orderId]);
 
   async function sendMessage(body: string, file?: File, opts: { acknowledgeWarnings?: boolean } = {}) {
     let attachmentUrl: string | undefined;
@@ -98,7 +101,7 @@ export function useConversation(conversationId: string) {
     const res = await fetch(`/api/conversations/${conversationId}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body, attachmentUrl, attachmentName, acknowledgeWarnings: !!opts.acknowledgeWarnings }),
+      body: JSON.stringify({ body, attachmentUrl, attachmentName, acknowledgeWarnings: !!opts.acknowledgeWarnings, orderId: orderId || undefined }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));

@@ -10,7 +10,7 @@ const OVERRIDES = [
   { outcome: "HELD", label: "Count as held", confirm: "Count this call as held? It's used up, and nobody is emailed." },
   { outcome: "FREE_REBOOK", label: "Give a free rebook", confirm: "Give a free rebook? The call no longer counts, so the student can book another. Nobody is emailed, so tell them yourself." },
   { outcome: "STUDENT_NO_SHOW", label: "Mark student no-show", confirm: "Mark as a student no-show? The call counts as used, and both get the no-show email." },
-  { outcome: "MENTOR_NO_SHOW", label: "Mark mentor no-show", confirm: "Mark as a mentor no-show? The student gets a free rebook, both get the no-show email, and a second one on this order lets the student open a dispute for a full refund." },
+  { outcome: "MENTOR_NO_SHOW", label: "Mark mentor no-show", confirm: "Mark as a mentor no-show? The call's time goes back to the student's hours (a free rebook), and both get the no-show email." },
 ];
 
 function OutcomeBadge({ c }: { c: any }) {
@@ -26,7 +26,9 @@ function OutcomeBadge({ c }: { c: any }) {
 
 // Admin -> Calls & recordings: upcoming and past calls, attendance,
 // recordings, each past call's outcome (with buttons to change it), and
-// the "Connect Daily webhook" button.
+// the "Connect Daily webhook" button. Free intro calls are listed too
+// (labelled INTRO, no package); their outcome is automatic and can't be
+// changed here.
 export function CallsAdmin() {
   const [data, setData] = useState<{ calls: any[]; setup: any } | null>(null);
   const [secret, setSecret] = useState<string | null>(null);
@@ -100,9 +102,9 @@ export function CallsAdmin() {
             <div key={c.id} className="list-row" style={{ flexWrap: "wrap" }}>
               <div className="grow stack-sm" style={{ gap: 2 }}>
                 <b style={{ fontSize: 15 }}>{new Date(c.startTime).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</b>
-                <span className="text-muted">{c.order.gig.title} · {c.order.buyer.name} (student) with {c.order.seller.name} (mentor)</span>
+                <span className="text-muted">{c.label} · {c.studentName} (student) with {c.mentorName} (mentor)</span>
               </div>
-              <Link href={`/orders/${c.order.id}`} className="btn btn-sm">Open order</Link>
+              {c.intro ? <span className="badge badge-blue">INTRO</span> : <Link href={`/orders/${c.order.id}`} className="btn btn-sm">Open package</Link>}
             </div>
           ))}
         </div>
@@ -116,18 +118,19 @@ export function CallsAdmin() {
               <div className="between" style={{ flexWrap: "wrap", gap: 8 }}>
                 <span className="stack-sm" style={{ gap: 2 }}>
                   <b style={{ fontSize: 15 }}>{new Date(c.startTime).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</b>
-                  <span className="text-muted">{c.order.gig.title} · {c.order.buyer.name} (student) with {c.order.seller.name} (mentor)</span>
+                  <span className="text-muted">{c.label} · {c.studentName} (student) with {c.mentorName} (mentor)</span>
                 </span>
                 <span className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+                  {c.intro && <span className="badge badge-blue">INTRO</span>}
                   <OutcomeBadge c={c} />
-                  {c.order.disputed && <span className="badge badge-danger">Disputed</span>}
-                  <Link href={`/orders/${c.order.id}`} className="btn btn-sm">Open order</Link>
+                  {c.disputeOpen && <span className="badge badge-danger">Disputed</span>}
+                  {!c.intro && <Link href={`/orders/${c.order.id}`} className="btn btn-sm">Open package</Link>}
                 </span>
               </div>
               <div className="stack-sm" style={{ paddingTop: 8 }}>
                 <Attendance booking={c} order={c.order} />
                 <Recordings booking={c} />
-                <div className="row-wrap" style={{ gap: 6 }}>
+                <div className="row-wrap" style={{ gap: 6 }} hidden={c.intro}>
                   {OVERRIDES.filter((o) => o.outcome !== c.outcome).map((o) => (
                     <button key={o.outcome} className="btn btn-sm" disabled={busy === c.id} onClick={() => setOutcome(c, o)}>{o.label}</button>
                   ))}

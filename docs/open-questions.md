@@ -1,13 +1,27 @@
 # MentorsMD: open questions (running list)
 
-Last updated: Oct 14, 2026. All six phases are live (merged Oct 12).
+Last updated: Oct 18, 2026. All six phases are live (merged Oct 12). The hourly-pricing redesign (`docs/redesign-2026-10.md`, branch `hourly-redesign`) changes how packages, payments and payouts work; the decisions it replaces are marked **Replaced** below and summarised in "Hourly redesign (Oct 18, 2026)".
 
 On Oct 14, 2026 the owner confirmed every recommended answer, so every item below is now **Decided** and the code uses it. Where an answer is a number, it's a one-line constant (file noted) so changing your mind later is quick. New questions go at the end as "Open".
 
+## Hourly redesign (Oct 18, 2026)
+
+All decided with the owner; the code follows `docs/redesign-2026-10.md`.
+
+- **Hourly pricing.** Each mentor sets one hourly rate ($50 to $2,000, whole dollars). They sell Hourly (1 hour), hour bundles and specialized packages; every price is hours x rate (`lib/pricing.ts`). No typed-in prices, no turnaround, no number of calls.
+- **Free intro calls.** A student can always message a mentor, and book one free 15-minute intro call per mentor. Buying unlocks once the mentor has replied or the intro call was held (`lib/unlock.ts`, `lib/introCalls.ts`).
+- **No due dates.** Packages have no due date. The old due-date, overdue, on-hold, forfeit and "book your call" rules, crons and emails are gone (items 1, 6 and 8 below are replaced).
+- **Hours.** Calls (30 or 60 minutes) and written work (logged by the mentor in 30/60-minute blocks) use the package's hours; held calls are logged automatically. Students add hours at the package's rate, or pay per call when they have none left (`lib/hours.ts`, `lib/hourLog.ts`, `lib/hourCheckout.ts`).
+- **48 hours to respond.** The mentor marks the work complete any time; the student then has 48 hours to approve, ask for one last call or one last revision (once per package), or open a dispute. No answer = approved automatically (`lib/finishing.ts`, `lib/orderFinish.ts`, run by `/api/cron/call-reminders`). Unused hours aren't refunded; they're paid to the mentor.
+- **Monthly payouts.** Mentors are paid once a month, on the **24th** (New York time; `/api/cron/monthly-payouts`, `0 14 24 * *` UTC), one Stripe transfer each: hours logged since their last payout, plus the unused hours of packages approved by then, at 70% (`lib/payoutRules.ts`, `lib/payouts.ts`). Hours on a package with an open dispute wait until it's decided. Mentors without connected payouts are skipped until they connect. Admin -> Orders & payouts lists every payout; the Owner has "Run payouts now" (pays the latest month to anyone not paid for it yet, never twice), and failed payouts have Retry (Stripe is checked first, so nothing is sent twice). Failures are reported to Sentry as "[NEEDS MANUAL CHECK]" and badge the sidebar.
+- **MentorsMD credit.** Refunds are never sent back to the card: an admin settles a dispute with **Refund as credit** (full or partial, up to what the student paid including added hours and credit they used). Credit never expires, works with any mentor and is applied first at checkout. Admins with the Orders permission can add or remove credit on a student (Admin -> People), with a required reason that goes in the action log (`lib/credit.ts`, `lib/creditAdmin.ts`).
+- **Refund-as-credit rule.** A refund of $X closes the package. A full refund (everything the student paid) marks it Refunded and nothing more is paid to the mentor. A partial refund approves it, and $X is taken off the mentor's final payout for that package: (unpaid hours + unused hours) x rate, minus $X, never below zero. Hours already paid to the mentor in earlier months aren't taken back (MentorsMD covers that part). The hours log isn't changed.
+- **Payment wording.** "Payment held until you approve" no longer fits (mentors are paid monthly for hours worked), so public pages now say "Pay for hours, see every one" / "Secure payments through MentorsMD". Never say "pay when you're happy".
+
 ## Calls and scheduling
 
-1. **Unbooked call at the deadline.** Students book calls on the site's built-in calendar from the mentor's call hours.
-   - Decided (built in, `lib/callRules.ts`):
+1. **Unbooked call at the deadline.** **Replaced** by the hourly redesign: packages have no due date, so nothing is put on hold or forfeited (`lib/callRules.ts` was removed). The original decision, for the record:
+   - Decided (was built in):
      - While a call is unbooked, the student gets a "Book your call" reminder every 3 days.
      - At the due date, if it's still unbooked, the order goes **On hold**.
        - The mentor sees: Extend due date / Message student / Ask admin.
@@ -28,32 +42,28 @@ On Oct 14, 2026 the owner confirmed every recommended answer, so every item belo
      - **Held:** both were in the call together for 10+ minutes (or both were on time and the call was just short).
      - **Student no-show:** the mentor joined and the student hadn't joined 15 minutes after the start. The call counts as used. Both get an email; the mentor's asks them to message the student so there's a record, and the order page shows the mentor a "message the student" link.
      - **Mentor no-show:** the student joined and the mentor wasn't there 15 minutes after the start (or never came). The call no longer counts, so the student can **book another one for free**. Both get an email, and a low-severity "Missed call" flag is raised about the mentor.
-     - **Second mentor no-show on the same order:** the student's email and the order page say they can **open a dispute, with a full refund as the expected outcome** (the order page has an "Open a dispute for a full refund" box), and a **high-severity** flag goes to every admin.
+     - **Second mentor no-show on the same order:** a **high-severity** flag goes to every admin. (Before the redesign the student was told to open a dispute for a full refund; on hours packages the missed time simply goes back to their hours, and any refund an admin grants is MentorsMD credit.)
      - **Nobody joined** (or it's unclear, e.g. both very late): it doesn't count either way. Both get an email saying the team will be in touch, and a flag asks an admin to decide.
    - Admin -> Calls & recordings shows each past call's outcome (automatic or set by an admin) and buttons to change it: Count as held, Give a free rebook, Mark student no-show, Mark mentor no-show (needs the Calls permission; every change is in the Action log). The two no-show buttons send the same emails; "Count as held" and "Give a free rebook" send nothing, so tell the people yourself.
-   - The order page shows each past call's outcome in plain words. The mentor still can't mark the work complete while a call is owed, including a free rebook, a call being checked, or a call waiting for an admin's decision.
+   - The package page shows each past call's outcome in plain words. Held calls and student no-shows are added to the hours log at their booked length; a mentor no-show gives the time back.
    - Emails (editable in Admin -> Emails): `call_student_no_show_student`, `call_student_no_show_mentor`, `call_mentor_no_show_student`, `call_mentor_no_show_mentor`, `call_nobody_joined`.
 5. **What counts as a call that happened.** Decided, and built (Oct 14, 2026):
    - A call counts as held when the student and mentor were both in it for 10+ minutes, using Daily's join/leave events (the Daily webhook, Admin -> Calls & recordings -> "Connect Daily webhook").
    - If the webhook isn't set up (no `DAILY_WEBHOOK_SECRET`) and there's no attendance, the old rule applies: once the end time has passed, the call counts as held. If the webhook is set up but nothing arrived, it's "nobody joined".
    - Calls that ended more than 48 hours ago without an outcome (from before this was built) count as held, as before.
-6. **Book-by date.**
-   - Decided: the due date is the book-by date. Reminders are covered by item 1.
-   - No separate "2 days before" deadline, because it's one more date for students to track.
+6. **Book-by date.** **Replaced**: there are no due dates, so there's no book-by date. Students book calls from their hours whenever they like.
 7. **Calendar sync.**
    - Built:
      - Every user gets a private calendar link on Account → Calendar & calls, with one-click Google / Outlook / Apple buttons.
-     - It shows their booked calls, and due dates for mentors, and updates on its own.
+     - It shows their booked calls (including intro calls) and updates on its own.
      - Mentors set weekly call hours and busy dates on the site (Account → Call availability), and can paste a private Google/iCloud calendar link so their busy times are hidden from students.
    - Decided: stop there. Full Google/Outlook two-way connection needs Google app verification and isn't worth it yet.
 
 ## Payments and orders
 
-8. **Review window.** Decided: **96 hours**, which is what the app and emails use. The old "48h" comments are outdated.
+8. **Review window.** **Replaced**: 48 hours after the mentor marks the work complete (see "Hourly redesign"). The old 96-hour release is gone.
 9. **Discount codes.** Decided: **no promos**. Discount codes were removed completely on Oct 13, 2026: the code and admin API are gone, and the database table is dropped with `prisma/cleanup-2026-10-drop-discount-codes.sql` once that change is live.
-10. **Forfeited or skipped calls and payment.**
-    - Decided: **no partial refund**. The mentor held the time and delivered the rest.
-    - Refunds stay a case-by-case admin call through disputes.
+10. **Forfeited or skipped calls and payment.** **Replaced**: calls aren't forfeited any more, and unused hours are paid to the mentor once the package is approved. Refunds stay a case-by-case admin call through disputes, always as MentorsMD credit.
 11. *(merged into 10)*
 
 ## Vetting
@@ -64,8 +74,8 @@ On Oct 14, 2026 the owner confirmed every recommended answer, so every item belo
 ## Browse and packages
 
 14. **Service list.** Decided: the 8 services plus **"Other"** (built in): a mentor picking Other types a short custom service name, which shows everywhere in place of the word "Other" and can be searched.
-15. **Price ranges.** Decided, built in: **$50–$100, $100–$250, $250–$500, $500+** (`PRICE_BANDS` in `lib/options.ts`). Revisit when you see real prices.
-16. **Calls per package.** Decided: **1 to 3 calls; 30, 45 or 60 minutes** (built in, `MAX_CALLS` / `CALL_LENGTHS`).
+15. **Price ranges.** Decided, built in: **$50–$100, $100–$250, $250–$500, $500+** (`PRICE_BANDS` in `lib/options.ts`), now worked out from each offer's hours x rate. Revisit when you see real prices.
+16. **Calls per package.** **Replaced**: packages sell hours; calls are 30 or 60 minutes, booked from the hours.
 
 ## Mentor accounts and admin
 
@@ -75,7 +85,7 @@ On Oct 14, 2026 the owner confirmed every recommended answer, so every item belo
     - Mentors removed *by an admin* can't log in, and only an admin can restore them.
 19. **Admin removing a mentor with active orders.**
     - Decided: **don't auto-refund**. Removal hides the mentor and blocks login.
-    - The admin then opens each active order and refunds or releases it. The admin page shows how many active orders there are when you remove someone.
+    - The admin then settles each active package (a dispute: refund as credit, or approve for the mentor). The admin page shows how many active orders there are when you remove someone.
     - For a mentor who left in good standing, prefer pausing them so they can finish.
 
 ## Content to supply
@@ -100,7 +110,7 @@ On Oct 14, 2026 the owner confirmed every recommended answer, so every item belo
 - Vetting: a rigorous interview with each senior team member; mentors are invite-only.
 - Colors: Iris purple with pink and blue accents, on a white background.
 - The Leland-style design is the main design.
-- Payment wording: "Payment held until you approve". Never say "pay when you're happy".
+- Payment wording: see "Hourly redesign" (the old "Payment held until you approve" line was retired with the 96-hour release). Never say "pay when you're happy".
 - Admin page:
   - Invites and disputes are split into sections that open and close (Pending / Joined, Pending / Resolved).
   - "Joined" replaces "Redeemed".
@@ -110,7 +120,7 @@ On Oct 14, 2026 the owner confirmed every recommended answer, so every item belo
   - Packages must answer the search questions.
   - Mentor-level answers (stage, school type, background) are given once on the profile.
 - Calls:
-  - Only available once a package that includes a call has been paid for.
+  - Paid calls are booked from a package's hours (or paid per call); the free 15-minute intro call needs no payment.
   - No-shows and "a call that happened" are decided automatically from Daily's attendance (items 4 and 5).
   - Booked on MentorsMD's built-in calendar and held in private Daily rooms (Cal.com is gone).
   - No always-on video button.

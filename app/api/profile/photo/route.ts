@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PUBLIC_BUCKET, newPath, publicPathFromUrl, publicUrl, removeFiles } from "@/lib/storage";
 import { supabaseAdmin, NOT_SET_UP } from "@/lib/supabase";
+import { syncProfileComplete } from "@/lib/profileSync";
 
 // Profile photo upload, stored in the public-media bucket (lib/storage.ts).
 // The browser already crops/resizes the image to a square before sending
@@ -71,6 +72,7 @@ export async function POST(req: Request) {
 
   const previous = await prisma.user.findUnique({ where: { id: userId }, select: { photoUrl: true } });
   await prisma.user.update({ where: { id: userId }, data: { photoUrl } });
+  await syncProfileComplete(userId);
 
   // Clean up the old file so storage doesn't fill with replaced photos.
   await removeOldPhoto(previous?.photoUrl);
@@ -85,6 +87,7 @@ export async function DELETE() {
 
   const previous = await prisma.user.findUnique({ where: { id: userId }, select: { photoUrl: true } });
   await prisma.user.update({ where: { id: userId }, data: { photoUrl: null } });
+  await syncProfileComplete(userId);
   await removeOldPhoto(previous?.photoUrl);
   return NextResponse.json({ photoUrl: null });
 }

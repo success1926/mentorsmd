@@ -3,7 +3,8 @@ import { RECORDING_RETENTION_DAYS } from "@/lib/calls";
 import { dailyConfigured, deleteRecording } from "@/lib/daily";
 
 // Recordings are deleted 60 days after the order is closed: released to
-// the mentor, refunded, or the dispute resolved. Runs once a day with the
+// the mentor, refunded, or the dispute resolved (intro calls: 60 days
+// after the call). Runs once a day with the
 // auto-release cron. The video is deleted on Daily; our row is kept with
 // deletedAt set, so the admin page shows "Deleted".
 export async function cleanupRecordings(now: Date = new Date()) {
@@ -17,8 +18,12 @@ export async function cleanupRecordings(now: Date = new Date()) {
         OR: [
           { order: { disputeResolvedAt: { lt: cutoff } } },
           { order: { status: "RELEASED", disputeResolvedAt: null, completedAt: { lt: cutoff } } },
+          // Hours packages (redesign Oct 2026): 60 days after approval.
+          { order: { kind: { not: null }, disputeResolvedAt: null, approvedAt: { lt: cutoff } } },
           // Refunded without a dispute: count from the call itself.
           { order: { status: "REFUNDED", disputeResolvedAt: null }, endTime: { lt: cutoff } },
+          // Free intro calls have no order: 60 days after the call.
+          { kind: "INTRO", endTime: { lt: cutoff } },
         ],
       },
     },

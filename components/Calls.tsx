@@ -58,16 +58,17 @@ export function Attendance({ booking, order }: { booking: any; order: any }) {
   );
 }
 
-// Admin-only: recordings of a call, with a "Watch recording" button that
-// fetches a short-lived link from Daily.
-export function Recordings({ booking }: { booking: any }) {
+// Recordings of a call, with a "Watch recording" button that fetches a
+// short-lived link from Daily. Admins by default; mentors on their own
+// hours packages pass watchUrl (/api/orders/[id]/recordings/[recId]).
+export function Recordings({ booking, watchUrl }: { booking: any; watchUrl?: (recordingId: string) => string }) {
   const [busy, setBusy] = useState<string | null>(null);
   const recs: any[] = booking.recordings || [];
   if (!recs.length) return <span className="text-muted small">No recording.</span>;
   async function watch(id: string) {
     const tab = window.open("", "_blank");
     setBusy(id);
-    const res = await fetch(`/api/admin/recordings/${id}`, { method: "POST" });
+    const res = await fetch(watchUrl ? watchUrl(id) : `/api/admin/recordings/${id}`, { method: "POST" });
     const d = await res.json().catch(() => ({}));
     setBusy(null);
     if (res.ok && d.url) {
@@ -202,7 +203,7 @@ export function CallRow({
 }
 
 // What happened at a past call, in plain words (lib/callOutcomes.ts).
-function PastCallOutcome({ booking, order, viewer }: { booking: any; order: any; viewer: "student" | "mentor" | "admin" }) {
+export function PastCallOutcome({ booking, order, viewer }: { booking: any; order: any; viewer: "student" | "mentor" | "admin" }) {
   if (!booking.outcome) {
     // Old calls (before outcomes existed) just count as done.
     if (callHeld(booking)) return null;

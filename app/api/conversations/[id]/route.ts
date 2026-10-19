@@ -28,7 +28,12 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
   const orders = await prisma.order.findMany({
     where: { buyerId: conversation.buyerId, sellerId: conversation.sellerId, status: { not: "PENDING_PAYMENT" } },
-    include: { gig: true, callBookings: { orderBy: { startTime: "asc" } } },
+    include: {
+      gig: true,
+      callBookings: { orderBy: { startTime: "asc" } },
+      // Hours packages: what's used, for the hours left in the side panel.
+      hourEntries: { select: { type: true, minutes: true, voidedAt: true, callBookingId: true } },
+    },
     orderBy: { createdAt: "desc" },
     take: 20,
   });

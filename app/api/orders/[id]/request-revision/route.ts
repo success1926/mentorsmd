@@ -34,6 +34,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (order.buyerId !== (session.user as any).id) {
     return NextResponse.json({ error: "Only the student on this order can request a revision" }, { status: 403 });
   }
+  // Hours packages (redesign Oct 2026) have no due dates or included calls.
+  if (order.kind) return NextResponse.json({ error: "Use \"Request one last revision\" once your mentor marks the work complete." }, { status: 400 });
   if (!["IN_ESCROW", "COMPLETED"].includes(order.status)) {
     return NextResponse.json({ error: "Revisions can only be requested on a pending or just-completed order" }, { status: 400 });
   }

@@ -22,24 +22,30 @@ export async function GET() {
       where: {
         status: "BOOKED",
         startTime: { gte: since },
-        order: { OR: [{ buyerId: userId }, { sellerId: userId }], status: { in: ["IN_ESCROW", "COMPLETED", "RELEASED"] } },
+        OR: [
+          { order: { OR: [{ buyerId: userId }, { sellerId: userId }], status: { in: ["IN_ESCROW", "COMPLETED", "RELEASED"] } } },
+          // Free intro calls (no order).
+          { kind: "INTRO", OR: [{ studentId: userId }, { mentorId: userId }] },
+        ],
       },
       include: {
         order: {
           select: {
-            id: true, buyerId: true, sellerId: true,
+            id: true, buyerId: true, sellerId: true, packageTitle: true,
             gig: { select: { title: true } },
             buyer: { select: { name: true } },
             seller: { select: { name: true } },
           },
         },
+        student: { select: { name: true } },
+        mentor: { select: { name: true } },
       },
       orderBy: { startTime: "asc" },
       take: 300,
     }),
     isMentor
       ? prisma.order.findMany({
-          where: { sellerId: userId, status: "IN_ESCROW", dueDate: { not: null } },
+          where: { sellerId: userId, status: "IN_ESCROW", dueDate: { not: null }, kind: null },
           select: { id: true, dueDate: true, callHoldAt: true, revisionRequested: true, gig: { select: { title: true } }, buyer: { select: { name: true } } },
           orderBy: { dueDate: "asc" },
           take: 200,
@@ -51,15 +57,18 @@ export async function GET() {
     prisma.user.findUnique({ where: { id: userId }, select: { timeZone: true, calendarToken: true } }),
   ]);
 
-  const view = (b: (typeof calls)[number]) => ({
-    id: b.id,
-    startTime: b.startTime,
-    endTime: b.endTime,
-    orderId: b.orderId,
-    title: b.order.gig.title,
-    withName: b.order.sellerId === userId ? b.order.buyer.name : b.order.seller.name,
-    withRole: b.order.sellerId === userId ? "student" : "mentor",
-  });
+  const view = (b: (typeof calls)[number]) => {
+    const iAmMentor = b.order ? b.order.sellerId === userId : b.mentorId === userId;
+    return {
+      id: b.id,
+      startTime: b.startTime,
+      endTime: b.endTime,
+      orderId: b.orderId,
+      title: b.order ? b.order.packageTitle || b.order.gig.title : "Free 15-minute intro call",
+      withName: b.order ? (iAmMentor ? b.order.buyer.name : b.order.seller.name) : (iAmMentor ? b.student?.name : b.mentor?.name) || "",
+      withRole: iAmMentor ? "student" : "mentor",
+    };
+  };
   return NextResponse.json({
     role,
     timeZone: me?.timeZone || null,

@@ -27,6 +27,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (order.disputed) {
     return NextResponse.json({ error: "A dispute is already open on this order" }, { status: 409 });
   }
+  // Hours packages: open until approved (COMPLETED means approved for them).
+  if (order.kind && (order.approvedAt || order.status !== "IN_ESCROW")) {
+    return NextResponse.json({ error: "This package was already approved" }, { status: 400 });
+  }
 
   const { reason } = await req.json();
   if (typeof reason !== "string" || !reason.trim()) {
@@ -37,7 +41,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   // Conditional: only flag it if it's still unreleased and not already
   // disputed (stops the cron paying out mid-dispute, and duplicate threads).
   const claim = await prisma.order.updateMany({
-    where: { id: params.id, status: { in: ["IN_ESCROW", "COMPLETED"] }, disputed: false },
+    where: { id: params.id, status: { in: order.kind ? ["IN_ESCROW"] : ["IN_ESCROW", "COMPLETED"] }, disputed: false, ...(order.kind ? { approvedAt: null } : {}) },
     data: { disputed: true, disputeReason: reason },
   });
   if (claim.count === 0) {
@@ -58,7 +62,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     kind: "DISPUTE",
     source: "USER",
     severity: 2,
-    reason: `Dispute: ${order.gig.title}`,
+    reason: `Dispute: ${order.packageTitle || order.gig.title}`,
     details: reason,
     subjectUserId: order.sellerId,
     reporterId: order.buyerId,
@@ -70,7 +74,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const admins = await prisma.user.findMany({ where: { role: "ADMIN", removedByAdmin: false, adminDisabledAt: null }, select: { email: true } });
     await Promise.all(
       admins.map((admin) =>
-        sendDisputeOpenedEmail(admin.email, order.gig.title, reason, `${SITE_URL}/orders/${order.id}`)
+        sendDisputeOpenedEmail(admin.email, order.packageTitle || order.gig.title, reason, `${SITE_URL}/orders/${order.id}`)
       )
     );
   } catch (err) {

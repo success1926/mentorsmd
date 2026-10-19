@@ -28,10 +28,13 @@ export function serviceLabel(service: string | null | undefined, serviceOther?: 
   return labelFor(SERVICES, service);
 }
 
+// How an offer is delivered. The stored values predate the Oct 2026
+// redesign (WRITTEN_CALL was "written feedback + call", LIVE was "live
+// video session"), so old packages and orders keep a sensible label.
 export const FORMATS: Option[] = [
-  { value: "WRITTEN", label: "Written feedback" },
-  { value: "WRITTEN_CALL", label: "Written feedback + call" },
-  { value: "LIVE", label: "Live video session" },
+  { value: "LIVE", label: "Calls only" },
+  { value: "WRITTEN", label: "Written only" },
+  { value: "WRITTEN_CALL", label: "Calls + written" },
 ];
 
 export const TURNAROUNDS: Option[] = [
@@ -55,6 +58,8 @@ export const SCHOOL_TYPES: Option[] = [
   { value: "MD_PHD", label: "MD/PhD" },
 ];
 
+// No longer used since the Oct 2026 redesign ("Who you're best for",
+// BEST_FOR below, replaced it everywhere). Kept only to label old data.
 export const BACKGROUNDS: Option[] = [
   { value: "REAPPLICANT", label: "Reapplicant" },
   { value: "NON_TRADITIONAL", label: "Non-traditional" },
@@ -63,7 +68,86 @@ export const BACKGROUNDS: Option[] = [
   { value: "CAREER_CHANGER", label: "Career changer" },
 ];
 
-// Package price limits, in cents. Enforced on the package form, the
+// ---- Mentor profile sections (redesign Oct 2026) ----
+// "Who you're best for": the students a mentor helps most. Also a browse
+// filter (?best=...). Changing a value needs a data update.
+export const BEST_FOR: Option[] = [
+  { value: "TRADITIONAL_MD", label: "Traditional MD" },
+  { value: "DO", label: "DO" },
+  { value: "MD_PHD", label: "MD-PhD" },
+  { value: "NONTRADITIONAL", label: "Nontraditional / career changers" },
+  { value: "REAPPLICANT", label: "Reapplicants" },
+  { value: "LOW_GPA", label: "Low GPA / upward trend" },
+  { value: "INTERNATIONAL", label: "International" },
+  { value: "BS_MD", label: "BS/MD" },
+  { value: "RESIDENCY", label: "Residency / ERAS" },
+];
+
+// The application stages a mentor is strongest at.
+export const STRONGEST_STAGES: Option[] = [
+  { value: "SCHOOL_LIST", label: "School list" },
+  { value: "PERSONAL_STATEMENT", label: "Personal statement" },
+  { value: "ACTIVITIES", label: "Activities" },
+  { value: "SECONDARIES", label: "Secondaries" },
+  { value: "INTERVIEW_PREP", label: "Interview prep" },
+  { value: "WAITLIST_LETTERS", label: "Waitlist / update letters" },
+];
+
+// Browse "Service" filter: a mentor also matches a service when it's one
+// of their strongest stages (so hourly-only mentors can be found too).
+export const SERVICE_TO_STAGE: Record<string, string> = {
+  PERSONAL_STATEMENT: "PERSONAL_STATEMENT",
+  SECONDARIES: "SECONDARIES",
+  ACTIVITIES: "ACTIVITIES",
+  SCHOOL_LIST: "SCHOOL_LIST",
+  MMI: "INTERVIEW_PREP",
+  TRADITIONAL_INTERVIEW: "INTERVIEW_PREP",
+};
+
+export const ADMISSIONS_ROLE_TYPES: Option[] = [
+  { value: "COMMITTEE", label: "Admissions committee" },
+  { value: "INTERVIEWER", label: "Interviewer" },
+  { value: "SCREENER", label: "Application screener" },
+];
+
+export const LANGUAGE_LEVELS: Option[] = [
+  { value: "NATIVE", label: "Native" },
+  { value: "FLUENT", label: "Fluent" },
+  { value: "CONVERSATIONAL", label: "Conversational" },
+];
+
+// Lengths for the profile sections. Words are counted with countWords().
+export const PROFILE_RULES = {
+  bioMinWords: 40,
+  researchMinWords: 20,
+  textMax: 1500, // research, fun fact
+  shortMax: 120, // a highlight, a role's place/years, specialty
+  knownForMax: 80, // each "Known for" bullet
+  highlightsMin: 4,
+  highlightsMax: 6,
+  knownForCount: 3,
+  rolesMax: 8,
+  languagesMax: 8,
+  funFactMax: 300,
+};
+
+// ---- Hourly pricing (redesign Oct 2026) ----
+// One hourly rate per mentor, whole dollars. Every offer's price is
+// hours x rate (lib/pricing.ts).
+export const RATE_MIN_CENTS = 5_000; // $50 an hour
+export const RATE_MAX_CENTS = 200_000; // $2,000 an hour
+export const RATE_RULE = "Rates are whole dollars, at least $50 an hour (up to $2,000)";
+// Hour bundles: whole hours. Specialized packages: estimated hours in
+// half-hour steps.
+export const BUNDLE_HOURS = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20];
+export const PACKAGE_MIN_MINUTES = 60;
+export const PACKAGE_MAX_MINUTES = 40 * 60;
+export const MAX_BUNDLES = 6;
+export const MAX_SPECIALIZED = 12;
+export const INTRO_CALL_MINUTES = 15;
+
+// Old per-package price limits, in cents (before the redesign: packages
+// had a typed-in price). Still used by the old checkout until part 2. Enforced on the package form, the
 // package API and checkout. Packages outside this range (made before the
 // limits changed) are hidden from search until the mentor updates them.
 export const PRICE_MIN_CENTS = 5_000; // $50
@@ -74,7 +158,8 @@ export function isPriceInRange(cents: number) {
   return cents >= PRICE_MIN_CENTS && cents <= PRICE_MAX_CENTS;
 }
 
-// Price bands for the browse filter, in cents. max is exclusive.
+// Price bands for the browse filter, in cents. max is exclusive. Matched
+// against every offer's computed price (an hour, a bundle or a package).
 export const PRICE_BANDS: { value: string; label: string; min: number; max: number | null }[] = [
   { value: "50-100", label: "$50 to $100", min: 5000, max: 10001 },
   { value: "100-250", label: "$100 to $250", min: 10001, max: 25001 },
@@ -140,11 +225,10 @@ export function money(cents: number) {
 export const FILTER_GROUPS = [
   { key: "service", title: "Service", sub: "What you need help with", options: SERVICES, multi: true },
   { key: "format", title: "Format", sub: "How the help is delivered", options: FORMATS, multi: true },
-  { key: "turnaround", title: "Turnaround", sub: "How fast you get it back", options: TURNAROUNDS, multi: true },
-  { key: "price", title: "Price", sub: "Per package", options: PRICE_BANDS.map(({ value, label }) => ({ value, label })), multi: true },
+  { key: "price", title: "Price", sub: "An hour, a bundle or a package", options: PRICE_BANDS.map(({ value, label }) => ({ value, label })), multi: true },
   { key: "stage", title: "Mentor stage", sub: "Where they are in training", options: STAGES, multi: true },
   { key: "school", title: "School type", sub: "Where they study or train", options: SCHOOL_TYPES, multi: true },
-  { key: "bg", title: "Been where you are", sub: "Their own path to med school", options: BACKGROUNDS, multi: true },
+  { key: "best", title: "Best for", sub: "The students they help most", options: BEST_FOR, multi: true },
   { key: "rating", title: "Rating", sub: "From student reviews", options: RATINGS, multi: false },
 ];
 
@@ -159,11 +243,11 @@ export const MENTOR_QUICK_LINKS: { label: string; qs: string }[] = [
   { label: "Traditional interviews", qs: "service=TRADITIONAL_INTERVIEW" },
   { label: "MCAT", qs: "service=MCAT" },
   { label: "School list", qs: "service=SCHOOL_LIST" },
-  { label: "Reapplicants", qs: "bg=REAPPLICANT" },
-  { label: "Non-traditional", qs: "bg=NON_TRADITIONAL" },
-  { label: "DO schools", qs: "school=DO" },
-  { label: "MD/PhD", qs: "school=MD_PHD" },
-  { label: "Gap years", qs: "bg=GAP_YEARS" },
+  { label: "Reapplicants", qs: "best=REAPPLICANT" },
+  { label: "Nontraditional", qs: "best=NONTRADITIONAL" },
+  { label: "DO", qs: "best=DO" },
+  { label: "MD-PhD", qs: "best=MD_PHD" },
+  { label: "Residency / ERAS", qs: "best=RESIDENCY" },
 ];
 
 export const quickLinkHref = (q: { qs: string }) => (q.qs ? `/mentors?${q.qs}` : "/mentors");
