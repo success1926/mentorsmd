@@ -27,6 +27,7 @@
 //      transfer for this payout already exists.
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
+import { payoutsReady } from "@/lib/stripeAccountStatus";
 import { reportError } from "@/lib/sentry";
 import { isDefiniteStripeFailure } from "@/lib/orderRelease";
 import { sendPayoutSentEmail } from "@/lib/email";
@@ -139,6 +140,9 @@ type PayResult =
 async function payMentor(m: MentorForPayout, period: string, now: Date): Promise<PayResult> {
   if (await prisma.mentorPayout.findUnique({ where: { mentorId_period: { mentorId: m.id, period } }, select: { id: true } })) return { kind: "exists" };
   if (!m.stripeAccountId) return { kind: "skipped", reason: "Payouts not connected" };
+  // Started Stripe's form but didn't finish: skip (the hours wait for the
+  // next run) rather than a transfer that fails.
+  if (!(await payoutsReady(m.stripeAccountId))) return { kind: "skipped", reason: "Payout setup not finished on Stripe" };
 
   let claimed: { payoutId: string; amountCents: number; minutes: number; heldCents: number } | { closed: number } | null;
   try {

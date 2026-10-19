@@ -29,6 +29,7 @@ import { gateBlockReason } from "@/lib/gate";
 import { isUnlocked } from "@/lib/unlock";
 import { blockBetween } from "@/lib/blocks";
 import { ensureHourlyOffer } from "@/lib/offers";
+import { payoutsReady } from "@/lib/stripeAccountStatus";
 import { CallError, bookCall, mentorScheduleSelect, openSlotsFor, orderForCallsInclude } from "@/lib/callBooking";
 import { dayInZone, tzOrDefault } from "@/lib/tz";
 import { sendCallTimeTakenEmail, sendHoursAddedEmail, sendOrderPaidEmail, sendPackagePurchasedEmail, SITE_URL } from "@/lib/email";
@@ -60,7 +61,7 @@ export async function assertCanBuy(studentId: string, mentorId: string) {
   if (!student || student.role !== "BUYER") throw new CheckoutError("Only student accounts can buy", 403);
   if (!mentor || mentor.role !== "SELLER") throw new CheckoutError("That mentor doesn't exist", 404);
   if (!isMentorListed(mentor)) throw new CheckoutError("This mentor isn't taking new orders right now");
-  if (!mentor.stripeAccountId) throw new CheckoutError("This mentor hasn't finished setting up payouts yet");
+  if (!(await payoutsReady(mentor.stripeAccountId))) throw new CheckoutError("This mentor hasn't finished setting up payouts yet");
   if (student.safetyHoldAt) throw new CheckoutError("Your account is paused while our team reviews it.", 403);
   const gate = await gateBlockReason(studentId);
   if (gate) throw new CheckoutError(gate, 403, "ACCOUNT_GATE");
@@ -190,7 +191,9 @@ async function createOrderCheckout(o: NewOrder): Promise<{ url: string; orderId:
         // Pay-per-call: the time picked, re-checked when the payment clears.
         ...(o.requestedCallStart ? { callStart: o.requestedCallStart.toISOString(), callMinutes: String(o.minutes) } : {}),
       },
-      successUrl: `${siteUrl()}/orders/${order.id}?success=true`,
+      // Stripe fills in {CHECKOUT_SESSION_ID}: the order page uses it as a
+      // back-up if the webhook is slow (confirmOrderFromSession).
+      successUrl: `${siteUrl()}/orders/${order.id}?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${siteUrl()}/api/checkout/cancel?orderId=${order.id}`,
     });
     await prisma.order.update({ where: { id: order.id }, data: { stripePaymentIntentId: session.id } });
@@ -317,6 +320,22 @@ export async function fulfilOrderPayment(orderId: string, session: Stripe.Checko
     console.error(note);
     await reportError(note, undefined, { orderId }, "fatal");
   }
+}
+
+// Back-up for the webhook: the student returns from Stripe with the page's
+// session id, and the order page asks us to check it. The session is read
+// from Stripe itself (never trusted from the browser), must be this
+// student's order and paid; then it's fulfilled exactly as the webhook
+// would (once, however many times this and the webhook run).
+export async function confirmOrderFromSession(orderId: string, buyerId: string, sessionId: string): Promise<boolean> {
+  if (!/^cs_[A-Za-z0-9_]+$/.test(sessionId)) return false;
+  const order = await prisma.order.findUnique({ where: { id: orderId }, select: { buyerId: true, status: true, kind: true } });
+  if (!order || order.buyerId !== buyerId || !order.kind) return false;
+  if (order.status !== "PENDING_PAYMENT") return order.status !== "CANCELLED";
+  const session = await stripe.checkout.sessions.retrieve(sessionId);
+  if (session.metadata?.orderId !== orderId || session.metadata?.topUpId || session.payment_status !== "paid") return false;
+  await fulfilOrderPayment(orderId, session);
+  return true;
 }
 
 // ---------- Top-ups ----------
