@@ -166,6 +166,10 @@ export function ProfileClient({ seller, offers, reviews }: { seller: any; offers
         ← All mentors
       </Link>
 
+      {searchParams?.get("checkout") === "cancelled" && (
+        <div className="alert" style={{ marginBottom: 24 }}>Checkout cancelled. Nothing was charged, and any MentorsMD credit is back in your balance.</div>
+      )}
+
       {isSelf && !seller.listed && (
         <div className="alert alert-warning" style={{ marginBottom: 24 }}>
           <b>Your profile isn&apos;t listed yet.</b> Students can&apos;t find or buy from you until every section is filled in. <Link href="/account" className="link">Finish your profile</Link>
@@ -521,7 +525,14 @@ function OfferDetails({
 }) {
   const [buying, setBuying] = useState(false);
   const [error, setError] = useState("");
+  const [credit, setCredit] = useState(0);
   const unlocked = !!unlock?.unlocked;
+  // MentorsMD credit is applied first at checkout.
+  useEffect(() => {
+    if (!isBuyer) return;
+    fetch("/api/me/credit").then((r) => r.json()).then((d) => setCredit(d.balanceCents || 0)).catch(() => {});
+  }, [isBuyer]);
+  const creditUsed = Math.min(credit, offer.price || 0);
 
   async function buy() {
     setBuying(true);
@@ -559,6 +570,11 @@ function OfferDetails({
       <p className="text-secondary" style={{ lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{offer.description}</p>
       <div className="alert alert-blue stack-sm">
         <b>Price: {priceMath(offer.minutes, offer.rateCents)}</b>
+        {creditUsed > 0 && (
+          <span className="small">
+            Credit applied: <b>{money(creditUsed)}</b>. {creditUsed >= offer.price ? "Nothing to pay by card." : `You pay ${money(offer.price - creditUsed)} by card.`}
+          </span>
+        )}
         <span className="small">
           How hours work: book 30- or 60-minute calls on {first}&apos;s calendar, or send work for written feedback; each is logged in 30- or 60-minute blocks you can see.
           {offer.kind === "SPECIALIZED" ? " The hours are an estimate: if it takes longer, you add hours at the same rate." : " Add more hours any time."}{" "}
@@ -572,7 +588,7 @@ function OfferDetails({
           <span className="text-muted">{first} isn&apos;t taking new orders right now.</span>
         ) : unlocked ? (
           <button className="btn btn-primary btn-lg" style={{ alignSelf: "flex-start" }} disabled={buying} onClick={buy}>
-            {buying ? "Opening checkout…" : `Buy for ${money(offer.price)}`}
+            {buying ? "Opening checkout…" : creditUsed >= offer.price && creditUsed > 0 ? "Buy with credit" : `Buy for ${money(offer.price - creditUsed)}`}
           </button>
         ) : (
           <div className="stack-sm">
