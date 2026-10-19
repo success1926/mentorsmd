@@ -24,7 +24,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   // Hours packages (redesign Oct 2026) have no due dates or included calls.
   if (order.kind) return NextResponse.json({ error: "This package has no due date." }, { status: 400 });
 
-  const { dueDate } = await req.json();
+  const { dueDate } = await req.json().catch(() => ({}));
   const parsed = parseDate(dueDate);
   if (!parsed) return NextResponse.json({ error: "Pick a valid date between today and one year from now" }, { status: 400 });
 

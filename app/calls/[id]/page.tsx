@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Icon, ICONS } from "@/components/ui";
-import { JOIN_CLOSES_MINUTES_AFTER, JOIN_OPENS_MINUTES_BEFORE, RECORDING_NOTICE, joinState } from "@/lib/calls";
+import { JOIN_CLOSES_MINUTES_AFTER, JOIN_OPENS_MINUTES_BEFORE, RECORDING_NOTICE, canChangeOnline, joinState } from "@/lib/calls";
 
 // The pre-join screen: what the call is, who it's with, the recording
 // notice, then "Join call", which opens the private video room with the
@@ -16,6 +16,7 @@ export default function CallPage() {
   const [error, setError] = useState("");
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState("");
+  const [cancelling, setCancelling] = useState(false);
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -50,6 +51,18 @@ export default function CallPage() {
     }
     setJoining(false);
     setJoinError(d.error || "Couldn't open the call");
+  }
+
+  // Free intro calls: either person can cancel until 24 hours before.
+  async function cancelIntro() {
+    if (!confirm(`Cancel this intro call with ${call.otherName}? You'll both get an email.`)) return;
+    setCancelling(true);
+    setJoinError("");
+    const res = await fetch(`/api/intro-calls/${id}`, { method: "DELETE" });
+    const d = await res.json().catch(() => ({}));
+    setCancelling(false);
+    if (res.ok) setCall({ ...call, status: "CANCELLED" });
+    else setJoinError(d.error || "Couldn't cancel the call");
   }
 
   return (
@@ -90,6 +103,11 @@ export default function CallPage() {
               <Icon d={ICONS.video} size={18} /> {joining ? "Opening…" : state === "open" ? "Join call" : `Join opens ${JOIN_OPENS_MINUTES_BEFORE} minutes before the start`}
             </button>
             <span className="text-muted" style={{ textAlign: "center" }}>By joining, you accept the recording notice above.</span>
+            {call.kind === "INTRO" && canChangeOnline(call, now) && (
+              <button className="btn btn-ghost btn-sm" style={{ alignSelf: "center", color: "var(--muted)" }} disabled={cancelling} onClick={cancelIntro}>
+                {cancelling ? "Cancelling…" : "Cancel this intro call"}
+              </button>
+            )}
           </>
         )}
       </div>

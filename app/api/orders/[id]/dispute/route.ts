@@ -32,7 +32,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "This package was already approved" }, { status: 400 });
   }
 
-  const { reason } = await req.json();
+  const { reason } = await req.json().catch(() => ({}));
   if (typeof reason !== "string" || !reason.trim()) {
     return NextResponse.json({ error: "Describe the issue before opening a dispute" }, { status: 400 });
   }

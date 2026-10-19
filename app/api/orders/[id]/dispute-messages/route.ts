@@ -53,7 +53,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "This order doesn't have an open dispute" }, { status: 400 });
   }
 
-  const { body } = await req.json();
+  const { body } = await req.json().catch(() => ({}));
   if (typeof body !== "string" || !body.trim()) return NextResponse.json({ error: "Message can't be empty" }, { status: 400 });
   if (body.length > LIMITS.messageBody) {
     return NextResponse.json({ error: `Message is too long (${LIMITS.messageBody} characters max)` }, { status: 400 });

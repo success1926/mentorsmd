@@ -46,6 +46,11 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   if (blocks.iBlocked || blocks.theyBlocked) {
     return NextResponse.json({ error: "This call isn't available. Contact us if you need help." }, { status: 403 });
   }
+  // Either person paused for review (safety hold) or removed: no calls.
+  const held = await prisma.user.count({
+    where: { id: { in: [studentId!, mentorId!] }, OR: [{ safetyHoldAt: { not: null } }, { removedByAdmin: true }] },
+  });
+  if (held) return NextResponse.json({ error: "This call isn't available. Contact us if you need help." }, { status: 403 });
   if (!dailyConfigured()) {
     return NextResponse.json({ error: "Video isn't set up yet. Message the other person, or contact us." }, { status: 503 });
   }

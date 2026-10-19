@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
 
-  const { email: rawEmail } = await req.json();
+  const { email: rawEmail } = await req.json().catch(() => ({}));
   const email = normalizeEmail(rawEmail);
   if (!email) {
     return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
