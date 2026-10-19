@@ -3,8 +3,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { BUSY_KINDS, dueDayOf, isValidBusyRange } from "@/lib/schedule";
-import { fmtDayLabel } from "@/lib/tz";
-import { SITE_URL, sendBusyClashEmail } from "@/lib/email";
 
 // Mentor-only: busy dates (exams, rotations, travel). The note is private
 // to the mentor. "No deadlines" stops students picking a due date in the
@@ -71,14 +69,9 @@ export async function POST(req: Request) {
     data: { userId: user.id, startDay: body.startDay, endDay: body.endDay, kind: body.kind, note: (body.note || "").trim() || null },
   });
 
-  // Existing orders keep their due dates; the mentor is warned instead.
+  // Packages have no due dates since the hourly redesign (Oct 2026); calls
+  // already booked in the range are shown so the mentor can move them.
   const clash = await clashes(user.id, created.startDay, created.endDay, created.kind === "NO_DEADLINES_NO_CALLS");
-  if (clash.deadlines.length && user.email) {
-    await sendBusyClashEmail(
-      user.email,
-      clash.deadlines.map((d) => ({ gigTitle: d.gigTitle, studentName: d.studentName, due: fmtDayLabel(d.dueDay), url: `${SITE_URL}/orders/${d.orderId}` }))
-    ).catch((e) => console.error("busy clash email", e));
-  }
   return NextResponse.json({ busyDate: created, busyDates: await list(user.id), clashes: clash });
 }
 
