@@ -7,7 +7,7 @@ import { unreadFor } from "@/lib/unread";
 export const dynamic = "force-dynamic";
 
 // Small status the top bar polls: unread messages, and for mentors how
-// many packages they have (to show "+ Add package" vs "My packages").
+// many offers they have (to show "Set your rate" vs "Rate & offers").
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ unread: 0, unreadConversations: 0, packageCount: null });
@@ -16,7 +16,8 @@ export async function GET() {
 
   const [unread, packageCount] = await Promise.all([
     unreadFor(userId, role),
-    role === "SELLER" ? prisma.gig.count({ where: { sellerId: userId, active: true } }) : Promise.resolve(null),
+    // Offers since the redesign (the Hourly offer exists once a rate is set).
+    role === "SELLER" ? prisma.gig.count({ where: { sellerId: userId, active: true, kind: { not: null } } }) : Promise.resolve(null),
   ]);
   return NextResponse.json({ unread: unread.messages, unreadConversations: unread.conversations, packageCount });
 }

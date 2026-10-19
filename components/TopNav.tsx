@@ -64,7 +64,7 @@ const RIGHT_LINKS: Record<string, NavLink[]> = {
   SELLER: [
     { label: "Dashboard", href: "/dashboard" },
     { label: "Messages", href: "/messages" },
-    { label: "My packages", href: "/dashboard/packages" },
+    { label: "Rate & offers", href: "/dashboard/packages" },
     { label: "Payouts", href: "/dashboard/payouts" },
   ],
   ADMIN: [{ label: "Admin", href: "/admin" }],
@@ -215,9 +215,9 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
   const marketing = !session || role === "BUYER";
   // Quick links only on the pages where students are looking for a mentor.
   const showQuick = scrolled && marketing && (isHome || pathname.startsWith("/mentors") || pathname === "/senior-team");
-  // Mentors with no packages yet see "+ Add package" instead of "My packages".
+  // Mentors with no hourly rate / offers yet see "Set your rate".
   const right = (role ? RIGHT_LINKS[role] || [] : []).map((l) =>
-    l.href === "/dashboard/packages" && navInfo.packageCount === 0 ? { label: "+ Add package", href: "/dashboard/packages?new=1" } : l
+    l.href === "/dashboard/packages" && navInfo.packageCount === 0 ? { label: "Set your rate", href: "/dashboard/packages#rate" } : l
   );
   const badge = (href: string) =>
     href === "/messages" && navInfo.unread > 0 ? (

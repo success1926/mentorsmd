@@ -99,7 +99,7 @@ export default function MentorDashboard() {
   // Profile sections and the hourly rate: the "Finish your profile"
   // checklist below shows each one.
   if (profile?.progress && !profile.progress.complete) attn.push({ key: "profile", tone: "warn", text: `Finish your profile (${profile.progress.done} of ${profile.progress.total} sections). Students can't find or buy from you until it's done.`, href: "/account", cta: "Finish" });
-  if (profile?.hourlyRateCents && gigs.length === 0) attn.push({ key: "gigs", tone: "warn", text: "Add hour bundles or a specialized package (optional).", href: "/dashboard/packages", cta: "Add offers" });
+  if (profile?.hourlyRateCents && !gigs.some((g) => g.kind === "BUNDLE" || g.kind === "SPECIALIZED")) attn.push({ key: "gigs", tone: "warn", text: "Add hour bundles or a specialized package (optional).", href: "/dashboard/packages", cta: "Add offers" });
   if (profile && !profile.hasAvailability && gigs.some((g) => formatHasCall(g.format))) attn.push({ key: "cal", tone: "warn", text: "Set your call hours so students can book the calls in your packages.", href: "/account#call-hours", cta: "Set hours" });
   for (const o of active) {
     const c = callSummary(o);
