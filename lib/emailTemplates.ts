@@ -416,6 +416,20 @@ const LIST: EmailDef[] = [
     vars: [V.packageTitle, V.mentorName, text("hoursLeft", "Hours left", "1 hour"), V.orderLink],
   },
   {
+    key: "more_hours_suggested",
+    name: "Mentor suggests more hours",
+    description: "Sent to the student when their mentor uses \"Suggest more hours\" on a package. The button opens Add hours with the suggested number picked.",
+    group: "STUDENTS",
+    subject: "{{mentorName}} suggests adding {{hours}} to {{packageTitle}}",
+    body: [
+      "{{mentorName}} suggests adding **{{hours}}** to **{{packageTitle}}**. You have {{hoursLeft}} left right now (booked calls count as used).",
+      "{{note}}",
+      "Adding hours is up to you, at the same rate. Nothing is charged unless you add them.",
+      "[[Add hours]]({{addHoursLink}})",
+    ].join("\n\n"),
+    vars: [V.mentorName, V.packageTitle, text("hours", "Hours suggested", "3 hours"), text("hoursLeft", "Hours left now", "1 hour"), block("note", "The mentor's note (left out if none)", blocks.quote("The secondaries for your top three schools will take about three more hours.")), link("addHoursLink", "Link that opens Add hours with the suggested hours picked", `${SITE}/orders/sample-order?add_hours=3`)],
+  },
+  {
     key: "hours_low_mentor",
     name: "1 hour left (mentor)",
     description: "Sent to the mentor at the same time as the student's \"1 hour left\" email, so they know the package is nearly used up.",
@@ -423,7 +437,7 @@ const LIST: EmailDef[] = [
     subject: "{{studentName}} has {{hoursLeft}} left on {{packageTitle}}",
     body: [
       "**{{studentName}}** has **{{hoursLeft}}** left on **{{packageTitle}}** (booked calls count as used). We've emailed them a reminder that they can add hours at the same rate.",
-      "If the work needs more time than that, let them know in Messages roughly how many more hours you expect, so they can add them before you run out.",
+      "If the work needs more time than that, use **Suggest more hours** on the package page: they get a message and a one-click button to add them.",
       "[Open the package]({{orderLink}})",
     ].join("\n\n"),
     vars: [V.studentName, V.packageTitle, text("hoursLeft", "Hours left", "1 hour"), V.orderLink],

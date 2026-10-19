@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useDisputeThread } from "@/lib/hooks/useDisputeThread";
 import { Attendance, CallRow, PastCallOutcome, Recordings } from "@/components/Calls";
-import { AddHoursModal, BookCallModal, DecisionBanner, HoursLog, HoursMeter, LogWrittenWork, PackageBadge, showLowHours, PackageThread, ReportProblem, SharedFiles, fmtDay, fmtWhen, postJson } from "@/components/Packages";
+import { AddHoursModal, BookCallModal, DecisionBanner, HoursLog, HoursMeter, LogWrittenWork, PackageBadge, showLowHours, PackageThread, SuggestHoursModal, ReportProblem, SharedFiles, fmtDay, fmtWhen, postJson } from "@/components/Packages";
 import { MinorBadge, StaffBadge, tintFor, initialsOf } from "@/components/ui";
 import { hoursSummary, shortHours, LOW_HOURS_MINUTES } from "@/lib/hours";
 import { finishPhase, markCompleteBlocker } from "@/lib/finishing";
@@ -57,6 +57,8 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
   const [flash, setFlash] = useState<"" | "paid" | "hours" | "topup-cancelled">("");
   const [booking, setBooking] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [addPreset, setAddPreset] = useState<number | undefined>(undefined);
+  const [suggesting, setSuggesting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [reviewRating, setReviewRating] = useState(0);
@@ -67,6 +69,12 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     setFlash(q.get("success") === "true" ? "paid" : q.get("hours_added") ? "hours" : q.get("topup") === "cancelled" ? "topup-cancelled" : "");
+    // From the "Mentor suggests more hours" email: open Add hours with that number picked.
+    const preset = Number(q.get("add_hours"));
+    if (preset && isBuyer && finishPhase(order) === "WORKING") {
+      setAddPreset(preset);
+      setAdding(true);
+    }
   }, []);
   // Waiting for Stripe's confirmation: check again shortly.
   useEffect(() => {
@@ -171,7 +179,13 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
             )}
             {isSeller && showLowHours(order) && (
               <div className="alert alert-warning">
-                {order.buyer?.name?.split(" ")[0] || "Your student"} has {shortHours(h.left)} left (booked calls count as used). We've emailed them a reminder that they can add hours. If the work needs more time than that, tell them in Messages roughly how many more hours you expect.
+                {order.buyer?.name?.split(" ")[0] || "Your student"} has {shortHours(h.left)} left (booked calls count as used). We&apos;ve emailed them a reminder that they can add hours. If the work needs more time than that, suggest how many more hours you expect.
+              </div>
+            )}
+            {isSeller && phase === "WORKING" && (
+              <div className="row-wrap">
+                <button className="btn btn-sm" onClick={() => setSuggesting(true)}>Suggest more hours</button>
+                <span className="text-muted small">If the work will take longer than the hours left. {order.buyer?.name?.split(" ")[0] || "The student"} gets a message and a one-click Add hours button.</span>
               </div>
             )}
             {isSeller && phase === "WORKING" && (
@@ -352,7 +366,8 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
       {isBuyer && (
         <>
           <BookCallModal open={booking} onClose={() => setBooking(false)} mentorId={order.sellerId} mentorName={order.seller?.name} orderId={order.id} minutesLeft={h.left} onBooked={reload} />
-          <AddHoursModal open={adding} onClose={() => setAdding(false)} order={order} />
+          <AddHoursModal open={adding} onClose={() => setAdding(false)} order={order} initialHours={addPreset} />
+          <SuggestHoursModal open={suggesting} onClose={() => setSuggesting(false)} order={order} />
         </>
       )}
     </div>

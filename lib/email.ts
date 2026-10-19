@@ -241,6 +241,11 @@ export async function sendHoursLowEmail(toEmail: string, v: { packageTitle: stri
   await sendTemplate("hours_low", toEmail, { ...v, orderLink: v.orderUrl });
 }
 
+export async function sendMoreHoursSuggestedEmail(toEmail: string, v: { mentorName: string; packageTitle: string; hours: string; hoursLeft: string; note: string; addHoursUrl: string }) {
+  const { addHoursUrl, ...rest } = v;
+  await sendTemplate("more_hours_suggested", toEmail, { ...rest, note: v.note ? blocks.quote(v.note) : "", addHoursLink: addHoursUrl });
+}
+
 export async function sendHoursLowMentorEmail(toEmail: string, v: { packageTitle: string; studentName: string; hoursLeft: string; orderUrl: string }) {
   await sendTemplate("hours_low_mentor", toEmail, { ...v, orderLink: v.orderUrl });
 }
