@@ -390,8 +390,9 @@ function Thread({ conversationId }: { conversationId: string }) {
                   <b>{money(g.price)}</b>
                 </div>
                 {g.callsIncluded > 0 && <span className="text-muted">Includes {g.callsIncluded} × {g.callLength} min call</span>}
-                <button disabled={!bookable} onClick={() => router.push(`/gigs/${g.id}/checkout`)} className="btn btn-primary btn-sm">
-                  Book
+                {/* Bought from the mentor's profile (a pop-up there) since the hourly redesign. */}
+                <button onClick={() => router.push(`/mentors/${convo.sellerId}?package=${g.id}`)} className="btn btn-primary btn-sm">
+                  Details
                 </button>
               </div>
             ))}

@@ -4,7 +4,8 @@ import { useEffect, useRef } from "react";
 
 // A simple accessible pop-up: dims the page, closes on Esc or a click
 // outside, and keeps keyboard focus inside while open.
-export function Modal({ open, onClose, label, children, dismissable = true }: { open: boolean; onClose: () => void; label: string; children: React.ReactNode; dismissable?: boolean }) {
+// `wide`: a larger pop-up (package details, picking a call time).
+export function Modal({ open, onClose, label, children, dismissable = true, wide = false }: { open: boolean; onClose: () => void; label: string; children: React.ReactNode; dismissable?: boolean; wide?: boolean }) {
   const boxRef = useRef<HTMLDivElement>(null);
   // Kept in a ref so re-renders (typing in a field) don't re-run the
   // open/focus effect below.
@@ -52,7 +53,7 @@ export function Modal({ open, onClose, label, children, dismissable = true }: { 
   if (!open) return null;
   return (
     <div className="modal-scrim" onMouseDown={(e) => { if (dismissable && e.target === e.currentTarget) onClose(); }}>
-      <div ref={boxRef} className="modal" role="dialog" aria-modal="true" aria-label={label}>
+      <div ref={boxRef} className={`modal${wide ? " modal-wide" : ""}`} role="dialog" aria-modal="true" aria-label={label}>
         {dismissable && (
           <button type="button" className="modal-close" aria-label="Close" onClick={onClose}>
             ×
