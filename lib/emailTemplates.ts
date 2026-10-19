@@ -416,6 +416,19 @@ const LIST: EmailDef[] = [
     vars: [V.packageTitle, V.mentorName, text("hoursLeft", "Hours left", "1 hour"), V.orderLink],
   },
   {
+    key: "hours_low_mentor",
+    name: "1 hour left (mentor)",
+    description: "Sent to the mentor at the same time as the student's \"1 hour left\" email, so they know the package is nearly used up.",
+    group: "MENTORS",
+    subject: "{{studentName}} has {{hoursLeft}} left on {{packageTitle}}",
+    body: [
+      "**{{studentName}}** has **{{hoursLeft}}** left on **{{packageTitle}}** (booked calls count as used). We've emailed them a reminder that they can add hours at the same rate.",
+      "If the work needs more time than that, let them know in Messages roughly how many more hours you expect, so they can add them before you run out.",
+      "[Open the package]({{orderLink}})",
+    ].join("\n\n"),
+    vars: [V.studentName, V.packageTitle, text("hoursLeft", "Hours left", "1 hour"), V.orderLink],
+  },
+  {
     key: "written_time_logged",
     name: "Written time logged",
     description: "Sent to the student when their mentor logs written work on their package.",

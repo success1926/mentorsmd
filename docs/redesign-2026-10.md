@@ -98,7 +98,7 @@ Public profile (student view), one page:
 
 ## 9. Emails (editable templates, `lib/emailTemplates.ts`)
 
-Add/adjust: intro call booked (both), intro call reminder, purchase confirmed (student) / new order (mentor), hours added, 1 hour left, call booked from hours (both, with .ics), written time logged (student), work marked complete (student, 48 h), last call/revision requested (mentor), auto-approved / approved (both), monthly payout sent (mentor), credit issued (student). Remove due-date/overdue/on-hold/forfeit/book-your-call emails from the active set.
+Add/adjust: intro call booked (both), intro call reminder, purchase confirmed (student) / new order (mentor), hours added, 1 hour left (student and mentor), call booked from hours (both, with .ics), written time logged (student), work marked complete (student, 48 h), last call/revision requested (mentor), auto-approved / approved (both), monthly payout sent (mentor), credit issued (student). Remove due-date/overdue/on-hold/forfeit/book-your-call emails from the active set.
 
 ## 10. Admin
 

@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useDisputeThread } from "@/lib/hooks/useDisputeThread";
 import { Attendance, CallRow, PastCallOutcome, Recordings } from "@/components/Calls";
-import { AddHoursModal, BookCallModal, DecisionBanner, HoursLog, HoursMeter, LogWrittenWork, PackageBadge, PackageThread, ReportProblem, SharedFiles, fmtDay, fmtWhen, postJson } from "@/components/Packages";
+import { AddHoursModal, BookCallModal, DecisionBanner, HoursLog, HoursMeter, LogWrittenWork, PackageBadge, showLowHours, PackageThread, ReportProblem, SharedFiles, fmtDay, fmtWhen, postJson } from "@/components/Packages";
 import { MinorBadge, StaffBadge, tintFor, initialsOf } from "@/components/ui";
 import { hoursSummary, shortHours, LOW_HOURS_MINUTES } from "@/lib/hours";
 import { finishPhase, markCompleteBlocker } from "@/lib/finishing";
@@ -167,6 +167,11 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
               <div className={`alert ${h.left <= LOW_HOURS_MINUTES ? "alert-warning" : "alert-blue"} row-wrap`} style={{ justifyContent: "space-between" }}>
                 <span>{h.left <= LOW_HOURS_MINUTES ? `Running low? You have ${shortHours(h.left)} left.` : "Need more time? Add hours at the same rate."}</span>
                 <button className="btn btn-sm" onClick={() => setAdding(true)}>Add hours</button>
+              </div>
+            )}
+            {isSeller && showLowHours(order) && (
+              <div className="alert alert-warning">
+                {order.buyer?.name?.split(" ")[0] || "Your student"} has {shortHours(h.left)} left (booked calls count as used). We've emailed them a reminder that they can add hours. If the work needs more time than that, tell them in Messages roughly how many more hours you expect.
               </div>
             )}
             {isSeller && phase === "WORKING" && (

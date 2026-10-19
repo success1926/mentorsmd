@@ -71,13 +71,21 @@ export function fits(order: HoursOrderLike, minutes: number) {
   return hoursSummary(order).left >= minutes;
 }
 
-// "1 hour left" email: once per running-low episode (a top-up that takes
-// the order back above 1 hour clears lowHoursEmailAt). Orders that start
-// at 1 hour or less never get it.
-export function shouldSendLowHours(order: HoursOrderLike & { lowHoursEmailAt?: DateLike | null }) {
-  if (order.lowHoursEmailAt) return false;
+// Running low: 1 hour or less left on an active package that started with
+// more than that. Shown on the hours bar for both sides, and the trigger
+// for the "1 hour left" emails.
+export function isLowOnHours(order: HoursOrderLike & { status?: string | null }) {
+  if (order.status && order.status !== "IN_ESCROW") return false;
   if ((order.minutesPurchased || 0) <= LOW_HOURS_MINUTES) return false;
   return hoursSummary(order).left <= LOW_HOURS_MINUTES;
+}
+
+// "1 hour left" emails (student and mentor): once per running-low episode
+// (a top-up that takes the order back above 1 hour clears lowHoursEmailAt).
+// Orders that start at 1 hour or less never get them.
+export function shouldSendLowHours(order: HoursOrderLike & { lowHoursEmailAt?: DateLike | null }) {
+  if (order.lowHoursEmailAt) return false;
+  return isLowOnHours(order);
 }
 
 // "3 h", "1.5 h", "30 min", "0 h".

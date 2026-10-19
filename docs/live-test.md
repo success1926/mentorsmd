@@ -28,6 +28,7 @@
 - [ ] You get the "New package" email. The package shows under Active packages on the dashboard.
 - [ ] The package page shows hours used / left, calls held, earned so far, next payout (the 24th).
 - [ ] Log written work: 30 or 60 minutes, a note, optional file. You can't log more than the hours left. The student gets "Written time logged".
+- [ ] When the package gets down to 1 hour left: you get "1 hour left (mentor)" (once), the hours bar turns amber with a "Running low" tag (dashboard, Inbox, package page), and the package page tells you the student was reminded and to message them if more hours are needed.
 - [ ] After a call is held, it appears in the hours log automatically (30 or 60 minutes). You can watch its recording on the package page (students can't).
 - [ ] "Mark work complete" is blocked while a call is still booked; otherwise it works any time. The student gets "Work marked complete" with the 48-hour deadline.
 - [ ] If the student asks for one last call or revision, you get an email; deliver it and mark complete again.
@@ -48,7 +49,7 @@
 - [ ] With MentorsMD credit (give yourself some in section 3), checkout shows "Credit applied". If credit covers everything, there's no Stripe page.
 - [ ] Book a 30- or 60-minute call from your hours (no payment). Both get "Call booked" with an invite. Booked calls count against hours left. Cancel or reschedule works until 24 hours before.
 - [ ] Add hours (1, 2, 3 or 5) at the package's rate → Stripe → "Hours added" email, hours left goes up.
-- [ ] When 1 hour is left, you get "1 hour left" (once).
+- [ ] When 1 hour is left, you get "1 hour left" (once), and the hours bar turns amber with a "Running low" tag (dashboard, My packages, package page). After adding hours it goes back to normal.
 - [ ] With no hours left, picking a time on the mentor's calendar offers a pay-per-call (30 or 60 minutes at the hourly rate).
 - [ ] Messages and shared files on the package page belong to that package. My packages shows Active / Waiting on you / Completed, and your credit balance.
 
@@ -82,7 +83,7 @@
 - [ ] People → a student → MentorsMD credit: balance and history. Add $10 with a reason: the student is emailed (without the reason), the Action log has it. Removing more than the balance is refused. Without the Orders permission you can see it but not change it.
 - [ ] Calls & recordings lists intro calls too (badge INTRO, no package link) next to package calls.
 - [ ] Insights → Overview: Money collected includes added hours and is net of credit; Credit issued shows. Breakdowns has "By offer kind" (no turnaround). CSV downloads work.
-- [ ] Admin → Emails lists the new emails (package bought, new package, hours added, 1 hour left, call booked, written time logged, work marked complete, one last call or revision, package approved, intro call booked / reminder, monthly payout sent, MentorsMD credit added), each editable with a preview. The old due-date, overdue, on-hold, "book your call", forfeited, delivered (96 hours), released and revision emails are gone from the list.
+- [ ] Admin → Emails lists the new emails (package bought, new package, hours added, 1 hour left (student and mentor), call booked, written time logged, work marked complete, one last call or revision, package approved, intro call booked / reminder, monthly payout sent, MentorsMD credit added), each editable with a preview. The old due-date, overdue, on-hold, "book your call", forfeited, delivered (96 hours), released and revision emails are gone from the list.
 
 ## 4. Anyone
 
