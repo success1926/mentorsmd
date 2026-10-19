@@ -27,7 +27,7 @@ export default function LeavingPage({ searchParams }: { searchParams: { url?: st
             <p className="text-muted small" style={{ wordBreak: "break-all" }}>{target.href}</p>
             <div className="alert alert-warning small">
               We don&apos;t control this site. Never enter a password (AMCAS, email or anything else) or pay for anything there. Payments for mentoring
-              only happen on MentorsMD, where your payment is held until you approve.
+              only happen on MentorsMD, where every hour is logged and our team can step in if something goes wrong.
             </div>
             <div className="row-wrap">
               <a href={target.href} className="btn btn-primary" rel="noopener noreferrer nofollow">Continue to {target.hostname}</a>

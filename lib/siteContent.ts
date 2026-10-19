@@ -333,7 +333,7 @@ export const SITE_PAGES = {
       }),
       ...section("When there are no reviews yet", {
         emptyTitle: text("Heading", "Reviews are on their way.", { max: 80 }),
-        emptyText: long("Text", "Our first students are working with their mentors now. In the meantime, every mentor is vetted by our senior team, and your payment is held until you approve the work.", { max: 400 }),
+        emptyText: long("Text", "Our first students are working with their mentors now. In the meantime, every mentor is vetted by our senior team, and every hour you use is logged where you can see it.", { max: 400 }),
       }),
     },
   },

@@ -17,7 +17,7 @@ const SECTIONS: { title: string; points: string[] }[] = [
   {
     title: "Keep everything on MentorsMD",
     points: [
-      "Pay only through MentorsMD. Payment is held until you approve the work, which is what protects you if something goes wrong.",
+      "Pay only through MentorsMD. Every hour is logged on the site, and if something goes wrong our team can step in, which is what protects you.",
       "Don't move to Venmo, Zelle, PayPal, Cash App, cash or any other payment, and don't offer or accept discounts for paying outside.",
       "Use MentorsMD messages and MentorsMD video calls. Don't swap phone numbers, emails, WhatsApp or Zoom links to get around the site.",
       "Share files through MentorsMD so there's a record if there's ever a dispute.",

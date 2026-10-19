@@ -9,7 +9,7 @@ export function AuthShell({ children, title, body }: { children: React.ReactNode
         <Vetted />
         <h2>{title || "Your white coat starts here."}</h2>
         <p style={{ fontSize: 19, lineHeight: 1.55, color: "rgba(255,255,255,0.9)", maxWidth: 460 }}>
-          {body || "One-on-one help from med students and residents, every one vetted by our senior team. Your payment is held until you approve the work."}
+          {body || "One-on-one help from med students and residents, every one vetted by our senior team. Book a free intro call, then pay by the hour."}
         </p>
       </div>
       <div className="auth-form">

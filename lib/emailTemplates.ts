@@ -794,8 +794,8 @@ const LIST: EmailDef[] = [
     body: [
       "Hi {{parentFirstName}},",
       "**{{studentName}}** booked a package on MentorsMD.",
-      "**Package:** {{packageTitle}}\n**Mentor:** {{mentorName}}\n**Amount paid:** {{amount}}\n**Date:** {{paidOn}}\n**Due:** {{dueDate}}",
-      "Payment held until you approve: the money is only released to the mentor after the work is delivered and approved (or the review window passes).",
+      "**Package:** {{packageTitle}}\n**Mentor:** {{mentorName}}\n**Amount paid:** {{amount}}\n**Date:** {{paidOn}}",
+      "Every call and block of written work is logged on the package, and you can see it all from the link below.",
       "[See all orders and calls]({{parentLink}})",
     ].join("\n\n"),
     vars: [
