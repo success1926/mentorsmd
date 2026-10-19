@@ -444,7 +444,6 @@ function Thread({ conversationId }: { conversationId: string }) {
                   <b style={{ fontSize: 15 }}>{g.title}</b>
                   <b>{money(g.price)}</b>
                 </div>
-                {g.callsIncluded > 0 && <span className="text-muted">Includes {g.callsIncluded} × {g.callLength} min call</span>}
                 {/* Bought from the mentor's profile (a pop-up there) since the hourly redesign. */}
                 <button onClick={() => router.push(`/mentors/${convo.sellerId}?package=${g.id}`)} className="btn btn-primary btn-sm">
                   Details

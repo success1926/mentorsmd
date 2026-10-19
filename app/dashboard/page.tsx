@@ -3,15 +3,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { MinorBadge, statusBadge, tintFor, initialsOf } from "@/components/ui";
-import { callSummary, fmtDateTime } from "@/lib/calls";
+import { MinorBadge, tintFor, initialsOf } from "@/components/ui";
+import { fmtDateTime } from "@/lib/calls";
 import { formatHasCall, money } from "@/lib/options";
 import { ProfileChecklist } from "@/components/ProfileChecklist";
 import { HoursBar, PackageBadge } from "@/components/Packages";
 import { finishPhase } from "@/lib/finishing";
 import { hoursSummary, shortHours } from "@/lib/hours";
-import { priceFor } from "@/lib/pricing";
 import { PLATFORM_FEE_PERCENT } from "@/lib/fee";
+import { PAYOUT_STATUS_LABEL, payoutDayLabel, periodLabel } from "@/lib/payoutRules";
 import { StudentDashboard } from "./StudentDashboard";
 
 // One hours package on the mentor's dashboard (redesign Oct 2026).
@@ -41,40 +41,17 @@ export default function DashboardPage() {
   return <MentorDashboard />;
 }
 
-const ACTIVE = ["IN_ESCROW", "COMPLETED"];
 const DAY = 24 * 3600_000;
+const PAYOUT_BADGE: Record<string, string> = { PAID: "badge-success", FAILED: "badge-danger", PROCESSING: "badge-warning" };
 
 type Attn = { key: string; tone: "" | "warn" | "danger"; text: string; href: string; cta: string };
-
-function OrderRow({ o }: { o: any }) {
-  return (
-    <div className="list-row" style={{ flexWrap: "wrap" }}>
-      <span className="avatar" style={{ background: tintFor(o.buyer?.name || ""), width: 40, height: 40, fontSize: 15 }}>
-        {initialsOf(o.buyer?.name || "")}
-      </span>
-      <div className="grow stack-sm" style={{ gap: 2, minWidth: 180 }}>
-        <b style={{ fontSize: 15 }}>{o.gig.title}</b>
-        <span className="text-muted">
-          {o.buyer?.name} · {money(o.amount)}
-          {o.dueDate && ACTIVE.includes(o.status) ? ` · Due ${new Date(o.dueDate).toLocaleDateString()}` : ""}
-        </span>
-      </div>
-      <MinorBadge person={o.buyer} />
-      {statusBadge(o)}
-      <div className="row" style={{ gap: 6 }}>
-        {o.conversationId && <Link href={`/messages/${o.conversationId}`} className="btn btn-sm">Message</Link>}
-        <Link href={`/orders/${o.id}`} className="btn btn-sm btn-soft">Open order</Link>
-      </div>
-    </div>
-  );
-}
 
 function MentorDashboard() {
   const { data: session, status } = useSession();
   const role = (session?.user as any)?.role;
   const first = (session?.user?.name || "").split(" ")[0];
 
-  const [orders, setOrders] = useState<any[] | null>(null);
+  const [earnings, setEarnings] = useState<any>(null);
   const [convos, setConvos] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [gigs, setGigs] = useState<any[]>([]);
@@ -88,7 +65,7 @@ function MentorDashboard() {
 
   useEffect(() => {
     if (role !== "SELLER") return;
-    fetch("/api/orders").then((r) => r.json()).then((d) => setOrders((d.orders || []).filter((o: any) => !["PENDING_PAYMENT", "CANCELLED"].includes(o.status)))).catch(() => setOrders([]));
+    fetch("/api/me/payouts").then((r) => r.json()).then(setEarnings).catch(() => {});
     fetch("/api/conversations").then((r) => r.json()).then((d) => setConvos(d.conversations || [])).catch(() => {});
     fetch("/api/packages").then((r) => r.json()).then((d) => setPackages(d.packages || [])).catch(() => setPackages([]));
     fetch("/api/gigs?mine=true").then((r) => r.json()).then((d) => setGigs(d.gigs || [])).catch(() => {});
@@ -123,14 +100,8 @@ function MentorDashboard() {
     loadProfile();
   }
 
-  // Orders from before the redesign (hours packages are listed separately).
-  const list = (orders || []).filter((o) => !o.kind);
   const activePkgs = (packages || []).filter((p) => ["WORKING", "AWAITING_STUDENT", "DISPUTED"].includes(finishPhase(p)));
-  const earnedCents = (packages || []).reduce((s, p) => s + Math.round((priceFor(hoursSummary(p).used, p.rateCents || 0) * (100 - PLATFORM_FEE_PERCENT)) / 100), 0);
-  const active = list.filter((o) => ACTIVE.includes(o.status));
-  const done = list.filter((o) => !ACTIVE.includes(o.status));
-  const dueSoon = active.filter((o) => o.status === "IN_ESCROW" && o.dueDate && new Date(o.dueDate).getTime() - now < 7 * DAY);
-  const heldCents = active.reduce((s, o) => s + Math.round(o.amount * 0.8), 0);
+  const approvedPkgs = (packages || []).filter((p) => finishPhase(p) === "APPROVED");
 
   const attn: Attn[] = [];
   if (payouts === false) attn.push({ key: "payouts", tone: "danger", text: "Connect payouts so students can book you.", href: "/dashboard/payouts", cta: "Connect" });
@@ -146,17 +117,6 @@ function MentorDashboard() {
     const next = hoursSummary(p).upcoming[0];
     if (next && new Date(next.startTime).getTime() - now < DAY) attn.push({ key: `pc${next.id}`, tone: "", text: `Call with ${who}: ${fmtDateTime(next.startTime)}.`, href: `/orders/${p.id}`, cta: "Open" });
   }
-  for (const o of active) {
-    const c = callSummary(o);
-    const who = o.buyer?.name?.split(" ")[0] || "Student";
-    if (o.disputed) attn.push({ key: `d${o.id}`, tone: "danger", text: `${who} opened a dispute on ${o.gig.title}.`, href: `/orders/${o.id}`, cta: "View" });
-    else if (c.onHold) attn.push({ key: `h${o.id}`, tone: "warn", text: `${o.gig.title} is on hold: ${who} hasn't booked the call.`, href: `/orders/${o.id}`, cta: "Review" });
-    else if (o.status === "IN_ESCROW" && o.revisionRequested) attn.push({ key: `r${o.id}`, tone: "warn", text: `${who} asked for a revision on ${o.gig.title}.`, href: `/orders/${o.id}`, cta: "Open" });
-    else if (o.status === "IN_ESCROW" && o.dueDate && new Date(o.dueDate).getTime() < now) attn.push({ key: `o${o.id}`, tone: "danger", text: `${o.gig.title} for ${who} is past due.`, href: `/orders/${o.id}`, cta: "Open" });
-    const next = c.upcoming[0];
-    if (next && new Date(next.startTime).getTime() - now < DAY) attn.push({ key: `c${next.id}`, tone: "", text: `Call with ${who}: ${fmtDateTime(next.startTime)}.`, href: `/orders/${o.id}`, cta: "Open" });
-  }
-
   return (
     <div className="page stack-lg">
       <div className="between" style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
@@ -192,10 +152,18 @@ function MentorDashboard() {
       <ProfileChecklist progress={profile?.progress} compact />
 
       <div className="stat-cards">
-        <div className="stat-card"><span className="text-secondary">Active packages</span><span className="stat-num">{activePkgs.length + active.length}</span></div>
-        <div className="stat-card" style={{ background: "var(--pink-soft)" }}><span className="text-secondary">Due in 7 days</span><span className="stat-num">{dueSoon.length}</span></div>
-        <div className="stat-card" style={{ background: "var(--blue)" }}><span className="text-secondary">Held for you</span><span className="stat-num">{money(heldCents)}</span></div>
-        <div className="stat-card"><span className="text-secondary">Completed</span><span className="stat-num">{done.filter((o) => o.status === "RELEASED").length}</span></div>
+        <div className="stat-card"><span className="text-secondary">Active packages</span><span className="stat-num">{activePkgs.length}</span></div>
+        <div className="stat-card" style={{ background: "var(--blue)" }}>
+          <span className="text-secondary">Earned this month (not yet paid)</span>
+          <span className="stat-num">{earnings ? money(earnings.unpaidCents) : "…"}</span>
+          {earnings?.heldCents > 0 && <span className="text-muted small">+ {money(earnings.heldCents)} held by a dispute</span>}
+        </div>
+        <div className="stat-card" style={{ background: "var(--pink-soft)" }}>
+          <span className="text-secondary">Next payout</span>
+          <span className="stat-num">{earnings ? payoutDayLabel(earnings.nextPayoutDay) : "24th"}</span>
+          {earnings && !earnings.payoutsConnected && <span className="text-muted small">Connect payouts to be paid</span>}
+        </div>
+        <div className="stat-card"><span className="text-secondary">Completed packages</span><span className="stat-num">{approvedPkgs.length}</span></div>
       </div>
 
       <div className="dash-grid">
@@ -222,27 +190,25 @@ function MentorDashboard() {
             <div className="card" style={{ padding: "4px 20px" }} hidden={!activePkgs.length}>
               {activePkgs.map((p) => <PackageRow key={p.id} p={p} />)}
             </div>
-            {packages !== null && packages.length > 0 && (
-              <span className="text-muted small">Earned on packages so far: {money(earnedCents)} ({100 - PLATFORM_FEE_PERCENT}% of hours used). Paid monthly, on the 24th.</span>
-            )}
+            <span className="text-muted small">You earn {100 - PLATFORM_FEE_PERCENT}% of each hour. Everything logged since your last payout, plus the unused hours of approved packages, is paid on the 24th of each month.</span>
           </section>
 
-          <section hidden={list.length === 0}>
-            <details className="collapse" open>
-              <summary>Active orders <span className="tab-count" style={{ marginRight: "auto", marginLeft: 8 }}>{active.length}</span></summary>
-              <div className="collapse-body" style={{ gap: 0 }}>
-                {orders === null && <span className="text-muted">Loading…</span>}
-                {orders !== null && active.length === 0 && <span className="text-muted">No active orders right now.</span>}
-                {active.map((o) => <OrderRow key={o.id} o={o} />)}
-              </div>
-            </details>
-            <details className="collapse">
-              <summary>Completed orders <span className="tab-count" style={{ marginRight: "auto", marginLeft: 8 }}>{done.length}</span></summary>
-              <div className="collapse-body" style={{ gap: 0 }}>
-                {done.length === 0 && <span className="text-muted">Nothing here yet.</span>}
-                {done.map((o) => <OrderRow key={o.id} o={o} />)}
-              </div>
-            </details>
+          <section className="stack-sm">
+            <h2 style={{ fontSize: 28 }}>Past payouts</h2>
+            {!earnings && <span className="text-muted">Loading…</span>}
+            {earnings && earnings.past.length === 0 && <div className="empty">No payouts yet. Your first one is on {payoutDayLabel(earnings.nextPayoutDay)}.</div>}
+            <div className="card" style={{ padding: "4px 20px" }} hidden={!earnings?.past?.length}>
+              {(earnings?.past || []).map((p: any) => (
+                <div key={p.id} className="list-row">
+                  <div className="grow stack-sm" style={{ gap: 2 }}>
+                    <b style={{ fontSize: 15 }}>{periodLabel(p.period)}</b>
+                    <span className="text-muted small">{shortHours(p.minutes)}{p.paidAt ? ` · sent ${new Date(p.paidAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}</span>
+                  </div>
+                  <b>{money(p.amountCents)}</b>
+                  <span className={`badge ${PAYOUT_BADGE[p.status] || ""}`}>{p.status === "FAILED" ? "Delayed (we're on it)" : PAYOUT_STATUS_LABEL[p.status] || p.status}</span>
+                </div>
+              ))}
+            </div>
           </section>
         </div>
 

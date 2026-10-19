@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { Icon, ICONS } from "@/components/ui";
 import { money } from "@/lib/options";
 import { PLATFORM_FEE_PERCENT } from "@/lib/fee";
+import { shortHours } from "@/lib/hours";
+import { PAYOUT_STATUS_LABEL, payoutDayLabel, periodLabel } from "@/lib/payoutRules";
 
 type Status = { connected: boolean; started: boolean; outstandingItems?: string[]; error?: string };
 
@@ -23,7 +24,7 @@ export default function PayoutsPage() {
   const [checking, setChecking] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState("");
-  const [orders, setOrders] = useState<any[]>([]);
+  const [earnings, setEarnings] = useState<any>(null);
 
   function loadStatus() {
     setChecking(true);
@@ -36,9 +37,9 @@ export default function PayoutsPage() {
 
   useEffect(() => {
     loadStatus();
-    fetch("/api/orders")
+    fetch("/api/me/payouts")
       .then((r) => r.json())
-      .then((d) => setOrders(d.orders || []))
+      .then(setEarnings)
       .catch(() => {});
   }, []);
 
@@ -59,17 +60,14 @@ export default function PayoutsPage() {
     setConnecting(false);
   }
 
-  const net = (cents: number) => cents - Math.round((cents * PLATFORM_FEE_PERCENT) / 100);
-  const paid = orders.filter((o) => o.status === "RELEASED");
-  const held = orders.filter((o) => ["IN_ESCROW", "COMPLETED"].includes(o.status));
-  const paidTotal = paid.reduce((s, o) => s + net(o.amount), 0);
-  const heldTotal = held.reduce((s, o) => s + net(o.amount), 0);
+  const past: any[] = earnings?.past || [];
+  const paidTotal = past.filter((p) => p.status === "PAID").reduce((s, p) => s + p.amountCents, 0);
 
   return (
     <div className="page-mid stack-lg">
       <div className="stack-sm">
         <h1 className="page-title">Payouts</h1>
-        <p className="lede">Get paid when students approve your work. MentorsMD keeps {PLATFORM_FEE_PERCENT}%.</p>
+        <p className="lede">Paid monthly, on the 24th, for every hour you work. You keep {100 - PLATFORM_FEE_PERCENT}%; MentorsMD keeps {PLATFORM_FEE_PERCENT}%.</p>
       </div>
 
       <div className="card stack">
@@ -81,7 +79,7 @@ export default function PayoutsPage() {
         {checking ? (
           <span className="text-muted">Checking status…</span>
         ) : status?.connected ? (
-          <span className="text-secondary">You&apos;re set. Payments go to your bank automatically when an order is released.</span>
+          <span className="text-secondary">You&apos;re set. Your monthly payout goes to your bank automatically on the 24th.</span>
         ) : (
           <>
             <span className="text-secondary">
@@ -111,38 +109,38 @@ export default function PayoutsPage() {
       </div>
 
       <div className="stat-cards" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+        <div className="stat-card" style={{ background: "var(--blue)" }}>
+          <span className="text-secondary">Earned, not yet paid</span>
+          <span className="stat-num">{earnings ? money(earnings.unpaidCents) : "…"}</span>
+          <span className="text-muted">{earnings ? `Next payout: ${payoutDayLabel(earnings.nextPayoutDay)}` : ""}{earnings?.heldCents > 0 ? ` · ${money(earnings.heldCents)} held by a dispute` : ""}</span>
+        </div>
         <div className="stat-card">
           <span className="text-secondary">Paid to you</span>
           <span className="stat-num">{money(paidTotal)}</span>
-          <span className="text-muted">{paid.length} order{paid.length === 1 ? "" : "s"}, after the {PLATFORM_FEE_PERCENT}% fee</span>
-        </div>
-        <div className="stat-card" style={{ background: "var(--blue)" }}>
-          <span className="text-secondary">Held, waiting for approval</span>
-          <span className="stat-num">{money(heldTotal)}</span>
-          <span className="text-muted">{held.length} active order{held.length === 1 ? "" : "s"}</span>
+          <span className="text-muted">{past.filter((p) => p.status === "PAID").length} monthly payout{past.filter((p) => p.status === "PAID").length === 1 ? "" : "s"}, after the {PLATFORM_FEE_PERCENT}% fee</span>
         </div>
       </div>
 
       <div className="card stack-sm">
         <b className="row"><Icon d={ICONS.lock} size={18} /> How payouts work</b>
         <ol className="text-secondary" style={{ margin: 0, paddingLeft: 20, lineHeight: 1.7 }}>
-          <li>The student pays when they book. MentorsMD holds it.</li>
-          <li>You deliver and mark the order complete.</li>
-          <li>The student approves, or it releases automatically after 96 hours.</li>
-          <li>Stripe sends it to your bank, usually within 2 business days.</li>
+          <li>Students pay MentorsMD for hours at your rate.</li>
+          <li>Each call held and each block of written work you log is added to your earnings ({100 - PLATFORM_FEE_PERCENT}% of the hour).</li>
+          <li>When a package is approved (by the student, or automatically after 48 hours), its unused hours are added too.</li>
+          <li>On the 24th of each month, everything not yet paid goes to your bank in one Stripe payout. Hours on a package with an open dispute wait until it&apos;s decided.</li>
         </ol>
       </div>
 
-      {paid.length > 0 && (
-        <details className="collapse">
-          <summary>Payout history ({paid.length})</summary>
+      {past.length > 0 && (
+        <details className="collapse" open>
+          <summary>Payout history ({past.length})</summary>
           <div className="collapse-body">
-            {paid.map((o) => (
-              <Link key={o.id} href={`/orders/${o.id}`} className="list-row">
-                <span className="grow">{o.gig.title} · {o.buyer?.name}</span>
-                <span className="text-muted">{o.completedAt ? new Date(o.completedAt).toLocaleDateString() : ""}</span>
-                <b>{money(net(o.amount))}</b>
-              </Link>
+            {past.map((p) => (
+              <div key={p.id} className="list-row">
+                <span className="grow">{periodLabel(p.period)} · {shortHours(p.minutes)}</span>
+                <span className="text-muted">{p.paidAt ? new Date(p.paidAt).toLocaleDateString() : p.status === "FAILED" ? "Delayed, we're on it" : PAYOUT_STATUS_LABEL[p.status] || p.status}</span>
+                <b>{money(p.amountCents)}</b>
+              </div>
             ))}
           </div>
         </details>

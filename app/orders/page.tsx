@@ -55,8 +55,10 @@ function OrdersList() {
       .catch(() => {});
   }, []);
 
-  const active = (orders || []).filter((o) => ACTIVE.includes(o.status));
-  const done = (orders || []).filter((o) => !ACTIVE.includes(o.status));
+  // Hours packages are "done" once approved (COMPLETED = waiting for the payout).
+  const isActive = (o: any) => (o.kind ? o.status === "IN_ESCROW" : ACTIVE.includes(o.status));
+  const active = (orders || []).filter(isActive);
+  const done = (orders || []).filter((o) => !isActive(o));
   const list = tab === "active" ? active : done;
 
   return (

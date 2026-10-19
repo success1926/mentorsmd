@@ -9,6 +9,7 @@
 // phone: the list, then the package.
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { money } from "@/lib/options";
 import { AddHoursModal, BookCallModal, DecisionBanner, HoursBar, PackageBadge, fmtDay, fmtWhen } from "@/components/Packages";
 import { tintFor, initialsOf } from "@/components/ui";
 import { finishPhase } from "@/lib/finishing";
@@ -50,6 +51,7 @@ export function MyPackages({ viewerId }: { viewerId: string }) {
   const [showDetail, setShowDetail] = useState(false);
   const [booking, setBooking] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [credit, setCredit] = useState(0);
 
   function load() {
     fetch("/api/packages")
@@ -59,6 +61,8 @@ export function MyPackages({ viewerId }: { viewerId: string }) {
   }
   useEffect(() => {
     load();
+    // MentorsMD credit balance (the ledger, lib/credit.ts).
+    fetch("/api/me/credit").then((r) => r.json()).then((d) => setCredit(d.balanceCents || 0)).catch(() => {});
     const id = new URLSearchParams(window.location.search).get("id");
     if (id) {
       setSelected(id);
@@ -84,7 +88,10 @@ export function MyPackages({ viewerId }: { viewerId: string }) {
     <div className="page" style={{ paddingTop: 32 }}>
       <div className="between" style={{ marginBottom: 20, flexWrap: "wrap" }}>
         <h1 className="page-title" style={{ fontSize: 40 }}>My packages</h1>
-        <Link href="/mentors" className="btn btn-primary">Find a mentor</Link>
+        <div className="row-wrap">
+          {credit > 0 && <span className="badge badge-brand" title="Applied automatically at checkout, with any mentor. Never expires.">MentorsMD credit: {money(credit)}</span>}
+          <Link href="/mentors" className="btn btn-primary">Find a mentor</Link>
+        </div>
       </div>
 
       {packages.length === 0 ? (

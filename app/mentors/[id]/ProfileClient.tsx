@@ -359,7 +359,7 @@ export function ProfileClient({ seller, offers, reviews }: { seller: any; offers
           />
 
           <div className="card card-tint stack-sm">
-            <span className="row strong"><Icon d={ICONS.lock} size={18} /> Payment held until you approve</span>
+            <span className="row strong"><Icon d={ICONS.lock} size={18} /> Secure payment, every hour logged</span>
             <span className="text-secondary" style={{ fontSize: 14 }}>
               You buy hours and use them for calls and written work. When {first} marks the work complete, you have 48 hours to approve it or ask for one last call or revision.
             </span>

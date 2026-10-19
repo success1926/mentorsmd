@@ -75,9 +75,9 @@ export function BrowseFilters() {
         );
       })}
       <div className="card card-tint stack-sm" style={{ marginTop: 16, padding: 18 }}>
-        <b>Payment held until you approve</b>
+        <b>Pay for hours, see every one</b>
         <span className="text-secondary" style={{ fontSize: 14 }}>
-          You pay when you book. We hold it until you approve the work. Message first, and booking unlocks once your mentor replies.
+          Buy hours at your mentor&apos;s rate and use them for calls and written work, all logged on your package page. Message or book a free 15-minute intro call to unlock buying.
         </span>
       </div>
     </div>

@@ -78,7 +78,7 @@ export default async function ParentPage({ params }: { params: { token: string }
             </div>
           ))}
         </div>
-        <span className="text-muted small">Payment held until you approve: money is only released to a mentor after the work is delivered and approved (or the review window passes).</span>
+        <span className="text-muted small">Students pay MentorsMD for hours at the mentor's rate. Every call and block of written work is logged, and any refund our team grants is given as MentorsMD credit.</span>
       </section>
 
       <section className="stack-sm">
