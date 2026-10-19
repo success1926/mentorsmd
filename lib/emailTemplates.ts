@@ -112,7 +112,7 @@ const V = {
   parentLink: link("parentLink", "The parent's private page", `${SITE}/parent/sample-link`),
 };
 
-const CALL_FOOTER = ">> Calls happen in a private MentorsMD video room. Calls may be recorded for safety and quality; only the MentorsMD team can watch a recording, and only if there's a problem with an order.";
+const CALL_FOOTER = ">> Calls happen in a private MentorsMD video room. Calls may be recorded for safety and quality; only the mentor on the call and the MentorsMD team can watch a recording, and the team only looks if there's a problem with an order.";
 
 function minorStatus(key: string, name: string, description: string, subject: string, sentence: string): EmailDef {
   return {
