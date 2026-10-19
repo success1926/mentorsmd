@@ -97,3 +97,11 @@ export function splitCredit(totalCents: number, balanceCents: number) {
   const creditCents = Math.max(0, Math.min(balance, totalCents - STRIPE_MIN_CENTS));
   return { creditCents, chargeCents: totalCents - creditCents };
 }
+
+// What each MentorsMD credit ledger entry is (lib/credit.ts).
+export const CREDIT_REASON_LABEL: Record<string, string> = {
+  DISPUTE_REFUND: "Refund as credit (dispute)",
+  ADMIN_ADJUST: "Adjusted by the MentorsMD team",
+  SPENT: "Used at checkout",
+  SPENT_REVERSED: "Given back (checkout not completed)",
+};

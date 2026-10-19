@@ -11,6 +11,6 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ balanceCents: 0, entries: [] });
   const userId = (session.user as any).id;
-  const [balanceCents, entries] = await Promise.all([creditBalance(userId), creditEntries(userId, 20)]);
+  const [balanceCents, entries] = await Promise.all([creditBalance(userId), creditEntries(userId, 20, { forStudent: true })]);
   return NextResponse.json({ balanceCents, entries });
 }

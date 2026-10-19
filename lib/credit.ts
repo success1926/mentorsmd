@@ -50,6 +50,20 @@ export async function reverseCredit(target: { orderId?: string; topUpId?: string
   });
 }
 
-export function creditEntries(userId: string, take = 50) {
-  return prisma.creditEntry.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take, select: { id: true, amountCents: true, reason: true, note: true, createdAt: true, orderId: true } });
+// A student's credit history, newest first. For the student themselves
+// (forStudent), an admin adjustment's reason is left out: it's written for
+// the team's action log.
+export async function creditEntries(userId: string, take = 50, opts: { forStudent?: boolean } = {}) {
+  const rows = await prisma.creditEntry.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    take,
+    select: { id: true, amountCents: true, reason: true, note: true, createdAt: true, orderId: true, order: { select: { packageTitle: true } }, admin: { select: { name: true } } },
+  });
+  return rows.map(({ admin, order, ...e }) => ({
+    ...e,
+    packageTitle: order?.packageTitle ?? null,
+    ...(opts.forStudent ? { note: e.reason === "ADMIN_ADJUST" ? null : e.note } : { adminName: admin?.name ?? null }),
+  }));
 }
+

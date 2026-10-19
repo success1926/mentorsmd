@@ -252,7 +252,7 @@ export async function closeDisputeFlag(orderId: string, outcome: "REFUND" | "REL
 export async function openSafetyCount(disputes: boolean, flags: boolean) {
   try {
     const [d, f] = await Promise.all([
-      disputes ? prisma.order.count({ where: { disputed: true, status: { in: ["IN_ESCROW", "COMPLETED"] } } }) : Promise.resolve(0),
+      disputes ? prisma.order.count({ where: { disputed: true, disputeResolvedAt: null, status: { in: ["IN_ESCROW", "COMPLETED"] } } }) : Promise.resolve(0),
       flags ? prisma.flag.count({ where: { status: "OPEN" } }) : Promise.resolve(0),
     ]);
     return d + f;
