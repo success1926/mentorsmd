@@ -206,8 +206,11 @@ export function BookCallModal({
 
 // ---------- Add hours ----------
 
-export function AddHoursModal({ open, onClose, order }: { open: boolean; onClose: () => void; order: any }) {
+export function AddHoursModal({ open, onClose, order, initialHours }: { open: boolean; onClose: () => void; order: any; initialHours?: number }) {
   const [hours, setHours] = useState(1);
+  useEffect(() => {
+    if (open && initialHours && TOP_UP_HOURS.includes(initialHours)) setHours(initialHours);
+  }, [open, initialHours]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [credit, setCredit] = useState(0);
@@ -251,6 +254,76 @@ export function AddHoursModal({ open, onClose, order }: { open: boolean; onClose
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
         </div>
       </div>
+    </Modal>
+  );
+}
+
+// ---------- Suggest more hours (mentor) ----------
+
+// The mentor suggests the student adds hours: posts a message in the
+// package thread and emails the student a link that opens Add hours with
+// that number picked (/api/orders/[id]/suggest-hours).
+export function SuggestHoursModal({ open, onClose, order, onSent }: { open: boolean; onClose: () => void; order: any; onSent?: () => void }) {
+  const [hours, setHours] = useState(2);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [warnings, setWarnings] = useState<SendWarning[] | null>(null);
+  const [sent, setSent] = useState(false);
+  const student = firstName(order.buyer?.name) || "your student";
+  const rate = order.rateCents || 0;
+  useEffect(() => {
+    if (!open) return;
+    setSent(false);
+    setError("");
+    setWarnings(null);
+  }, [open]);
+
+  async function send(ack = false) {
+    setBusy(true);
+    setError("");
+    const { ok, data } = await postJson(`/api/orders/${order.id}/suggest-hours`, { hours, note, acknowledgeWarnings: ack });
+    setBusy(false);
+    if (ok) {
+      setSent(true);
+      setNote("");
+      setWarnings(null);
+      onSent?.();
+      return;
+    }
+    if (data.code === "WARNING") setWarnings(data.warnings || []);
+    else setError(data.error || "Couldn't send it. Please try again.");
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} label="Suggest more hours">
+      {sent ? (
+        <div className="stack" style={{ gap: 14 }}>
+          <h2 style={{ fontSize: 24, paddingRight: 36 }}>Sent</h2>
+          <span className="text-secondary">We posted it in your messages with {student} and emailed them a button to add {hoursLabel(hours * 60)}. Nothing is charged unless they add them.</span>
+          <div className="row-wrap"><button className="btn btn-primary" onClick={onClose}>Done</button></div>
+        </div>
+      ) : (
+        <div className="stack" style={{ gap: 14 }}>
+          <h2 style={{ fontSize: 24, paddingRight: 36 }}>Suggest more hours</h2>
+          <span className="text-secondary">If the work will take longer than the hours left, let {student} know how many more you expect. They can add them in one click, at this package&apos;s rate.</span>
+          <div className="row-wrap" role="radiogroup" aria-label="Hours to suggest">
+            {TOP_UP_HOURS.map((h) => (
+              <button key={h} type="button" role="radio" aria-checked={hours === h} className={`btn btn-sm ${hours === h ? "btn-primary" : ""}`} onClick={() => setHours(h)}>
+                {h} hour{h === 1 ? "" : "s"}
+              </button>
+            ))}
+          </div>
+          {rate > 0 && <span className="small text-secondary">{hoursLabel(hours * 60)} × {money(rate)}/hr = <b>{money(priceFor(hours * 60, rate))}</b> for {student}</span>}
+          <textarea className="input" style={{ marginBottom: 0 }} value={note} maxLength={600} onChange={(e) => setNote(e.target.value)} placeholder="Why, in a sentence (optional). E.g. The secondaries for your top three schools will take about three more hours." aria-label="Note (optional)" />
+          {warnings && <SendWarnings warnings={warnings} busy={busy} onEdit={() => setWarnings(null)} onSendAnyway={() => send(true)} />}
+          {error && <div role="alert" className="alert alert-danger">{error}</div>}
+          <div className="row-wrap">
+            <button className="btn btn-primary" disabled={busy} onClick={() => send(false)}>{busy ? "Sending…" : `Suggest ${hours} hour${hours === 1 ? "" : "s"}`}</button>
+            <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          </div>
+        </div>
+      )}
     </Modal>
   );
 }
