@@ -15,6 +15,7 @@ import {
   MAX_SPECIALIZED,
   PACKAGE_MAX_MINUTES,
   PACKAGE_MIN_MINUTES,
+  RATE_MAX_CENTS,
   RATE_MIN_CENTS,
   RATE_RULE,
   SERVICES,
@@ -140,12 +141,12 @@ function RateCard({ rate, onSaved }: { rate: number | null; onSaved: () => void 
     <section id="rate" className="card stack" style={{ scrollMarginTop: 100 }}>
       <div className="stack-sm">
         <h2 style={{ fontSize: 26 }}>Your hourly rate</h2>
-        <span className="text-secondary">One rate for your time, in whole dollars, at least {money(RATE_MIN_CENTS)} an hour. You earn 70% of every hour; MentorsMD keeps 30%.</span>
+        <span className="text-secondary">One rate for your time, in whole dollars, at least {money(RATE_MIN_CENTS)} and up to {money(RATE_MAX_CENTS)} an hour. You earn 70% of every hour; MentorsMD keeps 30%.</span>
       </div>
       <div className="row-wrap" style={{ alignItems: "flex-end" }}>
         <label className="field" style={{ marginBottom: 0, width: 200 }}>
           <span className="field-label">Rate per hour (USD)</span>
-          <input className={`input ${bad ? "input-error" : ""}`} type="number" inputMode="numeric" min={RATE_MIN_CENTS / 100} step={1} value={text} onChange={(e) => setText(e.target.value)} placeholder="80" aria-invalid={bad} />
+          <input className={`input ${bad ? "input-error" : ""}`} type="number" inputMode="numeric" min={RATE_MIN_CENTS / 100} max={RATE_MAX_CENTS / 100} step={1} value={text} onChange={(e) => setText(e.target.value)} placeholder="80" aria-invalid={bad} />
         </label>
         <button className="btn btn-primary" disabled={saving || cents === null || cents === rate} onClick={save}>{saving ? "Saving…" : "Save rate"}</button>
       </div>
@@ -272,7 +273,7 @@ function BundleForm({ rate, bundle, taken, onCancel, onSaved }: { rate: number; 
       </div>
       <label className="field" style={{ marginBottom: 0, maxWidth: 280 }}>
         <span className="field-label">Own per-hour rate (optional)</span>
-        <input className={`input ${own === "bad" ? "input-error" : ""}`} type="number" min={RATE_MIN_CENTS / 100} step={1} value={rateText} onChange={(e) => setRateText(e.target.value)} placeholder={`${rate / 100} (your hourly rate)`} />
+        <input className={`input ${own === "bad" ? "input-error" : ""}`} type="number" min={RATE_MIN_CENTS / 100} max={RATE_MAX_CENTS / 100} step={1} value={rateText} onChange={(e) => setRateText(e.target.value)} placeholder={`${rate / 100} (your hourly rate)`} />
         <span className="field-help" style={{ color: own === "bad" ? "var(--danger)" : undefined }}>{own === "bad" ? RATE_RULE : "Leave empty to use your hourly rate."}</span>
       </label>
       <div className="alert alert-blue"><b>Price:</b> {priceMath(hours * 60, effective)}</div>
@@ -426,7 +427,7 @@ function PackageForm({ rate, initial, gigId, onCancel, onSaved }: { rate: number
         </label>
         <label className="field" style={{ marginBottom: 0 }}>
           <span className="field-label">Own per-hour rate (optional)</span>
-          <input className={`input ${own === "bad" ? "input-error" : ""}`} type="number" min={RATE_MIN_CENTS / 100} step={1} value={f.rate} onChange={(e) => set({ rate: e.target.value })} placeholder={`${rate / 100} (your hourly rate)`} />
+          <input className={`input ${own === "bad" ? "input-error" : ""}`} type="number" min={RATE_MIN_CENTS / 100} max={RATE_MAX_CENTS / 100} step={1} value={f.rate} onChange={(e) => set({ rate: e.target.value })} placeholder={`${rate / 100} (your hourly rate)`} />
           <span className="field-help" style={{ color: own === "bad" ? "var(--danger)" : undefined }}>{own === "bad" ? RATE_RULE : "Leave empty to use your hourly rate."}</span>
         </label>
       </div>

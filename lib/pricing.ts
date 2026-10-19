@@ -6,7 +6,7 @@ import { RATE_MAX_CENTS, RATE_MIN_CENTS, money } from "@/lib/options";
 export type OfferKind = "HOURLY" | "BUNDLE" | "SPECIALIZED";
 export const OFFER_KINDS: OfferKind[] = ["HOURLY", "BUNDLE", "SPECIALIZED"];
 
-// Whole dollars, $50 to $1,000 an hour.
+// Whole dollars, $50 to $2,000 an hour.
 export function isValidRate(cents: unknown): cents is number {
   return typeof cents === "number" && Number.isInteger(cents) && cents % 100 === 0 && cents >= RATE_MIN_CENTS && cents <= RATE_MAX_CENTS;
 }

@@ -135,8 +135,8 @@ export const PROFILE_RULES = {
 // One hourly rate per mentor, whole dollars. Every offer's price is
 // hours x rate (lib/pricing.ts).
 export const RATE_MIN_CENTS = 5_000; // $50 an hour
-export const RATE_MAX_CENTS = 100_000; // $1,000 an hour
-export const RATE_RULE = "Rates are whole dollars, at least $50 an hour (up to $1,000)";
+export const RATE_MAX_CENTS = 200_000; // $2,000 an hour
+export const RATE_RULE = "Rates are whole dollars, at least $50 an hour (up to $2,000)";
 // Hour bundles: whole hours. Specialized packages: estimated hours in
 // half-hour steps.
 export const BUNDLE_HOURS = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20];
