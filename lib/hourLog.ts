@@ -1,12 +1,12 @@
 // The hours log on an order (redesign Oct 2026, docs/redesign-2026-10.md
 // section 4): CALL entries added automatically from call outcomes, WRITTEN
-// entries logged by the mentor, and the "1 hour left" email. The maths is
+// entries logged by the mentor, and the "1 hour left" emails. The maths is
 // in lib/hours.ts. Server only.
 import { prisma } from "@/lib/prisma";
 import { COUNTS_AS_HELD } from "@/lib/callOutcomes";
 import { callMinutes, hoursSummary, isBlockMinutes, shouldSendLowHours } from "@/lib/hours";
 import { hoursLabel } from "@/lib/pricing";
-import { SITE_URL, sendHoursLowEmail, sendWrittenTimeLoggedEmail } from "@/lib/email";
+import { SITE_URL, sendHoursLowEmail, sendHoursLowMentorEmail, sendWrittenTimeLoggedEmail } from "@/lib/email";
 
 const hoursInclude = {
   hourEntries: { select: { type: true, minutes: true, voidedAt: true, callBookingId: true } },
@@ -54,22 +54,27 @@ export async function syncCallHourEntry(bookingId: string) {
   }
 }
 
-// "1 hour left": once, claimed before sending so two runs can't both email.
+// "1 hour left" to the student and the mentor: once, claimed before sending
+// so two runs can't both email.
 export async function maybeSendLowHours(orderId: string) {
   try {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      include: { ...hoursInclude, buyer: { select: { email: true } }, seller: { select: { name: true } }, gig: { select: { title: true } } },
+      include: { ...hoursInclude, buyer: { select: { email: true, name: true } }, seller: { select: { email: true, name: true } }, gig: { select: { title: true } } },
     });
     if (!order?.kind || order.status !== "IN_ESCROW" || !shouldSendLowHours(order)) return;
     const claim = await prisma.order.updateMany({ where: { id: orderId, lowHoursEmailAt: null }, data: { lowHoursEmailAt: new Date() } });
     if (!claim.count) return;
-    await sendHoursLowEmail(order.buyer.email, {
+    const v = {
       packageTitle: order.packageTitle || order.gig.title,
-      mentorName: order.seller.name,
       hoursLeft: hoursLabel(hoursSummary(order).left),
       orderUrl: `${SITE_URL}/orders/${order.id}`,
-    });
+    };
+    // Each send on its own, so one failing doesn't stop the other.
+    await Promise.allSettled([
+      sendHoursLowEmail(order.buyer.email, { ...v, mentorName: order.seller.name }),
+      sendHoursLowMentorEmail(order.seller.email, { ...v, studentName: order.buyer.name }),
+    ]);
   } catch (err) {
     console.error("1-hour-left email failed", orderId, err);
   }
@@ -117,7 +122,7 @@ export async function logWrittenWork(
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { ...hoursInclude, buyer: { select: { email: true } }, seller: { select: { name: true } }, gig: { select: { title: true } } },
+    include: { ...hoursInclude, buyer: { select: { email: true, name: true } }, seller: { select: { email: true, name: true } }, gig: { select: { title: true } } },
   });
   if (order) {
     await sendWrittenTimeLoggedEmail(order.buyer.email, {

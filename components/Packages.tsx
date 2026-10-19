@@ -12,8 +12,8 @@ import { SlotPicker } from "@/components/SlotPicker";
 import { Icon, ICONS, StaffBadge } from "@/components/ui";
 import { MessageText, SendWarnings, type SendWarning } from "@/components/Safety";
 import { useConversation, SendError } from "@/lib/hooks/useConversation";
-import { hoursSummary, shortHours, TOP_UP_HOURS } from "@/lib/hours";
-import { hoursToRespond, packageStatus, studentActions } from "@/lib/finishing";
+import { hoursSummary, isLowOnHours, shortHours, TOP_UP_HOURS } from "@/lib/hours";
+import { finishPhase, hoursToRespond, packageStatus, studentActions } from "@/lib/finishing";
 import { hoursLabel, priceFor } from "@/lib/pricing";
 import { money } from "@/lib/options";
 import { uploadFile } from "@/lib/upload";
@@ -33,12 +33,23 @@ export function PackageBadge({ order }: { order: any }) {
   return <span className={`badge ${s.tone ? `badge-${s.tone}` : ""}`}>{s.label}</span>;
 }
 
-// Hours left, as a bar: calls used, written work used, booked (reserved), left.
+// Running low while the work is still going (not after "Mark work complete").
+export const showLowHours = (order: any) => finishPhase(order) === "WORKING" && isLowOnHours(order);
+
+// "Running low" pill: 1 hour or less left on an active package.
+export function LowHoursBadge({ order }: { order: any }) {
+  if (!showLowHours(order)) return null;
+  return <span className="badge badge-warning">Running low</span>;
+}
+
+// Hours left, as a bar: calls used, written work used, booked (reserved),
+// left. The empty part turns amber when the package is running low.
 export function HoursBar({ order, thin = false }: { order: any; thin?: boolean }) {
   const h = hoursSummary(order);
+  const low = showLowHours(order);
   const pct = (m: number) => (h.purchased ? Math.min(100, (m / h.purchased) * 100) : 0);
   return (
-    <div className={`hours-bar ${thin ? "thin" : ""}`} role="img" aria-label={`${shortHours(h.left)} left of ${shortHours(h.purchased)}`}>
+    <div className={`hours-bar ${thin ? "thin" : ""} ${low ? "low" : ""}`} role="img" aria-label={`${shortHours(h.left)} left of ${shortHours(h.purchased)}${low ? ", running low" : ""}`}>
       <span className="seg calls" style={{ width: `${pct(h.usedCalls)}%` }} />
       <span className="seg written" style={{ width: `${pct(h.usedWritten)}%` }} />
       <span className="seg reserved" style={{ width: `${pct(h.reserved)}%` }} />
@@ -52,7 +63,7 @@ export function HoursMeter({ order }: { order: any }) {
     <div className="stack-sm">
       <div className="between" style={{ alignItems: "baseline" }}>
         <span><span className="stat-num" style={{ fontSize: 34 }}>{shortHours(h.left)}</span> <span className="text-secondary">left of {shortHours(h.purchased)}</span></span>
-        <span className="text-muted small">{shortHours(h.used)} used</span>
+        <span className="row" style={{ gap: 8 }}><LowHoursBadge order={order} /><span className="text-muted small">{shortHours(h.used)} used</span></span>
       </div>
       <HoursBar order={order} />
       <div className="row-wrap small text-secondary" style={{ gap: 14 }}>

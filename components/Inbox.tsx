@@ -10,7 +10,7 @@ import { OrderCalls } from "@/components/Calls";
 import { Icon, ICONS, MinorBadge, StaffBadge, Vetted, statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { ConfirmEmailNotice, IntegrityBanner, MessageText, ReportDialog, SendWarnings, setBlocked, type SendWarning } from "@/components/Safety";
 import { money } from "@/lib/options";
-import { BookCallModal, HoursBar, PackageBadge, SharedFiles } from "@/components/Packages";
+import { BookCallModal, HoursBar, LowHoursBadge, PackageBadge, SharedFiles } from "@/components/Packages";
 import { hoursSummary, shortHours } from "@/lib/hours";
 
 // The line under a name in the list (redesign Oct 2026): the package and
@@ -410,7 +410,7 @@ function Thread({ conversationId }: { conversationId: string }) {
             <div key={o.id} className="card stack-sm" style={{ padding: 16 }}>
               <div className="between" style={{ alignItems: "flex-start", gap: 8 }}>
                 <b style={{ fontSize: 15 }}>{o.packageTitle || o.gig.title}</b>
-                <PackageBadge order={o} />
+                <span className="row" style={{ gap: 6 }}><LowHoursBadge order={o} /><PackageBadge order={o} /></span>
               </div>
               <HoursBar order={o} thin />
               <span className="text-muted small">{shortHours(h.left)} left of {shortHours(h.purchased)} · {h.callsHeld} call{h.callsHeld === 1 ? "" : "s"} held</span>

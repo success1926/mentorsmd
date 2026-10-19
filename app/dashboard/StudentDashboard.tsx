@@ -6,7 +6,7 @@
 // "Coming up" calls, and the MentorsMD credit balance.
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BookCallModal, HoursBar, PackageBadge, fmtWhen } from "@/components/Packages";
+import { BookCallModal, HoursBar, LowHoursBadge, PackageBadge, fmtWhen } from "@/components/Packages";
 import { tintFor, initialsOf } from "@/components/ui";
 import { finishPhase } from "@/lib/finishing";
 import { hoursSummary, shortHours } from "@/lib/hours";
@@ -79,6 +79,7 @@ export function StudentDashboard({ name, viewerId }: { name: string; viewerId: s
                       <b style={{ fontSize: 16 }}>{p.title}</b>
                       <span className="text-muted small">{p.seller?.name}</span>
                     </div>
+                    <LowHoursBadge order={p} />
                     <PackageBadge order={p} />
                   </div>
                   <HoursBar order={p} />

@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { money } from "@/lib/options";
-import { AddHoursModal, BookCallModal, DecisionBanner, HoursBar, PackageBadge, fmtDay, fmtWhen } from "@/components/Packages";
+import { AddHoursModal, BookCallModal, DecisionBanner, HoursBar, LowHoursBadge, PackageBadge, fmtDay, fmtWhen } from "@/components/Packages";
 import { tintFor, initialsOf } from "@/components/ui";
 import { finishPhase } from "@/lib/finishing";
 import { hoursSummary, shortHours } from "@/lib/hours";
@@ -123,7 +123,7 @@ export function MyPackages({ viewerId }: { viewerId: string }) {
                   <HoursBar order={p} thin />
                   <div className="between small">
                     <span className="text-secondary">{shortHours(h.left)} left of {shortHours(h.purchased)}</span>
-                    <PackageBadge order={p} />
+                    <span className="row" style={{ gap: 6 }}><LowHoursBadge order={p} /><PackageBadge order={p} /></span>
                   </div>
                 </button>
               );

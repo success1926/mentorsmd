@@ -624,6 +624,7 @@ a.footer-social:hover .bg { fill: var(--tint-2); }
 /* Hours packages (redesign Oct 2026): hours bar, My packages, package page */
 .hours-bar { display: flex; height: 10px; border-radius: 999px; background: var(--tint); overflow: hidden; }
 .hours-bar.thin { height: 6px; }
+.hours-bar.low { background: var(--warning-bg); box-shadow: inset 0 0 0 1px #F5DDA8; }
 .hours-bar .seg { display: block; height: 100%; }
 .hours-bar .seg.calls, .dot.calls { background: var(--primary); }
 .hours-bar .seg.written, .dot.written { background: #8E7BEA; }

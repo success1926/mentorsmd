@@ -7,7 +7,7 @@ import { MinorBadge, tintFor, initialsOf } from "@/components/ui";
 import { fmtDateTime } from "@/lib/calls";
 import { formatHasCall, money } from "@/lib/options";
 import { ProfileChecklist } from "@/components/ProfileChecklist";
-import { HoursBar, PackageBadge } from "@/components/Packages";
+import { HoursBar, LowHoursBadge, PackageBadge } from "@/components/Packages";
 import { finishPhase } from "@/lib/finishing";
 import { hoursSummary, shortHours } from "@/lib/hours";
 import { PLATFORM_FEE_PERCENT } from "@/lib/fee";
@@ -26,6 +26,7 @@ function PackageRow({ p }: { p: any }) {
         <HoursBar order={p} thin />
       </div>
       <MinorBadge person={p.buyer} />
+      <LowHoursBadge order={p} />
       <PackageBadge order={p} />
       {p.newMessages > 0 && <span className="count-badge" aria-label={`${p.newMessages} new messages`}>{p.newMessages}</span>}
       <Link href={`/orders/${p.id}`} className="btn btn-sm btn-soft">Open package</Link>
