@@ -507,6 +507,11 @@ model Order {
   autoApproved       Boolean       @default(false)
   // "1 hour left" reminder sent to the student (once per order).
   lowHoursEmailAt    DateTime?
+  // Pay-per-call orders: the call time the student picked before paying.
+  // Booked when the payment clears; left set (with no call booked) when
+  // that time was taken meanwhile, so the order page asks them to pick
+  // another time.
+  requestedCallStart DateTime?
   // Unused hours are paid to the mentor once the order is approved: how
   // many minutes that was, and the monthly payout that paid them.
   unusedMinutesPaid  Int?
