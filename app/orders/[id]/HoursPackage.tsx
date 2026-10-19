@@ -90,19 +90,23 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
     }
   }, []);
   // Waiting for Stripe's confirmation: keep checking every few seconds
-  // (for up to 2 minutes) until the webhook has marked it paid.
+  // (for up to 2 minutes) until the webhook has marked it paid. If it's
+  // slow, a few times ask the server to check the Stripe page itself.
   useEffect(() => {
     if (order.status !== "PENDING_PAYMENT" || flash !== "paid") return;
+    const sessionId = new URLSearchParams(window.location.search).get("session_id") || "";
     let tries = 0;
-    const t = setInterval(() => {
-      if (++tries >= 40) {
+    const t = setInterval(async () => {
+      tries++;
+      if (tries >= 40) {
         clearInterval(t);
         setSlowPayment(true);
       }
+      if (sessionId && [2, 5, 10, 20, 40].includes(tries)) await postJson(`/api/orders/${order.id}/confirm-payment`, { sessionId }).catch(() => null);
       reload();
     }, 3000);
     return () => clearInterval(t);
-  }, [order.status, flash, reload]);
+  }, [order.status, order.id, flash, reload]);
 
   const canBook = isBuyer && phase === "WORKING" && h.left >= 30;
   const blocker = markCompleteBlocker({ ...order, upcomingCalls: upcoming.length });

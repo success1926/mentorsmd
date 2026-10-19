@@ -106,7 +106,8 @@ export function MentorProfileEditor({ profile, onSaved }: { profile: any; onSave
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         bio: s.bio,
-        admissionsRoles: s.admissionsRoles,
+        // A row added but left empty mustn't stop other sections saving.
+        admissionsRoles: s.admissionsRoles.filter((r) => (r.place || "").trim() || (r.years || "").trim()),
         yearsAdvising: s.yearsAdvising.trim() === "" ? null : Number(s.yearsAdvising),
         applicantsSupported: s.applicantsSupported.trim() === "" ? null : Number(s.applicantsSupported),
         strongestStages: s.strongestStages,
