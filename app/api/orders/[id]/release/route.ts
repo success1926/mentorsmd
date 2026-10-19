@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logAdminAction } from "@/lib/adminLog";
 import { closeDisputeFlag } from "@/lib/flags";
+import { FinishError, adminApprove, studentResponds } from "@/lib/orderFinish";
 import { releaseOrder, FundsNotYetAvailableError, OrderStateChangedError } from "@/lib/orderRelease";
 
 // Two ways a human reaches this:
@@ -30,6 +31,31 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   const isAdmin = role === "ADMIN" && (await adminCan("orders"));
   if (!isBuyer && !isAdmin) {
     return NextResponse.json({ error: "Only the student on this order or an admin can release this payment" }, { status: 403 });
+  }
+
+  // Hours packages (redesign Oct 2026) are approved, not released: the
+  // mentor is paid with the monthly payout (lib/orderFinish.ts).
+  if (order.kind) {
+    try {
+      if (isAdmin) {
+        await adminApprove(order.id);
+        await logAdminAction({
+          adminId: userId,
+          action: "ORDER_RELEASE",
+          summary: `Approved package ${order.id} for the mentor${order.disputed ? " to resolve a dispute" : ""} (paid with the monthly payout)`,
+          targetType: "ORDER",
+          targetId: order.id,
+          targetUserId: order.sellerId,
+        });
+        if (order.disputed) await closeDisputeFlag(order.id, "RELEASE", userId);
+      } else {
+        await studentResponds(order.id, userId, "APPROVE", "");
+      }
+      return NextResponse.json({ ok: true });
+    } catch (err) {
+      if (err instanceof FinishError) return NextResponse.json({ error: err.message }, { status: err.status });
+      throw err;
+    }
   }
 
   if (isBuyer && !isAdmin && order.disputed) {

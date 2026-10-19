@@ -21,6 +21,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!["IN_ESCROW", "COMPLETED"].includes(order.status)) {
     return NextResponse.json({ error: "Can't change the due date on a finished order" }, { status: 400 });
   }
+  // Hours packages (redesign Oct 2026) have no due dates or included calls.
+  if (order.kind) return NextResponse.json({ error: "This package has no due date." }, { status: 400 });
 
   const { dueDate } = await req.json();
   const parsed = parseDate(dueDate);

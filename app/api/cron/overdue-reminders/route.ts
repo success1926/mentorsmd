@@ -22,6 +22,7 @@ export async function GET(req: Request) {
   const overdueOrders = await prisma.order.findMany({
     where: {
       status: "IN_ESCROW",
+      kind: null, // hours packages have no due date
       dueDate: { lt: now },
       callHoldAt: null, // on-hold orders get the call-rule emails instead
       OR: [{ reminderLastSentAt: null }, { reminderLastSentAt: { lt: twentyHoursAgo } }],

@@ -13,6 +13,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   if (!order || order.buyerId !== (session.user as any).id) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
+  if (order.kind) return NextResponse.json({ error: "This package has no included call to skip" }, { status: 400 });
   if (order.status !== "IN_ESCROW") return NextResponse.json({ error: "This order isn't active" }, { status: 400 });
   if (order.gig.callsIncluded === 0) return NextResponse.json({ error: "This package doesn't include a call" }, { status: 400 });
 

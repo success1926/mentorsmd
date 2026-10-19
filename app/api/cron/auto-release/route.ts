@@ -27,6 +27,9 @@ export async function GET(req: Request) {
   const cutoff = new Date(Date.now() - WINDOW_HOURS * 60 * 60 * 1000);
   const eligible = {
     status: "COMPLETED" as const,
+    // Orders from before the redesign only: hours packages are approved by
+    // lib/orderFinish.ts and paid monthly.
+    kind: null,
     workCompletedAt: { lte: cutoff },
     disputed: false, // never auto-release something an admin still needs to look at
   };

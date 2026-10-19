@@ -40,6 +40,7 @@ export async function runCallRules(now: Date = new Date()) {
   const results = { reminded: 0, held: 0, forfeited: 0, errors: 0 };
   const base = {
     status: "IN_ESCROW" as const,
+    kind: null, // hours packages (redesign Oct 2026) have no included calls or due dates
     disputed: false,
     callWaivedAt: null,
     callForfeitedAt: null,

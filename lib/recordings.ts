@@ -18,6 +18,8 @@ export async function cleanupRecordings(now: Date = new Date()) {
         OR: [
           { order: { disputeResolvedAt: { lt: cutoff } } },
           { order: { status: "RELEASED", disputeResolvedAt: null, completedAt: { lt: cutoff } } },
+          // Hours packages (redesign Oct 2026): 60 days after approval.
+          { order: { kind: { not: null }, disputeResolvedAt: null, approvedAt: { lt: cutoff } } },
           // Refunded without a dispute: count from the call itself.
           { order: { status: "REFUNDED", disputeResolvedAt: null }, endTime: { lt: cutoff } },
           // Free intro calls have no order: 60 days after the call.

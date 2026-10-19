@@ -20,6 +20,12 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   const order = await prisma.order.findUnique({ where: { id: params.id } });
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
+  // Hours packages (redesign Oct 2026): refunds are given as MentorsMD
+  // credit, never back to the card (part 3 of the redesign adds "Refund as
+  // credit" to Admin -> Disputes).
+  if (order.kind) {
+    return NextResponse.json({ error: "Packages bought with hours are refunded as MentorsMD credit, not to the card. Use Refund as credit (coming with the payouts update)." }, { status: 400 });
+  }
   if (!["IN_ESCROW", "COMPLETED"].includes(order.status)) {
     return NextResponse.json({ error: `Only a pending or just-completed order can be refunded (currently ${order.status})` }, { status: 400 });
   }
