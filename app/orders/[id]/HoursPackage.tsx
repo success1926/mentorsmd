@@ -372,9 +372,9 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
         <>
           <BookCallModal open={booking} onClose={() => setBooking(false)} mentorId={order.sellerId} mentorName={order.seller?.name} orderId={order.id} minutesLeft={h.left} onBooked={reload} />
           <AddHoursModal open={adding} onClose={() => setAdding(false)} order={order} initialHours={addPreset} />
-          <SuggestHoursModal open={suggesting} onClose={() => setSuggesting(false)} order={order} />
         </>
       )}
+      {isSeller && <SuggestHoursModal open={suggesting} onClose={() => setSuggesting(false)} order={order} />}
     </div>
   );
 }
