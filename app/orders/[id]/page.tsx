@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useConversation } from "@/lib/hooks/useConversation";
 import { useDisputeThread } from "@/lib/hooks/useDisputeThread";
 import { OrderCalls } from "@/components/Calls";
+import { HoursPackage } from "./HoursPackage";
 import { DeliverWorkModal, DeliveryCard } from "@/components/Deliveries";
 import { Icon, ICONS, MinorBadge, StaffBadge, statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { callSummary, CALL_HOLD_HOURS } from "@/lib/calls";
@@ -91,8 +92,10 @@ export default function OrderDetailPage() {
     setJustPaid(new URLSearchParams(window.location.search).get("success") === "true");
   }, [loadOrder]);
 
-  const { messages, sendMessage } = useConversation(order?.conversationId || "");
-  const { messages: disputeMessages, sendMessage: sendDisputeMessage } = useDisputeThread(order?.disputed ? orderId : "");
+  // Hours packages (redesign Oct 2026) have their own page below, with
+  // their own thread; these are for orders from before the redesign.
+  const { messages, sendMessage } = useConversation(order && !order.kind ? order.conversationId || "" : "");
+  const { messages: disputeMessages, sendMessage: sendDisputeMessage } = useDisputeThread(order?.disputed && !order?.kind ? orderId : "");
 
   // Generic POST helper for the order actions.
   async function act(key: string, path: string, body?: any, confirmText?: string) {
@@ -125,6 +128,7 @@ export default function OrderDetailPage() {
 
   if (loadError) return <div className="page-narrow"><div className="alert alert-danger">{loadError}</div></div>;
   if (!order || !viewer) return <div className="page-narrow text-muted">Loading…</div>;
+  if (order.kind) return <HoursPackage order={order} viewer={viewer} reload={loadOrder} />;
 
   const isBuyer = viewer.id === order.buyerId;
   const isSeller = viewer.id === order.sellerId;
@@ -194,7 +198,7 @@ export default function OrderDetailPage() {
   return (
     <div className="page">
       <Link href={isSeller ? "/dashboard" : isAdmin ? "/admin" : "/orders"} className="link small" style={{ display: "inline-block", marginBottom: 20 }}>
-        ← {isSeller ? "Dashboard" : isAdmin ? "Admin" : "My orders"}
+        ← {isSeller ? "Dashboard" : isAdmin ? "Admin" : "My packages"}
       </Link>
 
       <div className="between" style={{ alignItems: "flex-start", marginBottom: 24, flexWrap: "wrap" }}>

@@ -315,6 +315,8 @@ export async function bookCall(order: OrderForCalls, start: Date, by: { id: stri
     });
     // Due-date era fields; hours orders don't use them.
     if (!fresh.kind) await tx.order.update({ where: { id: order.id }, data: { scheduledCallTime: start, callHoldAt: null } });
+    // Pay-per-call whose first pick was taken: this is its call now.
+    else if (fresh.requestedCallStart) await tx.order.update({ where: { id: order.id }, data: { requestedCallStart: null } });
     return created;
   });
 
