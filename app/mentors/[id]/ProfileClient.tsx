@@ -578,7 +578,7 @@ function OfferDetails({
         <span className="small">
           How hours work: book 30- or 60-minute calls on {first}&apos;s calendar, or send work for written feedback; each is logged in 30- or 60-minute blocks you can see.
           {offer.kind === "SPECIALIZED" ? " The hours are an estimate: if it takes longer, you add hours at the same rate." : " Add more hours any time."}{" "}
-          Unused hours aren&apos;t refunded. When {first} marks the work complete you have 48 hours to approve, or ask for one last call or revision.
+          If you finish early, unused hours aren&apos;t refunded: packages are priced on an estimate, and mentors aren&apos;t penalised for working efficiently. When {first} marks the work complete you have 48 hours to approve, or ask for one last call or revision.
         </span>
       </div>
 

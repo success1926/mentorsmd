@@ -377,7 +377,7 @@ const LIST: EmailDef[] = [
       "Credit applied: {{creditApplied}}",
       "Book 30- or 60-minute calls on your mentor's calendar, or send work for written feedback. Every call and every block of written work is logged on your package page, so you can always see your hours.",
       "[[Open your package]]({{orderLink}})",
-      "> There's no due date. When your mentor marks the work complete, you'll have 48 hours to approve it or ask for one last call or revision. Unused hours aren't refunded.",
+      "> There's no due date. When your mentor marks the work complete, you'll have 48 hours to approve it or ask for one last call or revision. If you finish early, unused hours aren't refunded: packages are priced on an estimate, and mentors aren't penalised for working efficiently.",
     ].join("\n\n"),
     vars: [
       V.packageTitle,
