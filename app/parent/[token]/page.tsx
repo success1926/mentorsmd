@@ -38,7 +38,7 @@ export default async function ParentPage({ params }: { params: { token: string }
     orderBy: { createdAt: "desc" },
     take: 100,
     select: {
-      id: true, status: true, amount: true, createdAt: true, dueDate: true, disputed: true,
+      id: true, status: true, amount: true, createdAt: true, dueDate: true, disputed: true, packageTitle: true,
       gig: { select: { title: true } },
       seller: { select: { name: true, credential: true } },
       callBookings: { orderBy: { startTime: "asc" }, select: { id: true, startTime: true, endTime: true, status: true } },
@@ -46,7 +46,7 @@ export default async function ParentPage({ params }: { params: { token: string }
   });
   const first = consent.user.name.split(" ")[0];
   const paid = orders.filter((o) => o.status !== "CANCELLED");
-  const calls = orders.flatMap((o) => o.callBookings.map((c) => ({ ...c, gigTitle: o.gig.title, mentor: o.seller.name })));
+  const calls = orders.flatMap((o) => o.callBookings.map((c) => ({ ...c, gigTitle: o.packageTitle || o.gig.title, mentor: o.seller.name })));
 
   return (
     <div className="page-narrow stack-lg">
@@ -65,7 +65,7 @@ export default async function ParentPage({ params }: { params: { token: string }
           {paid.map((o) => (
             <div key={o.id} className="list-row" style={{ flexWrap: "wrap" }}>
               <div className="grow stack-sm" style={{ gap: 2, minWidth: 200 }}>
-                <b style={{ fontSize: 15 }}>{o.gig.title}</b>
+                <b style={{ fontSize: 15 }}>{o.packageTitle || o.gig.title}</b>
                 <span className="text-muted">
                   Mentor: {o.seller.name}{o.seller.credential ? ` (${o.seller.credential})` : ""} · booked {fmtDay(o.createdAt)}
                   {o.dueDate ? ` · due ${fmtDay(o.dueDate)}` : ""}
