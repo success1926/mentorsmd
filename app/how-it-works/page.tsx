@@ -8,7 +8,7 @@ import { getSiteContent } from "@/lib/siteContentStore";
 
 export const metadata: Metadata = {
   title: "How it works · MentorsMD",
-  description: "Find a vetted mentor, message them for free, and book help with your payment held until you approve the work.",
+  description: "Find a vetted mentor, message them or book a free 15-minute intro call, then buy hours at their rate. Every hour is logged.",
 };
 
 // What MentorsMD is and how booking works. The intro, steps, protection

@@ -4,7 +4,7 @@ import { Icon, ICONS } from "@/components/ui";
 export const metadata = { title: "Safety tips · MentorsMD" };
 
 const TIPS: { icon: string; title: string; body: string }[] = [
-  { icon: ICONS.lock, title: "Pay only on MentorsMD", body: "Your payment is held until you approve the work. If someone asks you to pay with Venmo, Zelle, PayPal, Cash App or cash, it's a red flag. Say no and report it." },
+  { icon: ICONS.lock, title: "Pay only on MentorsMD", body: "On MentorsMD every hour is logged and our team can help if something goes wrong. If someone asks you to pay with Venmo, Zelle, PayPal, Cash App or cash, it's a red flag. Say no and report it." },
   { icon: ICONS.chat, title: "Keep the conversation here", body: "Use MentorsMD messages and video calls. If a deal moves off the site, we can't help with refunds or disputes." },
   { icon: ICONS.shield, title: "Never share passwords", body: "No mentor, student or staff member ever needs your AMCAS, AACOMAS, TMDSAS or email login. Anyone who asks is breaking our rules." },
   { icon: ICONS.pen, title: "Your essays are yours", body: "A good mentor helps you write a better essay. Anyone offering to write it for you is putting your application at risk." },
