@@ -39,7 +39,9 @@ export const authOptions: NextAuthOptions = {
   // the person uses the site, so it only runs out after 7 idle days.
   // The 30-day hard limit and the admin 1-hour limit are in sessionRules.
   session: { strategy: "jwt", maxAge: SESSION_IDLE_SECONDS },
-  pages: { signIn: "/login" },
+  // Sign-in problems (e.g. a refused Google login) come back to
+  // /login?error=..., which explains them (app/login/page.tsx).
+  pages: { signIn: "/login", error: "/login" },
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,

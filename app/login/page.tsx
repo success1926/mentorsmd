@@ -22,6 +22,18 @@ export default function LoginPage() {
   );
 }
 
+// NextAuth sends sign-in problems back here as ?error=... (lib/auth.ts).
+// A wrong email/password is shown by the form itself, not here.
+function authErrorText(code: string) {
+  if (!code || code === "CredentialsSignin") return "";
+  if (code === "OAuthAccountNotLinked")
+    return "This email already has a MentorsMD account with a password. Log in with your email and password below.";
+  if (code === "AccessDenied")
+    return "Google sign-in isn't available for this account. Mentors log in with their email and password. If you think this is a mistake, contact us.";
+  if (code === "SignupLogin") return "Your account is ready. Log in to continue.";
+  return "That sign-in didn't work. Please try again, or log in with your email and password.";
+}
+
 function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -32,7 +44,9 @@ function LoginForm() {
   const recaptcha = useRecaptcha();
   // ?reason=idle when a login ran out, ?reason=ended when it was ended
   // elsewhere (e.g. a password change on another device).
-  const reason = useSearchParams()?.get("reason") || "";
+  const params = useSearchParams();
+  const reason = params?.get("reason") || "";
+  const authError = authErrorText(params?.get("error") || "");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -65,6 +79,11 @@ function LoginForm() {
         {reason === "idle" && (
           <div role="status" className="alert alert-warning">
             You were logged out due to inactivity. Log in to pick up where you left off.
+          </div>
+        )}
+        {authError && (
+          <div role="alert" className="alert alert-warning">
+            {authError}
           </div>
         )}
         {reason === "ended" && (
