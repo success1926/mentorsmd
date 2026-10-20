@@ -1,44 +1,65 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import type { FieldDef, ListDef, ScalarDef } from "@/lib/siteContent";
-import { ImageFocusEditor } from "@/components/ImageFocusEditor";
+import { ChangedTag, ListEditor, ScalarEditor, same } from "@/components/website/FieldEditors";
+import { EditorPreview, type EditorPreviewHandle } from "@/components/website/EditorPreview";
 
 type Values = Record<string, any>;
 type PageData = {
   key: string;
   page: { label: string; path: string; fields: Record<string, FieldDef> };
   defaults: Values;
+  live: Values;
   values: Values;
   hasDraft: boolean;
   updatedAt: string | null;
   publishedAt: string | null;
 };
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
-const MAX_PHOTO_MB = 8;
+type SaveState = "idle" | "pending" | "error";
 
-// Admin -> Website -> one page: a form grouped by section, with
-// Save draft / Preview / Publish / Discard draft.
+const AUTOSAVE_MS = 1000;
+const WIDE = "(min-width: 1200px)";
+const PREVIEW_KEY = "mmd-site-preview-open";
+
+// Admin -> Website -> one page: a form grouped by section. Every change is
+// saved as a draft automatically about a second after typing stops; the
+// live site only changes on Publish. On wide screens the draft shows in a
+// preview panel beside the form, reloaded after each save.
 export default function AdminWebsiteEditPage({ params }: { params: { page: string } }) {
   const { data: session, status } = useSession();
   const isAdmin = (session?.user as any)?.role === "ADMIN";
   const [data, setData] = useState<PageData | null>(null);
   const [loadError, setLoadError] = useState("");
   const [values, setValues] = useState<Values>({});
-  const [saved, setSaved] = useState<Values>({});
   const [busy, setBusy] = useState<string | null>(null);
-  const [notice, setNotice] = useState<{ ok: boolean; text: string; errors?: string[] } | null>(null);
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [saveErrors, setSaveErrors] = useState<{ text: string; errors?: string[] } | null>(null);
+
+  // Autosave bookkeeping: every change bumps `rev`; a save remembers the rev
+  // it sent. Saves go out one at a time, in order, so an older save can
+  // never land after a newer one.
+  const latest = useRef<Values>({});
+  const rev = useRef(0);
+  const savedRev = useRef(0);
+  const timer = useRef<number | undefined>(undefined);
+  const chain = useRef<Promise<unknown>>(Promise.resolve());
+  const preview = useRef<EditorPreviewHandle>(null);
 
   const load = useCallback(() => {
-    fetch(`/api/admin/website/${params.page}`)
+    fetch(`/api/admin/website/${params.page}`, { cache: "no-store" })
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || "Couldn't load this page.");
         setData(d);
         setValues(d.values);
-        setSaved(d.values);
+        latest.current = d.values;
+        savedRev.current = rev.current;
+        setSaveState("idle");
+        setSaveErrors(null);
       })
       .catch((e) => setLoadError(e.message || "Couldn't load this page."));
   }, [params.page]);
@@ -46,16 +67,94 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
     if (isAdmin) load();
   }, [isAdmin, load]);
 
-  const dirty = !same(values, saved);
+  const saveNow = useCallback((): Promise<boolean> => {
+    window.clearTimeout(timer.current);
+    timer.current = undefined;
+    const sentRev = rev.current;
+    const body = JSON.stringify({ values: latest.current });
+    setSaveState("pending");
+    const run = chain.current.then(async (): Promise<boolean> => {
+      let ok = false;
+      let problem: { text: string; errors?: string[] } | null = null;
+      let hasDraft: boolean | undefined;
+      try {
+        const res = await fetch(`/api/admin/website/${params.page}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body });
+        const d = await res.json().catch(() => ({}));
+        if (res.ok) {
+          ok = true;
+          hasDraft = !!d.hasDraft;
+        } else problem = { text: d.error || "Couldn't save.", errors: d.errors };
+      } catch {
+        problem = { text: "Couldn't reach the server. Check your connection." };
+      }
+      if (ok) savedRev.current = Math.max(savedRev.current, sentRev);
+      if (hasDraft !== undefined) setData((old) => (old ? { ...old, hasDraft: hasDraft! } : old));
+      // Only the newest save decides what the status line says.
+      if (sentRev === rev.current && timer.current === undefined) {
+        setSaveState(ok ? "idle" : "error");
+        setSaveErrors(problem);
+        if (ok) preview.current?.reload();
+      }
+      return ok;
+    });
+    chain.current = run.catch(() => {});
+    return run;
+  }, [params.page]);
+
+  // Saves anything not saved yet (before Publish or Preview).
+  const flush = useCallback(async (): Promise<boolean> => {
+    if (rev.current !== savedRev.current || timer.current !== undefined) return saveNow();
+    await chain.current;
+    return rev.current === savedRev.current;
+  }, [saveNow]);
+
+  const change = (name: string, v: unknown) => {
+    const next = { ...latest.current, [name]: v };
+    latest.current = next;
+    setValues(next);
+    rev.current++;
+    setSaveState("pending");
+    setNotice(null);
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      timer.current = undefined;
+      saveNow();
+    }, AUTOSAVE_MS);
+  };
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+
+  // Warn before leaving only while a change hasn't been saved yet.
+  const unsaved = saveState !== "idle";
   useEffect(() => {
-    if (!dirty) return;
+    if (!unsaved) return;
     const warn = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  }, [unsaved]);
+
+  // Live preview beside the form on wide screens (can be hidden).
+  const [wide, setWide] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(true);
+  useEffect(() => {
+    const mq = window.matchMedia(WIDE);
+    const on = () => setWide(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    try {
+      setPreviewOpen(localStorage.getItem(PREVIEW_KEY) !== "0");
+    } catch {}
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  const setPreview = (open: boolean) => {
+    setPreviewOpen(open);
+    try {
+      localStorage.setItem(PREVIEW_KEY, open ? "1" : "0");
+    } catch {}
+  };
+  const showPanel = wide && previewOpen;
 
   const sections = useMemo(() => {
     const out: { title: string; names: string[] }[] = [];
@@ -68,26 +167,19 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
     return out;
   }, [data]);
 
+  const jumpTo = (i: number) => {
+    const el = document.getElementById(`ws-sec-${i}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    el.classList.remove("ws-flash");
+    void el.offsetWidth;
+    el.classList.add("ws-flash");
+  };
+
   if (status === "loading") return <div className="page text-muted">Loading…</div>;
   if (!isAdmin) return <div className="page-narrow"><div className="alert alert-danger">Admin access required.</div></div>;
   if (loadError) return <div className="page-narrow stack"><Link href="/admin/website" className="link small">← Website</Link><div className="alert alert-danger">{loadError}</div></div>;
   if (!data) return <div className="page text-muted">Loading…</div>;
-
-  async function save(): Promise<boolean> {
-    const res = await fetch(`/api/admin/website/${params.page}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ values }),
-    });
-    const d = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setNotice({ ok: false, text: d.error || "Couldn't save.", errors: d.errors });
-      return false;
-    }
-    setSaved(values);
-    setData((old) => (old ? { ...old, hasDraft: d.hasDraft } : old));
-    return true;
-  }
 
   async function run(label: string, fn: () => Promise<void>) {
     setBusy(label);
@@ -100,17 +192,12 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
     setBusy(null);
   }
 
-  const onSave = () =>
-    run("save", async () => {
-      if (await save()) setNotice({ ok: true, text: "Draft saved. Visitors still see the published page until you publish." });
-    });
-
-  const onPreview = () => {
+  const onPreviewTab = () => {
     // Opened right away (so the browser doesn't block the new tab), then
     // pointed at the preview once the draft is saved.
     const tab = window.open("about:blank", "_blank");
     run("preview", async () => {
-      if (!(await save())) {
+      if (!(await flush())) {
         tab?.close();
         return;
       }
@@ -123,211 +210,128 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
   const onPublish = () => {
     if (!confirm(`Publish your changes to the ${data.page.label} page? Everyone will see them.`)) return;
     run("publish", async () => {
-      if (!(await save())) return;
+      if (!(await flush())) return setNotice({ ok: false, text: "Couldn't save your latest changes, so nothing was published. Fix the problems above and try again." });
       const res = await fetch(`/api/admin/website/${params.page}/publish`, { method: "POST" });
       if (!res.ok) return setNotice({ ok: false, text: "Couldn't publish. Please try again." });
+      setData((old) => (old ? { ...old, hasDraft: false, live: structuredClone(latest.current), publishedAt: new Date().toISOString() } : old));
       setNotice({ ok: true, text: "Published. The live site shows your changes now." });
-      load();
+      preview.current?.reload();
     });
   };
 
   const onDiscard = () => {
     if (!confirm("Discard all unpublished changes to this page? It goes back to what's live now.")) return;
     run("discard", async () => {
+      window.clearTimeout(timer.current);
+      timer.current = undefined;
+      await chain.current;
       const res = await fetch(`/api/admin/website/${params.page}/discard`, { method: "POST" });
       if (!res.ok) return setNotice({ ok: false, text: "Couldn't discard the draft." });
-      setNotice({ ok: true, text: "Draft discarded." });
+      rev.current++;
       load();
+      setNotice({ ok: true, text: "Draft discarded." });
+      preview.current?.reload();
     });
   };
 
-  const set = (name: string, v: unknown) => setValues((old) => ({ ...old, [name]: v }));
-  const unpublished = data.hasDraft || dirty;
+  const unpublished = data.hasDraft || unsaved || !same(values, data.live);
+  const statusText =
+    saveState === "pending" ? "Saving…" : saveState === "error" ? null : unpublished ? "Draft saved · not live yet" : "Live page is up to date";
 
   return (
-    <div className="page stack-lg" style={{ gap: 28, maxWidth: 980 }}>
-      <div className="row-wrap" style={{ gap: 16 }}>
-        <Link href="/admin/website" className="link small">All website pages</Link>
-      </div>
-      <div className="stack-sm">
-        <h1 className="page-title">{data.page.label}</h1>
-        <p className="lede">
-          {params.page === "footer" ? "The bottom of every page." : <>The page at <a className="link" href={data.page.path} target="_blank" rel="noreferrer">{data.page.path}</a>.</>}{" "}
-          Text shows exactly as typed (no formatting codes); a line break starts a new paragraph.
-        </p>
-      </div>
-
-      <div
-        className="card row-wrap"
-        style={{ gap: 10, position: "sticky", top: 90, zIndex: 20, alignItems: "center", boxShadow: "0 6px 24px rgba(27,24,52,0.08)" }}
-      >
-        {dirty ? (
-          <span className="badge badge-warning">Changes not saved yet</span>
-        ) : unpublished ? (
-          <span className="badge badge-pink">Draft saved, not published</span>
-        ) : (
-          <span className="badge badge-success">Live page is up to date</span>
-        )}
-        <span style={{ flex: 1 }} />
-        <button type="button" className="btn btn-soft" disabled={!!busy || !dirty} onClick={onSave}>{busy === "save" ? "Saving…" : "Save draft"}</button>
-        <button type="button" className="btn btn-soft" disabled={!!busy} onClick={onPreview}>{busy === "preview" ? "Opening…" : "Preview"}</button>
-        <button type="button" className="btn btn-primary" disabled={!!busy || !unpublished} onClick={onPublish}>{busy === "publish" ? "Publishing…" : "Publish"}</button>
-        <button type="button" className="btn" disabled={!!busy || !data.hasDraft} onClick={onDiscard}>Discard draft</button>
-      </div>
-
-      {notice && (
-        <div role="status" className={`alert ${notice.ok ? "alert-success" : "alert-danger"}`}>
-          {notice.text}
-          {notice.errors && notice.errors.length > 0 && (
-            <ul style={{ margin: "8px 0 0", paddingLeft: 20 }}>
-              {notice.errors.map((e, i) => <li key={i}>{e}</li>)}
-            </ul>
-          )}
-        </div>
-      )}
-
-      {sections.map((s) => (
-        <section key={s.title} className="card stack" style={{ gap: 18 }}>
-          {s.title && <h2 style={{ fontSize: 22 }}>{s.title}</h2>}
-          {s.names.map((name) => {
-            const f = data.page.fields[name];
-            const changed = !same(values[name], data.defaults[name]);
-            return (
-              <div key={name} className="stack-sm" style={{ gap: 6 }}>
-                {f.type === "list" ? (
-                  <ListEditor def={f as ListDef} value={values[name] || []} onChange={(v) => set(name, v)} />
-                ) : (
-                  <ScalarEditor def={f as ScalarDef} value={values[name]} onChange={(v) => set(name, v)} />
-                )}
-                {changed && (
-                  <button
-                    type="button"
-                    className="link small"
-                    style={{ alignSelf: "flex-start", background: "none", border: 0, padding: 0, cursor: "pointer" }}
-                    onClick={() => {
-                      if (confirm(`Put “${f.label}” back to the built-in default?`)) set(name, structuredClone(data.defaults[name]));
-                    }}
-                  >
-                    Reset to default
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </section>
-      ))}
-    </div>
-  );
-}
-
-function ScalarEditor({ def, value, onChange, compact }: { def: ScalarDef; value: any; onChange: (v: any) => void; compact?: boolean }) {
-  const label = <span className="field-label">{def.label}</span>;
-  const help = def.help ? <span className="field-help">{def.help}</span> : null;
-
-  if (def.type === "image") {
-    return (
-      <div className="field" style={{ marginBottom: compact ? 0 : 4 }}>
-        {label}
-        {help}
-        <ImageEditor value={value || ""} onChange={onChange} />
-      </div>
-    );
-  }
-  if (def.type === "lines") {
-    const arr: string[] = Array.isArray(value) ? value : [];
-    const count = arr.filter((x) => x.trim()).length;
-    return (
-      <label className="field" style={{ marginBottom: compact ? 0 : 4 }}>
-        {label}
-        <textarea className="input" rows={Math.min(10, Math.max(3, arr.length + 1))} value={arr.join("\n")} onChange={(e) => onChange(e.target.value.split("\n"))} />
-        <span className="field-help">
-          {def.help || "One per line."} {count}/{def.maxItems} lines.
-        </span>
-      </label>
-    );
-  }
-  const str = typeof value === "string" ? value : "";
-  const over = str.length > def.max;
-  return (
-    <label className="field" style={{ marginBottom: compact ? 0 : 4 }}>
-      {label}
-      {def.type === "longtext" ? (
-        <textarea className="input" rows={Math.min(14, Math.max(3, Math.ceil(str.length / 90) + str.split("\n").length))} value={str} aria-invalid={over} onChange={(e) => onChange(e.target.value)} />
-      ) : (
-        <input className="input" value={str} aria-invalid={over} onChange={(e) => onChange(e.target.value)} placeholder={def.type === "link" ? "/mentors or https://…" : undefined} />
-      )}
-      <span className="field-help" style={over ? { color: "var(--danger)" } : undefined}>
-        {def.help ? `${def.help} ` : ""}
-        {str.length}/{def.max} characters{"required" in def && def.required ? " · required" : ""}
-      </span>
-    </label>
-  );
-}
-
-function ListEditor({ def, value, onChange }: { def: ListDef; value: Values[]; onChange: (v: Values[]) => void }) {
-  const fields = Object.entries(def.fields as Record<string, ScalarDef>);
-  const blank = () => Object.fromEntries(fields.map(([k, f]) => [k, structuredClone(f.default)]));
-  const move = (i: number, d: number) => {
-    const next = [...value];
-    const [it] = next.splice(i, 1);
-    next.splice(i + d, 0, it);
-    onChange(next);
-  };
-  const titleOf = (it: Values) => {
-    const first = fields.find(([, f]) => f.type === "text");
-    const t = first ? String(it[first[0]] || "") : "";
-    return t.length > 50 ? t.slice(0, 50) + "…" : t;
-  };
-  return (
-    <div className="stack" style={{ gap: 12 }}>
-      <span className="field-label">{def.label}</span>
-      {def.help && <span className="field-help">{def.help}</span>}
-      {value.length === 0 && <span className="text-muted small">None yet.</span>}
-      {value.map((item, i) => (
-        <details key={i} className="collapse" style={{ marginTop: 0 }}>
-          <summary>
-            <span>
-              {def.itemLabel} {i + 1}
-              {titleOf(item) ? <span className="text-secondary" style={{ fontWeight: 400 }}> · {titleOf(item)}</span> : null}
-            </span>
-          </summary>
-          <div className="collapse-body">
-            <div className="row-wrap" style={{ gap: 8 }}>
-              <button type="button" className="btn btn-soft" style={{ padding: "6px 12px", fontSize: 14 }} disabled={i === 0} onClick={() => move(i, -1)}>↑ Move up</button>
-              <button type="button" className="btn btn-soft" style={{ padding: "6px 12px", fontSize: 14 }} disabled={i === value.length - 1} onClick={() => move(i, 1)}>↓ Move down</button>
-              <button
-                type="button"
-                className="btn"
-                style={{ padding: "6px 12px", fontSize: 14, color: "var(--danger)" }}
-                onClick={() => {
-                  if (confirm(`Remove ${def.itemLabel.toLowerCase()} ${i + 1}?`)) onChange(value.filter((_, j) => j !== i));
-                }}
-              >
-                Remove
-              </button>
-            </div>
-            {fields.map(([k, f]) => (
-              <ScalarEditor key={k} def={f} value={item[k]} compact onChange={(v) => onChange(value.map((it, j) => (j === i ? { ...it, [k]: v } : it)))} />
-            ))}
+    <div className={`page stack-lg ws-ed${showPanel ? " ws-ed-wide" : ""}`} style={{ gap: 28 }}>
+      <div className={showPanel ? "ws-ed-grid" : undefined}>
+        <div className="stack-lg" style={{ gap: 28, minWidth: 0, maxWidth: showPanel ? undefined : 980 }}>
+          <div className="row-wrap" style={{ gap: 16 }}>
+            <Link href="/admin/website" className="link small">All website pages</Link>
           </div>
-        </details>
-      ))}
-      <button type="button" className="btn btn-soft" style={{ alignSelf: "flex-start" }} disabled={value.length >= def.maxItems} onClick={() => onChange([...value, blank()])}>
-        + Add {def.itemLabel.toLowerCase()}
-      </button>
-    </div>
-  );
-}
+          <div className="stack-sm">
+            <h1 className="page-title">{data.page.label}</h1>
+            <p className="lede" style={{ fontSize: 17 }}>
+              {params.page === "footer" ? "The bottom of every page." : <>The page at <a className="link" href={data.page.path} target="_blank" rel="noreferrer">{data.page.path}</a>.</>}{" "}
+              Changes save as a draft automatically; visitors see them only after you publish. Text shows exactly as typed (no formatting codes); a line break starts a new paragraph.
+            </p>
+          </div>
 
-// Upload a photo and click on it to set the focus point (components/ImageFocusEditor.tsx).
-function ImageEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <ImageFocusEditor
-      value={value}
-      onChange={onChange}
-      uploadEndpoint="/api/admin/website/upload"
-      maxMb={MAX_PHOTO_MB}
-      types={["jpeg", "png", "webp", "gif", "avif"]}
-    />
+          <div className="card stack ws-bar" style={{ gap: 12 }}>
+            <div className="row-wrap" style={{ gap: 10, alignItems: "center" }}>
+              <span role="status" aria-live="polite" className={`ws-status ws-status-${saveState === "error" ? "error" : saveState === "pending" ? "saving" : unpublished ? "draft" : "live"}`}>
+                {statusText ?? (
+                  <>
+                    Couldn&apos;t save —{" "}
+                    <button type="button" className="ws-linkbtn" onClick={() => saveNow()}>retry</button>
+                  </>
+                )}
+              </span>
+              <span style={{ flex: 1 }} />
+              {(!wide || !previewOpen) && (
+                <button type="button" className="btn btn-soft" disabled={!!busy} onClick={wide ? () => setPreview(true) : onPreviewTab}>
+                  {busy === "preview" ? "Opening…" : wide ? "Show preview" : "Preview"}
+                </button>
+              )}
+              <button type="button" className="btn btn-primary" disabled={!!busy || !unpublished || saveState === "error"} onClick={onPublish}>{busy === "publish" ? "Publishing…" : "Publish"}</button>
+              <button type="button" className="btn" disabled={!!busy || !(data.hasDraft || unsaved)} onClick={onDiscard}>Discard draft</button>
+            </div>
+            {sections.length > 1 && (
+              <nav className="ws-jump" aria-label="Jump to a section">
+                <span className="ws-jump-label">Jump to</span>
+                {sections.map((s, i) => (
+                  <button key={i} type="button" onClick={() => jumpTo(i)}>{s.title || "Other"}</button>
+                ))}
+              </nav>
+            )}
+          </div>
+
+          {saveErrors && (
+            <div role="alert" className="alert alert-danger">
+              {saveErrors.text}
+              {saveErrors.errors && saveErrors.errors.length > 0 && (
+                <ul style={{ margin: "8px 0 0", paddingLeft: 20 }}>
+                  {saveErrors.errors.map((e, i) => <li key={i}>{e}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
+          {notice && <div role="status" className={`alert ${notice.ok ? "alert-success" : "alert-danger"}`}>{notice.text}</div>}
+
+          {sections.map((s, si) => (
+            <section key={si} id={`ws-sec-${si}`} className="card stack ws-sec" style={{ gap: 18 }}>
+              {s.title && <h2 style={{ fontSize: 22 }}>{s.title}</h2>}
+              {s.names.map((name) => {
+                const f = data.page.fields[name];
+                const differsFromDefault = !same(values[name], data.defaults[name]);
+                const changed = !same(values[name], data.live[name]);
+                return (
+                  <div key={name} className="stack-sm" style={{ gap: 6 }}>
+                    {f.type === "list" ? (
+                      <div className={changed ? "ws-changed" : undefined}>
+                        {changed && <div style={{ marginBottom: 8 }}><ChangedTag /></div>}
+                        <ListEditor def={f as ListDef} value={values[name] || []} live={data.live[name] || []} onChange={(v) => change(name, v)} />
+                      </div>
+                    ) : (
+                      <ScalarEditor def={f as ScalarDef} value={values[name]} changed={changed} onChange={(v) => change(name, v)} />
+                    )}
+                    {differsFromDefault && (
+                      <button
+                        type="button"
+                        className="link small"
+                        style={{ alignSelf: "flex-start", background: "none", border: 0, padding: 0, cursor: "pointer" }}
+                        onClick={() => {
+                          if (confirm(`Put “${f.label}” back to the built-in default?`)) change(name, structuredClone(data.defaults[name]));
+                        }}
+                      >
+                        Reset to default
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </section>
+          ))}
+        </div>
+
+        {showPanel && <EditorPreview ref={preview} pageKey={params.page} path={data.page.path} onHide={() => setPreview(false)} />}
+      </div>
+    </div>
   );
 }

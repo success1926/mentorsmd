@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 export function SitePreviewBarClient({ pageKey, pageLabel }: { pageKey: string | null; pageLabel: string | null }) {
@@ -8,6 +8,16 @@ export function SitePreviewBarClient({ pageKey, pageLabel }: { pageKey: string |
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  // Inside the editor's preview panel (Admin -> Website) the editor has its
+  // own Publish/Discard buttons, so the bar is left out there.
+  const [embedded, setEmbedded] = useState(false);
+  useEffect(() => {
+    try {
+      setEmbedded(window.self !== window.top);
+    } catch {
+      setEmbedded(true);
+    }
+  }, []);
 
   async function act(kind: "publish" | "discard") {
     if (!pageKey) return;
@@ -22,6 +32,7 @@ export function SitePreviewBarClient({ pageKey, pageLabel }: { pageKey: string |
     router.refresh();
   }
 
+  if (embedded) return null;
   return (
     <div
       role="status"
