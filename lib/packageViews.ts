@@ -21,9 +21,17 @@ export async function packagesFor(userId: string, role: string) {
   if (!orders.length) return [];
   const ids = orders.map((o) => o.id);
 
-  const [latest, files] = await Promise.all([
+  const [latest, latestTheirs, files] = await Promise.all([
     prisma.message.findMany({
       where: { orderId: { in: ids } },
+      orderBy: { createdAt: "desc" },
+      distinct: ["orderId"],
+      select: { id: true, orderId: true, body: true, attachmentName: true, createdAt: true, senderId: true },
+    }),
+    // The other person's latest message on each package (My packages'
+    // messages preview, and "suggested more hours" on the student home).
+    prisma.message.findMany({
+      where: { orderId: { in: ids }, senderId: { not: userId } },
       orderBy: { createdAt: "desc" },
       distinct: ["orderId"],
       select: { id: true, orderId: true, body: true, attachmentName: true, createdAt: true, senderId: true },
@@ -56,6 +64,7 @@ export async function packagesFor(userId: string, role: string) {
     ...o,
     title: o.packageTitle || o.gig.title,
     latestMessage: latest.find((m) => m.orderId === o.id) || null,
+    latestTheirs: latestTheirs.find((m) => m.orderId === o.id) || null,
     filesCount: files.find((f) => f.orderId === o.id)?._count._all || 0,
     newMessages: unreadByOrder.get(o.id) || 0,
   }));

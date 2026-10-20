@@ -99,7 +99,10 @@ async function stripePage(opts: {
       },
     ],
     metadata: opts.metadata,
-    payment_intent_data: { metadata: opts.metadata },
+    // receipt_email: Stripe emails the student its own receipt once the
+    // payment goes through (in live mode even if the dashboard setting
+    // "Email customers about successful payments" is off).
+    payment_intent_data: { metadata: opts.metadata, receipt_email: opts.email || undefined },
     customer_email: opts.email || undefined,
     expires_at: Math.floor(Date.now() / 1000) + SESSION_MINUTES * 60,
     success_url: opts.successUrl,

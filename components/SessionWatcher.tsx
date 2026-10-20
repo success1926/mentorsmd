@@ -18,7 +18,7 @@ import { ADMIN_IDLE_MS, ADMIN_WARN_BEFORE_MS } from "@/lib/sessionRules";
 
 const WAS_LOGGED_IN = "mmd_was_logged_in";
 const LAST_ACTIVITY = "mmd_last_activity";
-const PROTECTED = ["/account", "/dashboard", "/messages", "/orders", "/admin", "/gigs"];
+const PROTECTED = ["/account", "/dashboard", "/messages", "/orders", "/admin", "/gigs", "/credit", "/receipts"];
 
 function store(key: string, value?: string) {
   try {

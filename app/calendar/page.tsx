@@ -7,9 +7,11 @@ import { joinState } from "@/lib/calls";
 import { BUSY_KINDS } from "@/lib/schedule";
 import { labelFor } from "@/lib/options";
 import { fmtDayLabel } from "@/lib/tz";
+import { StudentCalendar } from "./StudentCalendar";
 
-// "My calendar" for mentors and students: upcoming and recent calls, and
+// "My calendar" for mentors (and admins): upcoming and recent calls, and
 // for mentors the due dates of active orders and their busy dates.
+// Students get their own Calendar (StudentCalendar.tsx).
 function DateBadge({ d }: { d: Date }) {
   return (
     <span className="cal-date" aria-hidden="true">
@@ -29,7 +31,7 @@ export default function MyCalendarPage() {
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  function load() {
     fetch("/api/me/calendar")
       .then(async (r) => {
         const d = await r.json().catch(() => ({}));
@@ -37,10 +39,13 @@ export default function MyCalendarPage() {
         else setData(d);
       })
       .catch(() => setError("Couldn't load your calendar"));
-  }, []);
+  }
+  useEffect(load, []);
 
   if (error) return <div className="page-narrow"><div className="alert alert-danger">{error}</div></div>;
   if (!data) return <div className="page-mid text-muted">Loading…</div>;
+  // Students: their own Calendar (student area v2).
+  if (data.role === "BUYER") return <StudentCalendar data={data} reload={load} />;
 
   const isMentor = data.role === "SELLER";
   const today = new Date().toISOString().slice(0, 10);

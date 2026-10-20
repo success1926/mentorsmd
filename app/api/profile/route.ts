@@ -45,6 +45,11 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { passwordHash, externalCalUrl, googleCalEmail, googleCalConnectedAt, ...profile } = user;
+  // Under-18 students: when their parent gave consent (Settings).
+  const consent =
+    user.role === "BUYER" && user.minorStatus
+      ? await prisma.parentConsent.findFirst({ where: { userId: user.id, status: "CONSENTED" }, orderBy: { consentedAt: "desc" }, select: { consentedAt: true } })
+      : null;
   // Never send the hash itself - just whether one exists (Google-only
   // accounts have none, so they can't "change" a password). The secret
   // calendar address is only shown shortened.
@@ -57,6 +62,7 @@ export async function GET() {
       ...(user.role === "SELLER" ? { progress: profileProgress(user) } : {}),
       externalCal: externalCalUrl ? { host: safeHost(externalCalUrl) } : null,
       googleCal: googleCalConnectedAt ? { email: googleCalEmail, connectedAt: googleCalConnectedAt } : null,
+      parentConsentAt: consent?.consentedAt ?? null,
     },
   });
 }

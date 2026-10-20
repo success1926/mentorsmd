@@ -31,14 +31,14 @@ export async function GET() {
       include: {
         order: {
           select: {
-            id: true, buyerId: true, sellerId: true, packageTitle: true,
+            id: true, buyerId: true, sellerId: true, packageTitle: true, disputed: true,
             gig: { select: { title: true } },
-            buyer: { select: { name: true } },
-            seller: { select: { name: true } },
+            buyer: { select: { name: true, photoUrl: true } },
+            seller: { select: { name: true, photoUrl: true } },
           },
         },
-        student: { select: { name: true } },
-        mentor: { select: { name: true } },
+        student: { select: { name: true, photoUrl: true } },
+        mentor: { select: { name: true, photoUrl: true } },
       },
       orderBy: { startTime: "asc" },
       take: 300,
@@ -67,6 +67,11 @@ export async function GET() {
       title: b.order ? b.order.packageTitle || b.order.gig.title : "Free 15-minute intro call",
       withName: b.order ? (iAmMentor ? b.order.buyer.name : b.order.seller.name) : (iAmMentor ? b.student?.name : b.mentor?.name) || "",
       withRole: iAmMentor ? "student" : "mentor",
+      // For the student calendar's Reschedule / Cancel (student area v2).
+      kind: b.kind,
+      withId: b.order ? (iAmMentor ? b.order.buyerId : b.order.sellerId) : (iAmMentor ? b.studentId : b.mentorId),
+      withPhotoUrl: (b.order ? (iAmMentor ? b.order.buyer.photoUrl : b.order.seller.photoUrl) : (iAmMentor ? b.student?.photoUrl : b.mentor?.photoUrl)) || null,
+      disputed: !!b.order?.disputed,
     };
   };
   return NextResponse.json({
