@@ -12,7 +12,7 @@ import { Booker } from "@/components/Booker";
 import { Icon, ICONS, StaffBadge } from "@/components/ui";
 import { MessageText, SendWarnings, type SendWarning } from "@/components/Safety";
 import { useConversation, SendError } from "@/lib/hooks/useConversation";
-import { hoursSummary, isLowOnHours, shortHours, TOP_UP_HOURS } from "@/lib/hours";
+import { hoursSummary, isLowOnHours, shortHours, splitCredit, TOP_UP_HOURS } from "@/lib/hours";
 import { finishPhase, hoursToRespond, packageStatus, studentActions } from "@/lib/finishing";
 import { hoursLabel, priceFor } from "@/lib/pricing";
 import { money } from "@/lib/options";
@@ -110,15 +110,11 @@ export function BookCallModal({
   useEffect(() => {
     if (!open) return;
     setDone("");
-    if (orderId) {
-      if (minutesLeft !== undefined && minutesLeft < 60 && minutesLeft >= 30) setMinutes(30);
-      return;
-    }
-    fetch(`/api/mentors/${mentorId}/call-slots?minutes=${minutes}`)
-      .then((r) => r.json())
-      .then((d) => setInfo({ packages: d.packages || [], payPerCall: d.payPerCall || null }))
-      .catch(() => setInfo({ packages: [], payPerCall: null }));
-  }, [open, mentorId, orderId, minutes, minutesLeft]);
+    if (orderId && minutesLeft !== undefined && minutesLeft < 60 && minutesLeft >= 30) setMinutes(30);
+  }, [open, orderId, minutesLeft]);
+  // Without an order, which packages fit and whether pay-per-call is open
+  // come with the times themselves (call-slots), loaded once by the Booker.
+  const onLoaded = (d: any) => setInfo({ packages: d.packages || [], payPerCall: d.payPerCall || null });
 
   // Which package pays for it (none = pay per call).
   const fitting = (info?.packages || []).filter((p) => p.left >= minutes);
@@ -192,7 +188,8 @@ export function BookCallModal({
         </div>
       ) : (
         <Booker
-          slotsUrl={canBook ? (orderId ? `/api/orders/${orderId}/slots?minutes=${minutes}` : `/api/mentors/${mentorId}/call-slots?minutes=${minutes}`) : null}
+          slotsUrl={orderId ? (canBook ? `/api/orders/${orderId}/slots?minutes=${minutes}` : null) : `/api/mentors/${mentorId}/call-slots?minutes=${minutes}`}
+          onLoaded={orderId ? undefined : onLoaded}
           mentor={{ id: mentorId, name: mentorName, photoUrl: mentorPhotoUrl }}
           title={payPerCall && ppc?.available ? "Pay-per-call" : "Package call"}
           description={`A one-to-one video call with ${first}.`}
@@ -224,6 +221,9 @@ export function AddHoursModal({ open, onClose, order, initialHours }: { open: bo
   }, [open]);
   const rate = order.rateCents || 0;
   const price = priceFor(hours * 60, rate);
+  // The same split checkout makes (at least 50 cents on the card when credit
+  // doesn't cover everything).
+  const split = splitCredit(price, credit);
   async function go() {
     setBusy(true);
     setError("");
@@ -249,7 +249,7 @@ export function AddHoursModal({ open, onClose, order, initialHours }: { open: bo
         </div>
         <div className="alert alert-blue stack-sm small">
           <b>{hoursLabel(hours * 60)} × {money(rate)}/hr = {money(price)}</b>
-          {credit > 0 && <span>Credit applied: {money(Math.min(credit, price))}. {credit >= price ? "Nothing to pay by card." : `You pay ${money(price - Math.min(credit, price))} by card.`}</span>}
+          {split.creditCents > 0 && <span>Credit applied: {money(split.creditCents)}. {split.chargeCents === 0 ? "Nothing to pay by card." : `You pay ${money(split.chargeCents)} by card.`}</span>}
           <span>Unused hours aren&apos;t refunded if you finish early; mentors aren&apos;t penalised for working efficiently.</span>
         </div>
         {error && <div role="alert" className="alert alert-danger">{error}</div>}

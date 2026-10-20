@@ -23,6 +23,7 @@ import {
   serviceLabel,
 } from "@/lib/options";
 import { hoursLabel, priceMath } from "@/lib/pricing";
+import { splitCredit } from "@/lib/hours";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
 import type { AdmissionsRole, Language } from "@/lib/profileCompleteness";
 
@@ -607,7 +608,9 @@ function OfferDetails({
     if (!isBuyer) return;
     fetch("/api/me/credit").then((r) => r.json()).then((d) => setCredit(d.balanceCents || 0)).catch(() => {});
   }, [isBuyer]);
-  const creditUsed = Math.min(credit, offer.price || 0);
+  // The same split checkout makes (at least 50 cents goes on the card when
+  // credit doesn't cover everything).
+  const creditUsed = splitCredit(offer.price || 0, credit).creditCents;
 
   async function buy() {
     setBuying(true);

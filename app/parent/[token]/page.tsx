@@ -2,19 +2,20 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { consentByViewToken } from "@/lib/minors";
 import { money } from "@/lib/options";
+import { tzOrDefault } from "@/lib/tz";
 import { WithdrawButton } from "./WithdrawButton";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Parent page · MentorsMD", robots: { index: false } };
 
 const ORDER_STATUS: Record<string, string> = {
-  IN_ESCROW: "In progress (payment held)",
+  IN_ESCROW: "In progress",
   COMPLETED: "Delivered, waiting for approval",
   RELEASED: "Completed",
   REFUNDED: "Refunded",
   CANCELLED: "Cancelled",
 };
-const fmtDay = (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+const fmtDay = (d: Date, tz?: string) => d.toLocaleDateString("en-US", { timeZone: tz, month: "short", day: "numeric", year: "numeric" });
 
 // A parent or guardian's private page (#109): their student's orders and
 // calls, and a button to withdraw consent. The link was emailed when they
@@ -33,6 +34,10 @@ export default async function ParentPage({ params }: { params: { token: string }
     );
   }
 
+  // Times are shown in the student's time zone (this page is drawn on the
+  // server, which would otherwise use UTC).
+  const student = await prisma.user.findUnique({ where: { id: consent.userId }, select: { timeZone: true } });
+  const tz = tzOrDefault(student?.timeZone);
   const orders = await prisma.order.findMany({
     where: { buyerId: consent.userId, status: { not: "PENDING_PAYMENT" } },
     orderBy: { createdAt: "desc" },
@@ -54,7 +59,7 @@ export default async function ParentPage({ params }: { params: { token: string }
         <span className="eyebrow">Parent page</span>
         <h1 className="page-title" style={{ textAlign: "left" }}>{consent.user.name}&apos;s orders and calls</h1>
         <p className="lede">
-          You gave consent on {consent.consentedAt ? fmtDay(consent.consentedAt) : "file"} (signed &ldquo;{consent.signatureName}&rdquo;). Keep this link private.
+          You gave consent on {consent.consentedAt ? fmtDay(consent.consentedAt, tz) : "file"} (signed &ldquo;{consent.signatureName}&rdquo;). Keep this link private.
         </p>
       </div>
 
@@ -67,8 +72,8 @@ export default async function ParentPage({ params }: { params: { token: string }
               <div className="grow stack-sm" style={{ gap: 2, minWidth: 200 }}>
                 <b style={{ fontSize: 15 }}>{o.packageTitle || o.gig.title}</b>
                 <span className="text-muted">
-                  Mentor: {o.seller.name}{o.seller.credential ? ` (${o.seller.credential})` : ""} · booked {fmtDay(o.createdAt)}
-                  {o.dueDate ? ` · due ${fmtDay(o.dueDate)}` : ""}
+                  Mentor: {o.seller.name}{o.seller.credential ? ` (${o.seller.credential})` : ""} · booked {fmtDay(o.createdAt, tz)}
+                  {o.dueDate ? ` · due ${fmtDay(o.dueDate, tz)}` : ""}
                 </span>
               </div>
               <b>{money(o.amount)}</b>
@@ -88,7 +93,7 @@ export default async function ParentPage({ params }: { params: { token: string }
           {calls.map((c) => (
             <div key={c.id} className="list-row" style={{ flexWrap: "wrap" }}>
               <div className="grow stack-sm" style={{ gap: 2 }}>
-                <b style={{ fontSize: 15 }}>{c.startTime.toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}</b>
+                <b style={{ fontSize: 15 }}>{c.startTime.toLocaleString("en-US", { timeZone: tz, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}</b>
                 <span className="text-muted">{c.gigTitle} with {c.mentor}</span>
               </div>
               <span className={`badge ${c.status === "CANCELLED" ? "" : c.endTime < new Date() ? "badge-success" : "badge-brand"}`}>

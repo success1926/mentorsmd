@@ -137,7 +137,9 @@ export async function openSlotsFor(
   mentor: MentorForSchedule,
   studentId: string,
   lengthMinutes: number,
-  opts: { excludeBookingId?: string; onlyDay?: string } = {}
+  // ignoreNotice: the time was already checked against the mentor's
+  // minimum notice earlier (pay-per-call, picked before paying).
+  opts: { excludeBookingId?: string; onlyDay?: string; ignoreNotice?: boolean } = {}
 ) {
   const tz = tzOrDefault(mentor.timeZone);
   const [ranges, booked, external] = await Promise.all([
@@ -149,7 +151,7 @@ export async function openSlotsFor(
     weeklyHours: mentor.weeklyHours,
     timeZone: tz,
     bufferMinutes: mentor.bufferMinutes,
-    minNoticeHours: mentor.minNoticeHours,
+    minNoticeHours: opts.ignoreNotice ? 0 : mentor.minNoticeHours,
     daysOff: mentor.daysOff || [],
     busyRanges: ranges,
     busy: [...booked, ...external],
@@ -169,7 +171,7 @@ function lengthFor(order: OrderForCalls, lengthMinutes?: number) {
   return order.gig.callLength || 30;
 }
 
-export async function openSlotsForOrder(order: OrderForCalls, opts: { excludeBookingId?: string; onlyDay?: string; lengthMinutes?: number } = {}) {
+export async function openSlotsForOrder(order: OrderForCalls, opts: { excludeBookingId?: string; onlyDay?: string; lengthMinutes?: number; ignoreNotice?: boolean } = {}) {
   return openSlotsFor(order.seller, order.buyerId, lengthFor(order, opts.lengthMinutes), opts);
 }
 
@@ -284,14 +286,17 @@ function assertNoClash(tx: Prisma.TransactionClient, order: OrderForCalls, start
 // mentor can enter any future time they agreed with the student. On an
 // hours order the call is 30 or 60 minutes (lengthMinutes) and has to fit
 // in the hours left (booked calls hold their minutes until they're logged).
-export async function bookCall(order: OrderForCalls, start: Date, by: { id: string; isMentor: boolean }, lengthMinutes?: number) {
+// pickedBeforePayment: pay-per-call. The time passed the mentor's minimum
+// notice when the student picked it; paying can take a few minutes, so it
+// isn't checked again (it must still be free and in the mentor's hours).
+export async function bookCall(order: OrderForCalls, start: Date, by: { id: string; isMentor: boolean }, lengthMinutes?: number, opts: { pickedBeforePayment?: boolean } = {}) {
   const minutes = lengthFor(order, lengthMinutes);
   const length = minutes * 60_000;
   const end = new Date(start.getTime() + length);
   if (start.getTime() < Date.now() + 5 * 60_000) throw new CallError("Pick a time in the future.");
   await assertNotBlocked(order);
   if (!by.isMentor) {
-    const slots = await openSlotsForOrder(order, { onlyDay: dayInZone(start, tzOrDefault(order.seller.timeZone)), lengthMinutes: minutes });
+    const slots = await openSlotsForOrder(order, { onlyDay: dayInZone(start, tzOrDefault(order.seller.timeZone)), lengthMinutes: minutes, ignoreNotice: opts.pickedBeforePayment });
     if (!slots.some((s) => s.getTime() === start.getTime())) throw new CallError("That time isn't available anymore. Please pick another.", 409);
   }
 
