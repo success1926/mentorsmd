@@ -2,10 +2,12 @@
 
 import { useRef, useState } from "react";
 import { Avatar } from "@/components/Avatar";
+import { PhotoCropper, type Crop } from "@/components/PhotoCropper";
 
-// Crops the chosen image to a centered square and shrinks it to 600x600
-// JPEG in the browser, so uploads are small and every photo is the same shape.
-async function toSquareJpeg(file: File, size = 600): Promise<Blob> {
+// Cuts the chosen square out of the image (the person picks it in
+// PhotoCropper; centered if not) and shrinks it to a 600x600 JPEG in the
+// browser, so uploads are small and every photo is the same shape.
+async function toSquareJpeg(file: File, crop?: Crop, size = 600): Promise<Blob> {
   const url = URL.createObjectURL(file);
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -14,13 +16,15 @@ async function toSquareJpeg(file: File, size = 600): Promise<Blob> {
       el.onerror = () => reject(new Error("That file couldn't be read as an image"));
       el.src = url;
     });
-    const side = Math.min(img.naturalWidth, img.naturalHeight);
+    const side = crop?.side ?? Math.min(img.naturalWidth, img.naturalHeight);
+    const sx = crop?.sx ?? (img.naturalWidth - side) / 2;
+    const sy = crop?.sy ?? (img.naturalHeight - side) / 2;
     const canvas = document.createElement("canvas");
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Your browser couldn't process this image");
-    ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, size, size);
+    ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
     return await new Promise<Blob>((resolve, reject) =>
       canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Couldn't process image"))), "image/jpeg", 0.88)
     );
@@ -29,31 +33,49 @@ async function toSquareJpeg(file: File, size = 600): Promise<Blob> {
   }
 }
 
-// The mentor's profile photo with Upload / Change / Remove (My profile, step 1).
-export function ProfilePhoto({ name, photoUrl, onChanged }: { name: string; photoUrl: string | null; onChanged: (url: string | null) => void }) {
+// A profile photo with Upload / Change / Remove: the mentor's (My profile,
+// step 1) and the student's optional one (About you). Choosing a photo
+// opens "Position your photo" first.
+export function ProfilePhoto({
+  name,
+  photoUrl,
+  onChanged,
+  hint = "A clear, friendly headshot works best. You can position and zoom it before it's saved.",
+}: {
+  name: string;
+  photoUrl: string | null;
+  onChanged: (url: string | null) => void;
+  hint?: string;
+}) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [picked, setPicked] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  async function handlePhoto(file: File | undefined) {
+  function choose(file: File | undefined) {
+    if (fileRef.current) fileRef.current.value = "";
     if (!file) return;
     setMsg("");
     if (!file.type.startsWith("image/")) return setMsg("Please choose an image file (JPG, PNG or WebP).");
+    setPicked(file);
+  }
+
+  async function upload(file: File, crop: Crop) {
     setBusy(true);
     try {
-      const square = await toSquareJpeg(file);
+      const square = await toSquareJpeg(file, crop);
       const form = new FormData();
       form.append("file", new File([square], "photo.jpg", { type: "image/jpeg" }));
       const res = await fetch("/api/profile/photo", { method: "POST", body: form });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Upload failed");
       onChanged(data.photoUrl);
       setMsg("Photo updated.");
     } catch (err: any) {
       setMsg(err.message || "Upload failed");
     } finally {
+      setPicked(null);
       setBusy(false);
-      if (fileRef.current) fileRef.current.value = "";
     }
   }
 
@@ -71,9 +93,9 @@ export function ProfilePhoto({ name, photoUrl, onChanged }: { name: string; phot
       <Avatar name={name || "?"} photoUrl={photoUrl} style={{ width: 88, height: 88, fontSize: 32 }} />
       <div className="stack-sm grow" style={{ minWidth: 220 }}>
         <b>Profile photo</b>
-        <span className="text-secondary small">A clear, friendly headshot works best. We crop it to a square automatically.</span>
+        <span className="text-secondary small">{hint}</span>
         <div className="row-wrap">
-          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }} onChange={(e) => handlePhoto(e.target.files?.[0])} />
+          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }} onChange={(e) => choose(e.target.files?.[0])} />
           <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => fileRef.current?.click()}>
             {busy ? "Uploading…" : photoUrl ? "Change photo" : "Upload photo"}
           </button>
@@ -81,6 +103,7 @@ export function ProfilePhoto({ name, photoUrl, onChanged }: { name: string; phot
         </div>
         {msg && <span role="status" className="text-secondary small">{msg}</span>}
       </div>
+      {picked && <PhotoCropper file={picked} busy={busy} onCancel={() => !busy && setPicked(null)} onDone={(crop) => upload(picked, crop)} />}
     </div>
   );
 }

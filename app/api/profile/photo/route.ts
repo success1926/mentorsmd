@@ -6,7 +6,8 @@ import { PUBLIC_BUCKET, newPath, publicPathFromUrl, publicUrl, removeFiles } fro
 import { supabaseAdmin, NOT_SET_UP } from "@/lib/supabase";
 import { syncProfileComplete } from "@/lib/profileSync";
 
-// Profile photo upload, stored in the public-media bucket (lib/storage.ts).
+// Profile photo upload (mentors, and students 18+), stored in the
+// public-media bucket (lib/storage.ts).
 // The browser already crops/resizes the image to a square before sending
 // (components/ProfilePhoto.tsx), so files here are small enough to come through our
 // server, which checks the file really is an image before storing it.
@@ -29,11 +30,17 @@ const ALLOWED_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png"
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  // Only coaches have public photos.
-  if ((session.user as any).role !== "SELLER") {
-    return NextResponse.json({ error: "Only mentors can add a profile photo" }, { status: 403 });
+  // Mentors (shown publicly) and students (optional, shown only to their
+  // mentors: the student profile). Students under 18 can't add one.
+  const role = (session.user as any).role;
+  if (role !== "SELLER" && role !== "BUYER") {
+    return NextResponse.json({ error: "This account can't add a profile photo" }, { status: 403 });
   }
   const userId = (session.user as any).id;
+  if (role === "BUYER") {
+    const me = await prisma.user.findUnique({ where: { id: userId }, select: { minorStatus: true } });
+    if (me?.minorStatus) return NextResponse.json({ error: "Students under 18 can't add a profile photo." }, { status: 403 });
+  }
 
   const now = Date.now();
   const times = (recentUploads.get(userId) || []).filter((t) => now - t < 60 * 60 * 1000);

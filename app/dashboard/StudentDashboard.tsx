@@ -154,6 +154,17 @@ export function StudentDashboard({ name }: { name: string; viewerId: string }) {
       });
     }
   }
+  // The optional "About you", until it's filled in.
+  if (status?.student && !status.student.profileFilled) {
+    next.push({
+      key: "about",
+      tone: "",
+      icon: ICONS.pen,
+      title: <>Tell mentors a bit about you</>,
+      sub: "When you apply, your stage and what you want help with. 1 minute, only your mentors see it.",
+      actions: <Link href="/about-you" className="btn btn-sm">Add</Link>,
+    });
+  }
 
   return (
     <div className="page stack-lg" style={{ gap: 20, maxWidth: 1180 }}>

@@ -6,6 +6,7 @@ import { unreadFor } from "@/lib/unread";
 import { isMentorListed, isMentorVisible } from "@/lib/mentor";
 import { profileFieldsSelect, profileProgress } from "@/lib/profileCompleteness";
 import { creditBalance } from "@/lib/credit";
+import { isStudentProfileFilled, profileFromRow, studentProfileSelect } from "@/lib/studentProfile";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,7 @@ export async function GET() {
 async function studentStatus(userId: string, name: string) {
   const now = new Date();
   const [me, activePackages, waiting, upcomingCalls, creditCents] = await Promise.all([
-    prisma.user.findUnique({ where: { id: userId }, select: { name: true, photoUrl: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { name: true, photoUrl: true, ...studentProfileSelect } }),
     // Active hours packages: paid, not yet approved (working, waiting on the student, or disputed).
     prisma.order.count({ where: { buyerId: userId, kind: { not: null }, status: "IN_ESCROW", approvedAt: null } }),
     // Marked complete, the 48 hours still running.
@@ -71,5 +72,5 @@ async function studentStatus(userId: string, name: string) {
     }),
     creditBalance(userId),
   ]);
-  return { name: me?.name || name, photoUrl: me?.photoUrl || null, activePackages, waiting, upcomingCalls, creditCents };
+  return { name: me?.name || name, photoUrl: me?.photoUrl || null, activePackages, waiting, upcomingCalls, creditCents, profileFilled: me ? isStudentProfileFilled(profileFromRow(me)) : false };
 }

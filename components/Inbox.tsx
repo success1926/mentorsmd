@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AboutYouNudge } from "@/components/AboutYouNudge";
+import { StudentCard } from "@/components/StudentCard";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -311,9 +313,12 @@ function Thread({ conversationId }: { conversationId: string }) {
           }}
         >
           {messages.length === 0 && (
-            <p className="text-muted" style={{ textAlign: "center", margin: "auto" }}>
-              {isBuyer ? "Say hello. Buying unlocks once your mentor replies, or after your free intro call." : "No messages yet."}
-            </p>
+            <div className="stack-sm" style={{ textAlign: "center", margin: "auto", alignItems: "center" }}>
+              <p className="text-muted" style={{ margin: 0 }}>
+                {isBuyer ? "Say hello. Buying unlocks once your mentor replies, or after your free intro call." : "No messages yet."}
+              </p>
+              {isBuyer && <AboutYouNudge />}
+            </div>
           )}
           {messages.map((m: any) => (
             <div key={m.id} className={`msg-bubble ${m.senderId === userId ? "msg-mine" : "msg-theirs"}`}>
@@ -402,6 +407,9 @@ function Thread({ conversationId }: { conversationId: string }) {
             <Link href={`/mentors/${convo.seller.id}`} className="link small">View profile</Link>
           )}
         </div>
+
+        {/* Mentors: the student's "About you" (lib/studentProfile.ts). */}
+        {role === "SELLER" && <StudentCard key={convo.buyerId} studentId={convo.buyerId} title="About them" hideName />}
 
         {activeOrders.length > 0 && <b>Active packages</b>}
         {activeOrders.filter((o) => o.kind).map((o) => {

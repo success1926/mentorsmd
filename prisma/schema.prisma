@@ -229,6 +229,18 @@ model User {
   signupSource  String?
   signupDetail  String?
 
+  // ---- Student profile (Oct 2026, all optional; lib/studentProfile.ts) ----
+  // Shown only to mentors the student has messaged, booked or bought from.
+  studentApplyYear String? // "2026" | "2027" | "2028_PLUS"
+  studentStage     String? // STUDENT_STAGES: SCHOOL_LIST, PERSONAL_STATEMENT, ...
+  studentDegree    String? // MD | DO | BOTH
+  studentSchool    String? // undergrad school or state
+  studentHelpWith  String[]  @default([]) // SERVICES values (lib/options.ts)
+  studentAbout     String? // up to 300 characters
+  // Last time they saved it, or pressed "Skip for now" after signup (so the
+  // after-signup step isn't shown again).
+  studentProfileAt DateTime?
+
   activityEvents ActivityEvent[]
 
   legalAcceptances LegalAcceptance[]

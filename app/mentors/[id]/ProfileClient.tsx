@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Icon, ICONS, Vetted, Rating, tintFor, initialsOf } from "@/components/ui";
 import { Modal } from "@/components/Modal";
 import { Booker } from "@/components/Booker";
+import { AboutYouNudge } from "@/components/AboutYouNudge";
 import { ConfirmEmailNotice, ReportDialog, SendWarnings, setBlocked, type SendWarning } from "@/components/Safety";
 import { trackEvent } from "@/components/Tracker";
 import {
@@ -798,6 +799,7 @@ function IntroCallPanel({ seller, first, unlock, onChanged, onMessage }: { selle
       title="Free intro call"
       durationMinutes={INTRO_CALL_MINUTES}
       description={<>Say hello, talk through where you are in your application, and see if you&apos;re a good fit. There&apos;s nothing to pay. One intro call per mentor.</>}
+      details={<AboutYouNudge />}
       confirmLabel="Confirm"
       onConfirm={confirm}
       onMessage={onMessage}
@@ -911,6 +913,7 @@ function MessagePanel({
           onChange={(e) => setDraft(e.target.value)}
         />
       </label>
+      <AboutYouNudge />
       {warnings && <SendWarnings warnings={warnings} busy={sending} onEdit={() => setWarnings(null)} onSendAnyway={() => send(true)} />}
       {needsEmail && <ConfirmEmailNotice />}
       {error && <div role="alert" className="alert alert-danger">{error}</div>}
