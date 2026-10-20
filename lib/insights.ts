@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { KIND_LABEL as OFFER_KIND_LABEL } from "@/lib/pricing";
 import { prisma } from "@/lib/prisma";
 import { PLATFORM_FEE_PERCENT } from "@/lib/stripe";
 import { DEFAULT_TIME_ZONE, addDays, dayInZone, fmtDayLabel, isDayString, isValidTimeZone, weekdayOfDay, zonedToUtc } from "@/lib/tz";
@@ -271,7 +272,6 @@ const HOURS_STATUS: Record<string, string> = {
   RELEASED: "Paid to mentor",
   REFUNDED: "Refunded as credit",
 };
-const OFFER_KIND_LABEL: Record<string, string> = { HOURLY: "Hourly", BUNDLE: "Hour bundle", SPECIALIZED: "Specialized package", PAY_PER_CALL: "Pay-per-call" };
 const offerKindLabel = (k: string | null | undefined) => (k ? OFFER_KIND_LABEL[k] || k : "Before hourly pricing");
 
 const ORDER_STATUS: Record<string, string> = {

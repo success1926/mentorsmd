@@ -72,7 +72,7 @@ function LoginForm() {
             Your session ended. Please log in again.
           </div>
         )}
-        <GoogleButton onClick={() => signIn("google", { callbackUrl: safeCallback() || "/mentors" })} />
+        <GoogleButton onClick={() => signIn("google", { callbackUrl: safeCallback() || "/dashboard" })} />
         <span className="text-muted">Google sign-in is for student accounts. Mentors log in with email.</span>
         <div className="or-line">or</div>
         <form onSubmit={handleSubmit} className="stack" style={{ gap: 0 }}>

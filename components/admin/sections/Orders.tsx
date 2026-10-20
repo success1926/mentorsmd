@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { KIND_LABEL } from "@/lib/pricing";
 import Link from "next/link";
 import { PLATFORM_FEE_PERCENT } from "@/lib/fee";
 import { money } from "@/lib/options";
@@ -12,7 +13,6 @@ import { csvBody } from "@/lib/csv";
 // fee, paid to mentors, not yet paid out), the monthly payouts to mentors
 // (with "Run payouts now" for the Owner and Retry for failed ones), and
 // every paid package (from /api/admin/earnings and /api/admin/payouts).
-const KIND_LABEL: Record<string, string> = { HOURLY: "Hourly", BUNDLE: "Hour bundle", SPECIALIZED: "Specialized", PAY_PER_CALL: "Pay-per-call" };
 
 function statusOf(o: any): { label: string; cls: string } {
   if (!o.kind) {

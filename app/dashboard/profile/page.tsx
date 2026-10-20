@@ -166,14 +166,26 @@ export default function MyProfilePage() {
               <>
                 <span className="row" style={{ gap: 8 }}><span className="mentor-status-dot warn" aria-hidden="true" /><b>Complete, but hidden from Browse</b></span>
                 <span className="text-secondary small">
-                  {status.mentor.removed ? "Your profile is removed. Restore it in " : status.mentor.safetyHold ? "Paused by MentorsMD for a safety review. Questions? See " : "Your profile is paused. Switch it back on in "}
-                  <Link href="/dashboard/settings" className="link">Settings</Link>.
+                  {status.mentor.removed || status.mentor.safetyHold || status.mentor.paused ? (
+                    <>
+                      {status.mentor.removed ? "Your profile is removed. Restore it in " : status.mentor.safetyHold ? "Paused by MentorsMD for a safety review. Questions? See " : "Your profile is paused. Switch it back on in "}
+                      <Link href="/dashboard/settings" className="link">Settings</Link>.
+                    </>
+                  ) : (
+                    "Save any step above and you'll be listed."
+                  )}
                 </span>
               </>
             ) : (
               <>
                 <span className="row" style={{ gap: 8 }}><span className="mentor-status-dot" aria-hidden="true" /><b>Live on Browse</b></span>
-                <span className="text-secondary small">Students can find you and buy from you.</span>
+                <span className="text-secondary small">
+                  {status?.mentor && !status.mentor.payoutsStarted ? (
+                    <>Students can find you. <Link href="/dashboard/payouts" className="link">Set up payouts</Link> so they can buy.</>
+                  ) : (
+                    "Students can find you and buy from you."
+                  )}
+                </span>
               </>
             )}
             <Link href={previewHref(profile.id)} className="btn btn-sm" style={{ alignSelf: "flex-start", marginTop: 4 }}>Preview my profile</Link>

@@ -16,13 +16,12 @@ import { MinorBadge, StaffBadge, tintFor, initialsOf } from "@/components/ui";
 import { ReportDialog } from "@/components/Safety";
 import { hoursSummary, shortHours, LOW_HOURS_MINUTES } from "@/lib/hours";
 import { finishPhase, markCompleteBlocker } from "@/lib/finishing";
-import { hoursLabel, priceFor } from "@/lib/pricing";
+import { KIND_LABEL, hoursLabel, priceFor } from "@/lib/pricing";
 import { FORMATS, labelFor, money } from "@/lib/options";
 import { PLATFORM_FEE_PERCENT } from "@/lib/fee";
 import { RECORDING_NOTICE, joinState } from "@/lib/calls";
 import { PAYOUT_STATUS_LABEL, nextPayoutDay, payoutDayLabel, periodLabel } from "@/lib/payoutRules";
 
-const KIND_LABEL: Record<string, string> = { HOURLY: "Hourly", BUNDLE: "Hour bundle", SPECIALIZED: "Specialized package", PAY_PER_CALL: "Pay-per-call" };
 const first = (n?: string | null) => (n || "").split(" ")[0];
 const ADMIN_PHASE: Record<string, string> = {
   PAYING: "Awaiting payment",
@@ -89,6 +88,14 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
       setAdding(true);
     }
   }, []);
+  // Links to /orders/[id]#messages: the page loads its data first, so the
+  // browser's own jump missed the section. Scroll there once it's drawn.
+  useEffect(() => {
+    if (window.location.hash !== "#messages") return;
+    const t = setTimeout(() => document.getElementById("messages")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    return () => clearTimeout(t);
+  }, []);
+
   // Waiting for Stripe's confirmation: keep checking every few seconds
   // (for up to 2 minutes) until the webhook has marked it paid. If it's
   // slow, a few times ask the server to check the Stripe page itself.

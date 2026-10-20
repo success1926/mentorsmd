@@ -17,7 +17,7 @@
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
-import { hoursLabel } from "@/lib/pricing";
+import { KIND_LABEL, hoursLabel } from "@/lib/pricing";
 import { money } from "@/lib/options";
 
 export type Receipt = {
@@ -38,7 +38,6 @@ export type Receipt = {
   stripeRef: string | null;
 };
 
-const KIND_LABEL: Record<string, string> = { HOURLY: "Hourly", BUNDLE: "Hour bundle", SPECIALIZED: "Package", PAY_PER_CALL: "Pay-per-call" };
 
 const orderSelect = {
   id: true,
@@ -91,7 +90,16 @@ function fromOrder(o: OrderRow): Receipt[] {
     : "Package";
   const chargedCents = Math.max(0, o.amount - o.creditAppliedCents);
   const refundedToCardCents = !o.kind && o.status === "REFUNDED" ? chargedCents : 0;
-  const refundedAsCreditCents = o.creditEntries.reduce((s, c) => s + Math.max(0, c.amountCents), 0);
+  // A dispute refund can cover the package and its added hours: it's shown
+  // on the package receipt first, then on each top-up, never more than
+  // what that receipt was for.
+  let refundLeft = o.creditEntries.reduce((s, c) => s + Math.max(0, c.amountCents), 0);
+  const takeRefund = (cap: number) => {
+    const part = Math.min(refundLeft, Math.max(0, cap));
+    refundLeft -= part;
+    return part;
+  };
+  const refundedAsCreditCents = takeRefund(o.amount);
   const base: Receipt = {
     id: `o_${o.id}`,
     type: "ORDER",
@@ -111,7 +119,8 @@ function fromOrder(o: OrderRow): Receipt[] {
   base.status = statusLabel(base);
   const topUps: Receipt[] = o.topUps.map((t) => {
     const charged = Math.max(0, t.amountCents - t.creditAppliedCents);
-    return {
+    const refunded = takeRefund(t.amountCents);
+    const receipt: Receipt = {
       id: `t_${t.id}`,
       type: "TOP_UP",
       date: t.paidAt || t.createdAt,
@@ -123,10 +132,12 @@ function fromOrder(o: OrderRow): Receipt[] {
       creditAppliedCents: t.creditAppliedCents,
       chargedCents: charged,
       refundedToCardCents: 0,
-      refundedAsCreditCents: 0,
-      status: "Paid",
+      refundedAsCreditCents: refunded,
+      status: "",
       stripeRef: charged > 0 ? t.stripePaymentIntentId || t.stripeSessionId : null,
     };
+    receipt.status = statusLabel(receipt);
+    return receipt;
   });
   return [base, ...topUps];
 }

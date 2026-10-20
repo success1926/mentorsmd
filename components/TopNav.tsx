@@ -128,9 +128,9 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [scrolled, setScrolled] = useState(false);
-  const [navInfo, setNavInfo] = useState<{ unread: number; packageCount: number | null }>({ unread: 0, packageCount: null });
+  const [navInfo, setNavInfo] = useState<{ unread: number }>({ unread: 0 });
 
-  // Unread badge + package count. Refreshes on page change, every minute,
+  // Unread badge. Refreshes on page change, every minute,
   // when the tab regains focus, right after a thread is read, and when a
   // new message arrives.
   useEffect(() => {
@@ -139,7 +139,7 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
     const load = () =>
       fetch("/api/me/nav")
         .then((r) => r.json())
-        .then((d) => alive && setNavInfo({ unread: d.unread || 0, packageCount: typeof d.packageCount === "number" ? d.packageCount : null }))
+        .then((d) => alive && setNavInfo({ unread: d.unread || 0 }))
         .catch(() => {});
     load();
     const timer = setInterval(load, 60_000);
@@ -200,11 +200,8 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
   const marketing = !session || role === "BUYER";
   // Quick links only on the pages where students are looking for a mentor.
   const showQuick = scrolled && marketing && (isHome || pathname.startsWith("/mentors") || pathname === "/senior-team");
-  // Mentors with no hourly rate / offers yet see "Set your rate".
   const userId: string | undefined = (session?.user as any)?.id;
-  const right = (role ? RIGHT_LINKS[role] || [] : []).map((l) =>
-    l.href === "/dashboard/packages" && navInfo.packageCount === 0 ? { label: "Set your rate", href: "/dashboard/packages#rate" } : l
-  );
+  const right = role ? RIGHT_LINKS[role] || [] : [];
   // Mentors: a simple bar (logo, View my public profile, account menu).
   const publicProfile = role === "SELLER" && userId ? previewHref(userId) : null;
   const badge = (href: string) =>

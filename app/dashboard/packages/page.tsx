@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { MentorAgreement } from "@/components/MentorAgreement";
-import { PreviewProfileButton } from "@/components/MentorShell";
+import { PreviewProfileButton, notifyProfileChanged } from "@/components/MentorShell";
 import { ImageFocusEditor } from "@/components/ImageFocusEditor";
 import { Icon, ICONS } from "@/components/ui";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
@@ -116,7 +116,14 @@ export default function RateAndOffersPage() {
         </div>
       )}
 
-      <RateCard rate={rate} onSaved={load} />
+      <RateCard
+        rate={rate}
+        onSaved={() => {
+          load();
+          // The rate is a profile step: update the sidebar's progress now.
+          notifyProfileChanged();
+        }}
+      />
       {rate ? (
         <>
           <HourlyCard key={offers.hourly?.id || "hourly"} rate={rate} hourly={offers.hourly} onSaved={offerSaved} />
@@ -129,7 +136,7 @@ export default function RateAndOffersPage() {
 
       {savedOffer && mentorId && (
         <div role="status" className="alert alert-success row-wrap" style={{ position: "sticky", bottom: 16, justifyContent: "space-between", boxShadow: "var(--shadow-sm)" }}>
-          <span>Saved. Students see your offers on your profile.</span>
+          <span>Saved. Students see your offers on your profile once it&apos;s live.</span>
           <span className="row" style={{ gap: 8 }}>
             <Link href={previewHref(mentorId)} className="btn btn-sm">See it on your profile</Link>
             <button type="button" className="btn btn-ghost btn-sm" aria-label="Close" onClick={() => setSavedOffer(false)}>×</button>
