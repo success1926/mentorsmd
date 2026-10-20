@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { BUSY_KINDS, dueDayOf, isValidBusyRange } from "@/lib/schedule";
+import { dueDayOf, isValidBusyRange } from "@/lib/schedule";
 
 // Mentor-only: busy dates (exams, rotations, travel). The note is private
 // to the mentor. "No deadlines" stops students picking a due date in the
@@ -58,7 +58,6 @@ export async function POST(req: Request) {
   }
   const today = new Date(Date.now() - 24 * 3600_000).toISOString().slice(0, 10);
   if (body.endDay < today) return NextResponse.json({ error: "Those dates are in the past" }, { status: 400 });
-  if (!BUSY_KINDS.some((k) => k.value === body.kind)) return NextResponse.json({ error: "Choose what the dates block" }, { status: 400 });
   if (body.note !== undefined && body.note !== null && (typeof body.note !== "string" || body.note.length > 200)) {
     return NextResponse.json({ error: "Keep the note under 200 characters" }, { status: 400 });
   }
@@ -66,12 +65,12 @@ export async function POST(req: Request) {
   if (count >= 100) return NextResponse.json({ error: "You have a lot of busy dates already. Remove some old ones first." }, { status: 400 });
 
   const created = await prisma.busyDate.create({
-    data: { userId: user.id, startDay: body.startDay, endDay: body.endDay, kind: body.kind, note: (body.note || "").trim() || null },
+    data: { userId: user.id, startDay: body.startDay, endDay: body.endDay, kind: "NO_DEADLINES_NO_CALLS", note: (body.note || "").trim() || null },
   });
 
   // Packages have no due dates since the hourly redesign (Oct 2026); calls
   // already booked in the range are shown so the mentor can move them.
-  const clash = await clashes(user.id, created.startDay, created.endDay, created.kind === "NO_DEADLINES_NO_CALLS");
+  const clash = await clashes(user.id, created.startDay, created.endDay, true);
   return NextResponse.json({ busyDate: created, busyDates: await list(user.id), clashes: clash });
 }
 

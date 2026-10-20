@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Icon, ICONS } from "@/components/ui";
-import { BUFFER_OPTIONS, BUSY_KINDS, NOTICE_OPTIONS, WEEKDAY_NAMES, WeeklyHours } from "@/lib/schedule";
+import { BOOKING_HORIZON_DAYS, BUFFER_OPTIONS, NOTICE_OPTIONS, WEEKDAY_NAMES, WeeklyHours } from "@/lib/schedule";
+import { CANCEL_CUTOFF_HOURS } from "@/lib/calls";
 import { browserTimeZone, fmtDayLabel, timeZoneList } from "@/lib/tz";
 
 // The one-click "Connect Google Calendar" button stays hidden until Google
@@ -108,8 +109,14 @@ export function CallHoursCard({ profile, onSaved }: { profile: any; onSaved?: ()
       <div className="stack-sm">
         <h2 style={{ fontSize: 26 }}>Call hours</h2>
         <span className="text-secondary">
-          When students can book the calls in your packages. They only see open times after they&apos;ve paid, and every call happens in a private MentorsMD video room.
+          When students can book calls with you: free 15-minute intro calls, and calls that use the hours in their packages. Every call happens in a private MentorsMD video room.
         </span>
+        <div className="alert alert-blue small stack-sm" style={{ gap: 4 }}>
+          <b>How booking works</b>
+          <span>Students only see times inside your weekly hours, from your minimum notice ({notice} hours) up to {BOOKING_HORIZON_DAYS} days ahead, with your break kept free around each call.</span>
+          <span>In the last {CANCEL_CUTOFF_HOURS} hours before a call, neither of you can cancel or move it on the site: message each other, or contact us.</span>
+          <span>You can always add a call at a time you&apos;ve agreed with a student, from their package page.</span>
+        </div>
       </div>
 
       <div className="stack-sm">
@@ -162,18 +169,20 @@ export function CallHoursCard({ profile, onSaved }: { profile: any; onSaved?: ()
           <select id="avail-notice" className="input" value={notice} onChange={(e) => setNotice(Number(e.target.value))} style={{ marginBottom: 0 }}>
             {NOTICE_OPTIONS.map((h) => <option key={h} value={h}>{h} hours ahead</option>)}
           </select>
+          <span className="field-help">How far ahead students must book (intro calls too). Pick 2 or 4 hours to allow same-day calls.</span>
         </div>
         <div className="field" style={{ marginBottom: 0 }}>
           <label className="field-label" htmlFor="avail-buffer">Break between calls</label>
           <select id="avail-buffer" className="input" value={buffer} onChange={(e) => setBuffer(Number(e.target.value))} style={{ marginBottom: 0 }}>
             {BUFFER_OPTIONS.map((m) => <option key={m} value={m}>{m === 0 ? "No break" : `${m} minutes`}</option>)}
           </select>
+          <span className="field-help">Kept free before and after each call, so calls aren&apos;t back to back.</span>
         </div>
       </div>
 
       <div className="stack-sm">
         <span className="field-label">Days off</span>
-        <span className="text-secondary small">Single days with no calls (a holiday, an exam day). For longer stretches, or to block due dates too, use Busy dates below.</span>
+        <span className="text-secondary small">Single days with no calls (a holiday, an exam day). For a longer stretch, use Busy dates below.</span>
         <div className="row-wrap">
           <input type="date" className="input time-input" min={today} value={newOff} onChange={(e) => setNewOff(e.target.value)} aria-label="Day off" />
           <button type="button" className="btn btn-sm" disabled={!newOff || daysOff.includes(newOff)} onClick={() => { setDaysOff((d) => [...d, newOff].sort()); setNewOff(""); }}>Add day off</button>
@@ -205,7 +214,6 @@ export function BusyDatesCard() {
   const [list, setList] = useState<any[] | null>(null);
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
-  const [kind, setKind] = useState("NO_DEADLINES");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<Msg>(null);
@@ -223,7 +231,7 @@ export function BusyDatesCard() {
     const res = await fetch("/api/profile/busy-dates", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ startDay: start, endDay: end || start, kind, note }),
+      body: JSON.stringify({ startDay: start, endDay: end || start, note }),
     });
     const d = await res.json().catch(() => ({}));
     setSaving(false);
@@ -247,7 +255,7 @@ export function BusyDatesCard() {
       <div className="stack-sm">
         <h2 style={{ fontSize: 26 }}>Busy dates</h2>
         <span className="text-secondary">
-          Exams, rotations, travel? Students can&apos;t pick a due date on these days, and you can block calls too. Your note is private: students only see that the dates aren&apos;t available. Orders you already have keep their due dates.
+          Exams, rotations, travel? Students can&apos;t book calls on these days. Your note is private: students only see that the times aren&apos;t available. Calls already booked stay booked.
         </span>
       </div>
       <div className="grid-2">
@@ -260,14 +268,6 @@ export function BusyDatesCard() {
           <input type="date" className="input" min={start || today} value={end} onChange={(e) => setEnd(e.target.value)} />
         </label>
       </div>
-      <div className="field" style={{ marginBottom: 0 }}>
-        <span className="field-label">What these dates block</span>
-        <div className="seg">
-          {BUSY_KINDS.map((k) => (
-            <button type="button" key={k.value} className="seg-opt" aria-pressed={kind === k.value} onClick={() => setKind(k.value)}>{k.label}</button>
-          ))}
-        </div>
-      </div>
       <label className="field" style={{ marginBottom: 0 }}>
         <span className="field-label">Private note (optional)</span>
         <input className="input" maxLength={200} placeholder="e.g. Step 1 exam week" value={note} onChange={(e) => setNote(e.target.value)} />
@@ -276,7 +276,7 @@ export function BusyDatesCard() {
       <Note m={msg} />
       {clashes && (
         <div role="alert" className="alert alert-warning stack-sm">
-          <b>Saved, but these overlap work you already have:</b>
+          <b>Saved, but you already have calls on these days:</b>
           {clashes.deadlines.map((c: any) => (
             <Link key={`d${c.orderId}`} href={`/orders/${c.orderId}`} className="link small">
               {c.gigTitle} for {c.studentName} is due {fmtDayLabel(c.dueDay)}
@@ -287,7 +287,7 @@ export function BusyDatesCard() {
               Call with {c.studentName} on {new Date(c.startTime).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
             </Link>
           ))}
-          <span className="small">Those keep their dates. Deliver early, or message the student and change the due date (or move the call) on the order.</span>
+          <span className="small">Those stay booked. Move them from the package page (until {CANCEL_CUTOFF_HOURS} hours before), or message the student.</span>
         </div>
       )}
       {list && list.length > 0 && (
@@ -298,7 +298,7 @@ export function BusyDatesCard() {
                 <b style={{ fontSize: 15 }}>{fmtDayLabel(b.startDay)}{b.endDay !== b.startDay ? ` to ${fmtDayLabel(b.endDay)}` : ""}</b>
                 {b.note && <span className="text-muted">{b.note}</span>}
               </div>
-              <span className={`badge ${b.kind === "NO_DEADLINES_NO_CALLS" ? "badge-warning" : ""}`}>{BUSY_KINDS.find((k) => k.value === b.kind)?.label}</span>
+              <span className="badge badge-warning">No calls</span>
               <button className="btn btn-sm" onClick={() => remove(b.id)}>Remove</button>
             </div>
           ))}

@@ -51,7 +51,7 @@ export function CalendarSync({ isMentor }: { isMentor: boolean }) {
     <div className="stack">
       <b>Sync to your calendar</b>
       <span className="text-secondary small">
-        Your booked calls{isMentor ? " and order due dates" : ""} appear in your calendar and update on their own. This link is private, so don&apos;t share it.
+        Your booked calls appear in your calendar and update on their own. This link is private, so don&apos;t share it.
       </span>
       {feedUrl ? (
         <>
