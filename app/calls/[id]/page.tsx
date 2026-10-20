@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Icon, ICONS } from "@/components/ui";
+import { StudentCard } from "@/components/StudentCard";
 import { JOIN_CLOSES_MINUTES_AFTER, JOIN_OPENS_MINUTES_BEFORE, RECORDING_NOTICE, canChangeOnline, joinState } from "@/lib/calls";
 
 // The pre-join screen: what the call is, who it's with, the recording
@@ -111,6 +112,12 @@ export default function CallPage() {
           </>
         )}
       </div>
+      {/* The mentor sees the student's "About you" before the call. */}
+      {call.studentId && !cancelled && (
+        <div style={{ maxWidth: 560, marginTop: 16 }}>
+          <StudentCard studentId={call.studentId} title="Before the call" />
+        </div>
+      )}
     </div>
   );
 }

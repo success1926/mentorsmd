@@ -36,6 +36,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
         if (n.key === "messages" && data && data.unread > 0) return <UnreadBadge n={data.unread} />;
         if (n.key === "calendar" && student && student.upcomingCalls > 0) return <CountBadge n={student.upcomingCalls} label="upcoming" />;
         if (n.key === "credit" && student && student.creditCents > 0) return <span className="mentor-nav-pill ok">{money(student.creditCents)}</span>;
+        if (n.key === "profile" && student && !student.profileFilled) return <span className="mentor-nav-pill">Add</span>;
         if (n.key === "mentors") {
           return (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ color: "var(--faint)" }}>

@@ -3,7 +3,7 @@
 // Student area v2 (Oct 2026), the same pattern as lib/mentorNav.ts.
 // Pure data, safe to import from both server and client code.
 
-export type StudentNavKey = "home" | "packages" | "messages" | "calendar" | "mentors" | "credit" | "receipts" | "settings";
+export type StudentNavKey = "home" | "packages" | "messages" | "calendar" | "mentors" | "credit" | "receipts" | "profile" | "settings";
 
 export type StudentNavItem = {
   key: StudentNavKey;
@@ -22,6 +22,7 @@ export const STUDENT_NAV: StudentNavItem[] = [
   { key: "mentors", label: "Find a mentor", href: "/mentors" },
   { key: "credit", label: "MentorsMD credit", href: "/credit" },
   { key: "receipts", label: "Receipts", href: "/receipts" },
+  { key: "profile", label: "About you", href: "/about-you" },
   { key: "settings", label: "Settings", href: "/account" },
 ];
 

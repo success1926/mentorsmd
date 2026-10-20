@@ -14,6 +14,7 @@ import { Attendance, CallRow, PastCallOutcome, Recordings } from "@/components/C
 import { AddHoursModal, BookCallModal, DecisionBanner, HoursLog, HoursMeter, LogWrittenWork, PackageBadge, showLowHours, PackageThread, SuggestHoursModal, ReportProblem, SharedFiles, fmtDay, fmtWhen, postJson } from "@/components/Packages";
 import { MinorBadge, PersonAvatar, StaffBadge } from "@/components/ui";
 import { ReportDialog } from "@/components/Safety";
+import { StudentCard } from "@/components/StudentCard";
 import { hoursSummary, shortHours, LOW_HOURS_MINUTES } from "@/lib/hours";
 import { finishPhase, markCompleteBlocker } from "@/lib/finishing";
 import { KIND_LABEL, hoursLabel, priceFor } from "@/lib/pricing";
@@ -348,6 +349,9 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
               </div>
             </div>
           )}
+
+          {/* The student's "About you" (lib/studentProfile.ts). */}
+          {isSeller && <StudentCard studentId={order.buyerId} />}
 
           {isSeller && (
             <div className="card stack" style={{ gap: 10 }}>

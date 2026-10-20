@@ -35,6 +35,7 @@ export type StudentStatus = {
   waiting: number;
   upcomingCalls: number;
   creditCents: number;
+  profileFilled: boolean; // the optional "About you" (lib/studentProfile.ts)
 };
 
 export type NavStatus = {

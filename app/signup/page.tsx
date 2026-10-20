@@ -56,7 +56,8 @@ export default function StudentSignupPage() {
       setLoading(false);
       return;
     }
-    signIn("google", { callbackUrl: "/mentors" });
+    // New students: the optional "About you" step first (skippable).
+    signIn("google", { callbackUrl: "/about-you?welcome=1" });
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -84,7 +85,8 @@ export default function StudentSignupPage() {
       router.push("/login?error=SignupLogin");
       return;
     }
-    router.push("/mentors");
+    // The optional "About you" step first (skippable), then Browse.
+    router.push("/about-you?welcome=1");
     router.refresh();
   }
 

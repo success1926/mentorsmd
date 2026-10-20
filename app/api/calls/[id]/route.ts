@@ -57,6 +57,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         ? isMentor ? booking.order.buyer.name : booking.order.seller.name
         : (isMentor ? booking.student?.name : booking.mentor?.name) || "",
       canJoin: studentId === user.id || isMentor,
+      // The mentor sees the student's "About you" before the call.
+      studentId: isMentor ? studentId ?? null : null,
       backHref,
       backLabel: booking.order ? "← Back to the order" : "← Back to your messages",
     },
