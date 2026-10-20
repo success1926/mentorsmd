@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { countWallReviews, getWallReviews } from "@/lib/mentorQueries";
+import { publicCache } from "@/lib/publicCache";
 import { getSiteContent } from "@/lib/siteContentStore";
 
 // The review wall: hand-picked testimonials (Admin -> Website -> Homepage ->
@@ -22,26 +23,29 @@ function testimonialItems(testimonials: Testimonial[]): WallItem[] {
 
 // Testimonials first, then the newest real reviews (first name + last
 // initial). If the reviews can't be read, the testimonials still show.
+// The newest real reviews as wall items, shared by all visitors for up to a
+// minute (lib/publicCache.ts).
+const cachedReviewItems = publicCache("wall-reviews-v1", async (take: number): Promise<WallItem[]> =>
+  (await getWallReviews(take)).map((r) => {
+    const [first, second] = r.buyer.name.split(" ");
+    return {
+      key: r.id,
+      name: first + (second ? ` ${second[0]}.` : ""),
+      detail: `Worked with ${r.seller.name}`,
+      quote: r.comment || "",
+      rating: r.rating,
+    };
+  }),
+);
+
 export async function getReviewWall(testimonials: Testimonial[], take: number): Promise<WallItem[]> {
-  let reviews: Awaited<ReturnType<typeof getWallReviews>> = [];
+  let reviews: WallItem[] = [];
   try {
-    reviews = await getWallReviews(take);
+    reviews = await cachedReviewItems(take);
   } catch (err) {
     console.error("Couldn't load reviews for the review wall:", err);
   }
-  return [
-    ...testimonialItems(testimonials),
-    ...reviews.map((r) => {
-      const [first, second] = r.buyer.name.split(" ");
-      return {
-        key: r.id,
-        name: first + (second ? ` ${second[0]}.` : ""),
-        detail: `Worked with ${r.seller.name}`,
-        quote: r.comment || "",
-        rating: r.rating,
-      };
-    }),
-  ];
+  return [...testimonialItems(testimonials), ...reviews];
 }
 
 const cachedWallReviewCount = unstable_cache(() => countWallReviews(), ["wall-review-count-v1"], { revalidate: 300 });
