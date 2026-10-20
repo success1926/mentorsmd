@@ -3,6 +3,7 @@ import { paragraphs } from "@/lib/siteContent";
 import { getSiteContent } from "@/lib/siteContentStore";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
 import { SeniorTeamCards } from "@/components/SeniorTeamCards";
+import { PageSections } from "@/components/website/PageSections";
 
 export const metadata = { title: "Our senior team · MentorsMD" };
 
@@ -22,21 +23,27 @@ export default async function SeniorTeamPage() {
     bio: paragraphs(p.bio),
     focus: p.focus,
   }));
+  // Sections by id (lib/pageLayout.ts), in the order set in Admin -> Website -> Layout.
+  const sections: Record<string, React.ReactNode> = {
+    intro: (
+      <div className="stack" style={{ gap: 14, maxWidth: 760 }}>
+        <h1 className="page-title">{c.title}</h1>
+        {c.intro && <p className="lede">{c.intro}</p>}
+      </div>
+    ),
+    people: <SeniorTeamCards people={people} />,
+    cta: (
+      <div className="card card-tint stack" style={{ gap: 12, alignItems: "flex-start" }}>
+        <h2 style={{ fontSize: 24 }}>{c.ctaTitle}</h2>
+        {c.ctaText && <p className="text-secondary">{c.ctaText}</p>}
+        <Link href="/become-a-mentor#apply" className="btn btn-primary">{c.ctaButton}</Link>
+      </div>
+    ),
+  };
   return (
     <div className="page">
       <div className="stack-lg" style={{ gap: 48 }}>
-        <div className="stack" style={{ gap: 14, maxWidth: 760 }}>
-          <h1 className="page-title">{c.title}</h1>
-          {c.intro && <p className="lede">{c.intro}</p>}
-        </div>
-
-        <SeniorTeamCards people={people} />
-
-        <div className="card card-tint stack" style={{ gap: 12, alignItems: "flex-start" }}>
-          <h2 style={{ fontSize: 24 }}>{c.ctaTitle}</h2>
-          {c.ctaText && <p className="text-secondary">{c.ctaText}</p>}
-          <Link href="/become-a-mentor#apply" className="btn btn-primary">{c.ctaButton}</Link>
-        </div>
+        <PageSections page="seniorTeam" layout={c.layout} sections={sections} contained unit={24} />
       </div>
     </div>
   );

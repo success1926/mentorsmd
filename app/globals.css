@@ -839,3 +839,38 @@ a.footer-social:hover .bg { fill: var(--tint-2); }
   .mentor-shell { display: block; }
   .receipt-page .card { border: none; box-shadow: none; padding: 0; }
 }
+
+/* ---- Sections added in Admin -> Website -> Layout (components/website/PageSections.tsx) ---- */
+.addon-band { padding-bottom: 120px; }
+.addon-title { font-size: clamp(30px, 3.6vw, 48px); }
+.addon .addon-title { line-height: 1.12; }
+.addon-media { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; align-items: center; }
+.addon-media-right .addon-media-img { order: 2; }
+.addon-media-img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius-xl); display: block; }
+.addon-media-empty { background: linear-gradient(180deg, #CFC4FF 0%, #8E78F0 50%, #2B1F6B 100%); }
+.addon-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 28px; padding: 48px; border-radius: var(--radius-xl); background: linear-gradient(135deg, var(--primary) 0%, var(--primary-deep) 100%); color: #fff; }
+.addon-cta-btn { background: #fff; border-color: #fff; color: var(--primary-deep); }
+.addon-cta-btn:hover { background: var(--tint); border-color: var(--tint); }
+.addon-video { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: var(--radius-lg); overflow: hidden; background: var(--ink); }
+.addon-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.addon-logos { display: flex; flex-direction: column; align-items: center; gap: 20px; text-align: center; }
+.addon-logos-label { font-size: 15px; font-weight: 600; color: var(--muted); letter-spacing: 0.02em; }
+.addon-logos-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 28px 44px; }
+.addon-logos-row img { height: 44px; width: auto; max-width: 160px; object-fit: contain; }
+.home-nav-gap { padding-top: 84px; }
+@media (max-width: 760px) {
+  .addon-band { padding-bottom: 72px; }
+  .addon-media { grid-template-columns: 1fr; gap: 24px; }
+  .addon-media-right .addon-media-img { order: 0; }
+  .addon-cta { padding: 32px 24px; }
+  .home-nav-gap { padding-top: 72px; }
+}
+
+/* ---- Edit buttons for admins (components/website/SiteEditButtons.tsx) ---- */
+.site-edit-outline { position: fixed; z-index: 70; pointer-events: none; border: 2px dashed var(--primary); border-radius: 12px; background: rgba(85, 54, 214, 0.04); }
+.site-edit-btn { position: fixed; z-index: 71; border: 0; border-radius: 999px; padding: 8px 16px; background: var(--primary); color: #fff; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: var(--shadow-sm); }
+.site-edit-btn:hover { background: var(--primary-deep); }
+.site-edit-pill { position: fixed; left: 16px; bottom: 16px; z-index: 71; display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 14px; border-radius: 999px; background: var(--ink); color: #fff; font-size: 13px; box-shadow: var(--shadow-sm); }
+.site-edit-pill button, .site-edit-pill a { border: 0; background: rgba(255, 255, 255, 0.14); color: #fff; border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 13px; cursor: pointer; text-decoration: none; }
+.site-edit-pill button:hover, .site-edit-pill a:hover { background: rgba(255, 255, 255, 0.24); opacity: 1; }
+@media (hover: none) { .site-edit-outline, .site-edit-btn { display: none; } }

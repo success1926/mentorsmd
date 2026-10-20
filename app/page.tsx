@@ -11,6 +11,7 @@ import { safeHref } from "@/lib/siteContent";
 import { getSiteContent } from "@/lib/siteContentStore";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
 import { Fragment } from "react";
+import { PageSections } from "@/components/website/PageSections";
 import { BEST_FOR, labelFor, money, STAGES } from "@/lib/options";
 
 export const dynamic = "force-dynamic"; // mentor cards and review counts read live data
@@ -28,9 +29,10 @@ export default async function HomePage() {
   const [mentors, stats, c] = await Promise.all([getFeaturedMentors(4), getReviewStats(), getSiteContent("home")]);
   const wall = await getReviewWall(c.testimonials, HOME_WALL_REVIEWS);
 
-  return (
-    <div>
-      {/* ---------------- Hero ---------------- */}
+  // Each section by its id in lib/pageLayout.ts; shown in the order (and
+  // with the hidden ones and added sections) from Admin -> Website -> Layout.
+  const sections: Record<string, React.ReactNode> = {
+    hero: (
       <section className="home-hero">
         <div className="blob" style={{ left: -120, top: 420, width: 520, height: 260, background: "rgba(228,238,255,0.9)", filter: "blur(50px)" }} />
         <div className="blob" style={{ right: -80, top: 300, width: 560, height: 300, background: "rgba(245,185,205,0.45)", filter: "blur(60px)" }} />
@@ -79,8 +81,9 @@ export default async function HomePage() {
           </div>
         )}
       </section>
+    ),
 
-      {/* ---------------- Three paths ---------------- */}
+    paths: (
       <section className="home-section">
         <div className="wrap">
           <div className="center-head">
@@ -111,12 +114,12 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+    ),
 
-      {/* ---------------- Vetting (also on /how-it-works) ---------------- */}
-      <VettingSection c={c} id="vetting" />
+    // Also on /how-it-works.
+    vetting: <VettingSection c={c} id="vetting" />,
 
-      {/* ---------------- Featured mentors ---------------- */}
-      {mentors.length > 0 && (
+    featured: mentors.length > 0 && (
         <section style={{ paddingBottom: 130 }}>
           <div className="wrap">
             <div className="between" style={{ alignItems: "flex-end", marginBottom: 40, flexWrap: "wrap" }}>
@@ -158,18 +161,18 @@ export default async function HomePage() {
             </div>
           </div>
         </section>
-      )}
+    ),
 
-      {/* ---------------- Everything you need ---------------- */}
+    features: (
       <section style={{ paddingBottom: 140 }}>
         <div className="wrap">
           <h2 className="big-title" style={{ textAlign: "center", marginBottom: 64 }}>{c.featuresTitle}</h2>
           <HomeFeatures features={c.features.map((f) => ({ ...f, href: safeHref(f.href) }))} />
         </div>
       </section>
+    ),
 
-      {/* ---------------- Testimonials wall ---------------- */}
-      {wall.length >= REVIEW_WALL_MIN && (
+    testimonials: wall.length >= REVIEW_WALL_MIN && (
         <section id="reviews" className="wall" style={{ scrollMarginTop: 150 }}>
           <div className="wrap">
             <div className="center-head" style={{ marginBottom: 56, gap: 18 }}>
@@ -179,12 +182,12 @@ export default async function HomePage() {
             <ReviewWall items={wall} />
           </div>
         </section>
-      )}
+    ),
 
-      {/* ---------------- FAQ (only once questions are added in Admin -> Website; also on /how-it-works) ---------------- */}
-      <FaqSection title={c.faqTitle} faq={c.faq} />
+    // Only once questions are added in Admin -> Website; also on /how-it-works.
+    faq: <FaqSection title={c.faqTitle} faq={c.faq} />,
 
-      {/* ---------------- Final CTA ---------------- */}
+    cta: (
       <section className="home-section">
         <div className="wrap center-head" style={{ gap: 24 }}>
           <h2 className="big-title">{c.ctaTitle}</h2>
@@ -196,6 +199,12 @@ export default async function HomePage() {
           <RoleCta href="/mentors" label={c.ctaButton} className="btn btn-primary btn-lg" style={{ padding: "20px 38px", fontSize: 19 }} />
         </div>
       </section>
+    ),
+  };
+
+  return (
+    <div>
+      <PageSections page="home" layout={c.layout} sections={sections} navGap="hero" />
     </div>
   );
 }

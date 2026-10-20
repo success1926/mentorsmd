@@ -6,6 +6,9 @@ import { useSession } from "next-auth/react";
 import type { FieldDef, ListDef, ScalarDef } from "@/lib/siteContent";
 import { ChangedTag, ListEditor, ScalarEditor, same } from "@/components/website/FieldEditors";
 import { EditorPreview, type EditorPreviewHandle } from "@/components/website/EditorPreview";
+import { LayoutEditor } from "@/components/website/LayoutEditor";
+import { EDIT_MESSAGE } from "@/components/website/SiteEditButtons";
+import { hasLayout, sectionLabel, sectionsFor, type BuiltinSection, type LayoutItem } from "@/lib/pageLayout";
 
 type Values = Record<string, any>;
 type PageData = {
@@ -19,6 +22,7 @@ type PageData = {
   publishedAt: string | null;
 };
 type SaveState = "idle" | "pending" | "error";
+type Group = { key: string; title: string; names: string[]; hidden?: boolean; editOn?: BuiltinSection["editOn"] };
 
 const AUTOSAVE_MS = 1000;
 const WIDE = "(min-width: 1200px)";
@@ -28,6 +32,11 @@ const PREVIEW_KEY = "mmd-site-preview-open";
 // saved as a draft automatically about a second after typing stops; the
 // live site only changes on Publish. On wide screens the draft shows in a
 // preview panel beside the form, reloaded after each save.
+//
+// Pages with sections (lib/pageLayout.ts) get two tabs: Content (the form,
+// in the page's section order) and Layout (order, hide/show, space above,
+// added sections). ?section=<id> opens the form at that section; so does an
+// Edit button clicked inside the preview panel (sent with postMessage).
 export default function AdminWebsiteEditPage({ params }: { params: { page: string } }) {
   const { data: session, status } = useSession();
   const isAdmin = (session?.user as any)?.role === "ADMIN";
@@ -156,25 +165,85 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
   };
   const showPanel = wide && previewOpen;
 
-  const sections = useMemo(() => {
-    const out: { title: string; names: string[] }[] = [];
-    for (const [name, f] of Object.entries(data?.page.fields || {})) {
+  const layoutPage = hasLayout(params.page);
+  const layout: LayoutItem[] = layoutPage && Array.isArray(values.layout) ? values.layout : [];
+  const [tab, setTab] = useState<"content" | "layout">("content");
+
+  // The form's groups: on pages with sections, one per built-in section in
+  // the page's current order; otherwise by each field's section heading.
+  const groups = useMemo((): Group[] => {
+    const fields = data?.page.fields || {};
+    if (layoutPage) {
+      const builtins = sectionsFor(params.page);
+      const out: Group[] = [];
+      const used = new Set<string>();
+      for (const item of layout) {
+        const b = builtins.find((x) => x.id === item.id);
+        if (!b) continue;
+        b.fields.forEach((n) => used.add(n));
+        out.push({ key: b.id, title: b.label, names: b.fields.filter((n) => n in fields), hidden: item.hidden, editOn: b.editOn });
+      }
+      const rest = Object.keys(fields).filter((n) => !used.has(n));
+      if (rest.length) out.push({ key: "other", title: "Other", names: rest });
+      return out;
+    }
+    const out: Group[] = [];
+    for (const [name, f] of Object.entries(fields)) {
       const title = f.section || "";
       const last = out[out.length - 1];
       if (last && last.title === title) last.names.push(name);
-      else out.push({ title, names: [name] });
+      else out.push({ key: `s${out.length}`, title, names: [name] });
     }
     return out;
-  }, [data]);
+  }, [data, layoutPage, layout, params.page]);
 
-  const jumpTo = (i: number) => {
-    const el = document.getElementById(`ws-sec-${i}`);
+  const flash = (el: Element | null) => {
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "start" });
     el.classList.remove("ws-flash");
-    void el.offsetWidth;
+    void (el as HTMLElement).offsetWidth;
     el.classList.add("ws-flash");
   };
+  // Open the form at one section (a built-in one on Content, an added one on Layout).
+  const focusSection = (id: string) => {
+    const isAddon = layoutPage && layout.some((i) => i.id === id) && !sectionsFor(params.page).some((b) => b.id === id);
+    if (id === "layout" || isAddon) {
+      setTab("layout");
+      window.setTimeout(() => {
+        const d = document.getElementById(`ws-lay-${id}`);
+        if (d instanceof HTMLDetailsElement) d.open = true;
+        flash(d?.closest("li") ?? d ?? null);
+      }, 80);
+      return;
+    }
+    setTab("content");
+    window.setTimeout(() => flash(document.getElementById(`ws-sec-${id}`)), 80);
+  };
+  const focusRef = useRef(focusSection);
+  focusRef.current = focusSection;
+
+  // ?section=<id> from the site's Edit buttons.
+  const focusedFromUrl = useRef(false);
+  useEffect(() => {
+    if (!data || focusedFromUrl.current) return;
+    focusedFromUrl.current = true;
+    const id = new URLSearchParams(window.location.search).get("section");
+    if (id) focusRef.current(id);
+  }, [data]);
+
+  // An Edit button clicked inside the preview panel.
+  useEffect(() => {
+    const onMsg = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin || e.data?.type !== EDIT_MESSAGE) return;
+      const page = typeof e.data.page === "string" ? e.data.page : "";
+      const section = typeof e.data.section === "string" ? e.data.section : "";
+      if (!/^[A-Za-z]+$/.test(page)) return;
+      if (page !== params.page) window.location.href = `/admin/website/${page}?section=${encodeURIComponent(section)}`;
+      else if (section) focusRef.current(section);
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [params.page]);
 
   if (status === "loading") return <div className="page text-muted">Loading…</div>;
   if (!isAdmin) return <div className="page-narrow"><div className="alert alert-danger">Admin access required.</div></div>;
@@ -272,13 +341,27 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
               <button type="button" className="btn btn-primary" disabled={!!busy || !unpublished || saveState === "error"} onClick={onPublish}>{busy === "publish" ? "Publishing…" : "Publish"}</button>
               <button type="button" className="btn" disabled={!!busy || !(data.hasDraft || unsaved)} onClick={onDiscard}>Discard draft</button>
             </div>
-            {sections.length > 1 && (
-              <nav className="ws-jump" aria-label="Jump to a section">
+            {layoutPage ? (
+              <nav className="ws-jump" aria-label="Jump to a section (in page order)">
                 <span className="ws-jump-label">Jump to</span>
-                {sections.map((s, i) => (
-                  <button key={i} type="button" onClick={() => jumpTo(i)}>{s.title || "Other"}</button>
-                ))}
+                {layout.map((it) => {
+                  const added = !sectionsFor(params.page).some((b) => b.id === it.id);
+                  return (
+                    <button key={it.id} type="button" className={`${it.hidden ? "is-hidden" : ""}${added ? " is-added" : ""}`} title={it.hidden ? "Hidden on the page" : undefined} onClick={() => focusSection(it.id)}>
+                      {sectionLabel(params.page, it).replace(/\s*\(.*\)$/, "")}
+                    </button>
+                  );
+                })}
               </nav>
+            ) : (
+              groups.length > 1 && (
+                <nav className="ws-jump" aria-label="Jump to a section">
+                  <span className="ws-jump-label">Jump to</span>
+                  {groups.map((g) => (
+                    <button key={g.key} type="button" onClick={() => focusSection(g.key)}>{g.title || "Other"}</button>
+                  ))}
+                </nav>
+              )
             )}
           </div>
 
@@ -294,10 +377,37 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
           )}
           {notice && <div role="status" className={`alert ${notice.ok ? "alert-success" : "alert-danger"}`}>{notice.text}</div>}
 
-          {sections.map((s, si) => (
-            <section key={si} id={`ws-sec-${si}`} className="card stack ws-sec" style={{ gap: 18 }}>
-              {s.title && <h2 style={{ fontSize: 22 }}>{s.title}</h2>}
-              {s.names.map((name) => {
+          {layoutPage && (
+            <div className="ws-tabs" role="tablist" aria-label="What to edit">
+              <button type="button" role="tab" aria-selected={tab === "content"} onClick={() => setTab("content")}>Content</button>
+              <button type="button" role="tab" aria-selected={tab === "layout"} onClick={() => setTab("layout")}>
+                Layout{!same(values.layout, data.live.layout) && <ChangedTag />}
+              </button>
+            </div>
+          )}
+
+          {tab === "layout" && layoutPage && (
+            <section className="card">
+              <LayoutEditor page={params.page} value={layout} live={Array.isArray(data.live.layout) ? data.live.layout : []} onChange={(v) => change("layout", v)} />
+            </section>
+          )}
+
+          {(tab === "content" || !layoutPage) && groups.map((g) => (
+            <section key={g.key} id={`ws-sec-${g.key}`} className={`card stack ws-sec${g.hidden ? " ws-sec-hidden" : ""}`} style={{ gap: 18 }}>
+              {g.title && (
+                <h2 style={{ fontSize: 22 }}>
+                  {g.title}
+                  {g.hidden && <span className="badge" style={{ marginLeft: 10, verticalAlign: 4 }}>Hidden on the page</span>}
+                </h2>
+              )}
+              {g.editOn && (
+                <p className="text-secondary">
+                  This section shows the same text as on the {g.editOn.label}.{" "}
+                  <Link className="link" href={`/admin/website/${g.editOn.page}?section=${g.editOn.section}`}>Edit it there →</Link>
+                </p>
+              )}
+              {g.names.length === 0 && !g.editOn && <p className="text-secondary">This section has no text to edit; it can be moved or hidden on the Layout tab.</p>}
+              {g.names.map((name) => {
                 const f = data.page.fields[name];
                 const differsFromDefault = !same(values[name], data.defaults[name]);
                 const changed = !same(values[name], data.live[name]);

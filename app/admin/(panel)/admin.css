@@ -81,3 +81,22 @@ a.adm-stat .stat-num { margin-top: 2px; }
 @media (max-width: 860px) {
   .ws-bar { top: 64px; }
 }
+/* Layout tab (components/website/LayoutEditor.tsx). */
+.ws-tabs { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; background: var(--surface-2); align-self: flex-start; }
+.ws-tabs button { border: 0; background: none; border-radius: 999px; padding: 7px 18px; font: inherit; font-size: 15px; color: var(--muted); cursor: pointer; }
+.ws-tabs button[aria-selected="true"] { background: #fff; color: var(--ink); font-weight: 600; box-shadow: var(--shadow-sm); }
+.ws-layout { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.ws-layout-item { border: 1px solid var(--line); border-radius: var(--radius); background: #fff; padding: 10px 14px; scroll-margin-top: 230px; }
+.ws-layout-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ws-layout-name { flex: 1; min-width: 200px; font-weight: 600; }
+.ws-layout-tools { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ws-layout-tools button { border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 5px 10px; font: inherit; font-size: 14px; cursor: pointer; }
+.ws-layout-tools button:hover:not(:disabled) { background: var(--tint-soft); }
+.ws-layout-tools button:disabled { opacity: 0.4; cursor: not-allowed; }
+.ws-layout-tools select.input { width: auto; padding: 5px 8px; font-size: 14px; }
+.ws-layout-remove { color: var(--danger); }
+.ws-layout-fields { margin-top: 8px; }
+.ws-layout-fields > summary { cursor: pointer; color: var(--primary-deep); font-size: 14px; font-weight: 600; }
+.ws-sec-hidden { opacity: 0.75; }
+.ws-jump button.is-hidden { color: var(--faint); text-decoration: line-through; }
+.ws-jump button.is-added { border-style: dashed; }
