@@ -104,8 +104,8 @@ export default function MyCalendarPage() {
           <p className="lede">{isMentor ? "Your calls and due dates in one place." : "Your calls with mentors."}</p>
         </div>
         <div className="row-wrap">
-          {isMentor && <Link href="/account#call-hours" className="btn btn-sm">Call hours &amp; busy dates</Link>}
-          <Link href="/account#calendar" className="btn btn-sm">{data.feedConnected ? "Calendar sync" : "Add to my calendar app"}</Link>
+          {isMentor && <Link href="/dashboard/availability#call-hours" className="btn btn-sm">Call hours &amp; busy dates</Link>}
+          <Link href={isMentor ? "/dashboard/availability#calendar-sync" : "/account#calendar"} className="btn btn-sm">{data.feedConnected ? "Calendar sync" : "Add to my calendar app"}</Link>
         </div>
       </div>
 

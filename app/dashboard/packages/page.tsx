@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { MentorAgreement } from "@/components/MentorAgreement";
+import { PreviewProfileButton } from "@/components/MentorShell";
 import { ImageFocusEditor } from "@/components/ImageFocusEditor";
 import { Icon, ICONS } from "@/components/ui";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
+import { previewHref } from "@/lib/mentorNav";
 import {
   BUNDLE_HOURS,
   FORMATS,
@@ -68,6 +70,9 @@ export default function RateAndOffersPage() {
   const isSeller = (session?.user as any)?.role === "SELLER";
   const [offers, setOffers] = useState<Offers | null>(null);
   const [payoutsReady, setPayoutsReady] = useState<boolean | null>(null);
+  // After an offer is added or changed: "See it on your profile".
+  const [savedOffer, setSavedOffer] = useState(false);
+  const mentorId: string | undefined = (session?.user as any)?.id;
 
   function load() {
     fetch("/api/offers")
@@ -86,11 +91,18 @@ export default function RateAndOffersPage() {
   if (!offers) return <div className="page-mid text-muted">Loading…</div>;
 
   const rate = offers.hourlyRateCents;
+  const offerSaved = () => {
+    load();
+    setSavedOffer(true);
+  };
 
   return (
     <div className="page-mid stack-lg">
       <div className="stack-sm">
-        <h1 className="page-title">Rate &amp; offers</h1>
+        <div className="between" style={{ flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
+          <h1 className="page-title">Rates &amp; packages</h1>
+          <PreviewProfileButton mentorId={mentorId} />
+        </div>
         <p className="lede">Set one hourly rate. Every price on your profile is hours × rate, so students always see the math. There are no due dates: students use their hours for calls on your calendar and for written work.</p>
       </div>
 
@@ -107,12 +119,22 @@ export default function RateAndOffersPage() {
       <RateCard rate={rate} onSaved={load} />
       {rate ? (
         <>
-          <HourlyCard key={offers.hourly?.id || "hourly"} rate={rate} hourly={offers.hourly} onSaved={load} />
-          <BundlesCard rate={rate} bundles={offers.bundles} onSaved={load} />
-          <PackagesCard rate={rate} packages={offers.packages} onSaved={load} />
+          <HourlyCard key={offers.hourly?.id || "hourly"} rate={rate} hourly={offers.hourly} onSaved={offerSaved} />
+          <BundlesCard rate={rate} bundles={offers.bundles} onSaved={offerSaved} />
+          <PackagesCard rate={rate} packages={offers.packages} onSaved={offerSaved} />
         </>
       ) : (
         <div className="empty">Set your hourly rate first. Then you can add hour bundles and specialized packages.</div>
+      )}
+
+      {savedOffer && mentorId && (
+        <div role="status" className="alert alert-success row-wrap" style={{ position: "sticky", bottom: 16, justifyContent: "space-between", boxShadow: "var(--shadow-sm)" }}>
+          <span>Saved. Students see your offers on your profile.</span>
+          <span className="row" style={{ gap: 8 }}>
+            <Link href={previewHref(mentorId)} className="btn btn-sm">See it on your profile</Link>
+            <button type="button" className="btn btn-ghost btn-sm" aria-label="Close" onClick={() => setSavedOffer(false)}>×</button>
+          </span>
+        </div>
       )}
     </div>
   );

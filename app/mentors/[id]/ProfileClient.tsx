@@ -45,6 +45,7 @@ export type PublicOffer = {
   service: string | null;
   serviceOther: string | null;
   coverUrl: string | null;
+  hiddenFromStudents?: boolean; // preview only: students can't see or buy it yet
 };
 
 type Offers = { hourly: PublicOffer | null; bundles: PublicOffer[]; packages: PublicOffer[] };
@@ -72,13 +73,43 @@ function offerLabel(o: PublicOffer) {
   return o.title;
 }
 
-export function ProfileClient({ seller, offers, reviews }: { seller: any; offers: Offers; reviews: any[] }) {
+// Preview (mentor area v2, Oct 2026): what the mentor sees on their own
+// profile. The page looks exactly as it does for students; the buttons
+// that would act (buy, message, intro call) are shown but switched off.
+export type PreviewState = "LIVE" | "INCOMPLETE" | "PAUSED" | "REMOVED" | "HOLD" | null;
+
+const PREVIEW_STATE_TEXT: Record<Exclude<PreviewState, null>, string> = {
+  LIVE: "Live on Browse",
+  INCOMPLETE: "Hidden from Browse until complete",
+  PAUSED: "Hidden from Browse while paused",
+  REMOVED: "Removed from the site",
+  HOLD: "Hidden from Browse during a safety review",
+};
+
+const STUDENTS_SEE = "Students see these buttons";
+
+// A button as students see it, switched off in preview. The tooltip sits
+// on a wrapper because disabled buttons don't show one in every browser.
+function PreviewOnly({ children, block = false }: { children: React.ReactNode; block?: boolean }) {
+  return (
+    <span title={STUDENTS_SEE} style={{ display: block ? "block" : "inline-block", cursor: "not-allowed" }}>
+      <span style={{ display: "contents", pointerEvents: "none" }}>{children}</span>
+    </span>
+  );
+}
+
+function NotVisibleTag() {
+  return <span className="preview-tag" title="Only you can see this in preview">Not visible to students</span>;
+}
+
+export function ProfileClient({ seller, offers, reviews, previewState = null }: { seller: any; offers: Offers; reviews: any[]; previewState?: PreviewState }) {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const role = (session?.user as any)?.role;
   const isBuyer = role === "BUYER";
   const isSelf = (session?.user as any)?.id === seller.id;
+  const preview = isSelf && previewState !== null;
   const first = seller.name.split(" ")[0];
   const loginHref = `/login?callbackUrl=${encodeURIComponent(`/mentors/${seller.id}`)}`;
 
@@ -142,7 +173,18 @@ export function ProfileClient({ seller, offers, reviews }: { seller: any; offers
   // The two main actions, used in the side box and on phones under the
   // header.
   const actions = (stack = true) =>
-    isBuyer ? (
+    preview ? (
+      <div className={stack ? "stack-sm" : "row-wrap"}>
+        <PreviewOnly block={stack}>
+          <button className={`btn btn-primary ${stack ? "btn-block" : ""}`} disabled>
+            <Icon d={ICONS.video} size={18} /> Book free {INTRO_CALL_MINUTES}-min intro call
+          </button>
+        </PreviewOnly>
+        <PreviewOnly block={stack}>
+          <button className={`btn ${stack ? "btn-block" : ""}`} disabled>Message {first}</button>
+        </PreviewOnly>
+      </div>
+    ) : isBuyer ? (
       <div className={stack ? "stack-sm" : "row-wrap"}>
         <button className={`btn btn-primary ${stack ? "btn-block" : ""}`} disabled={!canTakeStudents} onClick={() => setDialog({ t: "intro" })} aria-haspopup="dialog">
           <Icon d={ICONS.video} size={18} /> Book free {INTRO_CALL_MINUTES}-min intro call
@@ -162,17 +204,28 @@ export function ProfileClient({ seller, offers, reviews }: { seller: any; offers
 
   return (
     <div className="page">
-      <Link href="/mentors" className="link small" style={{ display: "inline-block", marginBottom: 24 }}>
-        ← All mentors
-      </Link>
+      {preview && previewState && (
+        <div className="preview-banner" role="note">
+          <b>Preview</b>
+          <span>— this is how students see your profile.</span>
+          <span className={`badge ${previewState === "LIVE" ? "badge-success" : "badge-warning"}`}>{PREVIEW_STATE_TEXT[previewState]}</span>
+          <span aria-hidden="true">·</span>
+          <Link href="/dashboard/profile" className="link">Back to editing</Link>
+        </div>
+      )}
+      {!preview && (
+        <Link href="/mentors" className="link small" style={{ display: "inline-block", marginBottom: 24 }}>
+          ← All mentors
+        </Link>
+      )}
 
       {searchParams?.get("checkout") === "cancelled" && (
         <div className="alert" style={{ marginBottom: 24 }}>Checkout cancelled. Nothing was charged, and any MentorsMD credit is back in your balance.</div>
       )}
 
-      {isSelf && !seller.listed && (
+      {preview && previewState === "INCOMPLETE" && (
         <div className="alert alert-warning" style={{ marginBottom: 24 }}>
-          <b>Your profile isn&apos;t listed yet.</b> Students can&apos;t find or buy from you until every section is filled in. <Link href="/account" className="link">Finish your profile</Link>
+          <b>Your profile isn&apos;t listed yet.</b> Students can&apos;t find or buy from you until every step is filled in. <Link href="/dashboard/profile" className="link">Finish your profile</Link>
         </div>
       )}
 
@@ -256,6 +309,7 @@ export function ProfileClient({ seller, offers, reviews }: { seller: any; offers
                       <b>{p.title}</b>
                     </div>
                     <div className="pkg-tile-body">
+                      {p.hiddenFromStudents && <NotVisibleTag />}
                       <span className="text-muted small">About {hoursLabel(p.minutes)} · {labelFor(FORMATS, p.format)}</span>
                       <span className="display" style={{ fontSize: 26 }}>{money(p.price)}</span>
                       <button className="btn btn-sm btn-soft" style={{ marginTop: "auto", alignSelf: "flex-start" }} onClick={() => setDialog({ t: "details", offerId: p.id })} aria-haspopup="dialog">
@@ -276,16 +330,22 @@ export function ProfileClient({ seller, offers, reviews }: { seller: any; offers
                 <div className="pkg-card">
                   <div className="between" style={{ alignItems: "flex-start", flexWrap: "wrap" }}>
                     <div className="stack-sm">
-                      <b style={{ fontSize: 19 }}>Hourly</b>
+                      <b style={{ fontSize: 19 }}>Hourly {offers.hourly.hiddenFromStudents && <NotVisibleTag />}</b>
                       <span className="text-secondary">
                         Use it for {offers.hourly.format === "LIVE" ? "calls" : offers.hourly.format === "WRITTEN" ? "written feedback" : "calls, written feedback or both"}. Add more hours any time.
                       </span>
                     </div>
                     <span className="nowrap"><span className="display" style={{ fontSize: 30 }}>{money(offers.hourly.rateCents)}</span>/hr</span>
                   </div>
-                  <button className="btn btn-primary" style={{ alignSelf: "flex-start" }} onClick={() => setDialog({ t: "details", offerId: offers.hourly!.id })} aria-haspopup="dialog">
-                    Buy 1 hour
-                  </button>
+                  {preview ? (
+                    <PreviewOnly>
+                      <button className="btn btn-primary" disabled>Buy 1 hour</button>
+                    </PreviewOnly>
+                  ) : (
+                    <button className="btn btn-primary" style={{ alignSelf: "flex-start" }} onClick={() => setDialog({ t: "details", offerId: offers.hourly!.id })} aria-haspopup="dialog">
+                      Buy 1 hour
+                    </button>
+                  )}
                 </div>
               )}
               {offers.bundles.length > 0 && (
@@ -294,10 +354,16 @@ export function ProfileClient({ seller, offers, reviews }: { seller: any; offers
                   {offers.bundles.map((b) => (
                     <div key={b.id} className="pkg-line">
                       <span className="stack-sm" style={{ gap: 2 }}>
-                        <b>{hoursLabel(b.minutes)}</b>
+                        <b>{hoursLabel(b.minutes)} {b.hiddenFromStudents && <NotVisibleTag />}</b>
                         <span className="text-muted">{priceMath(b.minutes, b.rateCents)}</span>
                       </span>
-                      <button className="btn btn-sm btn-primary" onClick={() => setDialog({ t: "details", offerId: b.id })} aria-haspopup="dialog">Buy</button>
+                      {preview ? (
+                        <PreviewOnly>
+                          <button className="btn btn-sm btn-primary" disabled>Buy</button>
+                        </PreviewOnly>
+                      ) : (
+                        <button className="btn btn-sm btn-primary" onClick={() => setDialog({ t: "details", offerId: b.id })} aria-haspopup="dialog">Buy</button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -305,7 +371,12 @@ export function ProfileClient({ seller, offers, reviews }: { seller: any; offers
             </section>
           )}
 
-          {allOffers.length === 0 && <div className="empty">{first} hasn&apos;t set up their hours yet. You can still message them.</div>}
+          {allOffers.length === 0 && (
+            <div className="empty">
+              {first} hasn&apos;t set up their hours yet. You can still message them.
+              {preview && <> <Link href="/dashboard/packages" className="link">Set your rate</Link></>}
+            </div>
+          )}
 
           {/* ---------- Reviews ---------- */}
           <section className="stack" aria-labelledby="reviews-title">
@@ -419,6 +490,7 @@ export function ProfileClient({ seller, offers, reviews }: { seller: any; offers
             loginHref={loginHref}
             unlock={unlock}
             canBuy={canTakeStudents}
+            preview={preview}
             onIntro={() => setDialog({ t: "intro" })}
             onMessage={() => setDialog({ t: "message" })}
           />
@@ -509,6 +581,7 @@ function OfferDetails({
   loginHref,
   unlock,
   canBuy,
+  preview,
   onIntro,
   onMessage,
 }: {
@@ -521,6 +594,7 @@ function OfferDetails({
   loginHref: string;
   unlock: Unlock | null;
   canBuy: boolean;
+  preview: boolean;
   onIntro: () => void;
   onMessage: () => void;
 }) {
@@ -584,7 +658,15 @@ function OfferDetails({
       </div>
 
       {error && <div role="alert" className="alert alert-danger">{error}</div>}
-      {isBuyer ? (
+      {preview ? (
+        <div className="stack-sm">
+          {offer.hiddenFromStudents && <NotVisibleTag />}
+          <PreviewOnly>
+            <button className="btn btn-primary btn-lg" disabled>Buy for {money(offer.price)}</button>
+          </PreviewOnly>
+          <span className="text-muted small">{STUDENTS_SEE}. They can buy once you reply to their message or after an intro call.</span>
+        </div>
+      ) : isBuyer ? (
         !canBuy ? (
           <span className="text-muted">{first} isn&apos;t taking new orders right now.</span>
         ) : unlocked ? (

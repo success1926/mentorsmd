@@ -8,7 +8,7 @@ import { syncProfileComplete } from "@/lib/profileSync";
 
 // Profile photo upload, stored in the public-media bucket (lib/storage.ts).
 // The browser already crops/resizes the image to a square before sending
-// (see app/account), so files here are small enough to come through our
+// (components/ProfilePhoto.tsx), so files here are small enough to come through our
 // server, which checks the file really is an image before storing it.
 const MAX_SIZE = 2 * 1024 * 1024; // the browser sends ~100KB; this is headroom
 

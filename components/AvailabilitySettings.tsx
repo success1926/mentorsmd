@@ -106,7 +106,7 @@ export function CallHoursCard({ profile, onSaved }: { profile: any; onSaved?: ()
   return (
     <section id="call-hours" className="card stack" style={{ scrollMarginTop: 100, gap: 18 }}>
       <div className="stack-sm">
-        <h2 style={{ fontSize: 26 }}>Call availability</h2>
+        <h2 style={{ fontSize: 26 }}>Call hours</h2>
         <span className="text-secondary">
           When students can book the calls in your packages. They only see open times after they&apos;ve paid, and every call happens in a private MentorsMD video room.
         </span>
@@ -151,8 +151,11 @@ export function CallHoursCard({ profile, onSaved }: { profile: any; onSaved?: ()
 
       <div className="grid-2">
         <div className="field" style={{ marginBottom: 0 }}>
-          <label className="field-label" htmlFor="avail-tz">Time zone for these hours</label>
+          {/* The one time zone setting for mentors (User.timeZone): these
+              hours, call reminders and the times in our emails. */}
+          <label className="field-label" htmlFor="avail-tz">Your time zone</label>
           <TimeZoneSelect id="avail-tz" value={tz} onChange={setTz} />
+          <span className="field-help">Also used for reminders and email times</span>
         </div>
         <div className="field" style={{ marginBottom: 0 }}>
           <label className="field-label" htmlFor="avail-notice">Minimum notice</label>
@@ -189,7 +192,7 @@ export function CallHoursCard({ profile, onSaved }: { profile: any; onSaved?: ()
 
       <div className="row-wrap">
         <button className="btn btn-primary" disabled={saving} onClick={save}>{saving ? "Saving…" : "Save availability"}</button>
-        <Link href="/calendar" className="btn">My calendar</Link>
+        <Link href="/calendar" className="btn">Month view</Link>
       </div>
       <Note m={msg} />
     </section>

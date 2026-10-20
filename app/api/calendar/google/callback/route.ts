@@ -11,13 +11,14 @@ export const dynamic = "force-dynamic";
 
 // Google sends the mentor back here after the consent screen. We check the
 // state, swap the one-time code for a refresh token, store it encrypted,
-// read busy times once, and return to Account with a flag the page shows.
+// read busy times once, and return to Calendar & availability with a flag
+// the page shows.
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const base = siteUrl();
   const stateCookie = cookies().get(GOOGLE_CAL_STATE_COOKIE)?.value;
   const back = (flag: string) => {
-    const res = NextResponse.redirect(`${base}/account?gcal=${flag}#calendar`);
+    const res = NextResponse.redirect(`${base}/dashboard/availability?gcal=${flag}#calendar`);
     res.cookies.set(GOOGLE_CAL_STATE_COOKIE, "", { path: "/api/calendar/google", maxAge: 0 });
     return res;
   };

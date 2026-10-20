@@ -3,21 +3,50 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { unreadFor } from "@/lib/unread";
+import { isMentorListed, isMentorVisible } from "@/lib/mentor";
+import { profileFieldsSelect, profileProgress } from "@/lib/profileCompleteness";
 
 export const dynamic = "force-dynamic";
 
-// Small status the top bar polls: unread messages, and for mentors how
-// many offers they have (to show "Set your rate" vs "Rate & offers").
+// Small status the top bar and the mentor sidebar poll: unread messages,
+// and for mentors how many offers they have (to show "Set your rate" vs
+// "Rate & offers"), active packages, profile progress and whether they're
+// live on Browse.
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ unread: 0, unreadConversations: 0, packageCount: null });
+  if (!session?.user) return NextResponse.json({ unread: 0, unreadConversations: 0, packageCount: null, mentor: null });
   const userId = (session.user as any).id;
   const role = (session.user as any).role;
+  const isMentor = role === "SELLER";
 
-  const [unread, packageCount] = await Promise.all([
+  const [unread, packageCount, activePackages, me] = await Promise.all([
     unreadFor(userId, role),
     // Offers since the redesign (the Hourly offer exists once a rate is set).
-    role === "SELLER" ? prisma.gig.count({ where: { sellerId: userId, active: true, kind: { not: null } } }) : Promise.resolve(null),
+    isMentor ? prisma.gig.count({ where: { sellerId: userId, active: true, kind: { not: null } } }) : Promise.resolve(null),
+    // Active hours packages: paid, not yet approved (working, waiting on the student, or disputed).
+    isMentor ? prisma.order.count({ where: { sellerId: userId, kind: { not: null }, status: "IN_ESCROW", approvedAt: null } }) : Promise.resolve(0),
+    isMentor
+      ? prisma.user.findUnique({
+          where: { id: userId },
+          select: { ...profileFieldsSelect, id: true, name: true, profileStatus: true, pausedUntil: true, safetyHoldAt: true, profileCompleteAt: true },
+        })
+      : Promise.resolve(null),
   ]);
-  return NextResponse.json({ unread: unread.messages, unreadConversations: unread.conversations, packageCount });
+
+  let mentor = null;
+  if (me) {
+    const progress = profileProgress(me);
+    mentor = {
+      id: me.id,
+      name: me.name,
+      photoUrl: me.photoUrl,
+      activePackages,
+      progress: { done: progress.done, total: progress.total, complete: progress.complete, missing: progress.sections.filter((s) => !s.done).map((s) => s.label) },
+      listed: isMentorListed(me),
+      paused: me.profileStatus === "PAUSED" && !isMentorVisible(me),
+      removed: me.profileStatus === "REMOVED",
+      safetyHold: !!me.safetyHoldAt,
+    };
+  }
+  return NextResponse.json({ unread: unread.messages, unreadConversations: unread.conversations, packageCount, mentor });
 }
