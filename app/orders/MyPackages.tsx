@@ -11,8 +11,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { money } from "@/lib/options";
 import { AddHoursModal, BookCallModal, DecisionBanner, HoursBar, HoursLog, LowHoursBadge, PackageBadge, SharedFiles, fmtDay, fmtWhen } from "@/components/Packages";
-import { tintFor, initialsOf } from "@/components/ui";
-import { notifyPackagesChanged } from "@/components/StudentShell";
+import { PersonAvatar } from "@/components/ui";
+import { notifyPackagesChanged, useNavStatus } from "@/components/NavStatus";
 import { finishPhase } from "@/lib/finishing";
 import { hoursSummary, shortHours } from "@/lib/hours";
 import { KIND_LABEL, hoursLabel } from "@/lib/pricing";
@@ -52,7 +52,8 @@ export function MyPackages({ viewerId }: { viewerId: string }) {
   const [showDetail, setShowDetail] = useState(false);
   const [booking, setBooking] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [credit, setCredit] = useState(0);
+  // MentorsMD credit: the page's one status load (components/NavStatus.tsx).
+  const credit = useNavStatus()?.student?.creditCents ?? 0;
 
   function load() {
     fetch("/api/packages")
@@ -66,8 +67,6 @@ export function MyPackages({ viewerId }: { viewerId: string }) {
   }
   useEffect(() => {
     load();
-    // MentorsMD credit balance (the ledger, lib/credit.ts).
-    fetch("/api/me/credit").then((r) => r.json()).then((d) => setCredit(d.balanceCents || 0)).catch(() => {});
     const id = new URLSearchParams(window.location.search).get("id");
     if (id) {
       setSelected(id);
@@ -200,12 +199,7 @@ function PackageSummary({ p, viewerId, onBack, onBook, onAdd, onChanged }: { p: 
     <>
       <button className="btn btn-ghost btn-sm pkg-back" style={{ alignSelf: "flex-start" }} onClick={onBack}>← All packages</button>
       <div className="row" style={{ gap: 14, alignItems: "flex-start" }}>
-        {mentor?.photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={mentor.photoUrl} alt="" className="avatar" style={{ objectFit: "cover" }} />
-        ) : (
-          <span className="avatar" style={{ background: tintFor(mentor?.id || "") }}>{initialsOf(mentor?.name || "")}</span>
-        )}
+        <PersonAvatar person={mentor} />
         <div className="stack-sm grow" style={{ gap: 2, minWidth: 0 }}>
           <span className="text-muted small">{KIND_LABEL[p.kind] || "Package"} · with {mentor?.name}</span>
           <h2 style={{ fontSize: 26 }}>{p.title}</h2>

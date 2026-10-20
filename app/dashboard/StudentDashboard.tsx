@@ -11,8 +11,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AddHoursModal, BookCallModal, HoursBar, LowHoursBadge, PackageBadge, fmtWhen, postJson, showLowHours } from "@/components/Packages";
-import { Icon, ICONS, tintFor, initialsOf } from "@/components/ui";
-import { notifyPackagesChanged } from "@/components/StudentShell";
+import { Icon, ICONS, PersonAvatar } from "@/components/ui";
+import { notifyPackagesChanged, useNavStatus } from "@/components/NavStatus";
 import { finishPhase, hoursToRespond, studentActions } from "@/lib/finishing";
 import { hoursSummary, shortHours, TOP_UP_HOURS } from "@/lib/hours";
 import { JOIN_OPENS_MINUTES_BEFORE, joinState } from "@/lib/calls";
@@ -36,14 +36,7 @@ function suggestedHours(p: any): number | null {
   return TOP_UP_HOURS.includes(n) ? n : null;
 }
 
-function MentorAvatar({ person, size = 40 }: { person: any; size?: number }) {
-  return person?.photoUrl ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={person.photoUrl} alt="" className="avatar" style={{ width: size, height: size, objectFit: "cover" }} />
-  ) : (
-    <span className="avatar" style={{ width: size, height: size, fontSize: size > 36 ? 15 : 13, background: tintFor(person?.id || "") }}>{initialsOf(person?.name || "")}</span>
-  );
-}
+const MentorAvatar = ({ person, size = 40 }: { person: any; size?: number }) => <PersonAvatar person={person} size={size} fontSize={size > 36 ? 15 : 13} />;
 
 type Next = {
   key: string;
@@ -58,8 +51,10 @@ type Next = {
 export function StudentDashboard({ name }: { name: string; viewerId: string }) {
   const [packages, setPackages] = useState<any[] | null>(null);
   const [calls, setCalls] = useState<any[]>([]);
-  const [credit, setCredit] = useState<number | null>(null);
-  const [unread, setUnread] = useState(0);
+  // Unread messages and credit: the page's one status load (components/NavStatus.tsx).
+  const status = useNavStatus();
+  const credit = status?.student ? status.student.creditCents : null;
+  const unread = status?.unread ?? 0;
   const [booking, setBooking] = useState<any>(null);
   const [adding, setAdding] = useState<{ order: any; hours?: number } | null>(null);
   const [busy, setBusy] = useState("");
@@ -68,8 +63,6 @@ export function StudentDashboard({ name }: { name: string; viewerId: string }) {
   function load() {
     fetch("/api/packages").then((r) => r.json()).then((d) => setPackages(d.packages || [])).catch(() => setPackages([]));
     fetch("/api/me/calendar").then((r) => r.json()).then((d) => setCalls(d.upcoming || [])).catch(() => {});
-    fetch("/api/me/credit").then((r) => r.json()).then((d) => setCredit(d.balanceCents || 0)).catch(() => setCredit(0));
-    fetch("/api/me/nav").then((r) => r.json()).then((d) => setUnread(d.unread || 0)).catch(() => {});
   }
   useEffect(load, []);
 

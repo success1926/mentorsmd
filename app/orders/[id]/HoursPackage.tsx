@@ -12,7 +12,7 @@ import Link from "next/link";
 import { useDisputeThread } from "@/lib/hooks/useDisputeThread";
 import { Attendance, CallRow, PastCallOutcome, Recordings } from "@/components/Calls";
 import { AddHoursModal, BookCallModal, DecisionBanner, HoursLog, HoursMeter, LogWrittenWork, PackageBadge, showLowHours, PackageThread, SuggestHoursModal, ReportProblem, SharedFiles, fmtDay, fmtWhen, postJson } from "@/components/Packages";
-import { MinorBadge, StaffBadge, tintFor, initialsOf } from "@/components/ui";
+import { MinorBadge, PersonAvatar, StaffBadge } from "@/components/ui";
 import { ReportDialog } from "@/components/Safety";
 import { hoursSummary, shortHours, LOW_HOURS_MINUTES } from "@/lib/hours";
 import { finishPhase, markCompleteBlocker } from "@/lib/finishing";
@@ -32,15 +32,7 @@ const ADMIN_PHASE: Record<string, string> = {
   CLOSED: "Closed",
 };
 
-
-function Avatar({ person, size = 44 }: { person: any; size?: number }) {
-  return person?.photoUrl ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={person.photoUrl} alt="" className="avatar" style={{ width: size, height: size, objectFit: "cover" }} />
-  ) : (
-    <span className="avatar" style={{ width: size, height: size, background: tintFor(person?.id || person?.name || "") }}>{initialsOf(person?.name || "")}</span>
-  );
-}
+const Avatar = ({ person, size = 44 }: { person: any; size?: number }) => <PersonAvatar person={person} size={size} />;
 
 export function HoursPackage({ order, viewer, reload }: { order: any; viewer: any; reload: () => void }) {
   const isBuyer = viewer.id === order.buyerId;

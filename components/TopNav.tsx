@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { markLoggedOutOnPurpose } from "@/components/SessionWatcher";
 import { MENTOR_QUICK_LINKS, quickLinkHref } from "@/lib/options";
-import { onLive } from "@/lib/realtimeClient";
+import { useNavStatus } from "@/components/NavStatus";
 import { MENTOR_NAV, previewHref } from "@/lib/mentorNav";
 import { STUDENT_NAV } from "@/lib/studentNav";
 
@@ -128,40 +128,8 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [scrolled, setScrolled] = useState(false);
-  const [navInfo, setNavInfo] = useState<{ unread: number }>({ unread: 0 });
-
-  // Unread badge. Refreshes on page change, every minute,
-  // when the tab regains focus, right after a thread is read, and when a
-  // new message arrives.
-  useEffect(() => {
-    if (status !== "authenticated" || role === "ADMIN" || role === "ADMIN_2FA") return;
-    let alive = true;
-    const load = () =>
-      fetch("/api/me/nav")
-        .then((r) => r.json())
-        .then((d) => alive && setNavInfo({ unread: d.unread || 0 }))
-        .catch(() => {});
-    load();
-    const timer = setInterval(load, 60_000);
-    window.addEventListener("focus", load);
-    window.addEventListener("mmd:unread-changed", load);
-    // A new message arrived (live updates, lib/realtimeClient.ts). Waits a
-    // moment so an open thread can mark it read first.
-    let liveTimer: ReturnType<typeof setTimeout> | undefined;
-    const off = onLive((event) => {
-      if (event !== "message") return;
-      clearTimeout(liveTimer);
-      liveTimer = setTimeout(load, 1500);
-    });
-    return () => {
-      alive = false;
-      off();
-      clearTimeout(liveTimer);
-      clearInterval(timer);
-      window.removeEventListener("focus", load);
-      window.removeEventListener("mmd:unread-changed", load);
-    };
-  }, [status, role, pathname]);
+  // Unread badge (components/NavStatus.tsx, shared with the sidebars).
+  const navInfo = { unread: useNavStatus()?.unread ?? 0 };
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
