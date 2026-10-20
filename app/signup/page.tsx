@@ -78,7 +78,12 @@ export default function StudentSignupPage() {
       setLoading(false);
       return;
     }
-    await signIn("credentials", { email, password, recaptchaToken: (await recaptcha("login")) || "", redirect: false });
+    const login = await signIn("credentials", { email, password, recaptchaToken: (await recaptcha("login")) || "", redirect: false });
+    if (!login || login.error) {
+      // The account was made; only the automatic login didn't go through.
+      router.push("/login?error=SignupLogin");
+      return;
+    }
     router.push("/mentors");
     router.refresh();
   }
