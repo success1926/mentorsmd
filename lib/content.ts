@@ -51,7 +51,7 @@ export const SENIOR_TEAM: TeamMember[] = [
     focus: ["Application strategy", "School selection", "Personal statements & secondaries", "Interview preparation"],
   },
   {
-    name: "Shwetabh",
+    name: "Shwetabh Tarun",
     title: "Co-founder",
     creds: "Admissions committee interviewer, University of Pittsburgh School of Medicine",
     photo: "/images/team/shwetabh.jpg",
@@ -64,7 +64,7 @@ export const SENIOR_TEAM: TeamMember[] = [
     focus: ["MD admissions strategy", "Post-bacc & SMP admissions", "BS/MD admissions"],
   },
   {
-    name: "Rachel",
+    name: "Rachel Rozelle",
     title: "Director of Operations & Client Experience",
     photo: "/images/team/rachel.jpg",
     photoPosition: "50% 15%",
