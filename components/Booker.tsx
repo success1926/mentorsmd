@@ -47,6 +47,7 @@ export function Booker({
   onMessage,
   emptyHint,
   noHoursTitle,
+  onLoaded,
   framed = false,
 }: {
   slotsUrl: string | null; // null: don't load times (e.g. booking isn't possible yet)
@@ -63,6 +64,7 @@ export function Booker({
   onMessage?: () => void; // "Message [mentor]" when there are no times
   emptyHint?: React.ReactNode;
   noHoursTitle?: string; // instead of "[Name] hasn't set their call hours yet" (e.g. for the mentor)
+  onLoaded?: (raw: any) => void; // the slot address's whole answer (e.g. packages, pay-per-call), so the page needn't load it again
   framed?: boolean; // a border around it, for use outside a pop-up
 }) {
   const [data, setData] = useState<SlotData | null>(null);
@@ -102,6 +104,7 @@ export function Booker({
         const d = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(d.error || "Couldn't load times");
         if (latestUrl.current !== url) return;
+        onLoaded?.(d);
         setData({ slots: d.slots || [], lengthMinutes: d.lengthMinutes || durationMinutes || 30, hasAvailability: !!d.hasAvailability });
       })
       .catch((e) => {

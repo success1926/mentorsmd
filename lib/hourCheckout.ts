@@ -288,7 +288,7 @@ async function bookRequestedCall(orderId: string) {
   const order = await prisma.order.findUnique({ where: { id: orderId }, include: orderForCallsInclude });
   if (!order?.requestedCallStart) return;
   try {
-    await bookCall(order, order.requestedCallStart, { id: order.buyerId, isMentor: false }, order.minutesPurchased);
+    await bookCall(order, order.requestedCallStart, { id: order.buyerId, isMentor: false }, order.minutesPurchased, { pickedBeforePayment: true });
     await prisma.order.update({ where: { id: orderId }, data: { requestedCallStart: null } });
   } catch (err) {
     if (err instanceof CallError && err.status === 403) {
