@@ -589,11 +589,30 @@ a.footer-social:hover .bg { fill: var(--tint-2); }
 }
 
 /* Senior team page: photo beside the bio, stacked on phones. */
-.team-member { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 32px; align-items: start; }
-.team-photo { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 20px; background: var(--tint-soft, #EEEAFE); }
-@media (max-width: 720px) {
-  .team-member { grid-template-columns: 1fr; gap: 18px; }
-  .team-photo { max-width: 260px; }
+/* Senior team (/senior-team): leadership cards like AdmitMD's Our Team page.
+   The whole card opens the full bio (components/SeniorTeamCards.tsx). */
+.lead-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 28px; }
+.lead-card { display: grid; grid-template-rows: auto 1fr; width: 100%; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); color: inherit; font: inherit; text-align: left; cursor: pointer; transition: box-shadow 0.2s ease, transform 0.2s ease; }
+.lead-card:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
+.lead-card:focus-visible { outline: 3px solid var(--tint-2); outline-offset: 3px; }
+.lead-photo { position: relative; display: block; aspect-ratio: 4 / 5; background: var(--tint-soft); }
+.lead-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.lead-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 20px 22px 24px; }
+.lead-name { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.02em; font-size: clamp(28px, 2.6vw, 36px); line-height: 1.05; }
+.lead-title { font-size: 16px; font-weight: 600; color: var(--primary); }
+.lead-creds { font-size: 14px; color: var(--muted); line-height: 1.45; }
+.lead-intro { color: var(--muted); line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.lead-more { display: inline-flex; align-items: center; gap: 10px; margin-top: auto; padding-top: 6px; font-weight: 600; font-size: 15px; color: var(--primary-deep); }
+.lead-plus { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: var(--button); color: var(--ink); font-size: 18px; line-height: 1; transition: background 0.2s ease; }
+.lead-card:hover .lead-plus { background: var(--button-hover); }
+.lead-bio { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 28px; align-items: start; }
+.lead-bio-photo { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: var(--radius); background: var(--tint-soft); }
+.lead-steps { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--line); padding-top: 14px; margin-top: 4px; }
+@media (prefers-reduced-motion: reduce) { .lead-card, .lead-card:hover { transition: none; transform: none; } }
+@media (max-width: 640px) {
+  .lead-body { padding: 16px 16px 20px; }
+  .lead-bio { grid-template-columns: 1fr; gap: 18px; }
+  .lead-bio-photo { max-width: 200px; }
 }
 
 /* Mentor profile (redesign Oct 2026): pop-ups, packages row, full bio */
