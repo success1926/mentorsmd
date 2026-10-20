@@ -49,23 +49,22 @@ const LOGGED_OUT_LINKS: MainLink[] = [
   { label: "Reviews", href: "/reviews", reviews: true },
   { label: "Become a mentor", href: "/become-a-mentor" },
 ];
-// Logged-in students keep their shorter list (their own links sit on the right).
+// Logged-in students: the pages for finding a mentor. Their own pages
+// (packages, messages, calendar...) are in the student area sidebar,
+// reached from the "Dashboard" button on the right.
 const STUDENT_LINKS: MainLink[] = [
   { label: "Browse mentors", href: "/mentors" },
   { label: "How it works", href: "/how-it-works" },
   { label: "Reviews", href: "/reviews", reviews: true },
-  { label: "Become a mentor", href: "/become-a-mentor" },
 ];
 const OTHER_LINKS: MainLink[] = [{ label: "Browse mentors", href: "/mentors" }];
 
 const RIGHT_LINKS: Record<string, NavLink[]> = {
-  BUYER: [
-    { label: "My packages", href: "/orders" },
-    { label: "Messages", href: "/messages" },
-  ],
-  // Mentors: "View my public profile" (added below, it needs their id).
-  // Everything else is in the mentor area sidebar (lib/mentorNav.ts).
-  SELLER: [],
+  // Students and mentors: one "Dashboard" button (drawn as a pill below);
+  // everything else is in the area's sidebar (lib/studentNav.ts,
+  // lib/mentorNav.ts). Mentors also get "View my public profile".
+  BUYER: [{ label: "Dashboard", href: "/dashboard" }],
+  SELLER: [{ label: "Dashboard", href: "/dashboard" }],
   ADMIN: [{ label: "Admin", href: "/admin" }],
   ADMIN_2FA: [{ label: "Finish logging in", href: "/admin/verify" }],
 };
@@ -209,13 +208,16 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
   // Mentors: a simple bar (logo, View my public profile, account menu).
   const publicProfile = role === "SELLER" && userId ? previewHref(userId) : null;
   const badge = (href: string) =>
-    href === "/messages" && navInfo.unread > 0 ? (
+    (href === "/messages" || href === "/dashboard") && navInfo.unread > 0 ? (
       <span className="count-badge" aria-label={`${navInfo.unread} unread`}>{navInfo.unread > 99 ? "99+" : navInfo.unread}</span>
     ) : null;
   const menu = role ? MENU[role] || [] : [];
   const mainLinks = (!session ? LOGGED_OUT_LINKS : role === "BUYER" ? STUDENT_LINKS : role === "SELLER" ? [] : OTHER_LINKS).filter((l) => !l.reviews || showReviews);
   const mainActive = (href: string): "page" | undefined => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/")) ? "page" : undefined;
-  const active = (href: string): "page" | undefined => (href === pathname || (href !== "/" && pathname.startsWith(href) && href !== "/dashboard") || (href === "/dashboard" && pathname === "/dashboard") ? "page" : undefined);
+  // The Dashboard button stays highlighted anywhere in the student / mentor area.
+  const inArea = ["/dashboard", "/orders", "/messages", "/calendar", "/credit", "/receipts", "/account"].some((p) => pathname === p || pathname.startsWith(p + "/"));
+  const active = (href: string): "page" | undefined =>
+    href === "/dashboard" && (role === "BUYER" || role === "SELLER") ? (inArea ? "page" : undefined) : (href === pathname || (href !== "/" && pathname.startsWith(href) && href !== "/dashboard") || (href === "/dashboard" && pathname === "/dashboard") ? "page" : undefined);
 
   return (
     <header className={`nav ${isHome ? "nav-home" : ""} ${scrolled ? "nav-scrolled" : ""}`}>
@@ -230,7 +232,12 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
         </nav>
 
         <div className="nav-right">
-          {right.map((l) => (
+          {right.map((l) => l.href === "/dashboard" ? (
+            <Link key={l.href} href={l.href} className="nav-pill hide-tablet" aria-current={active(l.href)} style={{ display: "inline-flex", alignItems: "center" }}>
+              {l.label}
+              {badge(l.href)}
+            </Link>
+          ) : (
             <Link key={l.href} href={l.href} className="hide-tablet" aria-current={active(l.href)} style={{ fontWeight: active(l.href) ? 600 : 400, color: active(l.href) ? "var(--primary)" : undefined, display: "inline-flex", alignItems: "center" }}>
               {l.label}
               {badge(l.href)}
