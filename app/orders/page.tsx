@@ -7,6 +7,7 @@ import { MinorBadge, statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { callSummary, fmtDateTime } from "@/lib/calls";
 import { money } from "@/lib/options";
 import { MyPackages } from "./MyPackages";
+import { useNavStatus } from "@/components/NavStatus";
 
 const ACTIVE = ["IN_ESCROW", "COMPLETED"];
 
@@ -42,17 +43,13 @@ function OrdersList() {
   const isSeller = (session?.user as any)?.role === "SELLER";
   const [orders, setOrders] = useState<any[] | null>(null);
   const [tab, setTab] = useState<"active" | "done">("active");
-  const [unread, setUnread] = useState(0);
+  const unread = useNavStatus()?.unread ?? 0;
 
   useEffect(() => {
     fetch("/api/orders")
       .then((r) => r.json())
       .then((d) => setOrders((d.orders || []).filter((o: any) => o.status !== "PENDING_PAYMENT" && o.status !== "CANCELLED")))
       .catch(() => setOrders([]));
-    fetch("/api/me/nav")
-      .then((r) => r.json())
-      .then((d) => setUnread(d.unread || 0))
-      .catch(() => {});
   }, []);
 
   // Hours packages are "done" once approved (COMPLETED = waiting for the payout).

@@ -86,6 +86,18 @@ export function initialsOf(name: string) {
     .toUpperCase();
 }
 
+// A person's photo, or their initials on a tint. Without a size it uses the
+// .avatar default; fontSize is for small ones (initials only).
+export function PersonAvatar({ person, size, fontSize }: { person: { id?: string; name?: string | null; photoUrl?: string | null } | null | undefined; size?: number; fontSize?: number }) {
+  const box = size ? { width: size, height: size } : {};
+  return person?.photoUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={person.photoUrl} alt="" className="avatar" style={{ ...box, objectFit: "cover" }} />
+  ) : (
+    <span className="avatar" style={{ ...box, ...(fontSize ? { fontSize } : {}), background: tintFor(person?.id || person?.name || "") }}>{initialsOf(person?.name || "")}</span>
+  );
+}
+
 // Order status as the student/mentor sees it.
 export function statusBadge(order: { status: string; kind?: string | null; disputed?: boolean; disputeResolvedAt?: any; markedCompleteAt?: any; callHoldAt?: any; workCompletedAt?: any }) {
   if (order.disputed && !order.disputeResolvedAt && ["IN_ESCROW", "COMPLETED"].includes(order.status)) return <span className="badge badge-danger">Disputed</span>;
