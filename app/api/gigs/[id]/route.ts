@@ -40,7 +40,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (!gig || !gig.active) return NextResponse.json({ error: "Package not found or not yours" }, { status: 404 });
   if (gig.kind !== "BUNDLE" && gig.kind !== "SPECIALIZED") {
     return NextResponse.json(
-      { error: gig.kind === "HOURLY" ? "Change the Hourly offer on the Rate & offers page" : "Packages from before hourly pricing can't be edited. Remove it and add a new one." },
+      { error: gig.kind === "HOURLY" ? "Change the Hourly offer on the Rates & packages page" : "Packages from before hourly pricing can't be edited. Remove it and add a new one." },
       { status: 400 }
     );
   }

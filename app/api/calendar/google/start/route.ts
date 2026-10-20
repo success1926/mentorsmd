@@ -13,9 +13,9 @@ export async function GET() {
   // Google sends people back to siteUrl(). If that's mentorsmd.com, Vercel
   // forwards it to www.mentorsmd.com, where this cookie and the login are.
   const base = siteUrl();
-  const back = (flag: string) => NextResponse.redirect(`${base}/account?gcal=${flag}#calendar`);
+  const back = (flag: string) => NextResponse.redirect(`${base}/dashboard/availability?gcal=${flag}#calendar`);
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.redirect(`${base}/login?callbackUrl=${encodeURIComponent("/account#calendar")}`);
+  if (!session?.user) return NextResponse.redirect(`${base}/login?callbackUrl=${encodeURIComponent("/dashboard/availability#calendar")}`);
   if ((session.user as any).role !== "SELLER") return back("mentors-only");
   if (!googleCalConfigured()) return back("not-set-up");
 

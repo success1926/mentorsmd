@@ -33,6 +33,7 @@ export default async function MentorProfilePage({ params }: { params: { id: stri
       safetyHoldAt: true,
       profileCompleteAt: true,
       // Profile sections (redesign Oct 2026)
+      hasAdmissionsRoles: true,
       admissionsRoles: true,
       yearsAdvising: true,
       applicantsSupported: true,
@@ -57,8 +58,14 @@ export default async function MentorProfilePage({ params }: { params: { id: stri
   // Removed profiles are gone for everyone except admins and the mentor themselves.
   if (seller.profileStatus === "REMOVED" && viewerRole !== "ADMIN" && viewerId !== seller.id) notFound();
 
+  // Preview (mentor area v2): the mentor looking at their own profile sees
+  // it exactly as students do, even while it's hidden, plus offers students
+  // can't see yet (the Hourly offer switched off, or no rate set), marked
+  // "Not visible to students".
+  const preview = viewerId === seller.id;
+
   const [offers, reviews] = await Promise.all([
-    offersFor(seller.id, { onlyBookable: true }),
+    offersFor(seller.id, { onlyBookable: !preview }),
     prisma.review.findMany({
       where: { sellerId: params.id },
       orderBy: { createdAt: "desc" },
@@ -90,17 +97,31 @@ export default async function MentorProfilePage({ params }: { params: { id: stri
     service: g.service,
     serviceOther: g.serviceOther,
     coverUrl: g.coverUrl,
+    hiddenFromStudents: !(g.active && g.price > 0) || undefined,
   });
 
-  const { role, profileStatus, pausedUntil, acceptsMinors, safetyHoldAt, profileCompleteAt, admissionsRoles, languages, ...publicSeller } = seller;
+  const { role, profileStatus, pausedUntil, acceptsMinors, safetyHoldAt, profileCompleteAt, hasAdmissionsRoles, admissionsRoles, languages, ...publicSeller } = seller;
   const available = isMentorVisible({ profileStatus, pausedUntil });
   const listed = isMentorListed({ profileStatus, pausedUntil, safetyHoldAt, profileCompleteAt });
+  // Why the profile is hidden, for the preview banner (the mentor only).
+  const previewState = !preview
+    ? null
+    : listed
+      ? "LIVE"
+      : !profileCompleteAt
+        ? "INCOMPLETE"
+        : profileStatus === "REMOVED"
+          ? "REMOVED"
+          : safetyHoldAt
+            ? "HOLD"
+            : "PAUSED";
 
   return (
     <ProfileClient
       seller={{
         ...publicSeller,
-        admissionsRoles: rolesOf(admissionsRoles),
+        // Answered "No" to the admissions question: no roles on the profile.
+        admissionsRoles: hasAdmissionsRoles === false ? [] : rolesOf(admissionsRoles),
         languages: languagesOf(languages),
         available,
         listed,
@@ -108,6 +129,7 @@ export default async function MentorProfilePage({ params }: { params: { id: stri
         pausedUntil: pausedUntil ? pausedUntil.toISOString() : null,
         adultsOnlyForViewer: viewerIsMinor,
       }}
+      previewState={previewState}
       offers={{
         hourly: offers.hourly ? toOffer(offers.hourly) : null,
         bundles: offers.bundles.map(toOffer),

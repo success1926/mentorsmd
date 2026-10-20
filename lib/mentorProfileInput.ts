@@ -7,6 +7,7 @@ import { ADMISSIONS_ROLE_TYPES, BEST_FOR, LANGUAGE_LEVELS, PROFILE_RULES as R, S
 import type { AdmissionsRole, Language } from "@/lib/profileCompleteness";
 
 type Data = {
+  hasAdmissionsRoles?: boolean | null;
   admissionsRoles?: AdmissionsRole[];
   yearsAdvising?: number | null;
   applicantsSupported?: number | null;
@@ -61,6 +62,17 @@ export function parseMentorProfile(body: any): { data: Data } | { error: string 
     }
     data.admissionsRoles = roles;
   }
+  // "Have you served on a medical school admissions committee, or as an
+  // interviewer or application screener?" Yes / No (null = not answered).
+  // No: the roles are cleared, so nothing about committee work shows on
+  // the public profile. Yes: the roles are kept; the checklist asks for
+  // at least one (saving an unfinished step is still allowed).
+  if (body.hasAdmissionsRoles !== undefined) {
+    if (body.hasAdmissionsRoles !== null && typeof body.hasAdmissionsRoles !== "boolean") return { error: "Answer Yes or No to the admissions question" };
+    data.hasAdmissionsRoles = body.hasAdmissionsRoles;
+    if (body.hasAdmissionsRoles === false) data.admissionsRoles = [];
+  }
+  // Optional (Oct 2026): leave empty to hide them on the public profile.
   if (body.yearsAdvising !== undefined) {
     const n = intOrNull(body.yearsAdvising, 60);
     if (n === "bad") return { error: "Years advising must be a whole number" };

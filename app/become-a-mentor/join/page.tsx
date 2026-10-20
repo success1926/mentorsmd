@@ -110,8 +110,8 @@ function OnboardCoachForm() {
     }
 
     await signIn("credentials", { email, password, recaptchaToken: (await recaptcha("login")) || "", redirect: false });
-    // First stop for a brand-new mentor: photo, search answers, calendar.
-    router.push("/account");
+    // First stop for a brand-new mentor: the profile steps (photo first).
+    router.push("/dashboard/profile");
     router.refresh();
   }
 

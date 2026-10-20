@@ -354,7 +354,7 @@ export function OrderCalls({
           ) : (
             <div className="alert alert-blue">
               Set your call hours so {studentFirst} can book from your open times.{" "}
-              <Link href="/account#call-hours" className="link">Set call hours</Link>. Until then, agree a time in messages and add it here:
+              <Link href="/dashboard/availability#call-hours" className="link">Set call hours</Link>. Until then, agree a time in messages and add it here:
             </div>
           )}
           <div className="row-wrap">

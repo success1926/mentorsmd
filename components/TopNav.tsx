@@ -7,6 +7,7 @@ import { useSession, signOut } from "next-auth/react";
 import { markLoggedOutOnPurpose } from "@/components/SessionWatcher";
 import { MENTOR_QUICK_LINKS, quickLinkHref } from "@/lib/options";
 import { onLive } from "@/lib/realtimeClient";
+import { MENTOR_NAV, previewHref } from "@/lib/mentorNav";
 
 // The brand mark: a graduation cap whose tassel is a stethoscope.
 // Same drawing as app/icon.svg (browser tab) - keep the two in step.
@@ -61,12 +62,9 @@ const RIGHT_LINKS: Record<string, NavLink[]> = {
     { label: "My packages", href: "/orders" },
     { label: "Messages", href: "/messages" },
   ],
-  SELLER: [
-    { label: "Dashboard", href: "/dashboard" },
-    { label: "Messages", href: "/messages" },
-    { label: "Rate & offers", href: "/dashboard/packages" },
-    { label: "Payouts", href: "/dashboard/payouts" },
-  ],
+  // Mentors: "View my public profile" (added below, it needs their id).
+  // Everything else is in the mentor area sidebar (lib/mentorNav.ts).
+  SELLER: [],
   ADMIN: [{ label: "Admin", href: "/admin" }],
   ADMIN_2FA: [{ label: "Finish logging in", href: "/admin/verify" }],
 };
@@ -80,16 +78,8 @@ const MENU: Record<string, NavLink[]> = {
     { label: "Messages", href: "/messages" },
     { label: "Contact us", href: "/contact" },
   ],
-  SELLER: [
-    { label: "Dashboard", href: "/dashboard" },
-    { label: "Messages", href: "/messages" },
-    { label: "My calendar", href: "/calendar" },
-    { label: "Edit profile & photo", href: "/account" },
-    { label: "Call hours & busy dates", href: "/account#call-hours" },
-    { label: "Pause or remove profile", href: "/account#availability" },
-    { label: "Payouts", href: "/dashboard/payouts" },
-    { label: "Contact us", href: "/contact" },
-  ],
+  // The mentor area's pages (the same list as its sidebar).
+  SELLER: [...MENTOR_NAV.map((n) => ({ label: n.label, href: n.href })), { label: "Contact us", href: "/contact" }],
   ADMIN: [
     { label: "Admin", href: "/admin" },
     { label: "Team", href: "/admin/team" },
@@ -217,15 +207,18 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
   // Quick links only on the pages where students are looking for a mentor.
   const showQuick = scrolled && marketing && (isHome || pathname.startsWith("/mentors") || pathname === "/senior-team");
   // Mentors with no hourly rate / offers yet see "Set your rate".
+  const userId: string | undefined = (session?.user as any)?.id;
   const right = (role ? RIGHT_LINKS[role] || [] : []).map((l) =>
     l.href === "/dashboard/packages" && navInfo.packageCount === 0 ? { label: "Set your rate", href: "/dashboard/packages#rate" } : l
   );
+  // Mentors: a simple bar (logo, View my public profile, account menu).
+  const publicProfile = role === "SELLER" && userId ? previewHref(userId) : null;
   const badge = (href: string) =>
     href === "/messages" && navInfo.unread > 0 ? (
       <span className="count-badge" aria-label={`${navInfo.unread} unread`}>{navInfo.unread > 99 ? "99+" : navInfo.unread}</span>
     ) : null;
   const menu = role ? MENU[role] || [] : [];
-  const mainLinks = (!session ? LOGGED_OUT_LINKS : role === "BUYER" ? STUDENT_LINKS : OTHER_LINKS).filter((l) => !l.reviews || showReviews);
+  const mainLinks = (!session ? LOGGED_OUT_LINKS : role === "BUYER" ? STUDENT_LINKS : role === "SELLER" ? [] : OTHER_LINKS).filter((l) => !l.reviews || showReviews);
   const mainActive = (href: string): "page" | undefined => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/")) ? "page" : undefined;
   const active = (href: string): "page" | undefined => (href === pathname || (href !== "/" && pathname.startsWith(href) && href !== "/dashboard") || (href === "/dashboard" && pathname === "/dashboard") ? "page" : undefined);
 
@@ -248,6 +241,15 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
               {badge(l.href)}
             </Link>
           ))}
+
+          {publicProfile && (
+            <Link href={publicProfile} className="nav-pill hide-tablet">
+              View my public profile
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M7 17L17 7M9 7h8v8" />
+              </svg>
+            </Link>
+          )}
 
           {status !== "loading" && !session && (
             <>
@@ -313,6 +315,7 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
           {mainLinks.map((l) => (
             <Link key={l.href} href={l.href} aria-current={mainActive(l.href)}>{l.label}</Link>
           ))}
+          {publicProfile && <Link href={publicProfile}>View my public profile</Link>}
           {right.map((l) => <Link key={"r" + l.href} href={l.href} style={{ display: "flex", alignItems: "center" }}>{l.label}{badge(l.href)}</Link>)}
           {menu
             .filter((m) => !right.some((r) => r.href === m.href))

@@ -118,10 +118,14 @@ model User {
   // ---- Mentor profile sections (redesign Oct 2026, docs/redesign-2026-10.md section 2) ----
   // A mentor is listed only once every section is filled in
   // (lib/profileCompleteness.ts). The bio is the `bio` field above.
-  // Admissions experience: [{ type: COMMITTEE | INTERVIEWER | SCREENER, place, years, former }]
+  // Admissions experience: "Have you served on a medical school admissions
+  // committee, or as an interviewer or application screener?" (null = not
+  // answered yet). Yes -> admissionsRoles lists the roles; No -> no roles.
+  hasAdmissionsRoles  Boolean?
+  // [{ type: COMMITTEE | INTERVIEWER | SCREENER, place, years, former }]
   admissionsRoles     Json?
-  yearsAdvising       Int?
-  applicantsSupported Int? // approximate number of applicants helped
+  yearsAdvising       Int? // optional
+  applicantsSupported Int? // optional: approximate number of applicants helped
   strongestStages     String[]  @default([]) // SCHOOL_LIST, PERSONAL_STATEMENT, ... (lib/options.ts STRONGEST_STAGES)
   // Clinical & research
   specialtyInterest   String?
