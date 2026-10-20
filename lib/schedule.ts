@@ -43,16 +43,18 @@ export function hasAvailability(weeklyHours: unknown) {
 
 // ---------- Busy dates ----------
 
+// Since the hourly redesign there are no due dates, so every busy date
+// blocks calls. (NO_DEADLINES is kept only so older rows still read.)
 export const BUSY_KINDS = [
-  { value: "NO_DEADLINES", label: "No deadlines" },
-  { value: "NO_DEADLINES_NO_CALLS", label: "No deadlines and no calls" },
+  { value: "NO_DEADLINES_NO_CALLS", label: "No calls" },
+  { value: "NO_DEADLINES", label: "No calls" },
 ];
 
 export type BusyRange = { startDay: string; endDay: string; kind: string };
 
-// forCalls = true: only ranges that also block calls count.
-export function isBusyDay(day: string, ranges: BusyRange[], forCalls = false) {
-  return ranges.some((r) => day >= r.startDay && day <= r.endDay && (!forCalls || r.kind === "NO_DEADLINES_NO_CALLS"));
+// Every busy date blocks calls (see BUSY_KINDS); forCalls is kept for callers.
+export function isBusyDay(day: string, ranges: BusyRange[], _forCalls = false) {
+  return ranges.some((r) => day >= r.startDay && day <= r.endDay);
 }
 
 // The first day on/after `day` that isn't a busy (no-deadline) day.
