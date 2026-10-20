@@ -550,7 +550,7 @@ const LIST: EmailDef[] = [
       "Hi {{firstName}},",
       "We've added **{{amount}}** of MentorsMD credit to your account{{forPackage}}.",
       "{{note}}",
-      "Your credit balance is now **{{balance}}**. Credit never expires and you can use it with any mentor: it's applied automatically at checkout.",
+      "Your credit balance is now **{{balance}}**. Credit never expires and you can use it with any mentor: it's applied automatically at checkout. [See your credit history]({{creditLink}}).",
       "[[Find a mentor]]({{mentorsLink}})",
     ].join("\n\n"),
     vars: [
@@ -560,6 +560,7 @@ const LIST: EmailDef[] = [
       block("note", "A note from the team (left out if there's none)", blocks.quote("Refunded as credit to settle your dispute.")),
       text("balance", "The student's credit balance now", "$120.00"),
       link("mentorsLink", "Link to Browse mentors", `${SITE}/mentors`),
+      link("creditLink", "Link to the student's MentorsMD credit page", `${SITE}/credit`),
     ],
   },
   // ----- Free intro calls (redesign Oct 2026) -----

@@ -288,6 +288,7 @@ export async function sendCreditIssuedEmail(toEmail: string, v: { name: string; 
     note: v.note ? blocks.quote(v.note) : "",
     balance: v.balance,
     mentorsLink: `${SITE_URL}/mentors`,
+    creditLink: `${SITE_URL}/credit`,
   });
 }
 

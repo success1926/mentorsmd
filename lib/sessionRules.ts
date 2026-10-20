@@ -31,6 +31,7 @@ export function sessionEndReason(token: TokenLike, now = Date.now()): "revoked" 
   return null;
 }
 
+// Students land on their Home ("What's next", student area v2, Oct 2026).
 export function homeForRole(role: unknown) {
-  return role === "SELLER" ? "/dashboard" : role === "ADMIN" ? "/admin" : "/mentors";
+  return role === "SELLER" || role === "BUYER" ? "/dashboard" : role === "ADMIN" ? "/admin" : "/mentors";
 }

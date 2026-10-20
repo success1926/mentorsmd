@@ -8,7 +8,7 @@ import { homeForRole, sessionEndReason } from "@/lib/sessionRules";
 //    back to the same page afterwards.
 //  - Login and signup send people who are already logged in to their
 //    own home page instead of offering a second account.
-const PROTECTED = ["/account", "/dashboard", "/messages", "/orders", "/admin", "/gigs", "/calls", "/calendar"];
+const PROTECTED = ["/account", "/dashboard", "/messages", "/orders", "/admin", "/gigs", "/calls", "/calendar", "/credit", "/receipts"];
 const AUTH_PAGES = ["/login", "/signup"];
 
 export async function middleware(req: NextRequest) {
@@ -46,6 +46,8 @@ export const config = {
     "/gigs/:path*",
     "/calls/:path*",
     "/calendar",
+    "/credit",
+    "/receipts/:path*",
     "/login",
     "/signup/:path*",
   ],

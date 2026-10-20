@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AuthShell, GoogleButton } from "@/components/AuthShell";
 import { Honeypot, useRecaptcha } from "@/components/FormGuards";
+import { homeForRole } from "@/lib/sessionRules";
 
 // Only allow redirects back into this site.
 function safeCallback() {
@@ -53,7 +54,7 @@ function LoginForm() {
       router.refresh();
       return;
     }
-    router.push(cb || (role === "SELLER" ? "/dashboard" : role === "ADMIN" ? "/admin" : "/mentors"));
+    router.push(cb || homeForRole(role));
     router.refresh();
   }
 

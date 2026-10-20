@@ -1,17 +1,18 @@
 "use client";
 
 // Student "My packages" (/orders), redesign Oct 2026 (docs/redesign-2026-10.md
-// section 8): on the left every package with filters Active / Waiting on
-// you / Completed (title, mentor, hours-left bar, status badge, new
-// messages); on the right the selected package's summary (48-hour banner,
-// hours left, calls held, shared files, Message · share a file / Book a
-// call / Add hours, recent activity) and "Open full package page". On a
-// phone: the list, then the package.
+// section 8), reorganized in student area v2: on the left every package
+// with tabs Active / Waiting on you / Completed (title, mentor, hours-left
+// bar, status, new messages); on the right the selected package (48-hour
+// decision, hours left split into calls / written work / booked, Book a
+// call / Add hours, next call, latest messages, shared files, hours log)
+// and "Full page" (/orders/[id]). On a phone: the list, then the package.
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { money } from "@/lib/options";
-import { AddHoursModal, BookCallModal, DecisionBanner, HoursBar, LowHoursBadge, PackageBadge, fmtDay, fmtWhen } from "@/components/Packages";
+import { AddHoursModal, BookCallModal, DecisionBanner, HoursBar, HoursLog, LowHoursBadge, PackageBadge, SharedFiles, fmtDay, fmtWhen } from "@/components/Packages";
 import { tintFor, initialsOf } from "@/components/ui";
+import { notifyPackagesChanged } from "@/components/StudentShell";
 import { finishPhase } from "@/lib/finishing";
 import { hoursSummary, shortHours } from "@/lib/hours";
 import { hoursLabel } from "@/lib/pricing";
@@ -59,6 +60,10 @@ export function MyPackages({ viewerId }: { viewerId: string }) {
       .then((d) => setPackages(d.packages || []))
       .catch(() => setPackages((p) => p ?? []));
   }
+  function changed() {
+    notifyPackagesChanged();
+    load();
+  }
   useEffect(() => {
     load();
     // MentorsMD credit balance (the ledger, lib/credit.ts).
@@ -85,11 +90,14 @@ export function MyPackages({ viewerId }: { viewerId: string }) {
   if (packages === null) return <div className="page text-muted">Loading…</div>;
 
   return (
-    <div className="page" style={{ paddingTop: 32 }}>
-      <div className="between" style={{ marginBottom: 20, flexWrap: "wrap" }}>
-        <h1 className="page-title" style={{ fontSize: 40 }}>My packages</h1>
+    <div className="page" style={{ maxWidth: 1180 }}>
+      <div className="between" style={{ marginBottom: 20, flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
+        <div className="stack-sm">
+          <h1 className="page-title">My packages</h1>
+          <p className="lede">Everything you&apos;ve bought, with hours, calls, messages and files.</p>
+        </div>
         <div className="row-wrap">
-          {credit > 0 && <span className="badge badge-brand" title="Applied automatically at checkout, with any mentor. Never expires.">MentorsMD credit: {money(credit)}</span>}
+          {credit > 0 && <Link href="/credit" className="badge badge-brand" title="Applied automatically at checkout, with any mentor. Never expires.">MentorsMD credit: {money(credit)}</Link>}
           <Link href="/mentors" className="btn btn-primary">Find a mentor</Link>
         </div>
       </div>
@@ -119,7 +127,10 @@ export function MyPackages({ viewerId }: { viewerId: string }) {
                     <b style={{ fontSize: 15 }}>{p.title}</b>
                     {p.newMessages > 0 && <span className="count-badge" aria-label={`${p.newMessages} new messages`}>{p.newMessages}</span>}
                   </div>
-                  <span className="text-muted small">{p.seller?.name}</span>
+                  <span className="text-muted small">
+                    {p.seller?.name}
+                    {p.newMessages > 0 ? ` · ${p.newMessages} new message${p.newMessages === 1 ? "" : "s"}` : ""}
+                  </span>
                   <HoursBar order={p} thin />
                   <div className="between small">
                     <span className="text-secondary">{shortHours(h.left)} left of {shortHours(h.purchased)}</span>
@@ -128,6 +139,9 @@ export function MyPackages({ viewerId }: { viewerId: string }) {
                 </button>
               );
             })}
+            <p className="text-muted small" style={{ padding: "12px 18px" }}>
+              Waiting on you: packages your mentor marked complete. Completed packages stay here with their messages and files.
+            </p>
           </div>
 
           <div className="pkg-detail">
@@ -139,7 +153,7 @@ export function MyPackages({ viewerId }: { viewerId: string }) {
                 onBack={() => setShowDetail(false)}
                 onBook={() => setBooking(true)}
                 onAdd={() => setAdding(true)}
-                onChanged={load}
+                onChanged={changed}
               />
             ) : (
               <span className="text-muted">Pick a package.</span>
@@ -150,7 +164,7 @@ export function MyPackages({ viewerId }: { viewerId: string }) {
 
       {current && (
         <>
-          <BookCallModal open={booking} onClose={() => setBooking(false)} mentorId={current.sellerId} mentorName={current.seller?.name} mentorPhotoUrl={current.seller?.photoUrl} orderId={current.id} minutesLeft={hoursSummary(current).left} onBooked={load} />
+          <BookCallModal open={booking} onClose={() => setBooking(false)} mentorId={current.sellerId} mentorName={current.seller?.name} mentorPhotoUrl={current.seller?.photoUrl} orderId={current.id} minutesLeft={hoursSummary(current).left} onBooked={changed} />
           <AddHoursModal open={adding} onClose={() => setAdding(false)} order={current} />
         </>
       )}
@@ -158,55 +172,119 @@ export function MyPackages({ viewerId }: { viewerId: string }) {
   );
 }
 
+const KIND_LABEL: Record<string, string> = { HOURLY: "Hourly", BUNDLE: "Hour bundle", SPECIALIZED: "Package", PAY_PER_CALL: "Pay-per-call" };
+
 function PackageSummary({ p, viewerId, onBack, onBook, onAdd, onChanged }: { p: any; viewerId: string; onBack: () => void; onBook: () => void; onAdd: () => void; onChanged: () => void }) {
   const h = hoursSummary(p);
   const phase = finishPhase(p);
   const next = h.upcoming[0];
   const mentor = p.seller;
+  // Shared files and the hours log (with who logged each entry) come from
+  // the package itself, loaded when it's opened here.
+  const [full, setFull] = useState<any>(null);
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/orders/${p.id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => alive && d?.order && setFull(d.order))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [p.id, p.hourEntries?.length, p.filesCount]);
+  const theirs = p.latestTheirs;
+  const mine = p.latestMessage && p.latestMessage.senderId === viewerId ? p.latestMessage : null;
+  const preview = [theirs, mine].filter(Boolean).sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const entries = full?.hourEntries || p.hourEntries || [];
+
   return (
     <>
       <button className="btn btn-ghost btn-sm pkg-back" style={{ alignSelf: "flex-start" }} onClick={onBack}>← All packages</button>
-      <div className="row" style={{ gap: 14 }}>
+      <div className="row" style={{ gap: 14, alignItems: "flex-start" }}>
         {mentor?.photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={mentor.photoUrl} alt="" className="avatar" style={{ objectFit: "cover" }} />
         ) : (
           <span className="avatar" style={{ background: tintFor(mentor?.id || "") }}>{initialsOf(mentor?.name || "")}</span>
         )}
-        <div className="stack-sm grow" style={{ gap: 2 }}>
+        <div className="stack-sm grow" style={{ gap: 2, minWidth: 0 }}>
+          <span className="text-muted small">{KIND_LABEL[p.kind] || "Package"} · with {mentor?.name}</span>
           <h2 style={{ fontSize: 26 }}>{p.title}</h2>
-          <span className="text-secondary">with {mentor?.name}</span>
         </div>
-        <PackageBadge order={p} />
+        <span className="row" style={{ gap: 8 }}>
+          <PackageBadge order={p} />
+          <Link href={`/orders/${p.id}`} className="btn btn-sm">Full page</Link>
+        </span>
       </div>
 
       <DecisionBanner order={p} isBuyer onChanged={onChanged} />
 
-      <div className="stat-cards" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
-        <div className="stat-card"><span className="text-secondary">Hours left</span><span className="stat-num">{shortHours(h.left)}</span></div>
-        <div className="stat-card" style={{ background: "var(--blue)" }}><span className="text-secondary">Calls held</span><span className="stat-num">{h.callsHeld}</span></div>
-        <div className="stat-card" style={{ background: "var(--pink-soft)" }}><span className="text-secondary">Shared files</span><span className="stat-num">{p.filesCount}</span></div>
-      </div>
-      <HoursBar order={p} />
-      {next && <span className="small">Next call: <b>{fmtWhen(next.startTime)}</b> · <Link className="link" href={`/calls/${next.id}`}>Call page</Link></span>}
+      <section className="mentor-box" style={{ gap: 10 }}>
+        <div className="between" style={{ alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
+          <span>
+            <span className="stat-num">{shortHours(h.left)}</span> <b>left</b>
+            <span className="text-secondary"> of {shortHours(h.purchased)}{p.rateCents ? ` · ${money(p.rateCents)}/hr` : ""}</span>
+          </span>
+          <LowHoursBadge order={p} />
+        </div>
+        <HoursBar order={p} />
+        <span className="text-secondary small">
+          Calls {shortHours(h.usedCalls)} · Written {shortHours(h.usedWritten)} · Booked {shortHours(h.reserved)} · {h.callsHeld} call{h.callsHeld === 1 ? "" : "s"} held
+        </span>
+        {(phase === "WORKING" || phase === "AWAITING_STUDENT") && (
+          <div className="row-wrap" style={{ alignItems: "center" }}>
+            {phase === "WORKING" && <button className="btn btn-sm btn-primary" disabled={h.left < 30} onClick={onBook}>Book a call</button>}
+            <button className="btn btn-sm" onClick={onAdd}>Add hours</button>
+            {phase === "WORKING" && <span className="text-muted small">Calls use your hours. No payment needed.</span>}
+          </div>
+        )}
+        {next && (
+          <span className="small" style={{ borderTop: "1px solid var(--line)", paddingTop: 10 }}>
+            Next call: <b>{fmtWhen(next.startTime)}</b> · {Math.round((new Date(next.endTime).getTime() - new Date(next.startTime).getTime()) / 60_000)} min ·{" "}
+            <Link className="link" href={`/calls/${next.id}`}>Call page</Link>
+          </span>
+        )}
+      </section>
 
-      <div className="row-wrap">
-        <Link href={`/orders/${p.id}#messages`} className="btn btn-sm">Message · share a file{p.newMessages ? ` (${p.newMessages} new)` : ""}</Link>
-        {phase === "WORKING" && <button className="btn btn-sm btn-primary" disabled={h.left < 30} onClick={onBook}>Book a call</button>}
-        {(phase === "WORKING" || phase === "AWAITING_STUDENT") && <button className="btn btn-sm" onClick={onAdd}>Add hours</button>}
-      </div>
+      <section className="mentor-box" style={{ gap: 8 }}>
+        <div className="mentor-box-head">
+          <h2>Messages {p.newMessages > 0 && <span className="badge badge-brand" style={{ marginLeft: 6 }}>{p.newMessages} new</span>}</h2>
+          <Link href={`/orders/${p.id}#messages`} className="link small">Open conversation</Link>
+        </div>
+        {preview.length === 0 ? (
+          <span className="text-muted small">No messages on this package yet. Messages and files you send on the package page stay with it.</span>
+        ) : (
+          preview.map((m: any) => (
+            <div key={m.id} className="small ph-no-capture" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <b>{m.senderId === viewerId ? "You" : (mentor?.name || "").split(" ")[0]}:</b>{" "}
+              <span className="text-secondary">{m.body || m.attachmentName || "Sent a file"}</span>
+              <span className="text-muted"> · {fmtDay(m.createdAt)}</span>
+            </div>
+          ))
+        )}
+      </section>
+
+      <section className="mentor-box" style={{ gap: 8 }}>
+        <div className="mentor-box-head"><h2>Shared files</h2></div>
+        {full ? <SharedFiles files={full.files || []} viewerId={viewerId} /> : <span className="text-muted small">{p.filesCount ? "Loading…" : "No files shared yet."}</span>}
+      </section>
+
+      <details className="collapse">
+        <summary>Hours log ({entries.length} {entries.length === 1 ? "entry" : "entries"})</summary>
+        <div className="collapse-body">
+          <HoursLog entries={entries} />
+        </div>
+      </details>
 
       <div className="stack-sm">
-        <b>Recent activity</b>
-        {recentActivity(p, viewerId).map((a, i) => (
+        <b className="small">Recent activity</b>
+        {recentActivity(p, viewerId, 4).map((a, i) => (
           <div key={i} className="between small link-row" style={{ gap: 12 }}>
             <span className="text-secondary" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.text}</span>
             <span className="text-muted nowrap">{fmtDay(a.at)}</span>
           </div>
         ))}
       </div>
-
-      <Link href={`/orders/${p.id}`} className="btn btn-deep" style={{ alignSelf: "flex-start" }}>Open full package page</Link>
     </>
   );
 }

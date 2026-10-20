@@ -754,6 +754,7 @@ a.footer-social:hover .bg { fill: var(--tint-2); }
 .mentor-link-quiet { color: var(--muted); font-size: 14px; }
 .mentor-nav-count { min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--tint-2); color: var(--primary-deep); font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
 .mentor-nav-pill { padding: 2px 8px; border-radius: 999px; background: var(--warning-bg); color: var(--warning-fg); font-size: 12px; font-weight: 700; white-space: nowrap; }
+.mentor-nav-pill.ok { background: var(--success-bg); color: var(--success-fg); }
 .mentor-status-card { margin-top: 18px; border: 1px solid var(--line); border-radius: 14px; background: #fff; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
 .mentor-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success-fg); flex-shrink: 0; }
 .mentor-status-dot.warn { background: var(--warning-fg); }
@@ -766,6 +767,9 @@ a.footer-social:hover .bg { fill: var(--tint-2); }
 /* Mentor home, students list, profile steps */
 .mentor-home-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 20px; align-items: start; }
 .mentor-box { border: 1px solid var(--line); border-radius: 18px; padding: 18px 20px; background: #fff; display: flex; flex-direction: column; }
+.student-cal-grid { grid-template-columns: minmax(0, 1.8fr) minmax(260px, 1fr); }
+.whats-next { border: 1px solid var(--tint-2); background: var(--tint-soft); border-radius: 18px; padding: 16px 20px 6px; display: flex; flex-direction: column; }
+.whats-next .mentor-row { border-top-color: var(--tint-2); }
 .mentor-box-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 6px; }
 .mentor-box-head h2 { font-family: var(--font-body); font-size: 18px; font-weight: 600; letter-spacing: 0; }
 .mentor-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
@@ -809,3 +813,10 @@ a.footer-social:hover .bg { fill: var(--tint-2); }
 }
 .nav-pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink); font-size: 15px; font-weight: 600; white-space: nowrap; }
 .nav-pill:hover { border-color: var(--tint-2); background: var(--tint-soft); opacity: 1; }
+
+/* Receipts (student area v2): print just the receipt. */
+@media print {
+  .nav, .mentor-side, footer, .no-print { display: none !important; }
+  .mentor-shell { display: block; }
+  .receipt-page .card { border: none; box-shadow: none; padding: 0; }
+}

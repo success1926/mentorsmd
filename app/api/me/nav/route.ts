@@ -5,16 +5,18 @@ import { prisma } from "@/lib/prisma";
 import { unreadFor } from "@/lib/unread";
 import { isMentorListed, isMentorVisible } from "@/lib/mentor";
 import { profileFieldsSelect, profileProgress } from "@/lib/profileCompleteness";
+import { creditBalance } from "@/lib/credit";
 
 export const dynamic = "force-dynamic";
 
 // Small status the top bar and the mentor sidebar poll: unread messages,
 // and for mentors how many offers they have (to show "Set your rate" vs
 // "Rate & offers"), active packages, profile progress and whether they're
-// live on Browse.
+// live on Browse. For students (student area v2): active packages, how many
+// wait on their answer, upcoming calls and their MentorsMD credit.
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ unread: 0, unreadConversations: 0, packageCount: null, mentor: null });
+  if (!session?.user) return NextResponse.json({ unread: 0, unreadConversations: 0, packageCount: null, mentor: null, student: null });
   const userId = (session.user as any).id;
   const role = (session.user as any).role;
   const isMentor = role === "SELLER";
@@ -48,5 +50,26 @@ export async function GET() {
       safetyHold: !!me.safetyHoldAt,
     };
   }
-  return NextResponse.json({ unread: unread.messages, unreadConversations: unread.conversations, packageCount, mentor });
+  const student = role === "BUYER" ? await studentStatus(userId, session.user.name || "") : null;
+  return NextResponse.json({ unread: unread.messages, unreadConversations: unread.conversations, packageCount, mentor, student });
+}
+
+async function studentStatus(userId: string, name: string) {
+  const now = new Date();
+  const [me, activePackages, waiting, upcomingCalls, creditCents] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, select: { name: true, photoUrl: true } }),
+    // Active hours packages: paid, not yet approved (working, waiting on the student, or disputed).
+    prisma.order.count({ where: { buyerId: userId, kind: { not: null }, status: "IN_ESCROW", approvedAt: null } }),
+    // Marked complete, the 48 hours still running.
+    prisma.order.count({ where: { buyerId: userId, kind: { not: null }, status: "IN_ESCROW", approvedAt: null, disputed: false, markedCompleteAt: { not: null }, responseDeadline: { gt: now } } }),
+    prisma.callBooking.count({
+      where: {
+        status: "BOOKED",
+        endTime: { gt: now },
+        OR: [{ order: { buyerId: userId, status: { in: ["IN_ESCROW", "COMPLETED", "RELEASED"] } } }, { kind: "INTRO", studentId: userId }],
+      },
+    }),
+    creditBalance(userId),
+  ]);
+  return { name: me?.name || name, photoUrl: me?.photoUrl || null, activePackages, waiting, upcomingCalls, creditCents };
 }

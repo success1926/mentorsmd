@@ -8,6 +8,7 @@ import { markLoggedOutOnPurpose } from "@/components/SessionWatcher";
 import { MENTOR_QUICK_LINKS, quickLinkHref } from "@/lib/options";
 import { onLive } from "@/lib/realtimeClient";
 import { MENTOR_NAV, previewHref } from "@/lib/mentorNav";
+import { STUDENT_NAV } from "@/lib/studentNav";
 
 // The brand mark: a graduation cap whose tassel is a stethoscope.
 // Same drawing as app/icon.svg (browser tab) - keep the two in step.
@@ -70,14 +71,8 @@ const RIGHT_LINKS: Record<string, NavLink[]> = {
 };
 
 const MENU: Record<string, NavLink[]> = {
-  BUYER: [
-    { label: "Dashboard", href: "/dashboard" },
-    { label: "Account settings", href: "/account" },
-    { label: "My calendar", href: "/calendar" },
-    { label: "My packages", href: "/orders" },
-    { label: "Messages", href: "/messages" },
-    { label: "Contact us", href: "/contact" },
-  ],
+  // The student area's pages (the same list as its sidebar, lib/studentNav.ts).
+  BUYER: [...STUDENT_NAV.map((n) => ({ label: n.label, href: n.href })), { label: "Contact us", href: "/contact" }],
   // The mentor area's pages (the same list as its sidebar).
   SELLER: [...MENTOR_NAV.map((n) => ({ label: n.label, href: n.href })), { label: "Contact us", href: "/contact" }],
   ADMIN: [
