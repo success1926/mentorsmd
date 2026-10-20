@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { publicCache, toDate } from "@/lib/publicCache";
 import { searchableGigWhere, visibleMentorWhere } from "@/lib/mentor";
 import { completeProfileWhere } from "@/lib/profileCompleteness";
 import { BEST_FOR, FORMATS, PRICE_BANDS, SCHOOL_TYPES, SERVICES, SERVICE_TO_STAGE, STAGES, isValue } from "@/lib/options";
@@ -87,7 +88,16 @@ const gigSelect = {
 // filters. Offer filters (format, price) need at least one matching offer;
 // a service matches a specialized package of that service OR one of the
 // mentor's strongest stages, so hourly-only mentors can be found too.
+// Shared by all visitors for up to a minute (lib/publicCache.ts), one cached
+// result per set of filters.
+const cachedSearch = publicCache("browse-mentors-v1", (f: BrowseFilters) => searchMentorsFresh(f));
+
 export async function searchMentors(f: BrowseFilters): Promise<MentorCardData[]> {
+  const cards = await cachedSearch(f);
+  return cards.map((c) => ({ ...c, createdAt: toDate(c.createdAt) }));
+}
+
+async function searchMentorsFresh(f: BrowseFilters): Promise<MentorCardData[]> {
   const now = new Date();
 
   const gigWhere: Prisma.GigWhereInput = {
@@ -219,10 +229,10 @@ export async function getFeaturedMentors(take = 4) {
   return all.slice(0, take);
 }
 
-export async function getReviewStats() {
+export const getReviewStats = publicCache("review-stats-v1", async () => {
   const agg = await prisma.review.aggregate({ _avg: { rating: true }, _count: { _all: true } });
   return { avg: agg._avg.rating, count: agg._count._all };
-}
+});
 
 // Reviews good enough for the review wall (homepage and /reviews).
 const WALL_REVIEW_WHERE: Prisma.ReviewWhereInput = { rating: { gte: 4 }, comment: { not: null } };

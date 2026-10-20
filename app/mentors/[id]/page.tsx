@@ -4,18 +4,19 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { isMentorListed, isMentorVisible } from "@/lib/mentor";
 import { offersFor } from "@/lib/offers";
+import { publicCache, toDate } from "@/lib/publicCache";
 import { offerPrice, offerMinutes, offerRate } from "@/lib/pricing";
 import { languagesOf, rolesOf } from "@/lib/profileCompleteness";
 import { ProfileClient, type PublicOffer } from "./ProfileClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function MentorProfilePage({ params }: { params: { id: string } }) {
-  // Everything returned here is sent to the browser (ProfileClient is a
-  // client component). Public fields only - never email, passwordHash,
-  // stripeAccountId, calendar addresses or lockout counters.
+// Everything returned here is sent to the browser (ProfileClient is a
+// client component). Public fields only - never email, passwordHash,
+// stripeAccountId, calendar addresses or lockout counters.
+async function loadProfile(id: string, onlyBookable: boolean) {
   const seller = await prisma.user.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: {
       id: true,
       name: true,
@@ -49,25 +50,11 @@ export default async function MentorProfilePage({ params }: { params: { id: stri
       hourlyRateCents: true,
     },
   });
-
-  const session = await getServerSession(authOptions);
-  const viewerRole = (session?.user as any)?.role;
-  const viewerId = (session?.user as any)?.id;
-
-  if (!seller || seller.role !== "SELLER") notFound();
-  // Removed profiles are gone for everyone except admins and the mentor themselves.
-  if (seller.profileStatus === "REMOVED" && viewerRole !== "ADMIN" && viewerId !== seller.id) notFound();
-
-  // Preview (mentor area v2): the mentor looking at their own profile sees
-  // it exactly as students do, even while it's hidden, plus offers students
-  // can't see yet (the Hourly offer switched off, or no rate set), marked
-  // "Not visible to students".
-  const preview = viewerId === seller.id;
-
+  if (!seller) return null;
   const [offers, reviews] = await Promise.all([
-    offersFor(seller.id, { onlyBookable: !preview }),
+    offersFor(id, { onlyBookable }),
     prisma.review.findMany({
-      where: { sellerId: params.id },
+      where: { sellerId: id },
       orderBy: { createdAt: "desc" },
       take: 50,
       select: {
@@ -77,6 +64,36 @@ export default async function MentorProfilePage({ params }: { params: { id: stri
       },
     }),
   ]);
+  return { seller, offers, reviews };
+}
+
+// What students and visitors see, shared for up to a minute (lib/publicCache.ts).
+const cachedPublicProfile = publicCache("mentor-profile-v1", (id: string) => loadProfile(id, true));
+
+export default async function MentorProfilePage({ params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  const viewerRole = (session?.user as any)?.role;
+  const viewerId = (session?.user as any)?.id;
+
+  // Preview (mentor area v2): the mentor looking at their own profile sees
+  // it exactly as students do, even while it's hidden, plus offers students
+  // can't see yet (the Hourly offer switched off, or no rate set), marked
+  // "Not visible to students". They (and admins) always get it fresh.
+  const preview = viewerId === params.id;
+  const data = preview || viewerRole === "ADMIN" ? await loadProfile(params.id, !preview) : await cachedPublicProfile(params.id);
+
+  if (!data || data.seller.role !== "SELLER") notFound();
+  const { offers } = data;
+  // The cache stores JSON, so its dates come back as text.
+  const seller = {
+    ...data.seller,
+    pausedUntil: data.seller.pausedUntil && toDate(data.seller.pausedUntil),
+    safetyHoldAt: data.seller.safetyHoldAt && toDate(data.seller.safetyHoldAt),
+    profileCompleteAt: data.seller.profileCompleteAt && toDate(data.seller.profileCompleteAt),
+  };
+  const reviews = data.reviews.map((r) => ({ ...r, createdAt: toDate(r.createdAt) }));
+  // Removed profiles are gone for everyone except admins and the mentor themselves.
+  if (seller.profileStatus === "REMOVED" && viewerRole !== "ADMIN" && !preview) notFound();
 
   // A student under 18 looking at a mentor who works with 18+ only.
   const viewerIsMinor =
