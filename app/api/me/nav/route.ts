@@ -10,27 +10,25 @@ import { creditBalance } from "@/lib/credit";
 export const dynamic = "force-dynamic";
 
 // Small status the top bar and the mentor sidebar poll: unread messages,
-// and for mentors how many offers they have (to show "Set your rate" vs
-// "Rate & offers"), active packages, profile progress and whether they're
-// live on Browse. For students (student area v2): active packages, how many
-// wait on their answer, upcoming calls and their MentorsMD credit.
+// and for mentors active packages, profile progress, whether they're live
+// on Browse and whether payouts are set up. For students (student area
+// v2): active packages, how many wait on their answer, upcoming calls and
+// their MentorsMD credit.
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ unread: 0, unreadConversations: 0, packageCount: null, mentor: null, student: null });
+  if (!session?.user) return NextResponse.json({ unread: 0, unreadConversations: 0, mentor: null, student: null });
   const userId = (session.user as any).id;
   const role = (session.user as any).role;
   const isMentor = role === "SELLER";
 
-  const [unread, packageCount, activePackages, me] = await Promise.all([
+  const [unread, activePackages, me] = await Promise.all([
     unreadFor(userId, role),
-    // Offers since the redesign (the Hourly offer exists once a rate is set).
-    isMentor ? prisma.gig.count({ where: { sellerId: userId, active: true, kind: { not: null } } }) : Promise.resolve(null),
     // Active hours packages: paid, not yet approved (working, waiting on the student, or disputed).
     isMentor ? prisma.order.count({ where: { sellerId: userId, kind: { not: null }, status: "IN_ESCROW", approvedAt: null } }) : Promise.resolve(0),
     isMentor
       ? prisma.user.findUnique({
           where: { id: userId },
-          select: { ...profileFieldsSelect, id: true, name: true, profileStatus: true, pausedUntil: true, safetyHoldAt: true, profileCompleteAt: true },
+          select: { ...profileFieldsSelect, id: true, name: true, profileStatus: true, pausedUntil: true, safetyHoldAt: true, profileCompleteAt: true, stripeAccountId: true },
         })
       : Promise.resolve(null),
   ]);
@@ -48,10 +46,12 @@ export async function GET() {
       paused: me.profileStatus === "PAUSED" && !isMentorVisible(me),
       removed: me.profileStatus === "REMOVED",
       safetyHold: !!me.safetyHoldAt,
+      // Started payout setup (the Payouts page checks with Stripe whether it's finished).
+      payoutsStarted: !!me.stripeAccountId,
     };
   }
   const student = role === "BUYER" ? await studentStatus(userId, session.user.name || "") : null;
-  return NextResponse.json({ unread: unread.messages, unreadConversations: unread.conversations, packageCount, mentor, student });
+  return NextResponse.json({ unread: unread.messages, unreadConversations: unread.conversations, mentor, student });
 }
 
 async function studentStatus(userId: string, name: string) {

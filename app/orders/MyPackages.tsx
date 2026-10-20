@@ -15,7 +15,7 @@ import { tintFor, initialsOf } from "@/components/ui";
 import { notifyPackagesChanged } from "@/components/StudentShell";
 import { finishPhase } from "@/lib/finishing";
 import { hoursSummary, shortHours } from "@/lib/hours";
-import { hoursLabel } from "@/lib/pricing";
+import { KIND_LABEL, hoursLabel } from "@/lib/pricing";
 
 type Filter = "active" | "waiting" | "done";
 
@@ -172,7 +172,6 @@ export function MyPackages({ viewerId }: { viewerId: string }) {
   );
 }
 
-const KIND_LABEL: Record<string, string> = { HOURLY: "Hourly", BUNDLE: "Hour bundle", SPECIALIZED: "Package", PAY_PER_CALL: "Pay-per-call" };
 
 function PackageSummary({ p, viewerId, onBack, onBook, onAdd, onChanged }: { p: any; viewerId: string; onBack: () => void; onBook: () => void; onAdd: () => void; onChanged: () => void }) {
   const h = hoursSummary(p);

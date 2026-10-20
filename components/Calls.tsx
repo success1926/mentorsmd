@@ -188,7 +188,14 @@ export function CallRow({
             confirmLabel="Move here"
             onConfirm={move}
             onCancel={() => setMoving(false)}
-            emptyHint="Message them to agree a time, and they can add it here."
+            noHoursTitle={isSeller ? "You haven't set your call hours yet" : undefined}
+            emptyHint={
+              isSeller ? (
+                <>Add them in <Link href="/dashboard/availability#call-hours" className="link">Availability</Link>, or enter a time you agreed below.</>
+              ) : (
+                "Message them to agree a time, and they can add it here."
+              )
+            }
           />
           {isSeller && (
             <div className="stack-sm">

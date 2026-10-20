@@ -46,6 +46,7 @@ export function Booker({
   onCancel,
   onMessage,
   emptyHint,
+  noHoursTitle,
   framed = false,
 }: {
   slotsUrl: string | null; // null: don't load times (e.g. booking isn't possible yet)
@@ -61,6 +62,7 @@ export function Booker({
   onCancel?: () => void;
   onMessage?: () => void; // "Message [mentor]" when there are no times
   emptyHint?: React.ReactNode;
+  noHoursTitle?: string; // instead of "[Name] hasn't set their call hours yet" (e.g. for the mentor)
   framed?: boolean; // a border around it, for use outside a pop-up
 }) {
   const [data, setData] = useState<SlotData | null>(null);
@@ -85,18 +87,26 @@ export function Booker({
     return list.includes(tz) ? list : [tz, ...list];
   }, [tz]);
 
+  // The address of the latest load: an older answer (e.g. for the other
+  // call length) that arrives late is ignored.
+  const latestUrl = useRef<string | null>(null);
   function load() {
     if (!slotsUrl) return;
+    const url = slotsUrl;
+    latestUrl.current = url;
     setData(null);
     setLoadError("");
     setPicked("");
-    fetch(slotsUrl)
+    fetch(url)
       .then(async (r) => {
         const d = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(d.error || "Couldn't load times");
+        if (latestUrl.current !== url) return;
         setData({ slots: d.slots || [], lengthMinutes: d.lengthMinutes || durationMinutes || 30, hasAvailability: !!d.hasAvailability });
       })
-      .catch((e) => setLoadError(e.message || "Couldn't load times"));
+      .catch((e) => {
+        if (latestUrl.current === url) setLoadError(e.message || "Couldn't load times");
+      });
   }
   useEffect(load, [slotsUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -177,8 +187,10 @@ export function Booker({
     setSaving(true);
     setError("");
     const err = await onConfirm(picked);
-    setSaving(false);
+    // On success the page moves on (or opens Stripe): Confirm stays off so
+    // it can't be pressed twice meanwhile.
     if (err) {
+      setSaving(false);
       setPicked("");
       setError(err);
       load();
@@ -246,14 +258,16 @@ export function Booker({
   } else if (loadError) {
     body = (
       <div className="booker-msg">
+        {error && <div role="alert" className="alert alert-danger">{error}</div>}
         <div className="alert alert-danger">{loadError} <button className="link-btn link" onClick={load}>Try again</button></div>
       </div>
     );
   } else if (empty) {
     body = (
       <div className="booker-msg">
+        {error && <div role="alert" className="alert alert-danger">{error}</div>}
         <div className="alert alert-blue stack-sm">
-          <b>{data!.hasAvailability ? `No times available in the next ${HORIZON_WEEKS} weeks` : `${first} hasn't set their call hours yet`}</b>
+          <b>{data!.hasAvailability ? `No times available in the next ${HORIZON_WEEKS} weeks` : noHoursTitle || `${first} hasn't set their call hours yet`}</b>
           {emptyHint && <span>{emptyHint}</span>}
           <div className="row-wrap">
             {onMessage && <button className="btn btn-sm btn-primary" onClick={onMessage}>Message {first}</button>}

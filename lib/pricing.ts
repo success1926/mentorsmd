@@ -6,6 +6,9 @@ import { RATE_MAX_CENTS, RATE_MIN_CENTS, money } from "@/lib/options";
 export type OfferKind = "HOURLY" | "BUNDLE" | "SPECIALIZED";
 export const OFFER_KINDS: OfferKind[] = ["HOURLY", "BUNDLE", "SPECIALIZED"];
 
+// How each kind of order is named everywhere (package pages, receipts, admin).
+export const KIND_LABEL: Record<string, string> = { HOURLY: "Hourly", BUNDLE: "Hour bundle", SPECIALIZED: "Specialized package", PAY_PER_CALL: "Pay-per-call" };
+
 // Whole dollars, $50 to $2,000 an hour.
 export function isValidRate(cents: unknown): cents is number {
   return typeof cents === "number" && Number.isInteger(cents) && cents % 100 === 0 && cents >= RATE_MIN_CENTS && cents <= RATE_MAX_CENTS;

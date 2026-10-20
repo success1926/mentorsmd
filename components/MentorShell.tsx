@@ -25,6 +25,7 @@ export type MentorStatus = {
   paused: boolean;
   removed: boolean;
   safetyHold: boolean;
+  payoutsStarted: boolean;
 };
 
 // Call after saving anything that changes the profile checklist.
@@ -134,7 +135,11 @@ export function BrowseStatusCard({ mentor }: { mentor: MentorStatus }) {
         ? ["warn", "Hidden from Browse", "Finish your profile to go live."]
         : mentor.paused
           ? ["warn", "Paused", "Hidden from Browse until you're back."]
-          : ["ok", "Live on Browse", "Students can find and book you."];
+          : !mentor.listed
+            ? ["warn", "Hidden from Browse", "Save any step of My profile to go live."]
+            : !mentor.payoutsStarted
+              ? ["warn", "Live on Browse", "Students can find you. Set up payouts so they can buy."]
+              : ["ok", "Live on Browse", "Students can find and book you."];
   return (
     <div className="mentor-status-card">
       <span className="row" style={{ gap: 8 }}>

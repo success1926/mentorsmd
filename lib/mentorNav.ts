@@ -47,6 +47,7 @@ const ACCOUNT_ANCHORS: Record<string, string> = {
   languages: "/dashboard/profile#languages",
   "fun-fact": "/dashboard/profile#fun-fact",
   "call-hours": "/dashboard/availability#call-hours",
+  "time-zone": "/dashboard/availability#call-hours",
   "busy-dates": "/dashboard/availability#busy-dates",
   calendar: "/dashboard/availability#calendar",
   availability: "/dashboard/settings#pause",
