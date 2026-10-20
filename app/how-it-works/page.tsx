@@ -5,6 +5,7 @@ import { FaqSection } from "@/components/FaqSection";
 import { Icon, ICONS } from "@/components/ui";
 import { paragraphs } from "@/lib/siteContent";
 import { getSiteContent } from "@/lib/siteContentStore";
+import { PageSections } from "@/components/website/PageSections";
 
 export const metadata: Metadata = {
   title: "How it works · MentorsMD",
@@ -20,8 +21,10 @@ const PROTECT_ICONS = [ICONS.lock, ICONS.cycle, ICONS.video, ICONS.shield, ICONS
 
 export default async function HowItWorksPage() {
   const [c, home] = await Promise.all([getSiteContent("howItWorks"), getSiteContent("home")]);
-  return (
-    <div>
+  // Each section by its id in lib/pageLayout.ts, shown in the order set in
+  // Admin -> Website -> How it works -> Layout.
+  const sections: Record<string, React.ReactNode> = {
+    intro: (
       <section className="wrap" style={{ paddingTop: 64, paddingBottom: 80 }}>
         <div className="center-head" style={{ gap: 20 }}>
           <h1 className="big-title">{c.title}</h1>
@@ -30,9 +33,9 @@ export default async function HowItWorksPage() {
           ))}
         </div>
       </section>
+    ),
 
-      {/* ---------------- Steps ---------------- */}
-      {c.steps.length > 0 && (
+    steps: c.steps.length > 0 && (
         <section className="wrap" style={{ paddingBottom: 120 }}>
           {c.stepsTitle && <h2 style={{ fontSize: "clamp(30px, 3.6vw, 48px)", marginBottom: 36 }}>{c.stepsTitle}</h2>}
           <ol className="grid-4" style={{ listStyle: "none", margin: 0, padding: 0 }}>
@@ -48,12 +51,12 @@ export default async function HowItWorksPage() {
             <Link href="/mentors" className="btn btn-primary btn-lg">Browse mentors</Link>
           </div>
         </section>
-      )}
+    ),
 
-      {/* ---------------- Vetting (same panel as the homepage) ---------------- */}
-      <VettingSection c={home} id="vetting" />
+    // Same panel as the homepage (edited there).
+    vetting: <VettingSection c={home} id="vetting" />,
 
-      {/* ---------------- Payment protection & safety ---------------- */}
+    protection: (
       <section id="protection" className="wrap" style={{ paddingBottom: 120, scrollMarginTop: 150 }}>
         <div className="stack" style={{ gap: 14, marginBottom: 36 }}>
           <h2 style={{ fontSize: "clamp(30px, 3.6vw, 48px)" }}>{c.protectTitle}</h2>
@@ -72,11 +75,12 @@ export default async function HowItWorksPage() {
           Read our <Link href="/safety" className="link">Safety tips</Link> and <Link href="/community-guidelines" className="link">Community Guidelines</Link>.
         </p>
       </section>
+    ),
 
-      {/* ---------------- Questions (same as the homepage) ---------------- */}
-      <FaqSection title={home.faqTitle} faq={home.faq} />
+    // Same questions as the homepage (edited there).
+    faq: <FaqSection title={home.faqTitle} faq={home.faq} />,
 
-      {/* ---------------- Closing call to action ---------------- */}
+    cta: (
       <section className="home-section">
         <div className="wrap center-head" style={{ gap: 24 }}>
           <h2 className="big-title">{c.ctaTitle}</h2>
@@ -87,6 +91,12 @@ export default async function HowItWorksPage() {
           </div>
         </div>
       </section>
+    ),
+  };
+
+  return (
+    <div>
+      <PageSections page="howItWorks" layout={c.layout} sections={sections} />
     </div>
   );
 }

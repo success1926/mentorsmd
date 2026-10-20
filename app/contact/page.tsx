@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Icon, ICONS } from "@/components/ui";
 import { getSiteContent } from "@/lib/siteContentStore";
 import { ContactForm } from "@/components/ContactForm";
+import { PageSections } from "@/components/website/PageSections";
 
 export const metadata = { title: "Contact us · MentorsMD" };
 
@@ -15,23 +16,28 @@ export default async function ContactPage({ searchParams }: { searchParams: { to
   const PHONE = c.phone;
   const mentor = searchParams?.topic === "mentor";
   const subject = mentor ? "Mentor application" : "Question for MentorsMD";
-  return (
-    <div className="page-narrow stack-lg">
-      <div className="stack-sm">
-        <h1 className="page-title">{mentor ? c.mentorTitle : c.title}</h1>
-        {(mentor ? c.mentorIntro : c.intro) && <p className="lede">{mentor ? c.mentorIntro : c.intro}</p>}
-      </div>
-      {mentor && (
-        <Link href="/become-a-mentor#apply" className="card card-tint row" style={{ gap: 16 }}>
-          <span className="icon-dot" style={{ background: "#fff" }}><Icon d={ICONS.doc} /></span>
-          <span className="stack-sm grow" style={{ gap: 2 }}>
-            <b>Apply to mentor</b>
-            <span className="text-secondary">Fill in the application form (takes about 5 minutes)</span>
-          </span>
-          <Icon d={ICONS.arrow} />
-        </Link>
-      )}
-      {mentor && <p className="text-secondary">Questions before you apply? Get in touch:</p>}
+  // Sections by id (lib/pageLayout.ts), in the order set in Admin -> Website -> Layout.
+  const sections: Record<string, React.ReactNode> = {
+    intro: (
+      <>
+        <div className="stack-sm">
+          <h1 className="page-title">{mentor ? c.mentorTitle : c.title}</h1>
+          {(mentor ? c.mentorIntro : c.intro) && <p className="lede">{mentor ? c.mentorIntro : c.intro}</p>}
+        </div>
+        {mentor && (
+          <Link href="/become-a-mentor#apply" className="card card-tint row" style={{ gap: 16 }}>
+            <span className="icon-dot" style={{ background: "#fff" }}><Icon d={ICONS.doc} /></span>
+            <span className="stack-sm grow" style={{ gap: 2 }}>
+              <b>Apply to mentor</b>
+              <span className="text-secondary">Fill in the application form (takes about 5 minutes)</span>
+            </span>
+            <Icon d={ICONS.arrow} />
+          </Link>
+        )}
+        {mentor && <p className="text-secondary">Questions before you apply? Get in touch:</p>}
+      </>
+    ),
+    details: (
       <div className="stack">
         <a href={`mailto:${EMAIL}?subject=${encodeURIComponent(subject)}`} className="card row" style={{ gap: 16 }}>
           <span className="icon-dot"><Icon d={ICONS.chat} /></span>
@@ -50,21 +56,26 @@ export default async function ContactPage({ searchParams }: { searchParams: { to
           </a>
         )}
       </div>
-      <ContactForm title={c.formTitle} intro={c.formIntro} success={c.formSuccess} defaultTopic={mentor ? "MENTOR" : "STUDENT"} />
-      {!mentor && (
-        <div className="card card-tint stack-sm">
-          <b>{c.orderTitle}</b>
-          {c.orderText && <span className="text-secondary">{c.orderText}</span>}
-        </div>
-      )}
-      {!mentor && (
-        <div className="card card-tint stack-sm">
-          <b>{c.mentorBoxTitle}</b>
-          <span className="text-secondary">
-            {c.mentorBoxBefore} <Link href="/become-a-mentor#apply" className="link">{c.mentorBoxLink}</Link> {c.mentorBoxAfter}
-          </span>
-        </div>
-      )}
+    ),
+    form: <ContactForm title={c.formTitle} intro={c.formIntro} success={c.formSuccess} defaultTopic={mentor ? "MENTOR" : "STUDENT"} />,
+    orderBox: !mentor && (
+      <div className="card card-tint stack-sm">
+        <b>{c.orderTitle}</b>
+        {c.orderText && <span className="text-secondary">{c.orderText}</span>}
+      </div>
+    ),
+    mentorBox: !mentor && (
+      <div className="card card-tint stack-sm">
+        <b>{c.mentorBoxTitle}</b>
+        <span className="text-secondary">
+          {c.mentorBoxBefore} <Link href="/become-a-mentor#apply" className="link">{c.mentorBoxLink}</Link> {c.mentorBoxAfter}
+        </span>
+      </div>
+    ),
+  };
+  return (
+    <div className="page-narrow stack-lg">
+      <PageSections page="contact" layout={c.layout} sections={sections} contained unit={20} />
     </div>
   );
 }

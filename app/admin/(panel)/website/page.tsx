@@ -32,7 +32,7 @@ export default function AdminWebsitePage() {
     <div className="page stack-lg" style={{ gap: 28 }}>
       <div className="stack-sm">
         <h1 className="page-title">Website</h1>
-        <p className="lede">Change the text and photos on the public site. Save a draft, preview it on the real page, then publish.</p>
+        <p className="lede">Change the text, photos and layout of the public site. Changes save as a draft automatically; check them in the preview, then publish. Tip: while logged in, hover any section of these pages on the site and click “Edit” to jump here.</p>
       </div>
       {setupNeeded && (
         <div className="alert alert-danger">The website editor&apos;s database table isn&apos;t set up yet (prisma/website-editor-2026-10.sql). The site is showing its built-in text.</div>

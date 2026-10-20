@@ -11,19 +11,26 @@
 //  - image     a photo address, with an optional focus point (#fp=x,y)
 //  - lines     a simple list, one item per line (schools, tags, steps)
 //  - list      a list of cards, each with its own fields (add/remove/reorder)
+//  - choice    one of a few fixed options (used by added sections)
+//
+// Pages with sections (lib/pageLayout.ts) also store a "layout": the order
+// of their sections, which are hidden, the space above each, and any added
+// sections. It is checked by checkLayout below.
 //
 // This file has no server-only code, so the admin form can use it too.
 // Loading and saving lives in lib/siteContentStore.ts.
 
 import { MENTOR_SCHOOLS, PHOTOS, SENIOR_TEAM, TESTIMONIALS } from "@/lib/content";
 import { parseFocus, stripFocus, withFocus } from "@/lib/imageFocus";
+import { ADDON_ID, ADDON_TYPES, MAX_ADDONS, SPACES, defaultLayout, isAddonType, sectionsFor, videoEmbedUrl, type LayoutItem } from "@/lib/pageLayout";
 
 type Base = { label: string; help?: string; section?: string };
 export type TextDef = Base & { type: "text" | "longtext"; default: string; max: number; required?: boolean };
 export type LinkDef = Base & { type: "link"; default: string; max: number; required?: boolean };
 export type ImageDef = Base & { type: "image"; default: string; max: number };
 export type LinesDef = Base & { type: "lines"; default: string[]; max: number; maxItems: number };
-export type ScalarDef = TextDef | LinkDef | ImageDef | LinesDef;
+export type ChoiceDef = Base & { type: "choice"; default: string; max: number; options: { value: string; label: string }[] };
+export type ScalarDef = TextDef | LinkDef | ImageDef | LinesDef | ChoiceDef;
 type ScalarValue<F> = F extends LinesDef ? string[] : string;
 export type ItemValue<I extends Record<string, ScalarDef>> = { [K in keyof I]: ScalarValue<I[K]> };
 export type ListDef<I extends Record<string, ScalarDef> = Record<string, ScalarDef>> = Base & {
@@ -410,7 +417,7 @@ export const SITE_PAGES = {
 
 export type SitePageKey = keyof typeof SITE_PAGES;
 export type PageFields<K extends SitePageKey> = (typeof SITE_PAGES)[K]["fields"];
-export type PageValues<K extends SitePageKey> = { [F in keyof PageFields<K>]: ValueOf<PageFields<K>[F]> };
+export type PageValues<K extends SitePageKey> = { [F in keyof PageFields<K>]: ValueOf<PageFields<K>[F]> } & { layout: LayoutItem[] };
 export type StoredValues = Record<string, unknown>;
 
 export const SITE_PAGE_KEYS = Object.keys(SITE_PAGES) as SitePageKey[];
@@ -420,6 +427,7 @@ export const pageFields = (key: SitePageKey) => SITE_PAGES[key].fields as Record
 export function defaultValues<K extends SitePageKey>(key: K): PageValues<K> {
   const out: Record<string, unknown> = {};
   for (const [name, f] of Object.entries(pageFields(key))) out[name] = structuredClone(f.default);
+  out.layout = defaultLayout(key);
   return out as PageValues<K>;
 }
 
@@ -470,6 +478,11 @@ function checkScalar(f: ScalarDef, raw: unknown, where: string, errors: string[]
     });
     return items.slice(0, f.maxItems).map((x) => x.slice(0, f.max));
   }
+  if (f.type === "choice") {
+    const v = typeof raw === "string" ? raw : "";
+    if (v && !f.options.some((o) => o.value === v)) errors.push(`${where}: pick one of the options.`);
+    return f.options.some((o) => o.value === v) ? v : f.default;
+  }
   let v = typeof raw === "string" ? clean(raw) : "";
   v = f.type === "longtext" ? v.trim() : v.replace(/\n/g, " ").trim();
   if (v.length > f.max) errors.push(`${where}: at most ${f.max} characters (now ${v.length}).`);
@@ -482,29 +495,90 @@ function checkScalar(f: ScalarDef, raw: unknown, where: string, errors: string[]
   return v.slice(0, f.max);
 }
 
+// Checks one set of fields (a page's, or an added section's).
+function checkFields(fields: Record<string, FieldDef>, src: Record<string, unknown>, prefix: string, errors: string[]): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [name, f] of Object.entries(fields)) {
+    const raw = name in src ? src[name] : f.default;
+    const label = prefix ? `${prefix} → ${f.label}` : f.label;
+    if (f.type === "list") {
+      const arr = Array.isArray(raw) ? raw : [];
+      if (arr.length > f.maxItems) errors.push(`${label}: at most ${f.maxItems}.`);
+      out[name] = arr.slice(0, f.maxItems).map((item, i) => {
+        const it = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+        const o: Record<string, unknown> = {};
+        for (const [sub, sf] of Object.entries(f.fields as Record<string, ScalarDef>)) {
+          o[sub] = checkScalar(sf, it[sub], `${label} → ${f.itemLabel} ${i + 1} → ${sf.label}`, errors);
+        }
+        return o;
+      });
+    } else {
+      out[name] = checkScalar(f, raw, label, errors);
+    }
+  }
+  return out;
+}
+
+// The page's layout: built-in sections in the saved order (unknown ids
+// dropped, any missing ones added back at the end in their built-in order),
+// plus up to MAX_ADDONS added sections with checked fields. With
+// dropInvalid, added sections that fail a check are left out (used when
+// showing stored content).
+export function checkLayout(key: string, raw: unknown, errors: string[], opts: { dropInvalid?: boolean } = {}): LayoutItem[] {
+  const builtins = sectionsFor(key);
+  if (!builtins.length) return [];
+  if (raw === undefined || raw === null) return defaultLayout(key);
+  if (!Array.isArray(raw)) {
+    errors.push("Page layout: not a list of sections.");
+    return defaultLayout(key);
+  }
+  const out: LayoutItem[] = [];
+  const seen = new Set<string>();
+  let addons = 0;
+  let tooMany = false;
+  for (const entry of raw.slice(0, builtins.length + MAX_ADDONS + 20)) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+    const it = entry as Record<string, unknown>;
+    const id = typeof it.id === "string" ? it.id : "";
+    if (!id || seen.has(id)) continue;
+    const base: LayoutItem = { id };
+    if (it.hidden === true) base.hidden = true;
+    if (typeof it.space === "string" && (SPACES as string[]).includes(it.space)) base.space = it.space as LayoutItem["space"];
+    const builtin = builtins.find((b) => b.id === id);
+    if (builtin) {
+      if (builtin.keepVisible) delete base.hidden;
+      seen.add(id);
+      out.push(base);
+      continue;
+    }
+    if (!ADDON_ID.test(id) || !isAddonType(it.type)) continue;
+    if (addons >= MAX_ADDONS) {
+      tooMany = true;
+      continue;
+    }
+    const def = ADDON_TYPES[it.type];
+    const itemErrors: string[] = [];
+    const src = it.data && typeof it.data === "object" && !Array.isArray(it.data) ? (it.data as Record<string, unknown>) : {};
+    const data = checkFields(def.fields, src, `Added section “${def.label}” (${addons + 1})`, itemErrors);
+    if (it.type === "video" && data.url && !videoEmbedUrl(String(data.url))) itemErrors.push(`Added section “${def.label}” (${addons + 1}): use a YouTube or Vimeo link.`);
+    errors.push(...itemErrors);
+    if (opts.dropInvalid && itemErrors.length) continue;
+    seen.add(id);
+    addons++;
+    out.push({ ...base, type: it.type, data });
+  }
+  if (tooMany) errors.push(`Page layout: at most ${MAX_ADDONS} added sections.`);
+  for (const b of builtins) if (!seen.has(b.id)) out.push({ id: b.id });
+  return out;
+}
+
 // Checks everything the admin form sends. Returns the cleaned values (all
 // fields) and readable error messages.
 export function checkValues<K extends SitePageKey>(key: K, input: unknown): { values: PageValues<K>; errors: string[] } {
   const src = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
   const errors: string[] = [];
-  const out: Record<string, unknown> = {};
-  for (const [name, f] of Object.entries(pageFields(key))) {
-    const raw = name in src ? src[name] : f.default;
-    if (f.type === "list") {
-      const arr = Array.isArray(raw) ? raw : [];
-      if (arr.length > f.maxItems) errors.push(`${f.label}: at most ${f.maxItems}.`);
-      out[name] = arr.slice(0, f.maxItems).map((item, i) => {
-        const it = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
-        const o: Record<string, unknown> = {};
-        for (const [sub, sf] of Object.entries(f.fields as Record<string, ScalarDef>)) {
-          o[sub] = checkScalar(sf, it[sub], `${f.label} → ${f.itemLabel} ${i + 1} → ${sf.label}`, errors);
-        }
-        return o;
-      });
-    } else {
-      out[name] = checkScalar(f, raw, f.label, errors);
-    }
-  }
+  const out = checkFields(pageFields(key), src, "", errors);
+  out.layout = checkLayout(key, src.layout, errors);
   return { values: out as PageValues<K>, errors };
 }
 
@@ -515,6 +589,7 @@ export function diffFromDefaults(key: SitePageKey, values: Record<string, unknow
   for (const [name, f] of Object.entries(pageFields(key))) {
     if (name in values && JSON.stringify(values[name]) !== JSON.stringify(f.default)) out[name] = values[name];
   }
+  if (Array.isArray(values.layout) && JSON.stringify(values.layout) !== JSON.stringify(defaultLayout(key))) out.layout = values.layout;
   return out;
 }
 
@@ -537,6 +612,7 @@ export function resolveValues<K extends SitePageKey>(key: K, stored: unknown): P
       if (!errors.length) values[name] = v;
     }
   }
+  if ("layout" in s) values.layout = checkLayout(key, s.layout, [], { dropInvalid: true });
   return values as PageValues<K>;
 }
 

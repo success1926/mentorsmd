@@ -9,7 +9,10 @@ import { ImageFocusEditor } from "@/components/ImageFocusEditor";
 
 type Values = Record<string, any>;
 const MAX_PHOTO_MB = 8;
-export const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+// Same value? Key order doesn't matter, and a missing key equals undefined.
+const stable = (v: unknown): unknown =>
+  Array.isArray(v) ? v.map(stable) : v && typeof v === "object" ? Object.fromEntries(Object.keys(v as object).sort().filter((k) => (v as any)[k] !== undefined).map((k) => [k, stable((v as any)[k])])) : v;
+export const same = (a: unknown, b: unknown) => JSON.stringify(stable(a)) === JSON.stringify(stable(b));
 
 // "Changed" marker for anything that differs from the live (published) page.
 export function ChangedTag() {
@@ -34,6 +37,19 @@ export function ScalarEditor({ def, value, onChange, compact, changed }: { def: 
         {help}
         <ImageFocusEditor value={value || ""} onChange={onChange} uploadEndpoint="/api/admin/website/upload" maxMb={MAX_PHOTO_MB} types={["jpeg", "png", "webp", "gif", "avif"]} />
       </div>
+    );
+  }
+  if (def.type === "choice") {
+    return (
+      <label className={cls} style={style}>
+        {label}
+        <select className="input" value={typeof value === "string" && value ? value : def.default} onChange={(e) => onChange(e.target.value)}>
+          {def.options.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        {help}
+      </label>
     );
   }
   if (def.type === "lines") {
