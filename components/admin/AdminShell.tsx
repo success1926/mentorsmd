@@ -5,11 +5,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { AdminNavItem } from "@/lib/adminNav";
 import { can, type PermissionCheck } from "@/lib/adminPermissions";
+import { AdminSearch } from "@/components/admin/AdminSearch";
 
 // Admin layout: grouped sidebar on the left (a Menu button on phones that
 // opens it as a drawer), the page on the right. A group with one item is
 // a plain link; bigger groups fold open and shut, start open when they
-// hold the current page, and remember what was left open on this device. The server works out who
+// hold the current page, and remember what was left open on this device.
+// The search box (AdminSearch) sits at the top of the list. The server works out who
 // is logged in and which items they may see (app/admin/(panel)/layout.tsx).
 
 export type AdminMe = { id: string; name: string; isOwner: boolean; roleName: string; perms: string[] };
@@ -68,6 +70,7 @@ export function AdminShell({ me, nav, children }: { me: AdminMe; nav: AdminNavIt
             </button>
           </div>
           <div id="adm-nav-list" className="adm-nav-list">
+            <AdminSearch />
             {groups.map((g) => {
               const items = nav.filter((n) => n.group === g);
               if (items.length === 1) return <div key={g} className="adm-group">{link(items[0])}</div>;

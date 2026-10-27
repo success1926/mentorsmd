@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAdminCan } from "@/components/admin/AdminShell";
 import {
@@ -83,6 +83,14 @@ export function LeadsInbox() {
     setData(null);
     load();
   }, [load]);
+
+  // Opened from a link (?open=<id>, e.g. the admin search box): scroll to it.
+  const scrolledTo = useRef<string | null>(null);
+  useEffect(() => {
+    if (!data || !openId || scrolledTo.current === openId) return;
+    scrolledTo.current = openId;
+    document.getElementById(`lead-${openId}`)?.scrollIntoView({ block: "start" });
+  }, [data, openId]);
 
   function pickTab(k: LeadKind) {
     setNotice(null);
@@ -244,7 +252,7 @@ function LeadRow({
   }
 
   return (
-    <details className="list-row" style={{ display: "block" }} open={defaultOpen || undefined}>
+    <details id={`lead-${r.id}`} className="list-row" style={{ display: "block", scrollMarginTop: 100 }} open={defaultOpen || undefined}>
       <summary className="between" style={{ cursor: "pointer", flexWrap: "wrap", gap: 8 }}>
         <span className="stack-sm" style={{ gap: 2, minWidth: 0 }}>
           <b style={{ fontSize: 15, overflowWrap: "anywhere" }}>{title}</b>
