@@ -90,6 +90,7 @@ export function SessionWatcher() {
   }, [status, pathname, router]);
 
   // ---- 1b. Admins finish 2-step verification before using Admin ----
+  // (Mentors and students are sent to /two-step by middleware.ts.)
   useEffect(() => {
     if (role === "ADMIN_2FA" && pathname.startsWith("/admin") && pathname !== "/admin/verify") router.replace("/admin/verify");
   }, [role, pathname, router]);

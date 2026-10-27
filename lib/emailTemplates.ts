@@ -973,6 +973,20 @@ const LIST: EmailDef[] = [
     required: ["code"],
   },
   {
+    key: "login_code",
+    name: "Login code (mentors and students)",
+    description: "The 6-digit 2-step login code. Mentors always get one (unless they use an authenticator app or trusted this device); students only if they turned 2-step on in Settings.",
+    group: "BOTH",
+    subject: "Your MentorsMD login code: {{code}}",
+    body: [
+      "Your MentorsMD login code is:",
+      "# **{{code}}**",
+      "> It expires in 10 minutes. If you didn't just try to log in, change your password right away.",
+    ].join("\n\n"),
+    vars: [text("code", "The 6-digit code", "123456")],
+    required: ["code"],
+  },
+  {
     key: "team_access_changed",
     name: "Admin access changed",
     description: "Sent to a team member when their admin access changes (role, disabled, removed, 2-step reset).",

@@ -4,13 +4,13 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcrypt";
 import { prisma } from "./prisma";
-import { SESSION_IDLE_SECONDS, sessionEndReason } from "./sessionRules";
+import { SESSION_IDLE_SECONDS, sessionEndReason, sessionRole } from "./sessionRules";
 import { RATE_LIMITS, clearRateLimit, rateLimit, rateLimitCount } from "./rateLimit";
 import { clientIp, ipKey } from "./request";
 import { verifyRecaptcha } from "./recaptcha";
 import { isBot } from "./honeypot";
 import { isReservedName } from "./reservedNames";
-import { redeemMfaTicket } from "./mfa";
+import { redeemMfaTicket, twoStepAtLogin } from "./mfa";
 import { recordSignup, signupAttribution } from "./activity";
 
 // The adapter is what lets NextAuth automatically create/find User rows
@@ -183,9 +183,10 @@ export const authOptions: NextAuthOptions = {
       }
       if (trigger === "update") {
         token.lastSeenMs = Date.now();
-        // 2-step verification finished on /admin/verify: the page hands
-        // over a one-time ticket the server issued after checking the code.
-        if (token.sub && token.role === "ADMIN" && !token.mfa && (session as any)?.mfaTicket) {
+        // 2-step verification finished on /admin/verify or /two-step: the
+        // page hands over a one-time ticket the server issued after
+        // checking the code.
+        if (token.sub && (token.role === "ADMIN" || token.needs2fa) && !token.mfa && (session as any)?.mfaTicket) {
           if (await redeemMfaTicket(token.sub, (session as any).mfaTicket)) {
             token.mfa = true;
             token.mfaAtMs = Date.now();
@@ -199,8 +200,15 @@ export const authOptions: NextAuthOptions = {
         token.roleCheckedAt = Date.now();
         token.issuedAtMs = Date.now();
         token.lastSeenMs = Date.now();
-        // Admins must pass 2-step verification on every login.
-        token.mfa = false;
+        // 2-step verification (lib/mfa.ts): admins and mentors on every
+        // login, students who turned it on. A browser the person trusted
+        // for 30 days skips it. Until it's done the session gets a pending
+        // role (lib/sessionRules.ts) and middleware.ts sends them to enter
+        // their code. Google sign-ins go through here too.
+        // If the check itself fails, admins and mentors still need the code.
+        const step = await twoStepAtLogin(user.id).catch(() => ({ needs: token.role === "ADMIN" || token.role === "SELLER", trusted: false }));
+        token.needs2fa = step.needs;
+        token.mfa = !step.needs || step.trusted;
       } else if (token.sub && (token.role === "ADMIN" || Date.now() - ((token.roleCheckedAt as number) || 0) > ROLE_RECHECK_MS)) {
         // Re-read the role every few minutes (on every request for
         // admins), so demoting, disabling or removing an account takes
@@ -241,10 +249,10 @@ export const authOptions: NextAuthOptions = {
         return {} as any;
       }
       if (session.user) {
-        // An admin who hasn't finished 2-step verification yet gets a
-        // different role, so every admin-only check (role === "ADMIN")
-        // refuses them until they do (/admin/verify).
-        (session.user as any).role = token.role === "ADMIN" && !token.mfa ? "ADMIN_2FA" : token.role;
+        // Someone who hasn't finished 2-step verification yet gets a
+        // pending role (ADMIN_2FA, SELLER_2FA, BUYER_2FA), so every check
+        // for "ADMIN", "SELLER" or "BUYER" refuses them until they do.
+        (session.user as any).role = sessionRole(token);
         // This was missing entirely - without it, every route that checks
         // "who is the logged-in user" (sending invites, creating gigs,
         // booking orders, messaging, everything) receives an empty user

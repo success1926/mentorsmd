@@ -3,6 +3,7 @@ import { fmtInZone } from "@/lib/tz";
 import { siteUrl } from "@/lib/siteUrl";
 import { prisma } from "@/lib/prisma";
 import { logEmail } from "@/lib/emailLog";
+import { allowEmailTo } from "@/lib/rateLimit";
 import { EMAILS, blocks, previewText, renderEmail, validateTemplate, type Values } from "@/lib/emailTemplates";
 
 // Lazy, like lib/stripe.ts: the Resend constructor throws if the API key
@@ -73,9 +74,29 @@ async function deliver(key: string, to: string, subject: string, html: string, e
   }
 }
 
+// Emails that anyone can make the site send (by typing an address into a
+// public form, or by asking again and again): at most this many of each
+// to one address per hour. Past that, the email is quietly skipped (and
+// shown as not sent in Admin -> Email log), so the forms still give their
+// usual answer and never reveal whether an address has an account.
+const PER_ADDRESS_HOURLY: Record<string, number> = {
+  password_reset: 3,
+  email_verification: 3,
+  parent_consent: 3,
+  contact_received: 3,
+  application_received: 3,
+  admin_code: 6,
+  login_code: 6,
+};
+
 async function sendTemplate(key: string, to: string, values: Values, extra: Extra = {}) {
   const def = EMAILS[key];
   if (!def) throw new Error(`Unknown email template: ${key}`);
+  const cap = PER_ADDRESS_HOURLY[key];
+  if (cap && !(await allowEmailTo(key, to, cap))) {
+    await logEmail({ templateKey: key, toEmail: to, subject: def.name, status: "FAILED", error: `Not sent: more than ${cap} of these to this address in the last hour.` });
+    return null;
+  }
   const tpl = (await savedTemplate(key)) || def;
   const { subject, html } = renderEmail(def, tpl, values);
   return deliver(key, to, subject, html, extra);
@@ -471,6 +492,11 @@ export async function sendAdminInviteEmail(toEmail: string, inviterName: string,
 
 export async function sendAdminCodeEmail(toEmail: string, code: string) {
   await sendTemplate("admin_code", toEmail, { code });
+}
+
+// The 2-step login code for mentors and students (admins get admin_code).
+export async function sendLoginCodeEmail(toEmail: string, code: string) {
+  await sendTemplate("login_code", toEmail, { code });
 }
 
 export async function sendTeamAccessChangedEmail(toEmail: string, name: string, text: string) {

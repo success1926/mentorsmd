@@ -197,27 +197,32 @@ model User {
   // ---- Legal, minors and admin team (Phase 5) ----
   // Date of birth (asked at signup; students who signed up earlier are
   // asked once). Under 13 can't have an account.
-  dateOfBirth        DateTime?        @db.Date
+  dateOfBirth         DateTime?        @db.Date
   // Students under 18: PENDING (waiting for a parent or guardian to
   // consent), CONSENTED, WITHDRAWN (parent withdrew or declined). Null for
   // adults; cleared automatically on the 18th birthday (becameAdultAt).
-  minorStatus        String?
-  becameAdultAt      DateTime?
+  minorStatus         String?
+  becameAdultAt       DateTime?
   // Mentors: false = "I only work with students 18 and over".
-  acceptsMinors      Boolean          @default(true)
+  acceptsMinors       Boolean          @default(true)
   // Admin team: OWNER (manages the team) or ADMIN. Null on an admin = ADMIN.
-  adminRole          String?
+  adminRole           String?
   // Custom role (Admin -> Team -> Roles). Set: only that role's ticked
   // areas. Null: full access (Owner or Admin).
-  adminCustomRole    AdminCustomRole? @relation(fields: [adminRoleId], references: [id], onDelete: Restrict)
-  adminRoleId        String?
-  adminDisabledAt    DateTime? // disabled admins can't log in
-  sessionsRevokedAt  DateTime? // every login started before this is ended
-  // Required 2-step verification for admins: TOTP (authenticator app) or EMAIL.
-  twoFactorMethod    String?
-  totpSecret         String? // encrypted (lib/totp.ts)
-  totpLastStep       Int? // last code used, so a code can't be used twice
-  twoFactorEnabledAt DateTime?
+  adminCustomRole     AdminCustomRole? @relation(fields: [adminRoleId], references: [id], onDelete: Restrict)
+  adminRoleId         String?
+  adminDisabledAt     DateTime? // disabled admins can't log in
+  sessionsRevokedAt   DateTime? // every login started before this is ended
+  // 2-step verification (lib/mfa.ts): TOTP (authenticator app) or EMAIL
+  // (a 6-digit code by email). Required for admins and mentors (a mentor
+  // with nothing set gets email codes); students can turn it on.
+  twoFactorMethod     String?
+  totpSecret          String? // encrypted (lib/totp.ts)
+  totpLastStep        Int? // last code used, so a code can't be used twice
+  twoFactorEnabledAt  DateTime?
+  // "Trust this device for 30 days": devices trusted before this time
+  // need a code again ("Forget my trusted devices", or an Owner's reset).
+  twoFactorTrustAfter DateTime?
 
   // ---- Insights (Phase 6) ----
   // Mentors: their medical school (picked from lib/medicalSchools.ts, or

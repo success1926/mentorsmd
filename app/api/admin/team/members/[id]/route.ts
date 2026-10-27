@@ -80,7 +80,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 
   if (action === "reset-2fa") {
-    await prisma.user.update({ where: { id: member.id }, data: { twoFactorMethod: null, totpSecret: null, totpLastStep: null, twoFactorEnabledAt: null } });
+    await prisma.user.update({ where: { id: member.id }, data: { twoFactorMethod: null, totpSecret: null, totpLastStep: null, twoFactorEnabledAt: null, twoFactorTrustAfter: new Date() } });
     await revokeSessions(member.id);
     await log("TEAM_2FA_RESET", `Reset ${member.name}'s 2-step verification (they set it up again at next login)`);
     if (!self) await tell("Your 2-step verification was reset. You'll set it up again the next time you log in.");
