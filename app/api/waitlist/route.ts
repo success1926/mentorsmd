@@ -3,14 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { normalizeEmail } from "@/lib/validate";
 import { isBot } from "@/lib/honeypot";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
-import { clientIp, ipKey } from "@/lib/request";
+import { clientIp, ipKey, runAfterResponse } from "@/lib/request";
 import { RECAPTCHA_FAILED, verifyRecaptcha } from "@/lib/recaptcha";
-import { SERVICES } from "@/lib/options";
+import { SERVICES, labelFor } from "@/lib/options";
+import { SHEET_TABS, logToSheet } from "@/lib/sheets";
 import { isApplyYear } from "@/lib/leadOptions";
 
 // Public: "Tell me when mentors join" (the waitlist box on /mentors).
 // One signup per email: signing up again only updates the answers. The
 // reply is the same either way, so the form never reveals who's on the list.
+// Also copied to the team's Google Sheet (lib/sheets.ts).
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid request" }, { status: 400 });
@@ -42,5 +44,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
     }
   }
+  // A copy in the team's Google Sheet, if it's set up (lib/sheets.ts).
+  // Signing up again adds another row there (the site keeps one per email).
+  runAfterResponse(() =>
+    logToSheet(SHEET_TABS.waitlist, {
+      Email: email,
+      "Needs help with": service ? labelFor(SERVICES, service) : "Not sure yet",
+      "Applying in": applyYear || "Not sure yet",
+      "Signed up on": source,
+    })
+  );
   return NextResponse.json({ ok: true });
 }

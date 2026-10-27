@@ -14,7 +14,8 @@ import {
 } from "@/lib/applicationRules";
 import { applicationLimitError, ipHashFor } from "@/lib/applications";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
-import { clientIp, ipKey } from "@/lib/request";
+import { clientIp, ipKey, runAfterResponse } from "@/lib/request";
+import { SHEET_TABS, logToSheet } from "@/lib/sheets";
 import { RECAPTCHA_FAILED, verifyRecaptcha } from "@/lib/recaptcha";
 
 function text(value: unknown, max: number): string | null {
@@ -25,7 +26,8 @@ function text(value: unknown, max: number): string | null {
 
 // Public: the "Apply to mentor" form at /become-a-mentor#apply. Saves the
 // application, emails it to the MentorsMD team (resume attached, reply-to
-// the applicant) and sends the applicant a confirmation.
+// the applicant), sends the applicant a confirmation and copies it to the
+// team's Google Sheet (lib/sheets.ts).
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid request" }, { status: 400 });
@@ -95,6 +97,20 @@ export async function POST(req: Request) {
 
   // Résumés are private: the email's link goes through an admin-only route.
   const resumeLink = `${SITE_URL}/api/admin/applications/${application.id}/resume`;
+  // A copy in the team's Google Sheet, if it's set up (lib/sheets.ts). The
+  // résumé itself stays private: the Sheet gets the admin-only link.
+  runAfterResponse(() =>
+    logToSheet(SHEET_TABS.application, {
+      Name: name,
+      Email: email,
+      Phone: phone,
+      "Medical school": medicalSchool,
+      Residency: residency || "",
+      "About them": blurb,
+      "Résumé (admins only)": resumeLink,
+      "Admin link": `${SITE_URL}/admin/leads?tab=APPLICATION&open=${application.id}`,
+    })
+  );
   try {
     await sendApplicationEmail(application, `${SITE_URL}/admin/applications`, resumeLink, attachment);
   } catch (err) {
