@@ -15,9 +15,15 @@ export async function GET(_req: Request, { params }: { params: { key: string } }
   if (!def) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const saved = await prisma.emailTemplate.findUnique({ where: { key: def.key } });
   const editor = saved?.updatedById ? await prisma.user.findUnique({ where: { id: saved.updatedById }, select: { name: true } }) : null;
+  // Reminder emails: on or off, and the timing (no row = off, standard timing).
+  const sched = def.schedule ? await prisma.emailSchedule.findUnique({ where: { key: def.key } }) : null;
+  const schedEditor = sched?.updatedById ? await prisma.user.findUnique({ where: { id: sched.updatedById }, select: { name: true } }) : null;
   return NextResponse.json({
     def,
     saved: saved ? { subject: saved.subject, body: saved.body, updatedAt: saved.updatedAt, updatedBy: editor?.name ?? null } : null,
+    schedule: def.schedule
+      ? { enabled: !!sched?.enabled, timing: sched?.timing || def.schedule.timing, updatedAt: sched?.updatedAt ?? null, updatedBy: schedEditor?.name ?? null }
+      : null,
   }, { headers: { "Cache-Control": "no-store" } });
 }
 

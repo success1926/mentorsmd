@@ -5,6 +5,15 @@
 .adm-brand { font-family: var(--font-display); font-size: 22px; }
 .adm-current, .adm-menu-btn { display: none; }
 .adm-nav-list { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 16px; }
+/* Search box at the top of the sidebar (components/admin/AdminSearch.tsx). */
+.adm-search { position: relative; margin: 0 0 10px; }
+.adm-search .input { margin: 0; width: 100%; font-size: 14px; padding: 9px 12px; }
+.adm-search-results { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; width: min(420px, calc(100vw - 32px)); max-height: 420px; overflow-y: auto; margin: 0; padding: 6px; list-style: none; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-sm); }
+.adm-search-results button { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none; font: inherit; text-align: left; color: var(--ink); cursor: pointer; }
+.adm-search-results li[aria-selected="true"] button { background: var(--tint-soft); }
+.adm-search-results b { font-size: 14px; overflow-wrap: anywhere; }
+.adm-search-results span { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.adm-search-empty { padding: 10px; font-size: 13px; color: var(--muted); }
 .adm-group { display: flex; flex-direction: column; gap: 2px; }
 .adm-group-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border: 0; border-radius: 10px; background: none; font: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); cursor: pointer; text-align: left; }
 .adm-group-btn:hover { color: var(--ink); background: var(--tint-soft); }

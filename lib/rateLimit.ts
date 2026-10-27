@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { warnOnce } from "@/lib/warnOnce";
 import { fetchWithTimeout } from "@/lib/request";
@@ -32,8 +33,10 @@ export const RATE_LIMITS = {
   // Phase 5
   parentConsentPerDay: { name: "parent-consent-d", max: 5, windowSec: 86400 },
   parentPagePerIpHour: { name: "parent-page-ip", max: 60, windowSec: 3600 },
-  adminCodePerHour: { name: "admin-code-h", max: 5, windowSec: 3600 },
-  admin2faTries: { name: "admin-2fa", max: 10, windowSec: 900 },
+  // 2-step login codes (admins, mentors, and students who turned it on).
+  // Names kept from when only admins had 2-step, so live counters carry on.
+  twoStepCodePerHour: { name: "admin-code-h", max: 5, windowSec: 3600 },
+  twoStepTries: { name: "admin-2fa", max: 10, windowSec: 900 },
   teamInvitePerHour: { name: "team-invite-h", max: 20, windowSec: 3600 },
   // Phase 6
   invitePrefillPerIpHour: { name: "invite-prefill-ip", max: 30, windowSec: 3600 },
@@ -44,6 +47,12 @@ export const RATE_LIMITS = {
   contactPerEmailDay: { name: "contact-email-d", max: 5, windowSec: 86400 },
   // Browser error reports forwarded to Sentry (Oct 2026)
   clientErrorPerIpHour: { name: "client-error-ip", max: 20, windowSec: 3600 },
+  // Gifts from a parent (/gift): starting a checkout, and the student's
+  // "Set up your account" form.
+  giftPerIpHour: { name: "gift-ip-h", max: 6, windowSec: 3600 },
+  giftPerIpDay: { name: "gift-ip-d", max: 20, windowSec: 86400 },
+  giftPerEmailDay: { name: "gift-email-d", max: 10, windowSec: 86400 },
+  giftClaimPerIpHour: { name: "gift-claim-ip", max: 20, windowSec: 3600 },
 } satisfies Record<string, Limit>;
 
 function upstash() {
@@ -125,6 +134,17 @@ export async function clearRateLimit(limit: Limit, id: string) {
 export async function cleanupRateLimits() {
   const { count } = await prisma.rateLimitBucket.deleteMany({ where: { expiresAt: { lt: new Date() } } });
   return count;
+}
+
+// Emails anyone can ask for (password resets, confirmation links, login
+// codes...): at most `max` to one address per hour, whoever asks and from
+// wherever, so the forms can't be used to flood someone's inbox. Counted
+// by a hash of the lower-cased address (the address itself isn't stored).
+// Counts this email; false means don't send it.
+export async function allowEmailTo(kind: string, email: string, max: number): Promise<boolean> {
+  const id = crypto.createHash("sha256").update(email.trim().toLowerCase()).digest("hex").slice(0, 32);
+  const r = await rateLimit({ name: `email-to-${kind}`, max, windowSec: 3600 }, id);
+  return r.ok;
 }
 
 export function tooMany(retryAfterSec: number, message = "Too many attempts. Please wait a bit and try again.") {

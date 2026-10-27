@@ -9,7 +9,11 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const admin = await currentAdmin("emails");
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
-  const saved = await prisma.emailTemplate.findMany({ select: { key: true, updatedAt: true, updatedById: true } });
+  const [saved, schedules] = await Promise.all([
+    prisma.emailTemplate.findMany({ select: { key: true, updatedAt: true, updatedById: true } }),
+    prisma.emailSchedule.findMany({ select: { key: true, enabled: true, timing: true } }),
+  ]);
+  const scheduleOf = new Map(schedules.map((s) => [s.key, s]));
   const byKey = new Map(saved.map((s) => [s.key, s]));
   const editors = await prisma.user.findMany({
     where: { id: { in: saved.map((s) => s.updatedById).filter((x): x is string => !!x) } },
@@ -28,6 +32,8 @@ export async function GET() {
         edited: !!s,
         updatedAt: s?.updatedAt ?? null,
         updatedBy: s?.updatedById ? nameOf.get(s.updatedById) ?? null : null,
+        // Reminder emails (sent by the daily cron): on or off, and when.
+        reminder: d.schedule ? { enabled: !!scheduleOf.get(d.key)?.enabled, timing: scheduleOf.get(d.key)?.timing || d.schedule.timing } : null,
       };
     }),
   }, { headers: { "Cache-Control": "no-store" } });

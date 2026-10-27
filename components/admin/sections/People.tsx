@@ -15,12 +15,14 @@ import { useAdminCan } from "@/components/admin/AdminShell";
 const fmtDay = (d: string) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 
 export function People() {
-  // Mentors or students, from the tabs (?role=BUYER for students).
-  const role = useSearchParams()?.get("role") === "BUYER" ? "BUYER" : "SELLER";
-  const [q, setQ] = useState("");
+  // Mentors or students, from the tabs (?role=BUYER for students). The
+  // admin search box links here with ?q=<email>&view=<id> to open one person.
+  const sp = useSearchParams();
+  const role = sp?.get("role") === "BUYER" ? "BUYER" : "SELLER";
+  const [q, setQ] = useState(() => sp?.get("q") || "");
   const [users, setUsers] = useState<any[] | null>(null);
   const [counts, setCounts] = useState<{ mentors: number; students: number } | null>(null);
-  const [viewing, setViewing] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<string | null>(() => sp?.get("view") || null);
 
   const load = useCallback(() => {
     const params = new URLSearchParams({ role });

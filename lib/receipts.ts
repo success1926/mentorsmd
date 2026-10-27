@@ -59,6 +59,25 @@ const orderSelect = {
   creditEntries: { where: { reason: "DISPUTE_REFUND" }, select: { amountCents: true } },
 } as const;
 
+// Packages a parent bought as a gift (lib/gifts.ts): the student didn't
+// pay, so their receipt says who did and has no Stripe receipt (that went
+// to the parent).
+async function giftsFor(orderIds: string[]) {
+  if (!orderIds.length) return new Map<string, string>();
+  const gifts = await prisma.gift.findMany({ where: { orderId: { in: orderIds } }, select: { orderId: true, parentName: true } });
+  return new Map(gifts.map((g) => [g.orderId!, g.parentName]));
+}
+function markGifts(receipts: Receipt[], gifts: Map<string, string>) {
+  for (const r of receipts) {
+    const parent = r.type === "ORDER" ? gifts.get(r.orderId) : undefined;
+    if (!parent) continue;
+    r.detail = `Gift from ${parent} · ${r.detail}`;
+    r.chargedCents = 0;
+    r.stripeRef = null;
+  }
+  return receipts;
+}
+
 type OrderRow = Awaited<ReturnType<typeof loadOrders>>[number];
 
 function loadOrders(where: { buyerId: string; id?: string }) {
@@ -145,7 +164,8 @@ function fromOrder(o: OrderRow): Receipt[] {
 // Every receipt of a student, newest first.
 export async function receiptsFor(studentId: string): Promise<Receipt[]> {
   const orders = await loadOrders({ buyerId: studentId });
-  return orders.flatMap(fromOrder).sort((a, b) => b.date.getTime() - a.date.getTime());
+  const gifts = await giftsFor(orders.map((o) => o.id));
+  return markGifts(orders.flatMap(fromOrder), gifts).sort((a, b) => b.date.getTime() - a.date.getTime());
 }
 
 // One receipt, only if it belongs to this student (null otherwise, so the
@@ -161,7 +181,7 @@ export async function receiptFor(studentId: string, receiptId: string): Promise<
   }
   const [order] = await loadOrders({ buyerId: studentId, id: orderId });
   if (!order) return null;
-  return fromOrder(order).find((r) => r.id === receiptId) || null;
+  return markGifts(fromOrder(order), await giftsFor([order.id])).find((r) => r.id === receiptId) || null;
 }
 
 // Stripe's hosted receipt for a payment (a Checkout Session id "cs_..." or

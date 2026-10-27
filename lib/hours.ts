@@ -112,4 +112,5 @@ export const CREDIT_REASON_LABEL: Record<string, string> = {
   ADMIN_ADJUST: "Adjusted by the MentorsMD team",
   SPENT: "Used at checkout",
   SPENT_REVERSED: "Given back (checkout not completed)",
+  GIFT: "Gift",
 };

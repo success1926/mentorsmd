@@ -84,7 +84,7 @@ function beforeSend(event: CaptureResult | null): CaptureResult | null {
   return event;
 }
 
-const ROLE: Record<string, string> = { BUYER: "student", SELLER: "mentor", ADMIN: "admin", ADMIN_2FA: "admin" };
+const ROLE: Record<string, string> = { BUYER: "student", SELLER: "mentor", ADMIN: "admin", ADMIN_2FA: "admin", SELLER_2FA: "mentor", BUYER_2FA: "student" };
 
 let client: PostHog | null = null;
 let loading: Promise<PostHog | null> | null = null;

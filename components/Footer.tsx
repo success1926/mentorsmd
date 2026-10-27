@@ -55,7 +55,7 @@ const SOCIALS = [
 ] as const;
 
 export async function Footer() {
-  const [c, contact, showReviews] = await Promise.all([getSiteContent("footer"), getSiteContent("contact"), hasReviewWall()]);
+  const [c, contact, settings, showReviews] = await Promise.all([getSiteContent("footer"), getSiteContent("contact"), getSiteContent("siteSettings"), hasReviewWall()]);
   const phoneHref = contact.phone ? `tel:${contact.phone.replace(/[^\d+]/g, "")}` : "";
   return (
     <footer className="site-footer">
@@ -74,6 +74,7 @@ export async function Footer() {
               <Link href="/mentors">Browse mentors</Link>
               <Link href="/how-it-works">How it works</Link>
               {showReviews && <Link href="/reviews">Reviews</Link>}
+              <Link href="/gift">Gift MentorsMD</Link>
               <FooterAccountLink kind="student" />
             </div>
             <div className="footer-col">
@@ -85,6 +86,8 @@ export async function Footer() {
               <div className="footer-col-title">Company</div>
               <Link href="/senior-team">Our senior team</Link>
               <Link href="/contact">Contact us</Link>
+              {/* Only once the Press page is switched on (Admin -> Website -> Site settings). */}
+              {settings.showPress === "on" && <Link href="/press">Press</Link>}
               <Link href="/community-guidelines">Community Guidelines</Link>
               <Link href="/safety">Safety tips</Link>
             </div>

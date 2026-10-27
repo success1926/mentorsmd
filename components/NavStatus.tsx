@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { onLive } from "@/lib/realtimeClient";
+import { isPending2faRole } from "@/lib/sessionRules";
 
 // The small status from /api/me/nav (unread messages; for mentors their
 // profile progress and Browse status; for students packages, calls and
@@ -56,8 +57,9 @@ export function NavStatusProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<NavStatus | null>(null);
 
   useEffect(() => {
-    // Admins have their own panel; logged-out visitors have nothing to show.
-    if (status !== "authenticated" || role === "ADMIN" || role === "ADMIN_2FA") {
+    // Admins have their own panel; logged-out visitors (and anyone still
+    // entering their 2-step code) have nothing to show.
+    if (status !== "authenticated" || role === "ADMIN" || isPending2faRole(role)) {
       setData(null);
       return;
     }

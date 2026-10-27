@@ -3,9 +3,62 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { GROUP_LABELS, renderEmail, sampleValues, validateTemplate, type EmailDef, type EmailVar } from "@/lib/emailTemplates";
+import { GROUP_LABELS, parseTiming, renderEmail, sampleValues, validateTemplate, waitLabel, type EmailDef, type EmailVar } from "@/lib/emailTemplates";
 
 type Saved = { subject: string; body: string; updatedAt: string; updatedBy: string | null } | null;
+type Schedule = { enabled: boolean; timing: string; updatedAt: string | null; updatedBy: string | null } | null;
+
+// Reminder emails (sent by the daily cron, lib/scheduledEmails.ts): switch
+// on or off, and when to send them.
+function ReminderSettings({ def, schedule, onSaved }: { def: EmailDef; schedule: NonNullable<Schedule>; onSaved: () => void }) {
+  const [enabled, setEnabled] = useState(schedule.enabled);
+  const [timing, setTiming] = useState(schedule.timing);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const parsed = parseTiming(timing);
+  const dirty = enabled !== schedule.enabled || timing.trim() !== schedule.timing;
+
+  async function save() {
+    if (enabled && !schedule.enabled && !confirm(`Turn on "${def.name}"? It starts going out with the next daily run.`)) return;
+    setBusy(true);
+    setNotice(null);
+    const res = await fetch(`/api/admin/emails/${def.key}/schedule`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled, timing }) });
+    const d = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) return setNotice({ ok: false, text: d.error || "Couldn't save." });
+    setNotice({ ok: true, text: enabled ? "Saved. This reminder is on." : "Saved. This reminder is off." });
+    onSaved();
+  }
+
+  return (
+    <div className="card stack" style={{ gap: 12 }}>
+      <div className="row-wrap" style={{ justifyContent: "space-between" }}>
+        <b>Reminder timing</b>
+        {schedule.enabled ? <span className="badge badge-success">On</span> : <span className="badge">Off</span>}
+      </div>
+      <span className="text-secondary" style={{ fontSize: 14 }}>
+        Sent by the daily run (once a day). {def.schedule!.when} Nobody gets the same reminder twice, and it&apos;s never sent more than a week late.
+      </span>
+      <label className="row" style={{ gap: 8 }}>
+        <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+        <span>Send this reminder</span>
+      </label>
+      <div className="field">
+        <label className="field-label" htmlFor="email-timing">When</label>
+        <input id="email-timing" className="input" value={timing} maxLength={120} onChange={(e) => setTiming(e.target.value)} placeholder={def.schedule!.timing} />
+        <span className="text-muted" style={parsed.error ? { color: "var(--danger)" } : undefined}>
+          {parsed.error || `${parsed.hours.length === 1 ? "One email" : `${parsed.hours.length} emails`}: ${parsed.hours.map(waitLabel).join(", then ")} after the start. Standard: ${def.schedule!.timing}.`}
+        </span>
+      </div>
+      {notice && <div role="status" className={`alert ${notice.ok ? "alert-success" : "alert-danger"}`}>{notice.text}</div>}
+      <div className="row-wrap">
+        <button className="btn btn-primary" disabled={busy || !!parsed.error || !dirty} onClick={save}>{busy ? "Saving…" : "Save timing"}</button>
+        <Link href="/admin/outbox" className="btn btn-ghost">See who&apos;s due</Link>
+        {schedule.updatedAt && <span className="text-muted">Changed {fmtWhen(schedule.updatedAt)}{schedule.updatedBy ? ` by ${schedule.updatedBy}` : ""}</span>}
+      </div>
+    </div>
+  );
+}
 
 const fmtWhen = (d: string) => new Date(d).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 
@@ -24,6 +77,7 @@ export default function EditEmailPage({ params }: { params: { key: string } }) {
   const isAdmin = (session?.user as any)?.role === "ADMIN";
   const [def, setDef] = useState<EmailDef | null>(null);
   const [saved, setSaved] = useState<Saved>(null);
+  const [schedule, setSchedule] = useState<Schedule>(null);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [loadError, setLoadError] = useState("");
@@ -40,6 +94,7 @@ export default function EditEmailPage({ params }: { params: { key: string } }) {
         if (!d.def) return setLoadError(d.error || "Couldn't load this email.");
         setDef(d.def);
         setSaved(d.saved);
+        setSchedule(d.schedule ?? null);
         setSubject(d.saved?.subject ?? d.def.subject);
         setBody(d.saved?.body ?? d.def.body);
       })
@@ -135,6 +190,8 @@ export default function EditEmailPage({ params }: { params: { key: string } }) {
         </div>
       ) : null}
       {notice && <div role="status" className={`alert ${notice.ok ? "alert-success" : "alert-danger"}`}>{notice.text}</div>}
+
+      {def.schedule && schedule && <ReminderSettings key={`${schedule.enabled}-${schedule.timing}`} def={def} schedule={schedule} onSaved={load} />}
 
       <div className="grid-2" style={{ alignItems: "start" }}>
         <section className="stack">

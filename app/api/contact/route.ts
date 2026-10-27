@@ -7,10 +7,12 @@ import { clientIp, ipKey, runAfterResponse } from "@/lib/request";
 import { RECAPTCHA_FAILED, verifyRecaptcha } from "@/lib/recaptcha";
 import { CONTACT_LIMITS as L, CONTACT_TOPICS, contactTopicLabel } from "@/lib/leadOptions";
 import { sendContactMessageEmail, sendContactReceivedEmail, SITE_URL } from "@/lib/email";
+import { SHEET_TABS, logToSheet } from "@/lib/sheets";
 
 // Public: the message form on /contact. Saves it as a lead (Admin ->
 // Leads -> Contact messages), emails the team inbox (reply-to the
-// sender) and sends the sender a short confirmation.
+// sender), sends the sender a short confirmation and copies it to the
+// team's Google Sheet (lib/sheets.ts).
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid request" }, { status: 400 });
@@ -47,6 +49,10 @@ export async function POST(req: Request) {
     );
     await sendContactReceivedEmail(email, name).catch((err) => console.error("Failed to send the contact confirmation:", err));
   });
+  // A copy in the team's Google Sheet, if it's set up (lib/sheets.ts).
+  runAfterResponse(() =>
+    logToSheet(SHEET_TABS.contact, { Name: name, Email: email, Topic: contactTopicLabel(topic), Message: message, "Admin link": `${SITE_URL}/admin/leads?tab=CONTACT&open=${lead.id}` })
+  );
 
   return NextResponse.json({ ok: true });
 }

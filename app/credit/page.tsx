@@ -51,7 +51,7 @@ export default async function CreditPage() {
         <h2 style={{ fontSize: 24 }}>History</h2>
         {entries.length === 0 ? (
           <p className="text-muted">
-            No credit yet. If a package is refunded, the refund comes back to you as MentorsMD credit and shows here.
+            No credit yet. If a package is refunded, the refund comes back to you as MentorsMD credit and shows here, and so does credit a parent or guardian gives you from the <Link href="/gift" className="link">Gift</Link> page.
           </p>
         ) : (
           <div className="card" style={{ paddingTop: 6, paddingBottom: 6 }}>
@@ -77,6 +77,7 @@ export default async function CreditPage() {
 
       <span className="text-muted small">
         Refunds on packages always come back as credit, never to the card. See what you paid on <Link href="/receipts" className="link">Receipts</Link>.
+        {" "}Want to give a friend MentorsMD credit? <Link href="/gift" className="link">Gift credit</Link>.
       </span>
     </div>
   );

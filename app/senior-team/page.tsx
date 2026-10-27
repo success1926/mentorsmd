@@ -4,6 +4,7 @@ import { getSiteContent } from "@/lib/siteContentStore";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
 import { SeniorTeamCards } from "@/components/SeniorTeamCards";
 import { PageSections } from "@/components/website/PageSections";
+import { SchoolMarquee } from "@/components/SchoolMarquee";
 
 export const metadata = { title: "Our senior team · MentorsMD" };
 
@@ -13,7 +14,7 @@ export const metadata = { title: "Our senior team · MentorsMD" };
 // redirects here (next.config.js). Laid out like the AdmitMD leadership
 // cards: a card per person, the full bio opens in a pop-up.
 export default async function SeniorTeamPage() {
-  const c = await getSiteContent("seniorTeam");
+  const [c, settings] = await Promise.all([getSiteContent("seniorTeam"), getSiteContent("siteSettings")]);
   const people = c.people.map((p) => ({
     name: p.name,
     title: p.title,
@@ -32,6 +33,8 @@ export default async function SeniorTeamPage() {
       </div>
     ),
     people: <SeniorTeamCards people={people} />,
+    // Schools picked in Admin -> Website -> Site settings; hidden while empty.
+    trainedAt: settings.trainedAt.length > 0 && <SchoolMarquee label={settings.trainedAtTitle} schools={settings.trainedAt} contained />,
     cta: (
       <div className="card card-tint stack" style={{ gap: 12, alignItems: "flex-start" }}>
         <h2 style={{ fontSize: 24 }}>{c.ctaTitle}</h2>

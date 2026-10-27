@@ -5,12 +5,14 @@ import { prisma } from "@/lib/prisma";
 import { sendOrderPaidEmail, SITE_URL } from "@/lib/email";
 import { sendParentReceipt } from "@/lib/minors";
 import { applyTopUp, cancelUnpaid, fulfilOrderPayment, fundsAvailableFor } from "@/lib/hourCheckout";
+import { cancelUnpaidGift, fulfilGift } from "@/lib/gifts";
 
 // Stripe calls this URL directly (not the browser), so it's the only
 // reliable place to confirm a payment actually succeeded - never trust the
 // success_url redirect alone, since a user can hit that URL without paying.
 //
-// Three kinds of checkout (metadata on the session):
+// Four kinds of checkout (metadata on the session):
+//   giftId            a parent's gift: credit or a package (lib/gifts.ts)
 //   topUpId           "Add hours" on a package (lib/hourCheckout.ts)
 //   orderId + kind    a new hours order or pay-per-call (lib/hourCheckout.ts)
 //   orderId           an order from before the redesign (handled below)
@@ -31,11 +33,13 @@ export async function POST(req: Request) {
 
   if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
     const checkoutSession = event.data.object as Stripe.Checkout.Session;
-    const { orderId, topUpId } = checkoutSession.metadata || {};
+    const { orderId, topUpId, giftId } = checkoutSession.metadata || {};
 
     // Only a fully paid session counts.
     if (checkoutSession.payment_status === "paid") {
-      if (topUpId) {
+      if (giftId) {
+        await fulfilGift(giftId, checkoutSession);
+      } else if (topUpId) {
         await applyTopUp(topUpId, checkoutSession);
       } else if (orderId) {
         const order = await prisma.order.findUnique({ where: { id: orderId }, select: { kind: true } });
@@ -49,8 +53,10 @@ export async function POST(req: Request) {
   // back any MentorsMD credit applied) so they don't pile up unpaid.
   // (Enable this event on the webhook in your Stripe dashboard.)
   if (event.type === "checkout.session.expired") {
-    const { orderId, topUpId } = (event.data.object as Stripe.Checkout.Session).metadata || {};
-    if (topUpId) {
+    const { orderId, topUpId, giftId } = (event.data.object as Stripe.Checkout.Session).metadata || {};
+    if (giftId) {
+      await cancelUnpaidGift(giftId);
+    } else if (topUpId) {
       await cancelUnpaid({ topUpId });
     } else if (orderId) {
       const order = await prisma.order.findUnique({ where: { id: orderId }, select: { kind: true } });

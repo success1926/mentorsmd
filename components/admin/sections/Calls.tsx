@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Attendance, Recordings } from "@/components/Calls";
 import { NEEDS_ADMIN, outcomeLabel } from "@/lib/callOutcomes";
 
@@ -67,6 +68,17 @@ export function CallsAdmin() {
   const setup = data?.setup || {};
   const undecided = past.filter((c) => c.outcome && NEEDS_ADMIN.includes(c.outcome)).length;
 
+  // Opened from a link (?open=<call id>, e.g. the admin search box): open
+  // its list, scroll to it and outline it.
+  const openId = useSearchParams()?.get("open") || null;
+  const scrolledTo = useRef<string | null>(null);
+  useEffect(() => {
+    if (!data || !openId || scrolledTo.current === openId) return;
+    scrolledTo.current = openId;
+    window.setTimeout(() => document.getElementById(`call-${openId}`)?.scrollIntoView({ block: "center" }), 50);
+  }, [data, openId]);
+  const mark = (id: string) => (id === openId ? { outline: "2px solid var(--primary)", outlineOffset: 4, borderRadius: 8 } : {});
+
   return (
     <section className="stack-sm" id="calls">
       <h2 style={{ fontSize: 30 }}>Calls &amp; recordings</h2>
@@ -94,12 +106,12 @@ export function CallsAdmin() {
       </span>
       {undecided > 0 && <div className="alert alert-warning">{undecided} past call{undecided === 1 ? " needs" : "s need"} a decision: open &quot;Past 60 days&quot; below.</div>}
       {outcomeMsg && <div role="status" className={`alert ${outcomeMsg.ok ? "alert-success" : "alert-danger"}`}>{outcomeMsg.text}</div>}
-      <details className="collapse">
+      <details className="collapse" open={upcoming.some((c) => c.id === openId) || undefined}>
         <summary><span className="row" style={{ gap: 8 }}>Upcoming <span className="tab-count">{upcoming.length}</span></span></summary>
         <div className="collapse-body" style={{ gap: 0 }}>
           {upcoming.length === 0 && <span className="text-muted">No upcoming calls.</span>}
           {upcoming.map((c) => (
-            <div key={c.id} className="list-row" style={{ flexWrap: "wrap" }}>
+            <div key={c.id} id={`call-${c.id}`} className="list-row" style={{ flexWrap: "wrap", ...mark(c.id) }}>
               <div className="grow stack-sm" style={{ gap: 2 }}>
                 <b style={{ fontSize: 15 }}>{new Date(c.startTime).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</b>
                 <span className="text-muted">{c.label} · {c.studentName} (student) with {c.mentorName} (mentor)</span>
@@ -109,12 +121,12 @@ export function CallsAdmin() {
           ))}
         </div>
       </details>
-      <details className="collapse">
+      <details className="collapse" open={past.some((c) => c.id === openId) || undefined}>
         <summary><span className="row" style={{ gap: 8 }}>Past 60 days <span className="tab-count">{past.length}</span></span></summary>
         <div className="collapse-body" style={{ gap: 0 }}>
           {past.length === 0 && <span className="text-muted">No calls yet.</span>}
           {past.map((c) => (
-            <div key={c.id} className="list-row" style={{ display: "block" }}>
+            <div key={c.id} id={`call-${c.id}`} className="list-row" style={{ display: "block", ...mark(c.id) }}>
               <div className="between" style={{ flexWrap: "wrap", gap: 8 }}>
                 <span className="stack-sm" style={{ gap: 2 }}>
                   <b style={{ fontSize: 15 }}>{new Date(c.startTime).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</b>

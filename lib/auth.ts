@@ -4,13 +4,13 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcrypt";
 import { prisma } from "./prisma";
-import { SESSION_IDLE_SECONDS, sessionEndReason } from "./sessionRules";
+import { SESSION_IDLE_SECONDS, sessionEndReason, sessionRole } from "./sessionRules";
 import { RATE_LIMITS, clearRateLimit, rateLimit, rateLimitCount } from "./rateLimit";
 import { clientIp, ipKey } from "./request";
 import { verifyRecaptcha } from "./recaptcha";
 import { isBot } from "./honeypot";
 import { isReservedName } from "./reservedNames";
-import { redeemMfaTicket } from "./mfa";
+import { redeemMfaTicket, twoStepAtLogin } from "./mfa";
 import { recordSignup, signupAttribution } from "./activity";
 
 // The adapter is what lets NextAuth automatically create/find User rows
@@ -33,8 +33,39 @@ const MAX_FAILED_ATTEMPTS = 20;
 const LOCKOUT_MINUTES = 15;
 const ROLE_RECHECK_MS = 5 * 60 * 1000;
 
+const adapter = PrismaAdapter(prisma);
+
+// Google sign-in for an account that was made for someone without their
+// own login: a parent's gift creates a passwordless student account
+// (lib/gifts.ts). NextAuth normally refuses Google for an email that
+// already has an account (OAuthAccountNotLinked). We link Google to it
+// only when it's that kind of account (a student, no password, no Google
+// or other sign-in linked yet) and Google says it has checked the email,
+// so it's no weaker than "Forgot password" to the same inbox. Any other
+// existing account keeps NextAuth's refusal.
+async function linkGoogleToPasswordlessStudent(
+  user: { email?: string | null },
+  account: { provider: string; providerAccountId: string; type: string; [key: string]: unknown },
+  profile: unknown
+): Promise<void> {
+  if (!user.email || (profile as any)?.email_verified !== true) return;
+  const linked = await prisma.account.findUnique({
+    where: { provider_providerAccountId: { provider: account.provider, providerAccountId: account.providerAccountId } },
+    select: { id: true },
+  });
+  if (linked) return;
+  const existing = await prisma.user.findFirst({
+    where: { email: { equals: user.email, mode: "insensitive" } },
+    select: { id: true, role: true, passwordHash: true, removedByAdmin: true, _count: { select: { accounts: true } } },
+  });
+  if (!existing || existing.role !== "BUYER" || existing.passwordHash || existing.removedByAdmin || existing._count.accounts > 0) return;
+  // The same row NextAuth would write; NextAuth then finds it and logs
+  // them in to that account.
+  await adapter.linkAccount!({ ...(account as any), userId: existing.id });
+}
+
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter,
   // maxAge is the inactivity limit: the login cookie is renewed whenever
   // the person uses the site, so it only runs out after 7 idle days.
   // The 30-day hard limit and the admin 1-hour limit are in sessionRules.
@@ -162,7 +193,7 @@ export const authOptions: NextAuthOptions = {
     // the invite gate on an email they don't actually control the
     // password for, and keeps seller/admin access strictly to the
     // channels that were designed for it.
-    async signIn({ user, account }) {
+    async signIn({ user, account, profile }) {
       if (account?.provider === "google") {
         if (!user.email) return false;
         const existing = await prisma.user.findFirst({ where: { email: { equals: user.email, mode: "insensitive" } } });
@@ -170,6 +201,8 @@ export const authOptions: NextAuthOptions = {
           return false; // rejects the sign-in attempt
         }
         if (existing?.removedByAdmin) return false;
+        // A gift's passwordless student account: link Google to it.
+        if (existing) await linkGoogleToPasswordlessStudent(user, account, profile);
       }
       return true;
     },
@@ -183,9 +216,10 @@ export const authOptions: NextAuthOptions = {
       }
       if (trigger === "update") {
         token.lastSeenMs = Date.now();
-        // 2-step verification finished on /admin/verify: the page hands
-        // over a one-time ticket the server issued after checking the code.
-        if (token.sub && token.role === "ADMIN" && !token.mfa && (session as any)?.mfaTicket) {
+        // 2-step verification finished on /admin/verify or /two-step: the
+        // page hands over a one-time ticket the server issued after
+        // checking the code.
+        if (token.sub && (token.role === "ADMIN" || token.needs2fa) && !token.mfa && (session as any)?.mfaTicket) {
           if (await redeemMfaTicket(token.sub, (session as any).mfaTicket)) {
             token.mfa = true;
             token.mfaAtMs = Date.now();
@@ -199,8 +233,15 @@ export const authOptions: NextAuthOptions = {
         token.roleCheckedAt = Date.now();
         token.issuedAtMs = Date.now();
         token.lastSeenMs = Date.now();
-        // Admins must pass 2-step verification on every login.
-        token.mfa = false;
+        // 2-step verification (lib/mfa.ts): admins and mentors on every
+        // login, students who turned it on. A browser the person trusted
+        // for 30 days skips it. Until it's done the session gets a pending
+        // role (lib/sessionRules.ts) and middleware.ts sends them to enter
+        // their code. Google sign-ins go through here too.
+        // If the check itself fails, admins and mentors still need the code.
+        const step = await twoStepAtLogin(user.id).catch(() => ({ needs: token.role === "ADMIN" || token.role === "SELLER", trusted: false }));
+        token.needs2fa = step.needs;
+        token.mfa = !step.needs || step.trusted;
       } else if (token.sub && (token.role === "ADMIN" || Date.now() - ((token.roleCheckedAt as number) || 0) > ROLE_RECHECK_MS)) {
         // Re-read the role every few minutes (on every request for
         // admins), so demoting, disabling or removing an account takes
@@ -241,10 +282,10 @@ export const authOptions: NextAuthOptions = {
         return {} as any;
       }
       if (session.user) {
-        // An admin who hasn't finished 2-step verification yet gets a
-        // different role, so every admin-only check (role === "ADMIN")
-        // refuses them until they do (/admin/verify).
-        (session.user as any).role = token.role === "ADMIN" && !token.mfa ? "ADMIN_2FA" : token.role;
+        // Someone who hasn't finished 2-step verification yet gets a
+        // pending role (ADMIN_2FA, SELLER_2FA, BUYER_2FA), so every check
+        // for "ADMIN", "SELLER" or "BUYER" refuses them until they do.
+        (session.user as any).role = sessionRole(token);
         // This was missing entirely - without it, every route that checks
         // "who is the logged-in user" (sending invites, creating gigs,
         // booking orders, messaging, everything) receives an empty user

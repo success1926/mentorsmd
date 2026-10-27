@@ -21,11 +21,14 @@ const fee = (cents: number) => Math.round((cents * PLATFORM_FEE_PERCENT) / 100);
 //   - Not yet paid out: the value of hours bought that haven't been paid
 //     to a mentor yet (active, waiting, approved and disputed packages).
 //   - Credit issued: refunds given as credit and manual additions.
+//   - Gift credit sold: MentorsMD credit parents paid for on /gift
+//     (lib/gifts.ts). Packages parents bought are normal orders, tagged
+//     with the parent's name (giftFrom).
 export async function GET() {
   const admin = await currentAdmin("orders");
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
-  const [orders, payouts, creditIssued, creditBalance] = await Promise.all([
+  const [orders, payouts, creditIssued, creditBalance, giftCredit] = await Promise.all([
     prisma.order.findMany({
       where: { status: { in: ["IN_ESCROW", "COMPLETED", "RELEASED", "REFUNDED"] } },
       // Only the fields shown - never pull whole User rows (password hashes etc).
@@ -46,7 +49,10 @@ export async function GET() {
     prisma.mentorPayout.findMany({ where: { status: "PAID" }, select: { amountCents: true, grossCents: true } }),
     prisma.creditEntry.aggregate({ where: { reason: { in: ["DISPUTE_REFUND", "ADMIN_ADJUST"] }, amountCents: { gt: 0 } }, _sum: { amountCents: true } }),
     prisma.creditEntry.aggregate({ _sum: { amountCents: true } }),
+    prisma.creditEntry.aggregate({ where: { reason: "GIFT" }, _sum: { amountCents: true } }),
   ]);
+  const gifts = await prisma.gift.findMany({ where: { orderId: { in: orders.map((o) => o.id) } }, select: { orderId: true, parentName: true } });
+  const giftFrom = new Map(gifts.map((g) => [g.orderId!, g.parentName]));
 
   let sales = 0;
   let credit = 0;
@@ -69,7 +75,7 @@ export async function GET() {
       return {
         id: o.id, kind: null, status: o.status, phase: null, title: o.gig.title, buyerName: o.buyer.name, sellerName: o.seller.name,
         priceCents, creditCents, topUpCents: 0, refundedCreditCents: 0, minutesPurchased: 0, minutesUsed: 0, minutesLeft: 0, payout: null,
-        createdAt: o.paidAt ?? o.createdAt,
+        createdAt: o.paidAt ?? o.createdAt, giftFrom: null,
       };
     }
     const h = hoursSummary(o);
@@ -92,6 +98,7 @@ export async function GET() {
       minutesLeft: h.left,
       payout: o.payout,
       createdAt: o.paidAt ?? o.createdAt,
+      giftFrom: giftFrom.get(o.id) ?? null,
     };
   });
 
@@ -106,6 +113,7 @@ export async function GET() {
     notPaidOutCents: notPaidOut,
     creditIssuedCents: creditIssued._sum.amountCents || 0,
     creditOutstandingCents: Math.max(0, creditBalance._sum.amountCents || 0),
+    giftCreditSoldCents: giftCredit._sum.amountCents || 0,
     orders: rows,
   });
 }

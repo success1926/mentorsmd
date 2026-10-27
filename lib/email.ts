@@ -3,6 +3,7 @@ import { fmtInZone } from "@/lib/tz";
 import { siteUrl } from "@/lib/siteUrl";
 import { prisma } from "@/lib/prisma";
 import { logEmail } from "@/lib/emailLog";
+import { allowEmailTo } from "@/lib/rateLimit";
 import { EMAILS, blocks, previewText, renderEmail, validateTemplate, type Values } from "@/lib/emailTemplates";
 
 // Lazy, like lib/stripe.ts: the Resend constructor throws if the API key
@@ -73,12 +74,41 @@ async function deliver(key: string, to: string, subject: string, html: string, e
   }
 }
 
+// Emails that anyone can make the site send (by typing an address into a
+// public form, or by asking again and again): at most this many of each
+// to one address per hour. Past that, the email is quietly skipped (and
+// shown as not sent in Admin -> Email log), so the forms still give their
+// usual answer and never reveal whether an address has an account.
+const PER_ADDRESS_HOURLY: Record<string, number> = {
+  password_reset: 3,
+  email_verification: 3,
+  // A parent can have several children signing up the same evening, so
+  // this one allows more (it still stops someone flooding an address).
+  parent_consent: 10,
+  contact_received: 3,
+  application_received: 3,
+  admin_code: 6,
+  login_code: 6,
+};
+
 async function sendTemplate(key: string, to: string, values: Values, extra: Extra = {}) {
   const def = EMAILS[key];
   if (!def) throw new Error(`Unknown email template: ${key}`);
+  const cap = PER_ADDRESS_HOURLY[key];
+  if (cap && !(await allowEmailTo(key, to, cap))) {
+    await logEmail({ templateKey: key, toEmail: to, subject: def.name, status: "FAILED", error: `Not sent: more than ${cap} of these to this address in the last hour.` });
+    return null;
+  }
   const tpl = (await savedTemplate(key)) || def;
   const { subject, html } = renderEmail(def, tpl, values);
   return deliver(key, to, subject, html, extra);
+}
+
+// Reminder emails from the daily cron (lib/scheduledEmails.ts). Throws if
+// the send fails, so the cron can try again the next day.
+export async function sendReminderEmail(key: string, toEmail: string, values: Values) {
+  if (!EMAILS[key]?.schedule) throw new Error(`Not a reminder email: ${key}`);
+  return sendTemplate(key, toEmail, values);
 }
 
 // Admin -> Emails -> "Send test to me": the wording in the editor (saved
@@ -292,6 +322,41 @@ export async function sendCreditIssuedEmail(toEmail: string, v: { name: string; 
   });
 }
 
+// Gifts from a parent (lib/gifts.ts): to the student, and the parent's receipt.
+export async function sendGiftReceivedEmail(
+  toEmail: string,
+  v: { studentName: string; parentName: string; giftShort: string; giftLine: string; note: string | null; claimUrl: string | null; claimDays: number }
+) {
+  await sendTemplate("gift_received", toEmail, {
+    firstName: first(v.studentName),
+    parentName: v.parentName,
+    giftShort: v.giftShort,
+    giftLine: v.giftLine,
+    note: v.note ? blocks.quote(v.note) : "",
+    claimLink: v.claimUrl || "",
+    loginLink: v.claimUrl ? "" : `${SITE_URL}/login`,
+    claimHelp: v.claimUrl ? `This link works for ${v.claimDays} days. After that, use Forgot password on the login page.` : "",
+  });
+}
+
+export async function sendGiftReceiptEmail(
+  toEmail: string,
+  v: { parentName: string; studentName: string; giftLine: string; amountCents: number; paidAt: Date; under18: boolean; giftUrl: string }
+) {
+  await sendTemplate("gift_receipt", toEmail, {
+    parentFirstName: first(v.parentName),
+    studentName: v.studentName,
+    studentFirstName: first(v.studentName),
+    giftLine: v.giftLine,
+    amount: money(v.amountCents),
+    paidOn: v.paidAt.toDateString(),
+    consentNote: v.under18
+      ? `Because ${first(v.studentName)} is under 18, they'll need your consent before they can use MentorsMD. That's a separate email we send you once they set up their account.`
+      : "",
+    giftLink: v.giftUrl,
+  });
+}
+
 export async function sendCallTimeTakenEmail(toEmail: string, v: { mentorName: string; packageTitle: string; orderUrl: string }) {
   await sendTemplate("call_time_taken", toEmail, { mentorName: v.mentorName, packageTitle: v.packageTitle, orderLink: v.orderUrl });
 }
@@ -471,6 +536,17 @@ export async function sendAdminInviteEmail(toEmail: string, inviterName: string,
 
 export async function sendAdminCodeEmail(toEmail: string, code: string) {
   await sendTemplate("admin_code", toEmail, { code });
+}
+
+// The 2-step login code for mentors and students (admins get admin_code).
+export async function sendLoginCodeEmail(toEmail: string, code: string) {
+  await sendTemplate("login_code", toEmail, { code });
+}
+
+// Security notice: someone's 2-step method changed (Settings, or set up at
+// their first login).
+export async function sendTwoStepChangedEmail(toEmail: string, name: string, change: string) {
+  await sendTemplate("two_step_changed", toEmail, { firstName: first(name), change, siteLink: SITE_URL });
 }
 
 export async function sendTeamAccessChangedEmail(toEmail: string, name: string, text: string) {

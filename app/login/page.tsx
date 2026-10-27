@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AuthShell, GoogleButton } from "@/components/AuthShell";
 import { Honeypot, useRecaptcha } from "@/components/FormGuards";
-import { homeForRole } from "@/lib/sessionRules";
+import { homeForRole, isPending2faRole, verifyPathFor } from "@/lib/sessionRules";
 
 // Only allow redirects back into this site.
 function safeCallback() {
@@ -27,7 +27,7 @@ export default function LoginPage() {
 function authErrorText(code: string) {
   if (!code || code === "CredentialsSignin") return "";
   if (code === "OAuthAccountNotLinked")
-    return "This email already has a MentorsMD account with a password. Log in with your email and password below.";
+    return "This email already has a MentorsMD account. Log in with your email and password below. No password yet (for example, an account a parent set up with a gift)? Use the \"Set up your account\" email, or Forgot password.";
   if (code === "AccessDenied")
     return "Google sign-in isn't available for this account. Mentors log in with their email and password. If you think this is a mistake, contact us.";
   if (code === "SignupLogin") return "Your account is ready. Log in to continue.";
@@ -62,9 +62,12 @@ function LoginForm() {
     const session = await fetch("/api/auth/session").then((r) => r.json()).catch(() => ({}));
     const role = session?.user?.role;
     const cb = safeCallback();
-    // Admins finish 2-step verification first (#116).
-    if (role === "ADMIN_2FA") {
-      router.push(`/admin/verify`);
+    // Admins, mentors (and students who turned it on) enter their 2-step
+    // code first, unless this browser is trusted (lib/mfa.ts).
+    if (isPending2faRole(role)) {
+      const realRole = String(role).replace("_2FA", "");
+      const next = cb || homeForRole(realRole);
+      router.push(`${verifyPathFor(role)}?next=${encodeURIComponent(next)}`);
       router.refresh();
       return;
     }

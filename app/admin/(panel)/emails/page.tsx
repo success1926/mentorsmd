@@ -6,7 +6,17 @@ import { useSession } from "next-auth/react";
 import { EmailTabs } from "@/components/admin/AdminTabs";
 import { GROUP_LABELS, GROUP_ORDER, type EmailGroup } from "@/lib/emailTemplates";
 
-type Row = { key: string; name: string; description: string; group: EmailGroup; locked: boolean; edited: boolean; updatedAt: string | null; updatedBy: string | null };
+type Row = {
+  key: string;
+  name: string;
+  description: string;
+  group: EmailGroup;
+  locked: boolean;
+  edited: boolean;
+  updatedAt: string | null;
+  updatedBy: string | null;
+  reminder: { enabled: boolean; timing: string } | null; // reminder emails sent by the daily cron
+};
 
 const fmtDay = (d: string) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 
@@ -63,7 +73,13 @@ export default function AdminEmailsPage() {
                         <span className="text-muted">Edited {fmtDay(r.updatedAt)}{r.updatedBy ? ` by ${r.updatedBy}` : ""}</span>
                       )}
                     </div>
-                    {r.locked && <span className="badge" title="Its link or code can't be removed">Security</span>}
+                    {r.reminder &&
+                      (r.reminder.enabled ? (
+                        <span className="badge badge-success" title={r.reminder.timing}>Reminder: on</span>
+                      ) : (
+                        <span className="badge" title="Switch it on from its page">Reminder: off</span>
+                      ))}
+                    {r.locked && !r.reminder && <span className="badge" title="Its link or code can't be removed">Security</span>}
                     {r.edited ? <span className="badge badge-brand">Edited</span> : <span className="badge">Standard</span>}
                   </Link>
                 ))}

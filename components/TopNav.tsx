@@ -67,6 +67,8 @@ const RIGHT_LINKS: Record<string, NavLink[]> = {
   SELLER: [{ label: "Dashboard", href: "/dashboard" }],
   ADMIN: [{ label: "Admin", href: "/admin" }],
   ADMIN_2FA: [{ label: "Finish logging in", href: "/admin/verify" }],
+  SELLER_2FA: [{ label: "Finish logging in", href: "/two-step" }],
+  BUYER_2FA: [{ label: "Finish logging in", href: "/two-step" }],
 };
 
 const MENU: Record<string, NavLink[]> = {
@@ -80,9 +82,18 @@ const MENU: Record<string, NavLink[]> = {
     { label: "Account settings", href: "/account" },
   ],
   ADMIN_2FA: [{ label: "Finish logging in", href: "/admin/verify" }],
+  SELLER_2FA: [{ label: "Finish logging in", href: "/two-step" }],
+  BUYER_2FA: [{ label: "Finish logging in", href: "/two-step" }],
 };
 
-const ROLE_LABEL: Record<string, string> = { BUYER: "Student account", SELLER: "Mentor account", ADMIN: "Admin", ADMIN_2FA: "Admin (verification needed)" };
+const ROLE_LABEL: Record<string, string> = {
+  BUYER: "Student account",
+  SELLER: "Mentor account",
+  ADMIN: "Admin",
+  ADMIN_2FA: "Admin (verification needed)",
+  SELLER_2FA: "Mentor account (verification needed)",
+  BUYER_2FA: "Student account (verification needed)",
+};
 
 function initials(name: string) {
   return (name || "?")

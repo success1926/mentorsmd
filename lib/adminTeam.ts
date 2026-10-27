@@ -15,7 +15,8 @@ import { ALL_PERMISSIONS, can, type PermissionCheck } from "@/lib/adminPermissio
 //  - Every admin login needs 2-step verification (authenticator app or an
 //    emailed code) before the session counts as ADMIN. Until then the
 //    session's role reads "ADMIN_2FA", so every existing admin check
-//    (role === "ADMIN") refuses it. See the jwt/session callbacks in lib/auth.ts.
+//    (role === "ADMIN") refuses it. See lib/mfa.ts, lib/sessionRules.ts and
+//    the jwt/session callbacks in lib/auth.ts.
 
 export type AdminRole = "OWNER" | "ADMIN";
 export const ADMIN_ROLE_LABEL: Record<AdminRole, string> = { OWNER: "Owner", ADMIN: "Admin" };
@@ -85,20 +86,6 @@ export async function adminIdsWith(perm: PermissionCheck): Promise<string[]> {
 // logged-in person an admin whose role includes this area?
 export async function adminCan(perm: PermissionCheck) {
   return !!(await currentAdmin(perm));
-}
-
-// An admin who has logged in with their password but may not have
-// finished 2-step verification yet (for the /admin/verify page's APIs).
-export async function adminAwaiting2fa() {
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as any)?.role;
-  if (!session?.user || (role !== "ADMIN" && role !== PENDING_2FA_ROLE)) return null;
-  const u = await prisma.user.findUnique({
-    where: { id: (session.user as any).id },
-    select: { id: true, name: true, email: true, role: true, adminDisabledAt: true, removedByAdmin: true, twoFactorMethod: true, totpSecret: true, totpLastStep: true },
-  });
-  if (!u || u.role !== "ADMIN" || u.adminDisabledAt || u.removedByAdmin) return null;
-  return u;
 }
 
 export async function activeOwnerCount(excludeUserId?: string) {
