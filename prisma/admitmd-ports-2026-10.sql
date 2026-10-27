@@ -53,3 +53,75 @@ CREATE UNIQUE INDEX IF NOT EXISTS "ScheduledEmailSent_key_refId_step_key" ON "Sc
 CREATE INDEX IF NOT EXISTS "ScheduledEmailSent_key_sentAt_idx" ON "ScheduledEmailSent"("key", "sentAt");
 CREATE INDEX IF NOT EXISTS "ScheduledEmailSent_userId_key_idx" ON "ScheduledEmailSent"("userId", "key");
 ALTER TABLE "ScheduledEmailSent" ENABLE ROW LEVEL SECURITY;
+
+-- Part 3 (school logo strips, Press page): no database changes.
+
+-- ======================================================================
+-- Part 4: gifts from a parent (/gift, lib/gifts.ts) and cycle results
+-- (/dashboard/results, lib/cycleResults.ts; switched off until
+-- NEXT_PUBLIC_CYCLE_RESULTS=1)
+-- ======================================================================
+-- No changes to existing tables: gifted credit is a "CreditEntry" with
+-- reason GIFT, and a gifted package is a normal "Order".
+
+-- One row per gift a parent or guardian paid for (credit or a package).
+CREATE TABLE IF NOT EXISTS "Gift" (
+  "id"                    TEXT         NOT NULL,
+  "createdAt"             TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "kind"                  TEXT         NOT NULL,
+  "status"                TEXT         NOT NULL DEFAULT 'PENDING',
+  "amountCents"           INTEGER      NOT NULL,
+  "parentName"            TEXT         NOT NULL,
+  "parentEmail"           TEXT         NOT NULL,
+  "studentName"           TEXT         NOT NULL,
+  "studentEmail"          TEXT         NOT NULL,
+  "note"                  TEXT,
+  "studentUnder18"        BOOLEAN      NOT NULL DEFAULT false,
+  "gigId"                 TEXT,
+  "mentorId"              TEXT,
+  "minutes"               INTEGER,
+  "rateCents"             INTEGER,
+  "packageTitle"          TEXT,
+  "studentId"             TEXT,
+  "orderId"               TEXT,
+  "creditEntryId"         TEXT,
+  "stripeSessionId"       TEXT,
+  "stripePaymentIntentId" TEXT,
+  "paidAt"                TIMESTAMP(3),
+  "reviewNote"            TEXT,
+  "viewTokenHash"         TEXT         NOT NULL,
+  "claimTokenHash"        TEXT,
+  "claimExpiresAt"        TIMESTAMP(3),
+  "claimedAt"             TIMESTAMP(3),
+  "ip"                    TEXT,
+  CONSTRAINT "Gift_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "Gift_orderId_key" ON "Gift"("orderId");
+CREATE UNIQUE INDEX IF NOT EXISTS "Gift_creditEntryId_key" ON "Gift"("creditEntryId");
+CREATE UNIQUE INDEX IF NOT EXISTS "Gift_stripeSessionId_key" ON "Gift"("stripeSessionId");
+CREATE UNIQUE INDEX IF NOT EXISTS "Gift_viewTokenHash_key" ON "Gift"("viewTokenHash");
+CREATE UNIQUE INDEX IF NOT EXISTS "Gift_claimTokenHash_key" ON "Gift"("claimTokenHash");
+CREATE INDEX IF NOT EXISTS "Gift_status_createdAt_idx" ON "Gift"("status", "createdAt");
+CREATE INDEX IF NOT EXISTS "Gift_studentId_idx" ON "Gift"("studentId");
+CREATE INDEX IF NOT EXISTS "Gift_parentEmail_createdAt_idx" ON "Gift"("parentEmail", "createdAt");
+ALTER TABLE "Gift" ENABLE ROW LEVEL SECURITY;
+
+-- A student's application results, one row per school per cycle.
+CREATE TABLE IF NOT EXISTS "CycleResult" (
+  "id"          TEXT         NOT NULL,
+  "createdAt"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt"   TIMESTAMP(3) NOT NULL,
+  "userId"      TEXT         NOT NULL,
+  "cycle"       INTEGER      NOT NULL,
+  "school"      TEXT         NOT NULL,
+  "status"      TEXT         NOT NULL,
+  "appliedOn"   DATE,
+  "interviewOn" DATE,
+  "decisionOn"  DATE,
+  "mentorIds"   TEXT[]       DEFAULT ARRAY[]::TEXT[],
+  "note"        TEXT,
+  CONSTRAINT "CycleResult_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "CycleResult_userId_cycle_school_key" ON "CycleResult"("userId", "cycle", "school");
+CREATE INDEX IF NOT EXISTS "CycleResult_cycle_status_idx" ON "CycleResult"("cycle", "status");
+ALTER TABLE "CycleResult" ENABLE ROW LEVEL SECURITY;

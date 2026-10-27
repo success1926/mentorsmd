@@ -692,6 +692,12 @@ function OfferDetails({
       ) : (
         <span className="text-muted">Only student accounts can buy.</span>
       )}
+      {/* Parents: buy this exact offer for their student as a guest (/gift, lib/gifts.ts). */}
+      {!preview && canBuy && (
+        <span className="text-muted small">
+          Buying for your student? <Link href={`/gift?offer=${encodeURIComponent(offer.id)}`} className="link">Buy it for them</Link>, no account needed.
+        </span>
+      )}
     </div>
   );
 }

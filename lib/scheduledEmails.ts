@@ -131,8 +131,13 @@ function studentWhere(): Prisma.UserWhereInput {
     profileStatus: { not: "REMOVED" },
     safetyHoldAt: null,
     remindersOffAt: null,
-    // Under 18: only once a parent has consented.
-    OR: [{ minorStatus: null }, { minorStatus: "CONSENTED" }],
+    AND: [
+      // Under 18: only once a parent has consented.
+      { OR: [{ minorStatus: null }, { minorStatus: "CONSENTED" }] },
+      // Can log in: not an account a parent's gift created that the
+      // student hasn't set up yet (lib/gifts.ts).
+      { OR: [{ passwordHash: { not: null } }, { accounts: { some: {} } }] },
+    ],
   };
 }
 

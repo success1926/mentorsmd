@@ -47,6 +47,12 @@ export const RATE_LIMITS = {
   contactPerEmailDay: { name: "contact-email-d", max: 5, windowSec: 86400 },
   // Browser error reports forwarded to Sentry (Oct 2026)
   clientErrorPerIpHour: { name: "client-error-ip", max: 20, windowSec: 3600 },
+  // Gifts from a parent (/gift): starting a checkout, and the student's
+  // "Set up your account" form.
+  giftPerIpHour: { name: "gift-ip-h", max: 6, windowSec: 3600 },
+  giftPerIpDay: { name: "gift-ip-d", max: 20, windowSec: 86400 },
+  giftPerEmailDay: { name: "gift-email-d", max: 10, windowSec: 86400 },
+  giftClaimPerIpHour: { name: "gift-claim-ip", max: 20, windowSec: 3600 },
 } satisfies Record<string, Limit>;
 
 function upstash() {

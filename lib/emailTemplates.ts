@@ -685,6 +685,33 @@ const LIST: EmailDef[] = [
       link("creditLink", "Link to the student's MentorsMD credit page", `${SITE}/credit`),
     ],
   },
+  // ----- Gifts from a parent (lib/gifts.ts) -----
+  {
+    key: "gift_received",
+    name: "Gift received",
+    description: "Sent to the student when a parent or guardian buys them MentorsMD credit or a package on the Gift page. A new account gets a link to set a password; an existing account gets a link to log in.",
+    group: "STUDENTS",
+    subject: "{{parentName}} sent you {{giftShort}} on MentorsMD",
+    body: [
+      "Hi {{firstName}},",
+      "**{{parentName}}** sent you **{{giftLine}}** on MentorsMD.",
+      "{{note}}",
+      "MentorsMD connects you with medical students and doctors who help with every part of getting into medical school. Credit never expires and you can use it with any mentor.",
+      "[[Set up your account]]({{claimLink}})",
+      "[[Log in to MentorsMD]]({{loginLink}})",
+      "> {{claimHelp}}",
+    ].join("\n\n"),
+    vars: [
+      V.firstName,
+      text("parentName", "The name of the parent or guardian who paid", "Maria Lee"),
+      text("giftShort", 'Short version for the subject, e.g. "$100 of credit"', "$100.00 of credit"),
+      text("giftLine", "What was bought", "$100.00 of MentorsMD credit"),
+      block("note", "The parent's personal note (left out if there's none)", blocks.quote("Good luck this cycle! Love, Mom")),
+      link("claimLink", "Set-a-password link, for a new account (the line is left out for existing accounts)", `${SITE}/gift/claim?token=sample`, { optional: true }),
+      link("loginLink", "Login link, for an existing account (the line is left out for new accounts)", `${SITE}/login`, { optional: true }),
+      text("claimHelp", "How long the set-up link works (left out for existing accounts)", "This link works for 60 days. After that, use Forgot password on the login page.", { optional: true }),
+    ],
+  },
   // ----- Free intro calls (redesign Oct 2026) -----
   {
     key: "intro_call_booked",
@@ -958,6 +985,34 @@ const LIST: EmailDef[] = [
       text("dueDate", "Due date (the line is left out if there's none)", "Fri Oct 24 2026", { optional: true }),
       V.parentLink,
     ],
+  },
+
+  {
+    key: "gift_receipt",
+    name: "Gift receipt (parent)",
+    description: "Sent to the parent or guardian who bought a gift on the Gift page, once the payment clears: what they bought, and their private gift page.",
+    group: "PARENTS",
+    subject: "Receipt: your gift to {{studentName}}",
+    body: [
+      "Hi {{parentFirstName}},",
+      "Thank you. Your gift to **{{studentName}}** is paid, and we've emailed {{studentFirstName}} to let them know.",
+      "**Gift:** {{giftLine}}\n**Amount paid:** {{amount}}\n**Date:** {{paidOn}}",
+      "{{consentNote}}",
+      "You can see what you bought, and for a package the hours used and calls held, on your private gift page. Stripe also emails you its own card receipt.",
+      "[[Open your gift page]]({{giftLink}})",
+      "> Keep this link private: anyone with it can see this gift. It doesn't show any messages.",
+    ].join("\n\n"),
+    vars: [
+      text("parentFirstName", "The parent's first name", "Maria"),
+      V.studentName,
+      text("studentFirstName", "The student's first name", "Jordan"),
+      text("giftLine", "What was bought", "Personal statement review (5 hours) with Dr. Priya Shah"),
+      text("amount", "Amount paid", "$400.00"),
+      text("paidOn", "Date paid", "Tue Oct 27 2026"),
+      text("consentNote", "For students under 18: consent is asked separately (left out otherwise)", "Because Jordan is under 18, they'll need your consent before they can use MentorsMD. That's a separate email we send you once they set up their account.", { optional: true }),
+      link("giftLink", "The parent's private gift page", `${SITE}/gift/sample-link`),
+    ],
+    required: ["giftLink"],
   },
 
   // ----- Team -----

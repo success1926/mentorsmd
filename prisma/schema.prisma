@@ -628,7 +628,7 @@ model HourTopUp {
 model CreditEntry {
   id          String   @id @default(cuid())
   amountCents Int
-  // DISPUTE_REFUND | ADMIN_ADJUST | SPENT | SPENT_REVERSED
+  // DISPUTE_REFUND | ADMIN_ADJUST | SPENT | SPENT_REVERSED | GIFT (bought by a parent, lib/gifts.ts)
   reason      String
   note        String?
   createdAt   DateTime @default(now())
@@ -1317,4 +1317,80 @@ model LeadNote {
 
   @@index([leadId, createdAt])
   @@index([applicationId, createdAt])
+}
+
+// ---- Gifts from a parent (lib/gifts.ts) ----
+// A parent or guardian (no account) pays on /gift for their student:
+// MentorsMD credit (kind CREDIT) or one of a mentor's offers (PACKAGE).
+// Paid by Stripe Checkout as a guest. When the payment clears, the
+// student's account is found by email or created without a password, and
+// the credit (a CreditEntry, reason GIFT) or the order (a normal Order,
+// as if the student bought it) is added to it. The parent gets a private
+// page at /gift/<token>. Student, mentor, order and credit entry are kept
+// as plain ids so this table doesn't change the other models.
+model Gift {
+  id                    String    @id @default(cuid())
+  createdAt             DateTime  @default(now())
+  kind                  String // CREDIT | PACKAGE
+  // PENDING (on the Stripe page), PAID, CANCELLED (page expired),
+  // NEEDS_REVIEW (paid, but couldn't be given: see reviewNote)
+  status                String    @default("PENDING")
+  amountCents           Int
+  parentName            String
+  parentEmail           String
+  studentName           String
+  studentEmail          String
+  note                  String? // the parent's personal note to the student
+  studentUnder18        Boolean   @default(false) // the parent's answer on the form
+  // PACKAGE: the offer bought and what it was when they paid.
+  gigId                 String?
+  mentorId              String?
+  minutes               Int?
+  rateCents             Int?
+  packageTitle          String?
+  // What the gift became once paid.
+  studentId             String?
+  orderId               String?   @unique
+  creditEntryId         String?   @unique
+  stripeSessionId       String?   @unique
+  stripePaymentIntentId String?
+  paidAt                DateTime?
+  reviewNote            String?
+  // The parent's private page (sha256 of the token in the link).
+  viewTokenHash         String    @unique
+  // "Claim your gift": a new student account sets its password with this
+  // link (sha256 of the token). Null when the student already had an account.
+  claimTokenHash        String?   @unique
+  claimExpiresAt        DateTime?
+  claimedAt             DateTime?
+  ip                    String? // salted hash of the IP (lib/request.ts ipKey)
+
+  @@index([status, createdAt])
+  @@index([studentId])
+  @@index([parentEmail, createdAt])
+}
+
+// ---- Cycle results (lib/cycleResults.ts) ----
+// A student's application outcomes, one row per school per cycle. Behind
+// the NEXT_PUBLIC_CYCLE_RESULTS switch (off by default) and not shown
+// anywhere public yet. Student and mentors are plain ids so this table
+// doesn't change the User model.
+model CycleResult {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  userId      String
+  cycle       Int // the year they'd start medical school, e.g. 2027
+  school      String
+  // APPLIED, SECONDARY, INTERVIEW_INVITE, INTERVIEWED, WAITLISTED,
+  // ACCEPTED, REJECTED, WITHDRAWN, MATRICULATING
+  status      String
+  appliedOn   DateTime? @db.Date
+  interviewOn DateTime? @db.Date
+  decisionOn  DateTime? @db.Date
+  mentorIds   String[]  @default([]) // MentorsMD mentors who helped
+  note        String?
+
+  @@unique([userId, cycle, school])
+  @@index([cycle, status])
 }

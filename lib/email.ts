@@ -320,6 +320,41 @@ export async function sendCreditIssuedEmail(toEmail: string, v: { name: string; 
   });
 }
 
+// Gifts from a parent (lib/gifts.ts): to the student, and the parent's receipt.
+export async function sendGiftReceivedEmail(
+  toEmail: string,
+  v: { studentName: string; parentName: string; giftShort: string; giftLine: string; note: string | null; claimUrl: string | null; claimDays: number }
+) {
+  await sendTemplate("gift_received", toEmail, {
+    firstName: first(v.studentName),
+    parentName: v.parentName,
+    giftShort: v.giftShort,
+    giftLine: v.giftLine,
+    note: v.note ? blocks.quote(v.note) : "",
+    claimLink: v.claimUrl || "",
+    loginLink: v.claimUrl ? "" : `${SITE_URL}/login`,
+    claimHelp: v.claimUrl ? `This link works for ${v.claimDays} days. After that, use Forgot password on the login page.` : "",
+  });
+}
+
+export async function sendGiftReceiptEmail(
+  toEmail: string,
+  v: { parentName: string; studentName: string; giftLine: string; amountCents: number; paidAt: Date; under18: boolean; giftUrl: string }
+) {
+  await sendTemplate("gift_receipt", toEmail, {
+    parentFirstName: first(v.parentName),
+    studentName: v.studentName,
+    studentFirstName: first(v.studentName),
+    giftLine: v.giftLine,
+    amount: money(v.amountCents),
+    paidOn: v.paidAt.toDateString(),
+    consentNote: v.under18
+      ? `Because ${first(v.studentName)} is under 18, they'll need your consent before they can use MentorsMD. That's a separate email we send you once they set up their account.`
+      : "",
+    giftLink: v.giftUrl,
+  });
+}
+
 export async function sendCallTimeTakenEmail(toEmail: string, v: { mentorName: string; packageTitle: string; orderUrl: string }) {
   await sendTemplate("call_time_taken", toEmail, { mentorName: v.mentorName, packageTitle: v.packageTitle, orderLink: v.orderUrl });
 }

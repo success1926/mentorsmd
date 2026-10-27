@@ -2,8 +2,9 @@
 // links in the top bar's menu (components/TopNav.tsx), in one place.
 // Student area v2 (Oct 2026), the same pattern as lib/mentorNav.ts.
 // Pure data, safe to import from both server and client code.
+import { CYCLE_RESULTS_ON } from "@/lib/cycleResults";
 
-export type StudentNavKey = "home" | "packages" | "messages" | "calendar" | "mentors" | "credit" | "receipts" | "profile" | "settings";
+export type StudentNavKey = "home" | "packages" | "messages" | "calendar" | "mentors" | "credit" | "receipts" | "results" | "profile" | "settings";
 
 export type StudentNavItem = {
   key: StudentNavKey;
@@ -22,6 +23,8 @@ export const STUDENT_NAV: StudentNavItem[] = [
   { key: "mentors", label: "Find a mentor", href: "/mentors" },
   { key: "credit", label: "MentorsMD credit", href: "/credit" },
   { key: "receipts", label: "Receipts", href: "/receipts" },
+  // Cycle results: only while NEXT_PUBLIC_CYCLE_RESULTS=1 (lib/cycleResults.ts).
+  ...(CYCLE_RESULTS_ON ? [{ key: "results" as const, label: "Cycle results", href: "/dashboard/results" }] : []),
   { key: "profile", label: "About you", href: "/about-you" },
   { key: "settings", label: "Settings", href: "/account" },
 ];

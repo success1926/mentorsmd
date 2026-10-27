@@ -1,4 +1,5 @@
 import { can, type AdminPermission, type PermissionCheck } from "@/lib/adminPermissions";
+import { CYCLE_RESULTS_ON } from "@/lib/cycleResults";
 
 // The admin sidebar, in groups. Adding a page is one line here. Each
 // person only sees the items their role allows (and a group only if it
@@ -46,6 +47,8 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/insights", label: "Insights", perm: "insights", group: "Reports" },
   { href: "/admin/analytics", label: "Analytics", perm: "analytics", group: "Reports" },
   { href: "/admin/action-log", label: "Action log", perm: "actionlog", group: "Reports" },
+  // Read-only; only while NEXT_PUBLIC_CYCLE_RESULTS=1 (lib/cycleResults.ts).
+  { href: "/admin/results", label: "Cycle results", perm: "people", group: "Reports", ready: CYCLE_RESULTS_ON },
 
   { href: "/admin/team", label: "Team & roles", perm: "team", group: "Settings" },
 ];

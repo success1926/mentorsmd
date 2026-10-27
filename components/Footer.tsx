@@ -74,6 +74,7 @@ export async function Footer() {
               <Link href="/mentors">Browse mentors</Link>
               <Link href="/how-it-works">How it works</Link>
               {showReviews && <Link href="/reviews">Reviews</Link>}
+              <Link href="/gift">Gift MentorsMD</Link>
               <FooterAccountLink kind="student" />
             </div>
             <div className="footer-col">
