@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { currentAdmin } from "@/lib/adminTeam";
-import { SITE_PAGES, SITE_PAGE_KEYS } from "@/lib/siteContent";
+import { SITE_PAGES, SITE_PAGE_KEYS, pageAbout } from "@/lib/siteContent";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +26,7 @@ export async function GET() {
         key,
         label: SITE_PAGES[key].label,
         path: SITE_PAGES[key].path,
+        about: pageAbout(key),
         hasDraft: r ? r.draft !== null : false,
         updatedAt: r?.updatedAt ?? null,
         publishedAt: r?.publishedAt ?? null,

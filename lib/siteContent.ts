@@ -11,7 +11,7 @@
 //  - image     a photo address, with an optional focus point (#fp=x,y)
 //  - lines     a simple list, one item per line (schools, tags, steps)
 //  - list      a list of cards, each with its own fields (add/remove/reorder)
-//  - choice    one of a few fixed options (used by added sections)
+//  - choice    one of a few fixed options (added sections, Site settings)
 //
 // Pages with sections (lib/pageLayout.ts) also store a "layout": the order
 // of their sections, which are hidden, the space above each, and any added
@@ -57,6 +57,7 @@ const lines = (label: string, def: string[], o: { help?: string; max?: number; m
   maxItems: o.maxItems ?? 30,
   help: o.help,
 });
+const choice = (label: string, def: string, options: { value: string; label: string }[], help?: string): ChoiceDef => ({ type: "choice", label, default: def, max: 20, options, help });
 function list<I extends Record<string, ScalarDef>>(label: string, itemLabel: string, fields: I, def: ItemValue<I>[], o: { help?: string; maxItems?: number } = {}): ListDef<I> {
   return { type: "list", label, itemLabel, fields, default: def, maxItems: o.maxItems ?? 30, help: o.help };
 }
@@ -65,6 +66,20 @@ function section<F extends Record<string, FieldDef>>(title: string, fields: F): 
   for (const f of Object.values(fields)) f.section = title;
   return fields;
 }
+
+// A list of schools for a scrolling logo strip (Site settings).
+const schoolList = (label: string, help: string) =>
+  list(
+    label,
+    "School",
+    {
+      name: text("School name", "", { max: 80, required: true }),
+      logo: image("Logo", "", "Optional. A square logo on a see-through or white background looks best. Without a logo a small dot shows instead."),
+      href: link("Link (optional)", "", { help: "Clicking the school opens this, e.g. the school's website. Leave blank for no link." }),
+    },
+    [],
+    { maxItems: 30, help },
+  );
 
 // "50% 15%" (the old photoPosition) -> a focus point on the address.
 function positionToFocus(url: string, pos?: string) {
@@ -397,9 +412,43 @@ export const SITE_PAGES = {
     },
   },
 
+  press: {
+    label: "Press",
+    path: "/press",
+    about: "The page at /press. Hidden from visitors (they get “page not found”) until “Press page” is switched on in Site settings; admins can always open it.",
+    fields: {
+      ...section("Intro", {
+        title: text("Heading", "MentorsMD in the news", { max: 80, required: true }),
+        intro: long("Intro", "Articles, interviews and podcasts featuring MentorsMD and our mentors.", { max: 600 }),
+      }),
+      ...section("Press mentions", {
+        items: list(
+          "Press mentions",
+          "Mention",
+          {
+            outlet: text("Outlet (newspaper, podcast, site…)", "", { max: 80, required: true }),
+            logo: image("Outlet logo", "", "Optional. A wide logo on a see-through or white background looks best."),
+            headline: text("Headline", "", { max: 200, required: true }),
+            date: text("Date", "", { max: 40, help: "Shown as typed, e.g. Oct 2026." }),
+            href: link("Link to the article", "", { help: "Opens in a new tab." }),
+            quote: long("Quote (optional)", "", { max: 600, help: "A short line from the piece." }),
+          },
+          [],
+          { maxItems: 30, help: "Shown newest first in the order listed here." },
+        ),
+        emptyText: text("Text while there are no mentions", "Press mentions are coming soon.", { max: 200 }),
+      }),
+      ...section("Press questions box", {
+        contactTitle: text("Heading", "Press questions", { max: 80 }),
+        contactText: long("Text", "For interviews and press questions, email us.", { max: 400, help: "The email address under it is the one set on the Contact page." }),
+      }),
+    },
+  },
+
   footer: {
     label: "Footer",
     path: "/",
+    about: "The bottom of every page.",
     fields: {
       ...section("Footer", {
         tagline: text("Tagline under the logo", "Vetted mentors for the road to medical school.", { max: 120 }),
@@ -413,7 +462,37 @@ export const SITE_PAGES = {
       }),
     },
   },
-} satisfies Record<string, { label: string; path: string; fields: Record<string, FieldDef> }>;
+  // Things shown on more than one page.
+  siteSettings: {
+    label: "Site settings",
+    path: "/",
+    about: "Things used on several pages: the scrolling school logo strips and whether the Press page is shown.",
+    fields: {
+      ...section("Mentor schools strip", {
+        mentorSchoolsTitle: text("Heading", "Our mentors come from", { max: 80 }),
+        mentorSchools: schoolList(
+          "Schools",
+          "The scrolling strip of school logos on the Homepage and Become a mentor pages (move or hide it on each page's Layout tab). It's hidden while the list is empty. Use only schools your current mentors actually attend.",
+        ),
+      }),
+      ...section("Senior team “trained at” strip", {
+        trainedAtTitle: text("Heading", "Our senior team studied and trained at", { max: 80 }),
+        trainedAt: schoolList("Schools", "The scrolling strip on the Senior team page (move or hide it on that page's Layout tab). It's hidden while the list is empty."),
+      }),
+      ...section("Press page", {
+        showPress: choice(
+          "Press page",
+          "off",
+          [
+            { value: "off", label: "Hidden: visitors get “page not found”, only admins can open it" },
+            { value: "on", label: "Shown: anyone can open /press, with a Press link in the footer" },
+          ],
+          "Edit the page itself in Website → Press.",
+        ),
+      }),
+    },
+  },
+} satisfies Record<string, { label: string; path: string; about?: string; fields: Record<string, FieldDef> }>;
 
 export type SitePageKey = keyof typeof SITE_PAGES;
 export type PageFields<K extends SitePageKey> = (typeof SITE_PAGES)[K]["fields"];
@@ -423,6 +502,8 @@ export type StoredValues = Record<string, unknown>;
 export const SITE_PAGE_KEYS = Object.keys(SITE_PAGES) as SitePageKey[];
 export const isSitePageKey = (k: unknown): k is SitePageKey => typeof k === "string" && Object.prototype.hasOwnProperty.call(SITE_PAGES, k);
 export const pageFields = (key: SitePageKey) => SITE_PAGES[key].fields as Record<string, FieldDef>;
+// A line about where the page shows, for pages that aren't one address (Footer, Site settings, Press).
+export const pageAbout = (key: SitePageKey): string | null => (SITE_PAGES[key] as { about?: string }).about ?? null;
 
 export function defaultValues<K extends SitePageKey>(key: K): PageValues<K> {
   const out: Record<string, unknown> = {};
@@ -520,7 +601,7 @@ function checkFields(fields: Record<string, FieldDef>, src: Record<string, unkno
 }
 
 // The page's layout: built-in sections in the saved order (unknown ids
-// dropped, any missing ones added back at the end in their built-in order),
+// dropped, any missing ones slotted back in after the section before them),
 // plus up to MAX_ADDONS added sections with checked fields. With
 // dropInvalid, added sections that fail a check are left out (used when
 // showing stored content).
@@ -568,7 +649,15 @@ export function checkLayout(key: string, raw: unknown, errors: string[], opts: {
     out.push({ ...base, type: it.type, data });
   }
   if (tooMany) errors.push(`Page layout: at most ${MAX_ADDONS} added sections.`);
-  for (const b of builtins) if (!seen.has(b.id)) out.push({ id: b.id });
+  // A built-in section missing from the saved layout (e.g. one added to the
+  // code after the layout was saved) goes right after the section before it
+  // in the built-in order, so it lands where the code puts it.
+  builtins.forEach((b, i) => {
+    if (seen.has(b.id)) return;
+    const prev = i > 0 ? out.findIndex((x) => x.id === builtins[i - 1].id) : -1;
+    out.splice(prev + 1, 0, { id: b.id });
+    seen.add(b.id);
+  });
   return out;
 }
 

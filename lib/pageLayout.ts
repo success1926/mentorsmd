@@ -40,9 +40,19 @@ const HOME_FIELDS = {
   faq: ["faqTitle", "faq"],
 };
 
+// The scrolling school logo strips: their schools and headings are edited
+// in Site settings, since the same list shows on more than one page.
+const MENTOR_SCHOOLS_STRIP: BuiltinSection = {
+  id: "schoolLogos",
+  label: "Mentor school logos (scrolling strip)",
+  fields: [],
+  editOn: { page: "siteSettings", section: "mentorSchoolsTitle", label: "Site settings page" },
+};
+
 export const PAGE_SECTIONS: Record<string, BuiltinSection[]> = {
   home: [
     { id: "hero", label: "Top of the page (headline, search, schools)", fields: HOME_FIELDS.hero },
+    MENTOR_SCHOOLS_STRIP,
     { id: "paths", label: "Getting into med school is hard", fields: ["pathsTitle", "pathsText", "paths"] },
     { id: "vetting", label: "Every mentor, vetted", fields: HOME_FIELDS.vetting },
     { id: "featured", label: "Featured mentors", fields: ["featuredTitle", "featuredLink"] },
@@ -62,10 +72,12 @@ export const PAGE_SECTIONS: Record<string, BuiltinSection[]> = {
   seniorTeam: [
     { id: "intro", label: "Intro", fields: ["title", "intro"] },
     { id: "people", label: "People", fields: ["people"] },
+    { id: "trainedAt", label: "“Trained at” school logos (scrolling strip)", fields: [], editOn: { page: "siteSettings", section: "trainedAtTitle", label: "Site settings page" } },
     { id: "cta", label: "Bottom box", fields: ["ctaTitle", "ctaText", "ctaButton"] },
   ],
   becomeMentor: [
     { id: "intro", label: "Intro", fields: ["title", "intro", "applyButton"] },
+    MENTOR_SCHOOLS_STRIP,
     { id: "perks", label: "Perks", fields: ["perks"] },
     { id: "how", label: "How to join", fields: ["howTitle", "steps", "inviteNote"] },
     { id: "apply", label: "Application form", fields: ["applyTitle", "applyText"], keepVisible: true },
@@ -73,6 +85,11 @@ export const PAGE_SECTIONS: Record<string, BuiltinSection[]> = {
   reviews: [
     { id: "intro", label: "Intro", fields: ["title", "intro"] },
     { id: "wall", label: "Reviews (or the “no reviews yet” box)", fields: ["emptyTitle", "emptyText"] },
+  ],
+  press: [
+    { id: "intro", label: "Intro", fields: ["title", "intro"] },
+    { id: "items", label: "Press mentions", fields: ["items", "emptyText"] },
+    { id: "contact", label: "Press questions box", fields: ["contactTitle", "contactText"] },
   ],
   contact: [
     { id: "intro", label: "Intro", fields: ["title", "intro", "mentorTitle", "mentorIntro"] },

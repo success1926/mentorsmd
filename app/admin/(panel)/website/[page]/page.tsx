@@ -13,7 +13,7 @@ import { hasLayout, sectionLabel, sectionsFor, type BuiltinSection, type LayoutI
 type Values = Record<string, any>;
 type PageData = {
   key: string;
-  page: { label: string; path: string; fields: Record<string, FieldDef> };
+  page: { label: string; path: string; about?: string; fields: Record<string, FieldDef> };
   defaults: Values;
   live: Values;
   values: Values;
@@ -170,7 +170,8 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
   const [tab, setTab] = useState<"content" | "layout">("content");
 
   // The form's groups: on pages with sections, one per built-in section in
-  // the page's current order; otherwise by each field's section heading.
+  // the page's current order; otherwise by each field's section heading,
+  // named after the group's first field (so ?section=<field> opens it).
   const groups = useMemo((): Group[] => {
     const fields = data?.page.fields || {};
     if (layoutPage) {
@@ -192,7 +193,7 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
       const title = f.section || "";
       const last = out[out.length - 1];
       if (last && last.title === title) last.names.push(name);
-      else out.push({ key: `s${out.length}`, title, names: [name] });
+      else out.push({ key: name, title, names: [name] });
     }
     return out;
   }, [data, layoutPage, layout, params.page]);
@@ -317,7 +318,7 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
           <div className="stack-sm">
             <h1 className="page-title">{data.page.label}</h1>
             <p className="lede" style={{ fontSize: 17 }}>
-              {params.page === "footer" ? "The bottom of every page." : <>The page at <a className="link" href={data.page.path} target="_blank" rel="noreferrer">{data.page.path}</a>.</>}{" "}
+              {data.page.about ? data.page.about : <>The page at <a className="link" href={data.page.path} target="_blank" rel="noreferrer">{data.page.path}</a>.</>}{" "}
               Changes save as a draft automatically; visitors see them only after you publish. Text shows exactly as typed (no formatting codes); a line break starts a new paragraph.
             </p>
           </div>

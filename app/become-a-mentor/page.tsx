@@ -2,6 +2,7 @@ import { Icon, ICONS, Vetted } from "@/components/ui";
 import { MentorApplicationForm } from "@/components/MentorApplicationForm";
 import { getSiteContent } from "@/lib/siteContentStore";
 import { PageSections } from "@/components/website/PageSections";
+import { SchoolMarquee } from "@/components/SchoolMarquee";
 
 export const metadata = { title: "Become a mentor · MentorsMD" };
 
@@ -11,7 +12,7 @@ const PERK_ICONS = [ICONS.pen, ICONS.lock, ICONS.calendar];
 // /become-a-mentor/apply address redirects here (next.config.js). The text
 // is edited in Admin -> Website (defaults in lib/siteContent.ts).
 export default async function BecomeMentorPage() {
-  const c = await getSiteContent("becomeMentor");
+  const [c, settings] = await Promise.all([getSiteContent("becomeMentor"), getSiteContent("siteSettings")]);
   // Sections by id (lib/pageLayout.ts), in the order set in Admin -> Website -> Layout.
   const sections: Record<string, React.ReactNode> = {
     intro: (
@@ -24,6 +25,8 @@ export default async function BecomeMentorPage() {
         </div>
       </div>
     ),
+    // Same strip as the Homepage (Admin -> Website -> Site settings); hidden while empty.
+    schoolLogos: settings.mentorSchools.length > 0 && <SchoolMarquee label={settings.mentorSchoolsTitle} schools={settings.mentorSchools} contained />,
     perks: (
       <div className="grid-3">
         {c.perks.map((p, i) => (

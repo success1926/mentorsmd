@@ -12,6 +12,7 @@ import { getSiteContent } from "@/lib/siteContentStore";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
 import { Fragment } from "react";
 import { PageSections } from "@/components/website/PageSections";
+import { SchoolMarquee } from "@/components/SchoolMarquee";
 import { BEST_FOR, labelFor, money, STAGES } from "@/lib/options";
 
 export const dynamic = "force-dynamic"; // mentor cards and review counts read live data
@@ -26,7 +27,7 @@ const PATH_BGS = [
 ];
 
 export default async function HomePage() {
-  const [mentors, stats, c] = await Promise.all([getFeaturedMentors(4), getReviewStats(), getSiteContent("home")]);
+  const [mentors, stats, c, settings] = await Promise.all([getFeaturedMentors(4), getReviewStats(), getSiteContent("home"), getSiteContent("siteSettings")]);
   const wall = await getReviewWall(c.testimonials, HOME_WALL_REVIEWS);
 
   // Each section by its id in lib/pageLayout.ts; shown in the order (and
@@ -82,6 +83,9 @@ export default async function HomePage() {
         )}
       </section>
     ),
+
+    // Schools picked in Admin -> Website -> Site settings; hidden while empty.
+    schoolLogos: settings.mentorSchools.length > 0 && <SchoolMarquee label={settings.mentorSchoolsTitle} schools={settings.mentorSchools} />,
 
     paths: (
       <section className="home-section">

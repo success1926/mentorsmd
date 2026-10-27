@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 
-type PageRow = { key: string; label: string; path: string; hasDraft: boolean; updatedAt: string | null; publishedAt: string | null };
+type PageRow = { key: string; label: string; path: string; about: string | null; hasDraft: boolean; updatedAt: string | null; publishedAt: string | null };
 const fmt = (d: string) => new Date(d).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 
 // Admin -> Website: pick a page to edit its text and photos.
@@ -44,7 +44,7 @@ export default function AdminWebsitePage() {
             <span className="stack-sm" style={{ gap: 2 }}>
               <b style={{ fontSize: 18 }}>{p.label}</b>
               <span className="text-secondary small">
-                {p.key === "footer" ? "Bottom of every page" : p.path}
+                {p.about || p.path}
                 {p.publishedAt ? ` · last published ${fmt(p.publishedAt)}` : " · built-in text"}
               </span>
             </span>
