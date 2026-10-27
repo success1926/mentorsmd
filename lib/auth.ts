@@ -33,8 +33,39 @@ const MAX_FAILED_ATTEMPTS = 20;
 const LOCKOUT_MINUTES = 15;
 const ROLE_RECHECK_MS = 5 * 60 * 1000;
 
+const adapter = PrismaAdapter(prisma);
+
+// Google sign-in for an account that was made for someone without their
+// own login: a parent's gift creates a passwordless student account
+// (lib/gifts.ts). NextAuth normally refuses Google for an email that
+// already has an account (OAuthAccountNotLinked). We link Google to it
+// only when it's that kind of account (a student, no password, no Google
+// or other sign-in linked yet) and Google says it has checked the email,
+// so it's no weaker than "Forgot password" to the same inbox. Any other
+// existing account keeps NextAuth's refusal.
+async function linkGoogleToPasswordlessStudent(
+  user: { email?: string | null },
+  account: { provider: string; providerAccountId: string; type: string; [key: string]: unknown },
+  profile: unknown
+): Promise<void> {
+  if (!user.email || (profile as any)?.email_verified !== true) return;
+  const linked = await prisma.account.findUnique({
+    where: { provider_providerAccountId: { provider: account.provider, providerAccountId: account.providerAccountId } },
+    select: { id: true },
+  });
+  if (linked) return;
+  const existing = await prisma.user.findFirst({
+    where: { email: { equals: user.email, mode: "insensitive" } },
+    select: { id: true, role: true, passwordHash: true, removedByAdmin: true, _count: { select: { accounts: true } } },
+  });
+  if (!existing || existing.role !== "BUYER" || existing.passwordHash || existing.removedByAdmin || existing._count.accounts > 0) return;
+  // The same row NextAuth would write; NextAuth then finds it and logs
+  // them in to that account.
+  await adapter.linkAccount!({ ...(account as any), userId: existing.id });
+}
+
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter,
   // maxAge is the inactivity limit: the login cookie is renewed whenever
   // the person uses the site, so it only runs out after 7 idle days.
   // The 30-day hard limit and the admin 1-hour limit are in sessionRules.
@@ -162,7 +193,7 @@ export const authOptions: NextAuthOptions = {
     // the invite gate on an email they don't actually control the
     // password for, and keeps seller/admin access strictly to the
     // channels that were designed for it.
-    async signIn({ user, account }) {
+    async signIn({ user, account, profile }) {
       if (account?.provider === "google") {
         if (!user.email) return false;
         const existing = await prisma.user.findFirst({ where: { email: { equals: user.email, mode: "insensitive" } } });
@@ -170,6 +201,8 @@ export const authOptions: NextAuthOptions = {
           return false; // rejects the sign-in attempt
         }
         if (existing?.removedByAdmin) return false;
+        // A gift's passwordless student account: link Google to it.
+        if (existing) await linkGoogleToPasswordlessStudent(user, account, profile);
       }
       return true;
     },

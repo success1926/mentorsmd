@@ -1164,6 +1164,21 @@ const LIST: EmailDef[] = [
     required: ["code"],
   },
   {
+    key: "two_step_changed",
+    name: "2-step method changed (mentors and students)",
+    description: "A security notice whenever someone's 2-step verification changes in Settings: switched to an authenticator app or to email codes, turned on, or turned off.",
+    group: "BOTH",
+    subject: "Your MentorsMD 2-step verification changed",
+    body: [
+      "Hi {{firstName}},",
+      "The 2-step verification on your MentorsMD account just changed: **{{change}}**.",
+      "> If this wasn't you, reset your password right away and contact the MentorsMD team.",
+      "[Go to MentorsMD]({{siteLink}})",
+    ].join("\n\n"),
+    vars: [V.firstName, text("change", "What changed", "it now uses an authenticator app"), V.siteLink],
+    required: ["change"],
+  },
+  {
     key: "team_access_changed",
     name: "Admin access changed",
     description: "Sent to a team member when their admin access changes (role, disabled, removed, 2-step reset).",

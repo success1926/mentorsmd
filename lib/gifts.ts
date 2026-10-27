@@ -51,6 +51,7 @@ import { isValidTimeZone } from "@/lib/tz";
 import { isReservedName, RESERVED_NAME_ERROR } from "@/lib/reservedNames";
 import { logAdminAction } from "@/lib/adminLog";
 import { reportError } from "@/lib/sentry";
+import { createFlag } from "@/lib/flags";
 import { sendGiftReceiptEmail, sendGiftReceivedEmail, sendOrderPaidEmail } from "@/lib/email";
 import { GIFT_CLAIM_DAYS, GIFT_NOTE_MAX, parseGiftDollars } from "@/lib/giftOptions";
 
@@ -218,6 +219,15 @@ export async function fulfilGift(giftId: string, session: Stripe.Checkout.Sessio
   const fundsAvailableAt = await fundsAvailableFor(session);
   const claimToken = newToken();
   const now = new Date();
+  // A package gift's mentor must still be able to take payouts, as at a
+  // normal checkout. Asked of Stripe before the transaction (it's slow);
+  // if not, the gift becomes credit below.
+  const before = await prisma.gift.findUnique({ where: { id: giftId }, select: { kind: true, mentorId: true } });
+  let mentorPayoutsReady = false;
+  if (before?.kind === "PACKAGE" && before.mentorId) {
+    const m = await prisma.user.findUnique({ where: { id: before.mentorId }, select: { stripeAccountId: true } });
+    mentorPayoutsReady = await payoutsReady(m?.stripeAccountId);
+  }
 
   const result = await prisma.$transaction(
     async (tx) => {
@@ -257,7 +267,16 @@ export async function fulfilGift(giftId: string, session: Stripe.Checkout.Sessio
           tx.user.findUnique({ where: { id: gift.mentorId } }),
           tx.block.count({ where: { OR: [{ blockerId: student.id, blockedId: gift.mentorId }, { blockerId: gift.mentorId, blockedId: student.id }] } }),
         ]);
-        if (gig && mentor && mentor.role === "SELLER" && !mentor.removedAt && !blocks && (mentor.acceptsMinors || !student.minorStatus)) {
+        // The same checks as buying it at checkout: the offer is still on,
+        // the mentor is still listed (not paused, removed or on a safety
+        // hold) and can be paid, nobody blocked anybody, and minors only
+        // with mentors who accept them. Otherwise it becomes credit.
+        const bookable =
+          !!gig && !!mentor &&
+          gig.active && gig.sellerId === mentor.id && !!gig.kind && OFFER_KINDS.includes(gig.kind) &&
+          mentor.role === "SELLER" && !mentor.removedAt && !mentor.safetyHoldAt && isMentorListed(mentor) && mentorPayoutsReady &&
+          !blocks && (mentor.acceptsMinors || !student.minorStatus);
+        if (gig && mentor && bookable) {
           const conversation = await tx.conversation.upsert({
             where: { buyerId_sellerId: { buyerId: student.id, sellerId: mentor.id } },
             update: {},
@@ -436,12 +455,44 @@ export async function claimGift(body: any, meta: { ip: string | null; userAgent:
   if (parent && "error" in parent) return { ok: false, error: parent.error };
 
   if (age < MIN_AGE) {
-    // Closes the account (lib/signupFlow.ts). The parent paid for it, so
-    // the team refunds them.
-    const r = await applyDobAndAgreement({ ...user, name }, dob, null, "GIFT_CLAIM", meta);
+    // First stop any package a gift bought for them, so it can't be
+    // worked on, approved or paid out to the mentor: marked refunded,
+    // like an admin refund, and its future calls cancelled. The parent
+    // paid by card, so the team refunds the card in Stripe.
+    const paidGifts = await prisma.gift.findMany({ where: { studentId: user.id, status: "PAID" }, select: { id: true, orderId: true } });
+    const orderIds = paidGifts.map((g) => g.orderId).filter((id): id is string => !!id);
+    const now = new Date();
+    if (orderIds.length) {
+      await prisma.order.updateMany({
+        where: { id: { in: orderIds }, status: { in: ["IN_ESCROW", "COMPLETED"] } },
+        data: { status: "REFUNDED", refundedAt: now, markedCompleteAt: null, responseDeadline: null },
+      });
+      await prisma.callBooking
+        .updateMany({ where: { orderId: { in: orderIds }, status: "BOOKED", startTime: { gt: now } }, data: { status: "CANCELLED", cancelledAt: now } })
+        .catch((e) => console.error("Couldn't cancel calls on an under-13 gift package:", e));
+    }
     await prisma.gift.updateMany({
       where: { studentId: user.id, status: "PAID" },
-      data: { status: "NEEDS_REVIEW", reviewNote: "The student is under 13, so their account was closed. Refund the parent in Stripe.", claimTokenHash: null },
+      data: {
+        status: "NEEDS_REVIEW",
+        reviewNote: `The student is under 13, so their account was closed${orderIds.length ? " and the package was stopped (marked refunded, nothing goes to the mentor)" : ""}. Refund the parent's card in Stripe.`,
+        claimTokenHash: null,
+      },
+    });
+    // Closes the account (lib/signupFlow.ts).
+    const r = await applyDobAndAgreement({ ...user, name }, dob, null, "GIFT_CLAIM", meta);
+    for (const orderId of orderIds) {
+      await logAdminAction({ adminId: null, action: "GIFT_UNDER_13", summary: `Stopped a gift package (order ${orderId}): the student is under 13. Refund the parent in Stripe.`, targetType: "ORDER", targetId: orderId });
+    }
+    // Tells the team (Admin -> Flags, and an email to admins).
+    await createFlag({
+      kind: "MINOR",
+      source: "SYSTEM",
+      severity: 3,
+      reason: "Gift for a student under 13: refund the parent",
+      details: `${gift.parentName} (${gift.parentEmail}) paid ${money(gift.amountCents)} for ${giftLine(gift)}. The student entered a date of birth under 13, so the account was closed${orderIds.length ? " and the package was marked refunded" : ""}. Refund the parent's card in Stripe (Admin -> Orders & payouts -> Gifts).`,
+      orderId: orderIds[0] ?? null,
+      dedupeKey: `gift-under13:${gift.id}`,
     });
     await reportError(`[NEEDS MANUAL CHECK] A gift's student is under 13 (gift ${gift.id}); refund the parent.`, undefined, { giftId: gift.id }, "fatal");
     return r.ok ? { ok: false, error: "Something went wrong." } : { ok: false, under13: true };
@@ -465,5 +516,32 @@ export async function claimGift(body: any, meta: { ip: string | null; userAgent:
   // Every other gift's link for this account stops working.
   await prisma.gift.updateMany({ where: { studentId: user.id, claimTokenHash: { not: null } }, data: { claimTokenHash: null, claimedAt: new Date() } });
   await logAdminAction({ adminId: null, action: "GIFT_CLAIMED", summary: `${name} set up the account a gift was sent to`, targetType: "USER", targetId: user.id, targetUserId: user.id });
+  if (minor) await flagMinorWithAdultsOnlyMentor(user.id, name);
   return { ok: true, email: user.email, minor, orderId: gift.orderId };
+}
+
+// The parent said "18 or over" (or left it to the mentor), but the student
+// turned out to be 13-17 and the gift bought a package with a mentor who
+// only works with adults. The package stays as it is (it's paid, and the
+// student still needs a parent's consent before using it); the team
+// decides what to do: Admin -> Flags, an email to admins, and a note on
+// the gift.
+async function flagMinorWithAdultsOnlyMentor(studentId: string, studentName: string) {
+  const gifts = await prisma.gift.findMany({ where: { studentId, kind: "PACKAGE", status: "PAID", orderId: { not: null }, mentorId: { not: null } } });
+  for (const g of gifts) {
+    const mentor = await prisma.user.findUnique({ where: { id: g.mentorId! }, select: { name: true, acceptsMinors: true } });
+    if (!mentor || mentor.acceptsMinors) continue;
+    const note = `The student is under 18, but ${mentor.name} only works with students 18 and over. Decide with the mentor and the parent whether to keep the package or refund it.`;
+    await prisma.gift.updateMany({ where: { id: g.id, status: "PAID" }, data: { status: "NEEDS_REVIEW", reviewNote: note } });
+    await createFlag({
+      kind: "MINOR",
+      source: "SYSTEM",
+      severity: 3,
+      reason: "Gift package: student under 18 with an adults-only mentor",
+      details: `${g.parentName} (${g.parentEmail}) bought ${giftLine(g)} for ${studentName}, who entered a date of birth under 18 when setting up their account. ${note}`,
+      subjectUserId: studentId,
+      orderId: g.orderId,
+      dedupeKey: `gift-minor-mentor:${g.id}`,
+    });
+  }
 }

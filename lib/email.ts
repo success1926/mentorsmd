@@ -82,7 +82,9 @@ async function deliver(key: string, to: string, subject: string, html: string, e
 const PER_ADDRESS_HOURLY: Record<string, number> = {
   password_reset: 3,
   email_verification: 3,
-  parent_consent: 3,
+  // A parent can have several children signing up the same evening, so
+  // this one allows more (it still stops someone flooding an address).
+  parent_consent: 10,
   contact_received: 3,
   application_received: 3,
   admin_code: 6,
@@ -539,6 +541,12 @@ export async function sendAdminCodeEmail(toEmail: string, code: string) {
 // The 2-step login code for mentors and students (admins get admin_code).
 export async function sendLoginCodeEmail(toEmail: string, code: string) {
   await sendTemplate("login_code", toEmail, { code });
+}
+
+// Security notice: someone's 2-step method changed (Settings, or set up at
+// their first login).
+export async function sendTwoStepChangedEmail(toEmail: string, name: string, change: string) {
+  await sendTemplate("two_step_changed", toEmail, { firstName: first(name), change, siteLink: SITE_URL });
 }
 
 export async function sendTeamAccessChangedEmail(toEmail: string, name: string, text: string) {

@@ -27,7 +27,7 @@ export default function LoginPage() {
 function authErrorText(code: string) {
   if (!code || code === "CredentialsSignin") return "";
   if (code === "OAuthAccountNotLinked")
-    return "This email already has a MentorsMD account with a password. Log in with your email and password below.";
+    return "This email already has a MentorsMD account. Log in with your email and password below. No password yet (for example, an account a parent set up with a gift)? Use the \"Set up your account\" email, or Forgot password.";
   if (code === "AccessDenied")
     return "Google sign-in isn't available for this account. Mentors log in with their email and password. If you think this is a mistake, contact us.";
   if (code === "SignupLogin") return "Your account is ready. Log in to continue.";

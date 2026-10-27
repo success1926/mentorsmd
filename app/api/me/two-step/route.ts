@@ -5,6 +5,7 @@ import { forgetTrustedDevices, trustCookieName } from "@/lib/mfa";
 import { decryptSecret, encryptSecret, newTotpSecret, otpauthUrl, verifyTotp } from "@/lib/totp";
 import { maskEmail, memberForTwoStepSettings, trustCookieOptions } from "@/lib/twoStep";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
+import { sendTwoStepChangedEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,16 @@ export const dynamic = "force-dynamic";
 // students: /account). Mentors always have it (email codes unless they set
 // up an app); students can turn it on and off. Changes apply from the next
 // login, so the session they're in keeps working.
+// Only for someone fully logged in: memberForTwoStepSettings refuses a
+// half-logged-in session (role SELLER_2FA / BUYER_2FA), so a leaked
+// password alone can't change the method. An app only becomes the method
+// once a code from it is entered ("confirm-app"). Every change emails a
+// security notice (two_step_changed).
+
+// The notice never blocks the change itself.
+async function notify(me: { email: string; name: string }, change: string) {
+  await sendTwoStepChangedEmail(me.email, me.name, change).catch((err) => console.error("Couldn't send the 2-step changed email:", err));
+}
 
 export async function GET() {
   const me = await memberForTwoStepSettings();
@@ -35,6 +46,7 @@ export async function POST(req: Request) {
 
   if (body.action === "use-email") {
     await prisma.user.update({ where: { id: me.id }, data: { twoFactorMethod: "EMAIL", totpSecret: null, totpLastStep: null, twoFactorEnabledAt: new Date() } });
+    if (me.twoFactorMethod !== "EMAIL") await notify(me, me.twoFactorMethod === "TOTP" ? "it now uses codes emailed to you instead of an authenticator app" : "it's now on, with codes emailed to you");
     return NextResponse.json({ ok: true });
   }
 
@@ -56,6 +68,7 @@ export async function POST(req: Request) {
     const step = verifyTotp(secret, String(body.code || ""), null);
     if (step === null) return NextResponse.json({ error: "That code isn't right. Check the app and try again." }, { status: 400 });
     await prisma.user.update({ where: { id: me.id }, data: { twoFactorMethod: "TOTP", totpLastStep: step, twoFactorEnabledAt: new Date() } });
+    await notify(me, "it now uses an authenticator app");
     return NextResponse.json({ ok: true });
   }
 
@@ -63,6 +76,7 @@ export async function POST(req: Request) {
     if (required) return NextResponse.json({ error: "Mentor accounts always use 2-step verification." }, { status: 400 });
     await prisma.user.update({ where: { id: me.id }, data: { twoFactorMethod: null, totpSecret: null, totpLastStep: null, twoFactorEnabledAt: null } });
     await forgetTrustedDevices(me.id);
+    if (me.twoFactorMethod) await notify(me, "it was turned off, so logging in only needs your password (or Google)");
     return NextResponse.json({ ok: true });
   }
 

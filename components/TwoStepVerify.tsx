@@ -9,14 +9,17 @@ import { isPending2faRole } from "@/lib/sessionRules";
 // The 2-step code step at login (/admin/verify for admins, /two-step for
 // mentors and students; rules in lib/mfa.ts). Email codes are the default:
 // someone who hasn't set up an authenticator app gets a code emailed as
-// soon as the page opens, and can switch to an app instead. "Trust this
-// device for 30 days" skips the step on this browser after that.
+// soon as the page opens (unless one they were sent earlier is still good,
+// so reloading the page doesn't replace it). Only an admin setting up
+// 2-step for the first time can pick an app here; mentors and students
+// switch to an app in Settings once they're logged in. "Trust this device
+// for 30 days" skips the step on this browser after that.
 export function TwoStepVerify({ next }: { next: string }) {
   const { data: session, status, update } = useSession();
   const role = (session?.user as any)?.role as string | undefined;
   const pending = isPending2faRole(role);
   const router = useRouter();
-  const [info, setInfo] = useState<{ method: string | null; email: string; role: string } | null>(null);
+  const [info, setInfo] = useState<{ method: string | null; email: string; role: string; canUseApp?: boolean } | null>(null);
   const [mode, setMode] = useState<"TOTP" | "EMAIL" | null>(null);
   const [app, setApp] = useState<{ secret: string; qr: string } | null>(null);
   const [code, setCode] = useState("");
@@ -57,14 +60,16 @@ export function TwoStepVerify({ next }: { next: string }) {
     return d;
   }
 
-  async function sendCode() {
+  async function sendCode(auto = false) {
     setMode("EMAIL");
     setApp(null);
     setNote("");
-    const d = await post({ action: "send-code" });
+    const d = await post({ action: "send-code", auto });
     if (!d) return;
-    // sent: false means a code went out under 30 seconds ago (still good).
-    if (sent && d.sent === false) setNote("We just sent a code. Give it a minute, and check your spam folder.");
+    // earlier: the page was reloaded and the code we sent before still works.
+    // sent: false otherwise means a code went out under 30 seconds ago (still good).
+    if (d.earlier) setNote("We already emailed you a code and it still works. Can't find it? Check your spam folder or send a new one.");
+    else if (sent && d.sent === false) setNote("We just sent a code. Give it a minute, and check your spam folder.");
     setSent(true);
   }
 
@@ -72,7 +77,7 @@ export function TwoStepVerify({ next }: { next: string }) {
   useEffect(() => {
     if (info && info.method !== "TOTP" && !autoSent.current) {
       autoSent.current = true;
-      sendCode();
+      sendCode(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [info]);
@@ -144,7 +149,7 @@ export function TwoStepVerify({ next }: { next: string }) {
             <img src={app.qr} alt="QR code for your authenticator app" width={220} height={220} style={{ borderRadius: 12, border: "1px solid var(--line)" }} />
             <span className="text-muted small">Can&apos;t scan? Enter this key instead: <code style={{ userSelect: "all" }}>{app.secret.match(/.{1,4}/g)?.join(" ")}</code></span>
             {codeForm}
-            <button className="link-btn small" style={{ alignSelf: "flex-start" }} onClick={sendCode} disabled={busy}>Email me a code instead</button>
+            <button className="link-btn small" style={{ alignSelf: "flex-start" }} onClick={() => sendCode()} disabled={busy}>Email me a code instead</button>
           </div>
         )}
 
@@ -152,7 +157,7 @@ export function TwoStepVerify({ next }: { next: string }) {
           <div className="stack-sm">
             <span className="text-secondary">Open your authenticator app and enter the code for MentorsMD.</span>
             {codeForm}
-            <button className="link-btn small" style={{ alignSelf: "flex-start" }} onClick={sendCode} disabled={busy}>No phone? Email me a code instead</button>
+            <button className="link-btn small" style={{ alignSelf: "flex-start" }} onClick={() => sendCode()} disabled={busy}>No phone? Email me a code instead</button>
           </div>
         )}
 
@@ -161,12 +166,12 @@ export function TwoStepVerify({ next }: { next: string }) {
             {sent ? (
               <span className="text-secondary">We emailed a code to {info.email}. It expires in 10 minutes.</span>
             ) : (
-              <button className="btn" style={{ alignSelf: "flex-start" }} onClick={sendCode} disabled={busy}>Email me a code</button>
+              <button className="btn" style={{ alignSelf: "flex-start" }} onClick={() => sendCode()} disabled={busy}>Email me a code</button>
             )}
             {sent && codeForm}
-            {sent && <button className="link-btn small" style={{ alignSelf: "flex-start" }} onClick={sendCode} disabled={busy}>Send a new code</button>}
+            {sent && <button className="link-btn small" style={{ alignSelf: "flex-start" }} onClick={() => sendCode()} disabled={busy}>Send a new code</button>}
             {note && <span role="status" className="text-muted small">{note}</span>}
-            {firstTime && (
+            {firstTime && info.canUseApp && (
               <button className="link-btn small" style={{ alignSelf: "flex-start" }} onClick={chooseApp} disabled={busy}>Use an authenticator app instead</button>
             )}
           </div>

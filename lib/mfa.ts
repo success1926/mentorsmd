@@ -28,8 +28,21 @@ const MAX_CODE_ATTEMPTS = 5;
 // A new code at most this often, so refreshing the page doesn't send a pile.
 const RESEND_SECONDS = 30;
 
+// Is one of the person's emailed codes still unexpired and unused? The
+// code page checks this when it opens (or is reloaded), so a reload
+// doesn't send a new code on top of the one already in their inbox.
+export async function hasOpenEmailCode(userId: string): Promise<boolean> {
+  const row = await prisma.adminMfaToken.findFirst({
+    where: { userId, kind: "EMAIL_CODE", usedAt: null, expiresAt: { gt: new Date() }, attempts: { lt: MAX_CODE_ATTEMPTS } },
+    select: { id: true },
+  });
+  return !!row;
+}
+
 // Emails a fresh code. Returns false (and sends nothing) when a code went
-// out in the last 30 seconds; that one still works.
+// out in the last 30 seconds; that one still works. Older codes are not
+// cancelled: any unexpired, unused code works, so "Send a new code" never
+// breaks the one that arrives late.
 export async function sendEmailCode(user: { id: string; email: string; role: string }): Promise<boolean> {
   const recent = await prisma.adminMfaToken.findFirst({
     where: { userId: user.id, kind: "EMAIL_CODE", usedAt: null, createdAt: { gt: new Date(Date.now() - RESEND_SECONDS * 1000) } },
@@ -37,7 +50,6 @@ export async function sendEmailCode(user: { id: string; email: string; role: str
   });
   if (recent) return false;
   const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
-  await prisma.adminMfaToken.updateMany({ where: { userId: user.id, kind: "EMAIL_CODE", usedAt: null }, data: { usedAt: new Date() } });
   await prisma.adminMfaToken.create({
     data: { userId: user.id, kind: "EMAIL_CODE", tokenHash: hash(`${user.id}:${code}`), expiresAt: new Date(Date.now() + EMAIL_CODE_MINUTES * 60_000) },
   });
@@ -46,22 +58,31 @@ export async function sendEmailCode(user: { id: string; email: string; role: str
   return true;
 }
 
+// Is this one of the person's unexpired, unused codes? A wrong guess counts
+// against every code that's still open (each allows 5 wrong tries), and
+// once one code is used the others are cancelled.
 export async function checkEmailCode(userId: string, code: string): Promise<boolean> {
   const clean = String(code || "").replace(/\s/g, "");
   if (!/^\d{6}$/.test(clean)) return false;
-  const row = await prisma.adminMfaToken.findFirst({
-    where: { userId, kind: "EMAIL_CODE", usedAt: null, expiresAt: { gt: new Date() } },
+  const rows = await prisma.adminMfaToken.findMany({
+    where: { userId, kind: "EMAIL_CODE", usedAt: null, expiresAt: { gt: new Date() }, attempts: { lt: MAX_CODE_ATTEMPTS } },
     orderBy: { createdAt: "desc" },
+    take: 10,
   });
-  if (!row || row.attempts >= MAX_CODE_ATTEMPTS) return false;
-  const a = Buffer.from(row.tokenHash);
+  if (!rows.length) return false;
   const b = Buffer.from(hash(`${userId}:${clean}`));
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-    await prisma.adminMfaToken.update({ where: { id: row.id }, data: { attempts: { increment: 1 } } });
+  const match = rows.find((row) => {
+    const a = Buffer.from(row.tokenHash);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  });
+  if (!match) {
+    await prisma.adminMfaToken.updateMany({ where: { id: { in: rows.map((r) => r.id) } }, data: { attempts: { increment: 1 } } });
     return false;
   }
-  const claim = await prisma.adminMfaToken.updateMany({ where: { id: row.id, usedAt: null }, data: { usedAt: new Date() } });
-  return claim.count === 1;
+  const claim = await prisma.adminMfaToken.updateMany({ where: { id: match.id, usedAt: null }, data: { usedAt: new Date() } });
+  if (claim.count !== 1) return false;
+  await prisma.adminMfaToken.updateMany({ where: { userId, kind: "EMAIL_CODE", usedAt: null }, data: { usedAt: new Date() } });
+  return true;
 }
 
 // ---- Session tickets ----
