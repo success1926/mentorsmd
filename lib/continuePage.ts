@@ -9,7 +9,8 @@
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-export function continuePage(opts: { title: string; text: string; button: string }) {
+// Without `button` it's just a message (the page shown after the button).
+export function continuePage(opts: { title: string; text: string; button?: string }) {
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex"><title>${esc(opts.title)} · MentorsMD</title>
 <style>
@@ -22,7 +23,7 @@ button{width:100%;min-height:50px;border-radius:999px;background:#BFB0FF;color:#
 button:hover{background:#AE9CFF}
 </style></head><body><main class="card"><div class="brand">MentorsMD</div>
 <h1>${esc(opts.title)}</h1><p>${esc(opts.text)}</p>
-<form method="post"><button type="submit">${esc(opts.button)}</button></form>
+${opts.button ? `<form method="post"><button type="submit">${esc(opts.button)}</button></form>` : ""}
 </main></body></html>`;
   return new Response(html, {
     headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" },

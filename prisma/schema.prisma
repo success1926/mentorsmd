@@ -224,6 +224,12 @@ model User {
   // need a code again ("Forget my trusted devices", or an Owner's reset).
   twoFactorTrustAfter DateTime?
 
+  // ---- Reminder emails (lib/scheduledEmails.ts) ----
+  // Set when they press "Stop these reminders" in a reminder email: no
+  // more time-based reminders (abandoned checkout, finish your profile...).
+  // Emails about their orders, calls and messages still go out.
+  remindersOffAt DateTime?
+
   // ---- Insights (Phase 6) ----
   // Mentors: their medical school (picked from lib/medicalSchools.ts, or
   // typed in when it isn't listed). Copied from the mentor application.
@@ -1212,6 +1218,37 @@ model EmailTemplate {
   body        String
   updatedAt   DateTime @default(now()) @updatedAt
   updatedById String?
+}
+
+// Admin -> Emails -> a reminder email (lib/scheduledEmails.ts): whether
+// it's switched on and its timing, e.g. "After 1 day, then 3 days". No
+// row = off, with the standard timing from lib/emailTemplates.ts.
+model EmailSchedule {
+  key         String   @id
+  enabled     Boolean  @default(false)
+  timing      String
+  updatedAt   DateTime @default(now()) @updatedAt
+  updatedById String?
+}
+
+// One row per reminder email sent by the daily cron (lib/scheduledEmails.ts),
+// so the same step is never sent twice. refId is what the reminder is
+// about: the checkout (order or top-up id), the intro call, or the
+// person's own id. aboutId is the mentor it mentions, if any. Plain ids,
+// so this table doesn't change the User model.
+model ScheduledEmailSent {
+  id      String   @id @default(cuid())
+  key     String
+  refId   String
+  step    Int // 0 = the first email, 1 = the second...
+  userId  String
+  aboutId String?
+  toEmail String
+  sentAt  DateTime @default(now())
+
+  @@unique([key, refId, step])
+  @@index([key, sentAt])
+  @@index([userId, key])
 }
 
 // Admin -> Email log: one row per send attempt from lib/email.ts (never

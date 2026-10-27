@@ -13,8 +13,9 @@ import { homeForRole, sessionEndReason, twoStepPending, verifyPathFor } from "@/
 //    few the code page uses answers "not logged in" until they enter it.
 const PROTECTED = ["/account", "/dashboard", "/messages", "/orders", "/admin", "/gigs", "/calls", "/calendar", "/credit", "/receipts", "/about-you", "/two-step"];
 const AUTH_PAGES = ["/login", "/signup"];
-// APIs a person who still owes their code can use.
-const OPEN_WHILE_PENDING = ["/api/auth/", "/api/two-step", "/api/admin/2fa", "/api/track", "/api/client-error"];
+// APIs a person who still owes their code can use. (/api/reminders/stop
+// is a signed link from an email that doesn't depend on who's logged in.)
+const OPEN_WHILE_PENDING = ["/api/auth/", "/api/two-step", "/api/admin/2fa", "/api/track", "/api/client-error", "/api/reminders/"];
 const under = (pathname: string, list: string[]) => list.some((p) => pathname === p || pathname.startsWith(p.endsWith("/") ? p : p + "/"));
 
 export async function middleware(req: NextRequest) {

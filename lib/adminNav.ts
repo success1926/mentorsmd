@@ -39,6 +39,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
 
   { href: "/admin/website", label: "Pages", perm: "website", group: "Website" },
   { href: "/admin/emails", label: "Emails", perm: "emails", group: "Website", also: ["/admin/email-log"] },
+  { href: "/admin/outbox", label: "Outbox", perm: "emails", group: "Website" },
   { href: "/admin/legal", label: "Legal", perm: "legal", group: "Website" },
   { href: "/admin/services", label: "Services", perm: "services", group: "Website" },
 

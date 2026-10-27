@@ -44,7 +44,8 @@ export function PeopleTabs({ role, counts }: { role?: "SELLER" | "BUYER"; counts
   );
 }
 
-// Admin -> Emails: the templates and the log of what was sent.
+// Admin -> Emails: the templates, the log of what was sent, and the
+// Outbox (reminder emails due next).
 export function EmailTabs() {
   return (
     <AdminTabs
@@ -52,6 +53,7 @@ export function EmailTabs() {
       tabs={[
         { href: "/admin/emails", label: "Templates", perm: "emails" },
         { href: "/admin/email-log", label: "Sent log", perm: "emails" },
+        { href: "/admin/outbox", label: "Outbox", perm: "emails" },
       ]}
     />
   );

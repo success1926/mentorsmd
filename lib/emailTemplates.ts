@@ -46,6 +46,11 @@ export type EmailDef = {
   // no longer exist: kept so that old code still works, but not listed in
   // Admin -> Emails.
   retired?: boolean;
+  // Reminder emails sent by the daily cron (lib/scheduledEmails.ts) once
+  // some time has passed. Admins switch them on and set the timing in
+  // Admin -> Emails; `timing` is the standard timing, `when` explains what
+  // starts the clock and what stops the reminders.
+  schedule?: { timing: string; when: string };
 };
 
 export const GROUP_LABELS: Record<EmailGroup, string> = {
@@ -88,6 +93,9 @@ export const blocks = {
   deliveryNote: (text: string) => `<p><strong>Their note:</strong></p><p style="color:#555;white-space:pre-wrap;">${esc(text)}</p>`,
   // Longer text someone typed, line breaks kept, in grey.
   quote: (text: string) => `<p style="color:#555;white-space:pre-wrap;">${esc(text)}</p>`,
+  // Reminder: what's missing from a mentor's profile.
+  missing: (items: { label: string; hint: string }[]) =>
+    items.length ? `<ul>${items.map((i) => `<li><strong>${esc(i.label)}</strong>${i.hint ? `: ${esc(i.hint)}` : ""}</li>`).join("")}</ul>` : "",
   topFlags: (top: { reason: string; subjectName: string | null }[]) =>
     top.length ? `<p><strong>Most serious open flags</strong></p><ul>${top.map((t) => `<li>${esc(t.reason)}${t.subjectName ? ` (${esc(t.subjectName)})` : ""}</li>`).join("")}</ul>` : "",
 };
@@ -113,6 +121,10 @@ const V = {
 };
 
 const CALL_FOOTER = ">> Calls happen in a private MentorsMD video room. Calls may be recorded for safety and quality; only the mentor on the call and the MentorsMD team can watch a recording, and the team only looks if there's a problem with an order.";
+
+// Every reminder email ends with this, so people can turn them off.
+const STOP_LINE = ">> You're getting this reminder because you have a MentorsMD account. [Stop these reminders]({{stopLink}}). Emails about your orders, calls and messages still come.";
+const stopLink = () => link("stopLink", "Link to stop reminder emails", `${SITE}/api/reminders/stop?u=sample&sig=sample`);
 
 function minorStatus(key: string, name: string, description: string, subject: string, sentence: string): EmailDef {
   return {
@@ -220,6 +232,69 @@ const LIST: EmailDef[] = [
     vars: [V.firstName],
   },
 
+  // ----- Reminders (students), sent by the daily cron -----
+  {
+    key: "reminder_abandoned_checkout",
+    name: "Reminder: checkout not finished",
+    description: "Sent to a student who started paying for a package, call or more hours with a mentor but didn't finish.",
+    group: "STUDENTS",
+    schedule: {
+      timing: "After 1 day, then 3 days",
+      when: "Counted from when they opened the payment page. Stops once they buy anything from that mentor, if the mentor stops taking orders, or if either of them blocked the other.",
+    },
+    subject: "Your {{packageTitle}} with {{mentorName}} is waiting",
+    body: [
+      "Hi {{firstName}},",
+      "You started booking **{{packageTitle}}** with **{{mentorName}}** but didn't finish paying, so nothing was charged.",
+      "If you'd still like to work with {{mentorName}}, you can pick up where you left off:",
+      "[[Finish booking]]({{checkoutLink}})",
+      "> Questions about a package or the price? You can message {{mentorName}} first, for free.",
+      STOP_LINE,
+    ].join("\n\n"),
+    vars: [V.firstName, V.mentorName, V.packageTitle, link("checkoutLink", "Where to finish booking (the mentor's profile, or the package page for more hours)", `${SITE}/mentors/sample`), stopLink()],
+    required: ["stopLink"],
+  },
+  {
+    key: "reminder_no_contact",
+    name: "Reminder: haven't contacted a mentor yet",
+    description: "Sent to a student who confirmed their email but hasn't messaged a mentor, booked an intro call or bought anything.",
+    group: "STUDENTS",
+    schedule: {
+      timing: "After 2 days, then 7 days",
+      when: "Counted from when they signed up. Stops once they send a message, book an intro call or buy anything.",
+    },
+    subject: "Find your MentorsMD mentor",
+    body: [
+      "Hi {{firstName}},",
+      "Thanks for joining MentorsMD. Our mentors are medical students and residents who've been through admissions, and every one is vetted by our senior team.",
+      "You can message any mentor for free, or book a **free 15-minute intro call** to see if they're the right fit before you buy anything.",
+      "[[Browse mentors]]({{mentorsLink}})",
+      STOP_LINE,
+    ].join("\n\n"),
+    vars: [V.firstName, link("mentorsLink", "Link to the mentors page", `${SITE}/mentors`), stopLink()],
+    required: ["stopLink"],
+  },
+  {
+    key: "reminder_after_intro",
+    name: "Reminder: after the intro call",
+    description: "Sent to a student after their free intro call with a mentor was held, if they haven't bought anything from that mentor.",
+    group: "STUDENTS",
+    schedule: {
+      timing: "After 2 days",
+      when: "Counted from the end of the intro call. Stops once they buy anything from that mentor (or start paying: the checkout reminder takes over), if the mentor stops taking orders, or if either of them blocked the other.",
+    },
+    subject: "Ready to continue with {{mentorName}}?",
+    body: [
+      "Hi {{firstName}},",
+      "Thanks for meeting **{{mentorName}}** for your intro call. If it felt like a good fit, you can now book hours or a package with them.",
+      "[[See {{mentorName}}'s packages]]({{mentorLink}})",
+      "> Not sure yet? Send {{mentorName}} a message with any questions, or meet another mentor.",
+      STOP_LINE,
+    ].join("\n\n"),
+    vars: [V.firstName, V.mentorName, link("mentorLink", "Link to the mentor's profile", `${SITE}/mentors/sample`), stopLink()],
+    required: ["stopLink"],
+  },
+
   // ----- Mentors -----
   {
     key: "mentor_invite",
@@ -305,6 +380,53 @@ const LIST: EmailDef[] = [
       "We'll be in touch. Reply to this email if you'd like to share anything with us.",
     ].join("\n\n"),
     vars: [V.firstName],
+  },
+
+  // ----- Reminders (mentors), sent by the daily cron -----
+  {
+    key: "reminder_mentor_profile",
+    name: "Reminder: finish your profile",
+    description: "Sent to a mentor whose profile isn't finished, so they're hidden from Browse mentors and students can't buy from them. Lists what's missing.",
+    group: "MENTORS",
+    schedule: {
+      timing: "After 2 days, then 7 days",
+      when: "Counted from when their mentor account was created. Stops once every section is filled in, or if their profile was removed or paused for review.",
+    },
+    subject: "Finish your MentorsMD profile so students can find you",
+    body: [
+      "Hi {{firstName}},",
+      "Your mentor profile is almost there, but it's hidden from Browse mentors until every section is filled in. Still to do:",
+      "{{missingList}}",
+      "[[Finish my profile]]({{profileLink}})",
+      STOP_LINE,
+    ].join("\n\n"),
+    vars: [
+      V.firstName,
+      block("missingList", "What's still missing (a list)", blocks.missing([{ label: "Bio", hint: "40 of 120 words" }, { label: "Fun fact", hint: "Add one or two sentences" }])),
+      link("profileLink", "Link to the profile editor", `${SITE}/dashboard/profile`),
+      stopLink(),
+    ],
+    required: ["stopLink"],
+  },
+  {
+    key: "reminder_mentor_payouts",
+    name: "Reminder: connect payouts",
+    description: "Sent to a mentor whose profile is finished but who hasn't connected a bank account through Stripe, so students can't buy from them yet.",
+    group: "MENTORS",
+    schedule: {
+      timing: "After 1 day, then 5 days",
+      when: "Counted from when their profile was finished. Stops once Stripe says their account can be paid, or if their profile was removed or paused for review.",
+    },
+    subject: "Connect payouts so students can book you",
+    body: [
+      "Hi {{firstName}},",
+      "Your profile is finished and students can find you on MentorsMD. One step left: connect your bank account through Stripe. Until then, students can't buy hours or packages from you.",
+      "[[Set up payouts]]({{payoutsLink}})",
+      "> It takes about 5 minutes. You're paid monthly on the 24th for the hours you've logged.",
+      STOP_LINE,
+    ].join("\n\n"),
+    vars: [V.firstName, link("payoutsLink", "Link to the Payouts page", `${SITE}/dashboard/payouts`), stopLink()],
+    required: ["stopLink"],
   },
 
   // ----- Students and mentors -----
@@ -1023,6 +1145,38 @@ function PARENT_CONSENT_VARS(): EmailVar[] {
 export const EMAILS: Record<string, EmailDef> = Object.fromEntries(LIST.map((d) => [d.key, d]));
 export const EMAIL_LIST: EmailDef[] = LIST.filter((d) => !d.retired);
 export type EmailKey = string;
+
+// ---- Reminder timing ("After 1 day, then 3 days") ----
+// Plain words an admin types in Admin -> Emails. Each number is one
+// reminder, counted from the same starting point (not from the previous
+// reminder). A number without "hour" or "day" uses the one before it, so
+// "After 1 day, then 3" means 1 day and 3 days. Hours are allowed for
+// short waits ("After 4 hours, then 2 days").
+export const TIMING_MAX_STEPS = 4;
+export const TIMING_MIN_HOURS = 2;
+export const TIMING_MAX_DAYS = 60;
+
+export function parseTiming(timing: string): { hours: number[]; error: string | null } {
+  const hours: number[] = [];
+  let unit = "day";
+  for (const m of Array.from(String(timing || "").toLowerCase().matchAll(/(\d+(?:\.\d+)?)\s*(hours?|hrs?|h\b|days?|d\b|weeks?|w\b)?/g))) {
+    if (m[2]) unit = m[2].startsWith("h") ? "hour" : m[2].startsWith("w") ? "week" : "day";
+    const n = Number(m[1]);
+    hours.push(Math.round(n * (unit === "hour" ? 1 : unit === "week" ? 168 : 24)));
+  }
+  if (!hours.length) return { hours, error: 'Write when to send it, for example "After 1 day, then 3 days".' };
+  if (hours.length > TIMING_MAX_STEPS) return { hours, error: `At most ${TIMING_MAX_STEPS} reminders.` };
+  if (hours.some((h) => h < TIMING_MIN_HOURS)) return { hours, error: `The first reminder can't be sooner than ${TIMING_MIN_HOURS} hours.` };
+  if (hours.some((h) => h > TIMING_MAX_DAYS * 24)) return { hours, error: `Each reminder must be within ${TIMING_MAX_DAYS} days.` };
+  if (hours.some((h, i) => i > 0 && h <= hours[i - 1])) return { hours, error: "Each reminder must come later than the one before it." };
+  return { hours, error: null };
+}
+
+// "1 day", "3 days", "4 hours": for the Outbox and the editor.
+export function waitLabel(hours: number) {
+  if (hours % 24 === 0) return `${hours / 24} day${hours === 24 ? "" : "s"}`;
+  return `${hours} hour${hours === 1 ? "" : "s"}`;
+}
 
 // ---- Rendering ----
 

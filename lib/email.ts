@@ -102,6 +102,13 @@ async function sendTemplate(key: string, to: string, values: Values, extra: Extr
   return deliver(key, to, subject, html, extra);
 }
 
+// Reminder emails from the daily cron (lib/scheduledEmails.ts). Throws if
+// the send fails, so the cron can try again the next day.
+export async function sendReminderEmail(key: string, toEmail: string, values: Values) {
+  if (!EMAILS[key]?.schedule) throw new Error(`Not a reminder email: ${key}`);
+  return sendTemplate(key, toEmail, values);
+}
+
 // Admin -> Emails -> "Send test to me": the wording in the editor (saved
 // or not), filled with sample data, to the admin's own address only.
 export async function sendTestEmail(key: string, toEmail: string, tpl: { subject: string; body: string }) {
