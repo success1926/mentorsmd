@@ -4,7 +4,7 @@ import { getSiteContent } from "@/lib/siteContentStore";
 import { PageSections } from "@/components/website/PageSections";
 import { SchoolMarquee } from "@/components/SchoolMarquee";
 
-export const metadata = { title: "Become a Mentor" };
+export const metadata = { title: "Become a Mentor", description: "Med students and residents: mentor the next class of doctors on MentorsMD. Set your own hourly rate; every mentor is interviewed by our senior team." };
 
 const PERK_ICONS = [ICONS.pen, ICONS.lock, ICONS.calendar];
 
@@ -17,11 +17,11 @@ export default async function BecomeMentorPage() {
   const sections: Record<string, React.ReactNode> = {
     intro: (
       <div className="stack" style={{ gap: 18 }}>
-        <Vetted />
+        {c.eyebrow ? <span className="eyebrow">{c.eyebrow}</span> : <Vetted />}
         <h1 className="page-title">{c.title}</h1>
         {c.intro && <p className="lede">{c.intro}</p>}
         <div className="row-wrap">
-          <a href="#apply" className="btn btn-primary btn-lg">{c.applyButton}</a>
+          <a href="#apply" className="btn btn-primary btn-lg">{c.applyButton} <span className="cue-arrow" aria-hidden="true">↓</span></a>
         </div>
       </div>
     ),
@@ -49,7 +49,7 @@ export default async function BecomeMentorPage() {
           </ol>
         )}
         <div className="row-wrap">
-          <a href="#apply" className="btn btn-primary btn-lg">{c.applyButton}</a>
+          <a href="#apply" className="btn btn-primary btn-lg">{c.applyButton} <span className="cue-arrow" aria-hidden="true">↓</span></a>
           {c.inviteNote && <span className="text-secondary">{c.inviteNote}</span>}
         </div>
       </div>

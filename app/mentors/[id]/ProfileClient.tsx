@@ -6,6 +6,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Icon, ICONS, Vetted, Rating, tintFor, initialsOf } from "@/components/ui";
 import { Modal } from "@/components/Modal";
+import { Rail } from "@/components/Rail";
+import { ScrollBox } from "@/components/ScrollBox";
+import { CountText, useCountUp } from "@/components/CountUp";
 import { Booker } from "@/components/Booker";
 import { AboutYouNudge } from "@/components/AboutYouNudge";
 import { ConfirmEmailNotice, ReportDialog, SendWarnings, setBlocked, type SendWarning } from "@/components/Safety";
@@ -301,7 +304,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null }: 
                   Packages ({offers.packages.length}) <span aria-hidden="true" style={{ color: "var(--primary)" }}>→</span>
                 </button>
               </h2>
-              <div className="pkg-row" role="list" aria-label="Specialized packages">
+              <Rail className="pkg-row" label="Specialized packages">
                 {offers.packages.map((p) => (
                   <article key={p.id} className="pkg-tile" role="listitem">
                     <div className={`pkg-tile-cover ${p.coverUrl ? "has-photo" : ""}`}>
@@ -321,7 +324,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null }: 
                     </div>
                   </article>
                 ))}
-              </div>
+              </Rail>
             </section>
           )}
 
@@ -385,7 +388,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null }: 
           <section className="stack" aria-labelledby="reviews-title">
             <div className="row-wrap" style={{ alignItems: "baseline" }}>
               <h2 id="reviews-title" style={{ fontSize: 30 }}>Reviews</h2>
-              {avg !== null && <span className="text-secondary">★ {avg.toFixed(1)} average · {reviews.length} {reviews.length === 1 ? "review" : "reviews"}</span>}
+              {avg !== null && <ReviewSummary avg={avg} count={reviews.length} />}
             </div>
             {reviews.length === 0 && <div className="empty">No reviews yet. {first} is new to MentorsMD.</div>}
             {reviews.map((r) => (
@@ -534,8 +537,7 @@ function FullBio({ id, seller }: { id: string; seller: any }) {
     ["Fun fact", seller.funFact ? [seller.funFact] : []],
   ];
   return (
-    // Scrolls on its own (max 320px), so it's focusable for keyboard scrolling.
-    <div id={id} className="bio-more" tabIndex={0} role="region" aria-label="Full bio">
+    <ScrollBox id={id} className="bio-more" label="Full bio">
       {sections
         .filter(([, items]) => items.length > 0)
         .map(([title, items]) => (
@@ -546,7 +548,17 @@ function FullBio({ id, seller }: { id: string; seller: any }) {
             </ul>
           </div>
         ))}
-    </div>
+    </ScrollBox>
+  );
+}
+
+// "★ 4.9 average · 12 reviews", counting up the first time it scrolls into view.
+function ReviewSummary({ avg, count }: { avg: number; count: number }) {
+  const [ref, t] = useCountUp<HTMLSpanElement>();
+  return (
+    <span ref={ref} className="text-secondary">
+      ★ <CountText text={avg.toFixed(1)} t={t} /> average · <CountText text={String(count)} t={t} /> {count === 1 ? "review" : "reviews"}
+    </span>
   );
 }
 

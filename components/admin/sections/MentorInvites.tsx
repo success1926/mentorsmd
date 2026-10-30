@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { CopyLink } from "@/components/admin/CopyLink";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 
 // Admin -> Mentors: invite a mentor by email, resend or cancel invites,
 // and who has joined.
@@ -11,7 +13,9 @@ export function MentorInvites() {
   const [invites, setInvites] = useState<any[]>([]);
   const [email, setEmail] = useState("");
   const [creating, setCreating] = useState(false);
-  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  // `link`: the invite link, shown with a Copy button when the email failed.
+  const [notice, setNotice] = useState<{ ok: boolean; text: string; link?: string } | null>(null);
+  const { confirm, dialog } = useAdminDialog();
 
   const loadInvites = useCallback(() => {
     fetch("/api/invites").then((r) => r.json()).then((d) => setInvites(d.invites || [])).catch(() => {});
@@ -27,18 +31,18 @@ export function MentorInvites() {
     setCreating(false);
     if (!res.ok) return setNotice({ ok: false, text: data.error || "Couldn't create the invite." });
     setEmail("");
-    setNotice(data.emailSent === false ? { ok: false, text: data.warning || "Invite created but the email failed. Try Resend." } : { ok: true, text: `Invite sent to ${data.invite?.email}.` });
+    setNotice(data.emailSent === false ? { ok: false, text: data.warning || "Invite created but the email failed. Try Resend.", link: data.link } : { ok: true, text: `Invite sent to ${data.invite?.email}.` });
     loadInvites();
   }
 
   async function resend(id: string) {
     const res = await fetch(`/api/invites/${id}/resend`, { method: "POST" });
     const data = await res.json().catch(() => ({}));
-    setNotice(res.ok ? { ok: true, text: "Invite email re-sent." } : { ok: false, text: data.error || "The email failed to send." });
+    setNotice(res.ok ? { ok: true, text: "Invite email re-sent." } : { ok: false, text: data.error || "The email failed to send.", link: data.link });
   }
 
   async function cancelInvite(inv: any) {
-    if (!confirm(`Cancel the invite for ${inv.email}? Their link stops working.`)) return;
+    if (!(await confirm({ title: `Cancel the invite for ${inv.email}?`, body: "Their link stops working.", confirmLabel: "Cancel Invite", cancelLabel: "Keep It", danger: true }))) return;
     const res = await fetch(`/api/invites/${inv.id}`, { method: "DELETE" });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) setNotice({ ok: false, text: data.error || "Couldn't cancel the invite." });
@@ -50,11 +54,17 @@ export function MentorInvites() {
 
   return (
     <>
-      {notice && <div role="status" className={`alert ${notice.ok ? "alert-success" : "alert-danger"}`}>{notice.text}</div>}
+      {dialog}
+      {notice && (
+        <div role="status" className={`alert ${notice.ok ? "alert-success" : "alert-danger"}`}>
+          {notice.text}
+          {notice.link && <CopyLink link={notice.link} />}
+        </div>
+      )}
       <section className="stack-sm">
         <h2 style={{ fontSize: 30 }}>Invite a mentor</h2>
         <div className="card stack">
-          <span className="text-secondary">We email a one-time link (valid 7 days). Nothing for you to copy or send.</span>
+          <span className="text-secondary">We email a one-time link (valid 7 days). If the email fails, you get the link here to copy and send yourself.</span>
           <div className="row">
             <input className="input grow" style={{ marginBottom: 0 }} type="email" placeholder="Mentor's email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === "Enter" && createInvite()} />
             <button onClick={createInvite} disabled={creating || !email.trim()} className="btn btn-primary">{creating ? "Sending…" : "Send invite"}</button>

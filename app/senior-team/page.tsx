@@ -6,7 +6,7 @@ import { SeniorTeamCards } from "@/components/SeniorTeamCards";
 import { PageSections } from "@/components/website/PageSections";
 import { SchoolMarquee } from "@/components/SchoolMarquee";
 
-export const metadata = { title: "Our Senior Team" };
+export const metadata = { title: "Our Senior Team", description: "Meet the MentorsMD senior team, who interview every mentor before they are invited to work with students." };
 
 // The people who interview every mentor before they're invited. Names,
 // photos and bios are edited in Admin -> Website (defaults: SENIOR_TEAM in
@@ -28,6 +28,7 @@ export default async function SeniorTeamPage() {
   const sections: Record<string, React.ReactNode> = {
     intro: (
       <div className="stack" style={{ gap: 14, maxWidth: 760 }}>
+        {c.eyebrow && <span className="eyebrow">{c.eyebrow}</span>}
         <h1 className="page-title">{c.title}</h1>
         {c.intro && <p className="lede">{c.intro}</p>}
       </div>

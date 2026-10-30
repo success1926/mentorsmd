@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { EmailTabs } from "@/components/admin/AdminTabs";
@@ -60,6 +61,7 @@ export default function AdminOutboxPage() {
   const [error, setError] = useState("");
   const [running, setRunning] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const { confirm, dialog } = useAdminDialog();
 
   const load = useCallback(() => {
     setError("");
@@ -74,7 +76,7 @@ export default function AdminOutboxPage() {
   }, [isAdmin, load]);
 
   async function runNow() {
-    if (!confirm("Send every reminder that's due right now? Only reminders that are switched on are sent, and nobody gets the same reminder twice.")) return;
+    if (!(await confirm({ title: "Send every reminder that's due right now?", body: "Only reminders that are switched on are sent, and nobody gets the same reminder twice.", confirmLabel: "Send Now" }))) return;
     setRunning(true);
     setNotice(null);
     const res = await fetch("/api/admin/emails/outbox", { method: "POST" });
@@ -90,6 +92,7 @@ export default function AdminOutboxPage() {
 
   return (
     <div className="page stack-lg" style={{ gap: 28 }}>
+      {dialog}
       <div className="stack-sm">
         <h1 className="page-title">Emails</h1>
         <p className="lede">

@@ -1,10 +1,16 @@
 /* Admin layout: sidebar + page (components/admin/AdminShell.tsx). */
-.adm-shell { display: grid; grid-template-columns: 236px minmax(0, 1fr); min-height: calc(100vh - 80px); }
+.adm-shell { display: grid; grid-template-columns: 236px minmax(0, 1fr); min-height: calc(100vh - 84px); }
 .adm-side { border-right: 1px solid var(--line); background: var(--surface-2); padding: 24px 14px 40px; }
-.adm-side-top { display: flex; align-items: center; gap: 10px; padding: 0 10px 14px; }
+.adm-side-top { display: flex; align-items: center; gap: 10px; padding: 0 10px 14px; position: relative; z-index: 31; }
 .adm-brand { font-family: var(--font-display); font-size: 22px; }
 .adm-current, .adm-menu-btn { display: none; }
-.adm-nav-list { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 16px; }
+/* Stays in view under the site's sticky top bar (84px tall; 72px at 960px
+   and below). The groups scroll inside it when they're taller than the
+   screen, so Other Tools at the bottom can always be reached; the search
+   box stays outside that scroll so its results aren't cut off. */
+.adm-nav-list { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 100px; max-height: calc(100vh - 116px); }
+.adm-nav-scroll { display: flex; flex-direction: column; gap: 4px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; margin: 0 -6px; padding: 0 6px 8px; }
+@media (max-width: 960px) and (min-width: 861px) { .adm-nav-list { top: 88px; max-height: calc(100vh - 104px); } }
 /* Search box at the top of the sidebar (components/admin/AdminSearch.tsx). */
 .adm-search { position: relative; margin: 0 0 10px; }
 .adm-search .input { margin: 0; width: 100%; font-size: 14px; padding: 9px 12px; }
@@ -24,21 +30,50 @@
 .adm-link { display: block; padding: 8px 10px; border-radius: 10px; color: var(--ink); font-size: 15px; text-decoration: none; }
 .adm-link:hover { background: var(--tint-soft); opacity: 1; }
 .adm-link[aria-current="page"] { background: var(--tint); color: var(--primary-deep); font-weight: 600; }
-.adm-me { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 10px 0; border-top: 1px solid var(--line); }
+/* Website pages listed one by one under Website (AdminShell). */
+.adm-pages { display: flex; flex-direction: column; gap: 1px; padding: 2px 0 6px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+.adm-link.adm-sublink { padding: 6px 10px 6px 18px; font-size: 14px; }
+/* Other Tools: outside dashboards, opened in a new tab. */
+.adm-tools { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.adm-link.adm-tool { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 14px; }
+.adm-tool-note { font-size: 12px; color: var(--faint); white-space: nowrap; }
+/* Account menu: initials in the sidebar's top row, opening a small card. */
+.adm-me { position: relative; margin-left: auto; }
+.adm-me > summary { list-style: none; cursor: pointer; border-radius: 50%; display: block; }
+.adm-me > summary::-webkit-details-marker { display: none; }
+.adm-me > summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.adm-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--tint-2); color: var(--primary-deep); display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; letter-spacing: 0.02em; }
+.adm-me[open] .adm-avatar, .adm-me > summary:hover .adm-avatar { background: var(--tint); box-shadow: 0 0 0 2px var(--tint-2); }
+.adm-me-pop { position: absolute; top: calc(100% + 8px); left: 0; z-index: 50; width: 272px; max-width: calc(100vw - 32px); display: flex; flex-direction: column; padding: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+.adm-me-head { display: flex; flex-direction: column; gap: 2px; padding: 10px 10px 12px; margin-bottom: 4px; border-bottom: 1px solid var(--line); min-width: 0; }
+.adm-me-head b { font-size: 15px; overflow-wrap: anywhere; }
+.adm-me-head span:not(.badge) { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.adm-me-pop > a, .adm-me-out { display: block; width: 100%; padding: 9px 10px; border: 0; border-radius: 8px; background: none; font: inherit; font-size: 15px; color: var(--ink); text-align: left; text-decoration: none; cursor: pointer; }
+.adm-me-pop > a:hover, .adm-me-out:hover { background: var(--tint-soft); opacity: 1; }
+.adm-me-out { color: var(--danger); }
 .adm-main { min-width: 0; }
 .adm-main .page { max-width: 1100px; margin: 0; padding: 36px 32px 96px; }
+/* Big monitors: let the working area use more of the width. */
+@media (min-width: 1800px) { .adm-main .page { max-width: 1400px; padding-left: 48px; padding-right: 48px; } }
 /* Admin headings are working titles, smaller than the public site's. */
 .adm-main .page-title { font-size: clamp(28px, 3vw, 36px); }
 
 /* Phones and small tablets: a top bar with a Menu button; the list opens below it. */
 @media (max-width: 860px) {
   .adm-shell { grid-template-columns: 1fr; min-height: 0; }
-  .adm-side { border-right: 0; border-bottom: 1px solid var(--line); padding: 10px 16px; position: sticky; top: 0; z-index: 20; }
+  /* Just under the site's own sticky bar (72px tall here). */
+  .adm-side { border-right: 0; border-bottom: 1px solid var(--line); padding: 10px 16px; position: sticky; top: 72px; z-index: 30; }
   .adm-side-top { padding: 0; }
   .adm-current { display: inline; color: var(--muted); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .adm-me { margin-left: 0; }
+  .adm-me-pop { left: auto; right: -64px; }
   .adm-menu-btn { display: inline-flex; }
-  .adm-nav-list { display: none; position: static; padding: 12px 0 8px; max-height: calc(100vh - 70px); overflow-y: auto; }
+  /* The open menu fills the rest of the screen and scrolls on its own. */
+  .adm-nav-list { display: none; position: static; padding: 12px 0 8px; max-height: calc(100vh - 140px); max-height: calc(100dvh - 140px); overflow-y: auto; overscroll-behavior: contain; }
+  .adm-nav-scroll { overflow: visible; margin: 0; padding: 0; }
   .adm-side.is-open .adm-nav-list { display: flex; }
+  .adm-link { padding: 10px; }
+  .adm-link.adm-sublink { padding: 9px 10px 9px 18px; }
   .adm-main .page { padding: 24px 16px 80px; }
 }
 
@@ -88,7 +123,8 @@ a.adm-stat .stat-num { margin-top: 2px; }
 .ws-seg button { border: 0; background: none; border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 13px; color: var(--muted); cursor: pointer; }
 .ws-seg button[aria-checked="true"] { background: #fff; color: var(--ink); font-weight: 600; box-shadow: var(--shadow-sm); }
 @media (max-width: 860px) {
-  .ws-bar { top: 64px; }
+  /* Under the site bar (72px) and the admin menu bar (about 56px). */
+  .ws-bar { top: 130px; }
 }
 /* Layout tab (components/website/LayoutEditor.tsx). */
 .ws-tabs { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; background: var(--surface-2); align-self: flex-start; }
@@ -109,3 +145,40 @@ a.adm-stat .stat-num { margin-top: 2px; }
 .ws-sec-hidden { opacity: 0.75; }
 .ws-jump button.is-hidden { color: var(--faint); text-decoration: line-through; }
 .ws-jump button.is-added { border-style: dashed; }
+
+/* Overview (app/admin/(panel)/page.tsx). */
+.adm-dash-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.adm-dash-card { padding: 20px 22px; min-width: 0; }
+.adm-card-title { font-family: var(--font-body); font-size: 18px; font-weight: 600; letter-spacing: 0; margin: 0 0 8px; }
+.adm-dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 20px; align-items: start; }
+.adm-todo, .adm-feed { list-style: none; margin: 0; padding: 0; }
+.adm-todo li + li, .adm-feed li + li { border-top: 1px solid var(--line); }
+.adm-todo a { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 52px; color: var(--ink); text-decoration: none; font-weight: 600; }
+.adm-todo a:hover { opacity: 1; }
+.adm-todo a:hover span:nth-child(2) { color: var(--primary-deep); text-decoration: underline; }
+.adm-todo-count { font-family: var(--font-display); font-weight: 400; font-size: 30px; line-height: 1; color: var(--primary-deep); font-variant-numeric: tabular-nums; }
+.adm-feed a { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 52px; padding: 8px 0; color: var(--ink); text-decoration: none; }
+.adm-feed a:hover { opacity: 1; }
+.adm-feed a:hover b { color: var(--primary-deep); text-decoration: underline; }
+.adm-feed b { overflow-wrap: anywhere; }
+.adm-glance { margin: 0; display: flex; flex-direction: column; }
+.adm-glance div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); font-size: 15px; }
+.adm-glance div:first-child { border-top: 0; }
+.adm-glance dt { color: var(--muted); }
+.adm-glance dd { margin: 0; font-weight: 600; text-align: right; }
+
+/* Pop-ups that replace the browser's confirm/prompt boxes (components/admin/AdminDialog.tsx). */
+.adm-dialog { gap: 12px; }
+.adm-dialog-title { font-family: var(--font-body); font-size: 20px; font-weight: 600; letter-spacing: 0; line-height: 1.3; padding-right: 32px; overflow-wrap: anywhere; }
+.adm-dialog-body { line-height: 1.55; overflow-wrap: anywhere; }
+.adm-dialog textarea.input { resize: vertical; min-height: 84px; }
+.adm-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+@media (max-width: 480px) {
+  .adm-dialog-actions { flex-direction: column-reverse; }
+  .adm-dialog-actions .btn { width: 100%; justify-content: center; }
+}
+
+/* An invite link to copy when its email failed (components/admin/CopyLink.tsx). */
+.adm-copy { display: flex; gap: 8px; margin-top: 10px; }
+.adm-copy .input { margin: 0; flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; background: #fff; color: var(--ink); }
+.adm-copy .btn { flex-shrink: 0; min-width: 84px; justify-content: center; }

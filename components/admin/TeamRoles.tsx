@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useState } from "react";
 import { ADMIN_PERMISSIONS, ADMIN_PERMISSION_GROUPS } from "@/lib/adminPermissions";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 
 // Admin -> Team & roles -> Roles: a tick-box matrix of admin areas (rows)
 // by role (columns). Owner and Admin always have everything. Only the
@@ -25,6 +26,7 @@ export function TeamRoles({ roles, isOwner, onChanged, setNotice }: { roles: Cus
   const [draft, setDraft] = useState<Record<string, string[]>>({});
   const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
+  const { ask, confirm, dialog } = useAdminDialog();
   useEffect(() => setDraft({}), [roles]);
 
   const permsOf = (r: CustomRole) => draft[r.id] ?? r.permissions;
@@ -52,21 +54,22 @@ export function TeamRoles({ roles, isOwner, onChanged, setNotice }: { roles: Cus
     if (await call("/api/admin/team/roles", "POST", { name, permissions: ["overview"] }, `Role "${name}" added. Tick the areas it can open, then Save.`)) setNewName("");
   }
 
-  function rename(r: CustomRole) {
-    const name = prompt("New name for this role:", r.name);
-    if (name && name.trim() && name.trim() !== r.name) call(`/api/admin/team/roles/${r.id}`, "PATCH", { name }, "Role renamed.");
+  async function rename(r: CustomRole) {
+    const name = await ask({ title: `Rename "${r.name}"`, reason: { label: "New name", initial: r.name, singleLine: true, maxLength: 40, required: true, requiredMessage: "Type a name." }, confirmLabel: "Rename" });
+    if (name && name !== r.name) call(`/api/admin/team/roles/${r.id}`, "PATCH", { name }, "Role renamed.");
   }
 
-  function remove(r: CustomRole) {
+  async function remove(r: CustomRole) {
     if (r.members > 0 || r.openInvites > 0) {
       setNotice({ ok: false, text: `"${r.name}" is in use. Give its members another role (or cancel the invite) first.` });
       return;
     }
-    if (confirm(`Delete the role "${r.name}"?`)) call(`/api/admin/team/roles/${r.id}`, "DELETE", undefined, "Role deleted.");
+    if (await confirm({ title: `Delete the role "${r.name}"?`, body: "Nobody uses it, so nothing else changes.", confirmLabel: "Delete Role", danger: true })) call(`/api/admin/team/roles/${r.id}`, "DELETE", undefined, "Role deleted.");
   }
 
   return (
     <section className="stack-sm" id="roles">
+      {dialog}
       <h2 style={{ fontSize: 30 }}>Roles</h2>
       <span className="text-secondary">
         What each role can open in Admin. Owner and Admin always have everything.{" "}

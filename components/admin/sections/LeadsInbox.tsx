@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAdminCan } from "@/components/admin/AdminShell";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { CopyLink } from "@/components/admin/CopyLink";
 import {
   APPLICATION_STATUS_LABEL,
   LEAD_KIND_LABEL,
@@ -54,6 +56,8 @@ const fmtDay = (d: string) => new Date(d).toLocaleDateString(undefined, { month:
 const fmtWhen = (d: string) => new Date(d).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 const isKind = (v: string | null): v is LeadKind => v === "APPLICATION" || v === "CONTACT" || v === "WAITLIST";
 const stageBadge: Record<string, string> = { NEW: "badge badge-brand", IN_PROGRESS: "badge badge-warning", DONE: "badge" };
+// `link`: a mentor invite link to copy, when its email failed.
+type Notice = { ok: boolean; text: string; link?: string } | null;
 
 export function LeadsInbox() {
   const canApps = useAdminCan("applications");
@@ -67,7 +71,7 @@ export function LeadsInbox() {
 
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const [notice, setNotice] = useState<Notice>(null);
   const [stage, setStage] = useState("");
   const [who, setWho] = useState("");
   const [q, setQ] = useState("");
@@ -109,6 +113,19 @@ export function LeadsInbox() {
     });
   }, [data, stage, who, q]);
 
+  // How many in this tab are at each stage (for the Status filter).
+  const stageCounts = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const r of data?.rows || []) c[r.stage] = (c[r.stage] || 0) + 1;
+    return c;
+  }, [data]);
+  const filtered = !!(stage || who || q.trim());
+  const clearFilters = () => {
+    setStage("");
+    setWho("");
+    setQ("");
+  };
+
   // Update one row in place after a change, without reloading the list.
   const patchRow = (id: string, change: Partial<Row>) =>
     setData((d) => (d ? { ...d, rows: d.rows.map((r) => (r.id === id ? { ...r, ...change } : r)) } : d));
@@ -129,7 +146,12 @@ export function LeadsInbox() {
         ))}
       </div>
 
-      {notice && <div role="status" className={`alert ${notice.ok ? "alert-success" : "alert-danger"}`}>{notice.text}</div>}
+      {notice && (
+        <div role="status" className={`alert ${notice.ok ? "alert-success" : "alert-danger"}`}>
+          {notice.text}
+          {notice.link && <CopyLink link={notice.link} />}
+        </div>
+      )}
       {error && <div role="alert" className="alert alert-danger">{error}</div>}
 
       {tab === "WAITLIST" && data && <NotifyWaitlist toNotify={data.toNotify} onDone={load} setNotice={setNotice} />}
@@ -138,8 +160,8 @@ export function LeadsInbox() {
         <div className="field">
           <label className="field-label" htmlFor="lead-stage">Status</label>
           <select id="lead-stage" className="input" value={stage} onChange={(e) => setStage(e.target.value)}>
-            <option value="">All</option>
-            {LEAD_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+            <option value="">All{data ? ` (${data.rows.length})` : ""}</option>
+            {LEAD_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}{data ? ` (${stageCounts[s.value] || 0})` : ""}</option>)}
           </select>
         </div>
         <div className="field">
@@ -164,7 +186,15 @@ export function LeadsInbox() {
 
       <div className="card" style={{ padding: "4px 20px" }}>
         {!data && !error && <p className="text-muted" style={{ padding: 12 }}>Loading…</p>}
-        {data && rows.length === 0 && <p className="text-muted" style={{ padding: 12 }}>Nothing here{stage || who || q ? " with these filters" : " yet"}.</p>}
+        {data && rows.length === 0 &&
+          (filtered && data.rows.length > 0 ? (
+            <div className="row-wrap" style={{ padding: 12 }}>
+              <span className="text-muted">No {LEAD_KIND_LABEL[tab].toLowerCase()} match these filters.</span>
+              <button type="button" className="btn btn-sm" onClick={clearFilters}>Clear Filters</button>
+            </div>
+          ) : (
+            <p className="text-muted" style={{ padding: 12 }}>Nothing here yet.</p>
+          ))}
         {data &&
           rows.map((r) => (
             <LeadRow key={r.id} row={r} admins={data.admins} defaultOpen={r.id === openId} onChange={(c) => patchRow(r.id, c)} reload={load} setNotice={setNotice} />
@@ -188,10 +218,11 @@ function LeadRow({
   defaultOpen: boolean;
   onChange: (c: Partial<Row>) => void;
   reload: () => void;
-  setNotice: (n: { ok: boolean; text: string } | null) => void;
+  setNotice: (n: Notice) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
+  const { confirm, dialog } = useAdminDialog();
   const title = r.kind === "WAITLIST" ? r.email : r.name || r.email;
   const sub =
     r.kind === "APPLICATION"
@@ -234,8 +265,8 @@ function LeadRow({
 
   // The existing mentor application actions (same API as before).
   async function appAction(action: "invite" | "decline" | "reopen") {
-    if (action === "invite" && !confirm(`Send a mentor invite to ${r.email}?`)) return;
-    if (action === "decline" && !confirm(`Decline ${r.name}'s application? No email is sent.`)) return;
+    if (action === "invite" && !(await confirm({ title: `Send a mentor invite to ${r.email}?`, body: "They get a one-time link to join (valid 7 days).", confirmLabel: "Send Invite" }))) return;
+    if (action === "decline" && !(await confirm({ title: `Decline ${r.name}'s application?`, body: "No email is sent. You can move it back to pending later.", confirmLabel: "Decline", danger: true }))) return;
     setBusy(true);
     const res = await fetch(`/api/admin/applications/${r.id}`, {
       method: "PATCH",
@@ -246,7 +277,7 @@ function LeadRow({
     setBusy(false);
     if (!res.ok) setNotice({ ok: false, text: d.error || "That didn't work." });
     else if (action === "invite") {
-      setNotice(d.emailSent === false ? { ok: false, text: d.warning || "Invite created but the email failed. Use Resend on the Mentors page." } : { ok: true, text: `Invite sent to ${r.email}.` });
+      setNotice(d.emailSent === false ? { ok: false, text: d.warning || "Invite created but the email failed. Use Resend on the Mentors page.", link: d.link } : { ok: true, text: `Invite sent to ${r.email}.` });
     }
     reload();
   }
@@ -272,6 +303,7 @@ function LeadRow({
       </summary>
 
       <div className="stack-sm small" style={{ padding: "10px 0 6px", gap: 12 }}>
+        {dialog}
         <span>
           <b>Email:</b> <a className="link" href={`mailto:${r.email}`}>{r.email}</a>
           {r.phone && <> · <b>Phone:</b> {r.phone}</>}
@@ -332,7 +364,7 @@ function LeadRow({
 
 // "Email everyone on the waitlist": confirm with the count, then send in
 // small batches (one request each) until everyone has had it.
-function NotifyWaitlist({ toNotify, onDone, setNotice }: { toNotify: number; onDone: () => void; setNotice: (n: { ok: boolean; text: string } | null) => void }) {
+function NotifyWaitlist({ toNotify, onDone, setNotice }: { toNotify: number; onDone: () => void; setNotice: (n: Notice) => void }) {
   const [step, setStep] = useState<"idle" | "confirm" | "sending">("idle");
   const [progress, setProgress] = useState({ sent: 0, failed: 0 });
 

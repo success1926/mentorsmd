@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { StaffBadge } from "@/components/ui";
 import { money } from "@/lib/options";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 
 // Admin -> Flags (#87): reports, disputes and automatic flags in one
 // queue, most severe first. Evidence is shown with the matching words
@@ -122,28 +123,37 @@ function FlagCard({ flag: f, onDone }: { flag: any; onDone: () => void }) {
   const subject = f.subject;
   const open = f.status === "OPEN";
 
-  async function act(action: string) {
-    const who = subject?.name || "this person";
-    if (action === "PAUSE" && !confirm(`Pause ${who}'s account pending review? ${subject?.role === "SELLER" ? "Their profile is hidden from search." : "They can't send messages."} They get an email.`)) return;
-    if (action === "WARN" && !confirm(`Email ${who} a warning about "${f.reason}"? Your note is included.`)) return;
-    let n = note;
-    if (action === "REMOVE") {
-      const r = prompt(`Remove ${who}? They'll be hidden and can't log in. Reason (kept on record):`, note);
-      if (r === null) return;
-      if (!r.trim()) return alert("A reason is required.");
-      n = r;
-    }
-    setBusy(true);
-    setMsg("");
+  const { ask, dialog } = useAdminDialog();
+
+  // Sends the decision; returns an error message for the pop-up, or nothing.
+  async function send(action: string, n: string): Promise<string | void> {
     const res = await fetch(`/api/admin/flags/${f.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action, note: n || null }),
     });
     const d = await res.json().catch(() => ({}));
-    setBusy(false);
-    if (!res.ok) return setMsg(d.error || "That didn't work.");
+    if (!res.ok) return d.error || "That didn't work.";
     onDone();
+  }
+
+  async function act(action: string) {
+    const who = subject?.name || "this person";
+    if (action === "PAUSE" || action === "WARN" || action === "REMOVE") {
+      const opts =
+        action === "PAUSE"
+          ? { title: `Pause ${who}'s account pending review?`, body: `${subject?.role === "SELLER" ? "Their profile is hidden from search." : "They can't send messages."} They get an email.`, confirmLabel: "Pause", reason: { label: "Note (optional, kept on record)", initial: note } }
+          : action === "WARN"
+          ? { title: `Email ${who} a warning?`, body: `About "${f.reason}". Your note is included in the email.`, confirmLabel: "Send Warning", reason: { label: "Note to include (optional)", initial: note } }
+          : { title: `Remove ${who}?`, body: "They'll be hidden and can't log in.", confirmLabel: "Remove", danger: true, reason: { label: "Reason (kept on record)", required: true, initial: note }, typeToConfirm: subject?.name || "REMOVE" };
+      await ask({ ...opts, run: (n) => send(action, n) });
+      return;
+    }
+    setBusy(true);
+    setMsg("");
+    const err = await send(action, note);
+    setBusy(false);
+    if (err) setMsg(err);
   }
 
   function toggleThread() {
@@ -155,6 +165,7 @@ function FlagCard({ flag: f, onDone }: { flag: any; onDone: () => void }) {
 
   return (
     <div className={`card stack-sm flag-card sev-${f.severity}`} style={{ padding: 18 }}>
+      {dialog}
       <div className="between" style={{ flexWrap: "wrap", gap: 8 }}>
         <span className="row-wrap" style={{ gap: 6 }}>
           <span className={`badge ${sev.cls}`}>{sev.label}</span>

@@ -1,14 +1,34 @@
 import { initialsOf } from "@/components/ui";
+import { Rail } from "@/components/Rail";
 import { paragraphs } from "@/lib/siteContent";
 import type { WallItem } from "@/lib/reviewWall";
 
 // The grid of review cards, used by the homepage (#reviews) and /reviews.
-// The data comes from getReviewWall() in lib/reviewWall.ts.
-export function ReviewWall({ items }: { items: WallItem[] }) {
+// The data comes from getReviewWall() in lib/reviewWall.ts. `rail` (the
+// homepage): on phones the cards become a sideways row with arrows instead
+// of one very long column; /reviews keeps the full wall for reading.
+export function ReviewWall({ items, rail = false }: { items: WallItem[]; rail?: boolean }) {
+  const cards = items.map((t, i) => <ReviewCard key={t.key} t={t} i={i} />);
+  if (!rail) return <div className="wall-grid">{cards}</div>;
   return (
-    <div className="wall-grid">
-      {items.map((t, i) => (
-        <div key={t.key}>
+    <>
+      <div className="wall-grid hide-mobile">{cards}</div>
+      <div className="only-mobile">
+        <Rail className="wall-rail" label="Reviews">
+          {items.map((t, i) => (
+            <div key={t.key} role="listitem">
+              <ReviewCard t={t} i={i} />
+            </div>
+          ))}
+        </Rail>
+      </div>
+    </>
+  );
+}
+
+function ReviewCard({ t, i }: { t: WallItem; i: number }) {
+  return (
+        <div>
           <div className="testi">
             <div className="row" style={{ gap: 14 }}>
               <span className="avatar" style={{ width: 54, height: 54, background: ["#FCE4EC", "#E4EEFF", "#DDD5FF", "#F5B9CD"][i % 4] }}>
@@ -25,7 +45,5 @@ export function ReviewWall({ items }: { items: WallItem[] }) {
             ))}
           </div>
         </div>
-      ))}
-    </div>
   );
 }

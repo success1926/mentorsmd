@@ -26,7 +26,8 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   } catch (err) {
     console.error("Failed to resend invite email:", err);
     const reason = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: `The email failed to send: ${reason}` }, { status: 502 });
+    // Only admins with the Mentors permission get here, so they can copy the link instead.
+    return NextResponse.json({ error: `The email failed to send (${reason}). Copy this link and send it to ${invite.email} yourself:`, link: inviteUrl }, { status: 502 });
   }
 
   await logAdminAction({ adminId: admin.id, action: "INVITE_RESENT", summary: `Re-sent the mentor invite to ${invite.email}`, targetType: "INVITE", targetId: invite.id });

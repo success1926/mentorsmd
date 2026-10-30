@@ -9,6 +9,7 @@ import { shortHours } from "@/lib/hours";
 import { PAYOUT_STATUS_LABEL, payoutDayLabel, periodLabel } from "@/lib/payoutRules";
 import { csvBody } from "@/lib/csv";
 import { GIFT_STATUS_LABEL } from "@/lib/giftOptions";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 
 // Admin -> Orders & payouts: the money summary (sales, credit, collected,
 // fee, paid to mentors, not yet paid out), the monthly payouts to mentors
@@ -41,16 +42,29 @@ function download(filename: string, header: string[], rows: unknown[][]) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 const dollars = (cents: number) => (cents / 100).toFixed(2);
+
+// The Paid packages filter tabs.
+type OrderFilter = "ALL" | "ACTIVE" | "WAITING" | "PAID" | "REFUNDED" | "GIFT";
+const ORDER_FILTERS: readonly (readonly [OrderFilter, string])[] = [["ALL", "All"], ["ACTIVE", "Active"], ["WAITING", "Approved, waiting for payout"], ["PAID", "Paid to mentor"], ["REFUNDED", "Refunded"], ["GIFT", "Gift / parent purchase"]];
+function inFilter(o: any, filter: OrderFilter) {
+  if (filter === "ALL") return true;
+  if (filter === "PAID") return o.status === "RELEASED";
+  if (filter === "REFUNDED") return o.status === "REFUNDED";
+  if (filter === "WAITING") return o.status === "COMPLETED";
+  if (filter === "GIFT") return !!o.giftFrom;
+  return o.status === "IN_ESCROW";
+}
 const hrs = (minutes: number) => (minutes / 60).toFixed(1);
 
 export function Orders() {
   const [earnings, setEarnings] = useState<any>(null);
   const [payouts, setPayouts] = useState<any>(null);
-  const [filter, setFilter] = useState<"ALL" | "ACTIVE" | "WAITING" | "PAID" | "REFUNDED" | "GIFT">("ALL");
+  const [filter, setFilter] = useState<OrderFilter>("ALL");
   const [gifts, setGifts] = useState<any[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [run, setRun] = useState<any>(null);
+  const { confirm, dialog } = useAdminDialog();
 
   const load = useCallback(() => {
     fetch("/api/admin/earnings").then((r) => r.json()).then(setEarnings).catch(() => setEarnings({ orders: [] }));
@@ -61,7 +75,7 @@ export function Orders() {
 
   async function runNow() {
     const label = periodLabel(payouts.currentPeriod);
-    if (!confirm(`Run the ${label} payouts now? Every mentor with connected payouts who hasn't been paid for ${label} yet is paid what they've earned so far. Mentors already paid for ${label} are left alone.`)) return;
+    if (!(await confirm({ title: `Run the ${label} payouts now?`, body: `Every mentor with connected payouts who hasn't been paid for ${label} yet is paid what they've earned so far. Mentors already paid for ${label} are left alone.`, confirmLabel: "Run Payouts" }))) return;
     setBusy("run");
     setMsg(null);
     const res = await fetch("/api/admin/payouts/run", { method: "POST" });
@@ -73,7 +87,7 @@ export function Orders() {
   }
 
   async function retry(p: any) {
-    if (!confirm(`Retry the ${periodLabel(p.period)} payout of ${money(p.amountCents)} to ${p.mentor.name}? Stripe is checked first, so it can't be sent twice.`)) return;
+    if (!(await confirm({ title: `Retry the ${periodLabel(p.period)} payout to ${p.mentor.name}?`, body: `${money(p.amountCents)}. Stripe is checked first, so it can't be sent twice.`, confirmLabel: "Retry" }))) return;
     setBusy(p.id);
     setMsg(null);
     const res = await fetch(`/api/admin/payouts/${p.id}/retry`, { method: "POST" });
@@ -84,14 +98,7 @@ export function Orders() {
   }
 
   const orders: any[] = earnings?.orders || [];
-  const list = orders.filter((o) => {
-    if (filter === "ALL") return true;
-    if (filter === "PAID") return o.status === "RELEASED";
-    if (filter === "REFUNDED") return o.status === "REFUNDED";
-    if (filter === "WAITING") return o.status === "COMPLETED";
-    if (filter === "GIFT") return !!o.giftFrom;
-    return o.status === "IN_ESCROW";
-  });
+  const list = orders.filter((o) => inFilter(o, filter));
   const plist: any[] = payouts?.payouts || [];
   const failed = plist.filter((p) => p.status === "FAILED");
 
@@ -116,6 +123,7 @@ export function Orders() {
 
   return (
     <>
+      {dialog}
       {earnings?.salesCents !== undefined && (
         <div className="stat-cards">
           {[
@@ -189,13 +197,23 @@ export function Orders() {
           {list.length > 0 && <button className="btn btn-sm" onClick={exportOrders}>Download CSV</button>}
         </div>
         <div className="tabs" role="tablist">
-          {([["ALL", "All"], ["ACTIVE", "Active"], ["WAITING", "Approved, waiting for payout"], ["PAID", "Paid to mentor"], ["REFUNDED", "Refunded"], ["GIFT", "Gift / parent purchase"]] as const).map(([k, label]) => (
-            <button key={k} role="tab" className="tab" aria-selected={filter === k} onClick={() => setFilter(k)}>{label}</button>
+          {ORDER_FILTERS.map(([k, label]) => (
+            <button key={k} role="tab" className="tab" aria-selected={filter === k} onClick={() => setFilter(k)}>
+              {label} {earnings && <span className="tab-count">{orders.filter((o) => inFilter(o, k)).length}</span>}
+            </button>
           ))}
         </div>
         <div className="card" style={{ padding: "4px 20px" }}>
           {!earnings && <p className="text-muted" style={{ padding: 12 }}>Loading…</p>}
-          {earnings && list.length === 0 && <p className="text-muted" style={{ padding: 12 }}>No packages here yet.</p>}
+          {earnings && list.length === 0 &&
+            (orders.length > 0 ? (
+              <div className="row-wrap" style={{ padding: 12 }}>
+                <span className="text-muted">No packages match this filter.</span>
+                <button type="button" className="btn btn-sm" onClick={() => setFilter("ALL")}>Clear Filters</button>
+              </div>
+            ) : (
+              <p className="text-muted" style={{ padding: 12 }}>Nothing here yet.</p>
+            ))}
           {list.map((o) => {
             const st = statusOf(o);
             return (

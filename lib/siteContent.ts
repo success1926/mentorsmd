@@ -231,6 +231,7 @@ export const SITE_PAGES = {
     path: "/senior-team",
     fields: {
       ...section("Intro", {
+        eyebrow: text("Small label", "Who Vets Our Mentors", { max: 40 }),
         title: text("Heading", "Our Senior Team", { max: 80 }),
         intro: long("Intro", "Every MentorsMD mentor goes through a rigorous interview with each of us before they're invited, so students know anyone they message has real experience and outstanding results.", { max: 800 }),
       }),
@@ -270,6 +271,7 @@ export const SITE_PAGES = {
     path: "/become-a-mentor",
     fields: {
       ...section("Intro", {
+        eyebrow: text("Small label", "For Med Students & Residents", { max: 40 }),
         title: text("Heading", "Mentor the Next Class of Doctors", { max: 100 }),
         intro: long("Intro", "MentorsMD is invite-only. Every mentor goes through a rigorous interview with each of our senior team members before they receive an invite, so students know anyone they message has real experience and outstanding results.", { max: 800 }),
         applyButton: text("Button label", "Apply to Mentor", { max: 40 }),
@@ -280,9 +282,9 @@ export const SITE_PAGES = {
           "Perk",
           { title: text("Title", "", { max: 60, required: true }), body: long("Text", "", { max: 400 }) },
           [
-            { title: "Set your own rate", body: "Choose your hourly rate, hour bundles and specialized packages. No deadlines to juggle. Pause any time." },
-            { title: "Get paid reliably", body: "Students pay up front. You're paid every month, on the 24th, for the hours you've worked, and for unused hours once a package is approved." },
-            { title: "Calls on your calendar", body: "Set your weekly hours once. Students book calls in your open times, only after they've paid, and calls happen in a private MentorsMD video room." },
+            { title: "Set Your Own Rate", body: "Choose your hourly rate, hour bundles and specialized packages. No deadlines to juggle. Pause any time." },
+            { title: "Get Paid Reliably", body: "Students pay up front. You're paid every month, on the 24th, for the hours you've worked, and for unused hours once a package is approved." },
+            { title: "Calls on Your Calendar", body: "Set your weekly hours once. Students book calls in your open times, only after they've paid, and calls happen in a private MentorsMD video room." },
           ],
           { maxItems: 6, help: "Icons follow the order: pen, lock, calendar." },
         ),
@@ -363,6 +365,7 @@ export const SITE_PAGES = {
     path: "/reviews",
     fields: {
       ...section("Intro", {
+        eyebrow: text("Small label", "Reviews", { max: 40 }),
         title: text("Heading", "What Students Say", { max: 80, required: true }),
         intro: long("Intro", "Reviews from students who worked with a MentorsMD mentor. Reviews from completed orders are added automatically.", { max: 400, help: "The reviews themselves come from completed orders, plus the hand-picked testimonials in Homepage → Testimonials." }),
       }),
@@ -378,6 +381,7 @@ export const SITE_PAGES = {
     path: "/mentors",
     fields: {
       ...section("Intro", {
+        eyebrow: text("Small label", "Vetted Mentors", { max: 40 }),
         title: text("Heading", "Find Your Mentor", { max: 60 }),
         intro: text("Intro line", "Every mentor is vetted by our senior team. Message anyone for free.", { max: 200 }),
       }),
@@ -404,6 +408,7 @@ export const SITE_PAGES = {
         phone: text("Phone (optional)", process.env.NEXT_PUBLIC_CONTACT_PHONE || "", { max: 40, help: "The phone card only shows when a number is set." }),
       }),
       ...section("Contact us", {
+        eyebrow: text("Small label", "Contact", { max: 40 }),
         title: text("Heading", "Contact Us", { max: 60 }),
         intro: long("Intro", "Have a question, ran into an issue, or want to talk to a real person? We usually reply within one business day.", { max: 400 }),
         orderTitle: text("Box 1 heading", "Problem With an Order?", { max: 80 }),

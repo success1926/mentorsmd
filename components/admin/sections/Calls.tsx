@@ -5,13 +5,24 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Attendance, Recordings } from "@/components/Calls";
 import { NEEDS_ADMIN, outcomeLabel } from "@/lib/callOutcomes";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 
 // The admin's choices for a past call (see /api/admin/calls/[id]/outcome).
 const OVERRIDES = [
-  { outcome: "HELD", label: "Count as held", confirm: "Count this call as held? It's used up, and nobody is emailed." },
-  { outcome: "FREE_REBOOK", label: "Give a free rebook", confirm: "Give a free rebook? The call no longer counts, so the student can book another. Nobody is emailed, so tell them yourself." },
-  { outcome: "STUDENT_NO_SHOW", label: "Mark student no-show", confirm: "Mark as a student no-show? The call counts as used, and both get the no-show email." },
-  { outcome: "MENTOR_NO_SHOW", label: "Mark mentor no-show", confirm: "Mark as a mentor no-show? The call's time goes back to the student's hours (a free rebook), and both get the no-show email." },
+  { outcome: "HELD", label: "Count as Held", title: "Count this call as held?", confirm: "It's used up, and nobody is emailed." },
+  { outcome: "FREE_REBOOK", label: "Give a Free Rebook", title: "Give a free rebook?", confirm: "The call no longer counts, so the student can book another. Nobody is emailed, so tell them yourself." },
+  { outcome: "STUDENT_NO_SHOW", label: "Mark Student No-Show", title: "Mark as a student no-show?", confirm: "The call counts as used, and both get the no-show email." },
+  { outcome: "MENTOR_NO_SHOW", label: "Mark Mentor No-Show", title: "Mark as a mentor no-show?", confirm: "The call's time goes back to the student's hours (a free rebook), and both get the no-show email." },
+];
+
+// Filter tabs for the past calls, each with how many it holds.
+const PAST_FILTERS: { key: string; label: string; test: (c: any) => boolean }[] = [
+  { key: "ALL", label: "All", test: () => true },
+  { key: "NEEDS", label: "Needs a decision", test: (c) => !!c.outcome && NEEDS_ADMIN.includes(c.outcome) },
+  { key: "HELD", label: "Held", test: (c) => c.outcome === "HELD" },
+  { key: "NO_SHOW", label: "No-shows", test: (c) => c.outcome === "STUDENT_NO_SHOW" || c.outcome === "MENTOR_NO_SHOW" },
+  { key: "REBOOK", label: "Free rebooks", test: (c) => c.outcome === "FREE_REBOOK" },
+  { key: "PENDING", label: "Not decided yet", test: (c) => !c.outcome },
 ];
 
 function OutcomeBadge({ c }: { c: any }) {
@@ -36,6 +47,8 @@ export function CallsAdmin() {
   const [hookMsg, setHookMsg] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [outcomeMsg, setOutcomeMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [pastFilter, setPastFilter] = useState("ALL");
+  const { ask, dialog } = useAdminDialog();
   const load = () =>
     fetch("/api/admin/calls").then((r) => r.json()).then((d) => setData({ calls: d.calls || [], setup: d.setup || {} })).catch(() => setData({ calls: [], setup: {} }));
   useEffect(() => {
@@ -43,13 +56,20 @@ export function CallsAdmin() {
   }, []);
 
   async function setOutcome(c: any, o: (typeof OVERRIDES)[number]) {
-    if (!confirm(o.confirm)) return;
     setBusy(c.id);
     setOutcomeMsg(null);
-    const res = await fetch(`/api/admin/calls/${c.id}/outcome`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ outcome: o.outcome }) });
-    const d = await res.json().catch(() => ({}));
+    const done = await ask({
+      title: o.title,
+      body: o.confirm,
+      confirmLabel: o.label,
+      run: async () => {
+        const res = await fetch(`/api/admin/calls/${c.id}/outcome`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ outcome: o.outcome }) });
+        if (!res.ok) return (await res.json().catch(() => ({}))).error || "Couldn't save that";
+      },
+    });
     setBusy(null);
-    setOutcomeMsg(res.ok ? { ok: true, text: `Saved: ${outcomeLabel(o.outcome)}.` } : { ok: false, text: d.error || "Couldn't save that" });
+    if (done === null) return;
+    setOutcomeMsg({ ok: true, text: `Saved: ${outcomeLabel(o.outcome)}.` });
     load();
   }
 
@@ -67,6 +87,8 @@ export function CallsAdmin() {
   const upcoming = calls.filter((c) => new Date(c.endTime).getTime() >= now && c.status === "BOOKED").reverse();
   const setup = data?.setup || {};
   const undecided = past.filter((c) => c.outcome && NEEDS_ADMIN.includes(c.outcome)).length;
+  const activeFilter = PAST_FILTERS.find((f) => f.key === pastFilter) || PAST_FILTERS[0];
+  const shownPast = past.filter(activeFilter.test);
 
   // Opened from a link (?open=<call id>, e.g. the admin search box): open
   // its list, scroll to it and outline it.
@@ -81,6 +103,7 @@ export function CallsAdmin() {
 
   return (
     <section className="stack-sm" id="calls">
+      {dialog}
       <h2 style={{ fontSize: 30 }}>Calls &amp; recordings</h2>
       {data && (
         <div className="row-wrap small">
@@ -109,7 +132,7 @@ export function CallsAdmin() {
       <details className="collapse" open={upcoming.some((c) => c.id === openId) || undefined}>
         <summary><span className="row" style={{ gap: 8 }}>Upcoming <span className="tab-count">{upcoming.length}</span></span></summary>
         <div className="collapse-body" style={{ gap: 0 }}>
-          {upcoming.length === 0 && <span className="text-muted">No upcoming calls.</span>}
+          {upcoming.length === 0 && <span className="text-muted">Nothing here yet.</span>}
           {upcoming.map((c) => (
             <div key={c.id} id={`call-${c.id}`} className="list-row" style={{ flexWrap: "wrap", ...mark(c.id) }}>
               <div className="grow stack-sm" style={{ gap: 2 }}>
@@ -124,8 +147,23 @@ export function CallsAdmin() {
       <details className="collapse" open={past.some((c) => c.id === openId) || undefined}>
         <summary><span className="row" style={{ gap: 8 }}>Past 60 days <span className="tab-count">{past.length}</span></span></summary>
         <div className="collapse-body" style={{ gap: 0 }}>
-          {past.length === 0 && <span className="text-muted">No calls yet.</span>}
-          {past.map((c) => (
+          {past.length > 0 && (
+            <div className="tabs" role="tablist" aria-label="Filter past calls" style={{ marginBottom: 8 }}>
+              {PAST_FILTERS.map((f) => (
+                <button key={f.key} type="button" role="tab" className="tab" aria-selected={pastFilter === f.key} onClick={() => setPastFilter(f.key)}>
+                  {f.label} <span className="tab-count">{past.filter(f.test).length}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {past.length === 0 && <span className="text-muted">Nothing here yet.</span>}
+          {past.length > 0 && shownPast.length === 0 && (
+            <div className="row-wrap">
+              <span className="text-muted">No calls match this filter.</span>
+              <button type="button" className="btn btn-sm" onClick={() => setPastFilter("ALL")}>Clear Filters</button>
+            </div>
+          )}
+          {shownPast.map((c) => (
             <div key={c.id} id={`call-${c.id}`} className="list-row" style={{ display: "block", ...mark(c.id) }}>
               <div className="between" style={{ flexWrap: "wrap", gap: 8 }}>
                 <span className="stack-sm" style={{ gap: 2 }}>

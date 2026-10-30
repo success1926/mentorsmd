@@ -8,6 +8,7 @@ import { DeliveryCard } from "@/components/Deliveries";
 import { money } from "@/lib/options";
 import { shortHours } from "@/lib/hours";
 import { useAdminCan } from "@/components/admin/AdminShell";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 
 // Admin -> Disputes & flags: open and resolved disputes. Refunding or
 // releasing moves money, so those buttons need the Orders permission.
@@ -69,6 +70,7 @@ function CreditRefund({ order, onDone }: { order: any; onDone: () => void }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const { confirm, dialog } = useAdminDialog();
   const cents = Math.round(Number(dollars) * 100);
   const full = cents === order.refundableCents;
 
@@ -79,7 +81,7 @@ function CreditRefund({ order, onDone }: { order: any; onDone: () => void }) {
     const text = full
       ? `Refund ${money(cents)} (everything they paid) to ${order.buyer.name} as MentorsMD credit? The package is marked Refunded and nothing more is paid to ${order.seller.name}.`
       : `Refund ${money(cents)} to ${order.buyer.name} as MentorsMD credit? The package is approved, and ${money(cents)} is taken off what ${order.seller.name} is still owed for it.`;
-    if (!confirm(text)) return;
+    if (!(await confirm({ title: "Refund as MentorsMD credit?", body: text, confirmLabel: `Refund ${money(cents)}`, danger: true }))) return;
     setBusy(true);
     const res = await fetch(`/api/orders/${order.id}/credit-refund`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amountCents: cents, note }) });
     setBusy(false);
@@ -90,6 +92,7 @@ function CreditRefund({ order, onDone }: { order: any; onDone: () => void }) {
   if (!open) return <button onClick={() => setOpen(true)} className="btn btn-sm btn-danger">Refund as credit</button>;
   return (
     <div className="card stack-sm" style={{ padding: 14, width: "100%" }}>
+      {dialog}
       <b className="small">Refund as MentorsMD credit</b>
       <label className="small">
         Amount (up to {money(order.refundableCents)}: the price plus added hours, including any credit they used)
@@ -120,6 +123,7 @@ function DisputeCard({ order, onResolved }: { order: any; onResolved: () => void
   const { messages, sendMessage } = useDisputeThread(expanded ? order.id : "");
   const [draft, setDraft] = useState("");
   const canMoveMoney = useAdminCan("orders");
+  const { ask, dialog } = useAdminDialog();
 
   async function resolve(kind: "refund" | "release") {
     const text =
@@ -128,16 +132,24 @@ function DisputeCard({ order, onResolved }: { order: any; onResolved: () => void
         : order.kind
         ? `Approve the package for ${order.seller.name}? Their hours (including unused ones) are paid with the next monthly payout.`
         : `Release payment to ${order.seller.name}?`;
-    if (!confirm(text)) return;
     setBusy(true);
-    const res = await fetch(`/api/orders/${order.id}/${kind}`, { method: "POST" });
+    const done = await ask({
+      title: kind === "refund" ? "Refund the student?" : order.kind ? "Approve for the mentor?" : "Release to the mentor?",
+      body: text,
+      confirmLabel: kind === "refund" ? "Refund" : order.kind ? "Approve" : "Release",
+      danger: kind === "refund",
+      run: async () => {
+        const res = await fetch(`/api/orders/${order.id}/${kind}`, { method: "POST" });
+        if (!res.ok) return (await res.json().catch(() => ({}))).error || "That didn't work";
+      },
+    });
     setBusy(false);
-    if (!res.ok) return alert((await res.json().catch(() => ({}))).error || "That didn't work");
-    onResolved();
+    if (done !== null) onResolved();
   }
 
   return (
     <div className="card stack-sm" style={{ padding: 20 }}>
+      {dialog}
       <div className="between">
         <b>{order.title || order.gig.title}</b>
         <b>{money(order.paidCents ?? order.amount)}</b>

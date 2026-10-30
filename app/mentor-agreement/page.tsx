@@ -1,6 +1,8 @@
 import { docOrDefault } from "@/lib/legal";
 import { LegalBody, LegalHeader } from "@/components/LegalBody";
 
+export const metadata = { title: "Mentor Agreement", description: "The agreement every MentorsMD mentor accepts before working with students." };
+
 // The latest published version from Admin -> Legal, or the built-in text.
 export const dynamic = "force-dynamic";
 

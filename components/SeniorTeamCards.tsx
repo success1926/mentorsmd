@@ -46,7 +46,7 @@ export function SeniorTeamCards({ people }: { people: SeniorPerson[] }) {
         ))}
       </div>
 
-      <Modal open={p !== null} onClose={() => setOpen(null)} label={p ? `Bio of ${p.name}` : "Bio"} wide>
+      <Modal open={p !== null} onClose={() => setOpen(null)} label={p ? `Bio of ${p.name}` : "Bio"} wide resetKey={open}>
         {p && (
           <div className="lead-bio">
             {p.photo && (

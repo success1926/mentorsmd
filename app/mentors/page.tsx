@@ -14,7 +14,7 @@ import { BEST_FOR, FILTER_GROUPS, FORMATS, MENTOR_QUICK_LINKS as QUICK, SCHOOL_T
 import { hoursLabel } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Find Your Mentor" };
+export const metadata = { title: "Find Your Mentor", description: "Browse vetted medical school admissions mentors by service, school and price: personal statements, secondaries, MMI and interview prep, MCAT and more." };
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -104,6 +104,7 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
 
       <div className="page" style={{ paddingTop: 40 }}>
         <section className="stack" style={{ gap: 14, marginBottom: 36 }}>
+          {c.eyebrow && <span className="eyebrow">{c.eyebrow}</span>}
           <h1 className="page-title">{c.title}</h1>
           {c.intro && <p className="lede">{c.intro}</p>}
           <form action="/mentors" method="get" className="search-inline" role="search" style={{ maxWidth: 760 }}>

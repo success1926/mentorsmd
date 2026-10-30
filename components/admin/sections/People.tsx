@@ -9,6 +9,7 @@ import { SEVERITY, kindLabel } from "@/components/admin/Flags";
 import { BEST_FOR, SCHOOL_TYPES, STAGES, labelFor, money } from "@/lib/options";
 import { CREDIT_REASON_LABEL } from "@/lib/hours";
 import { useAdminCan } from "@/components/admin/AdminShell";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 
 // Admin -> People: mentors and students, with pause / remove / restore,
 // health badges and the "View" panel.
@@ -41,35 +42,50 @@ export function People() {
     return () => clearTimeout(t);
   }, [load]);
 
-  async function act(u: any, action: string) {
-    let reason: string | undefined;
-    if (action === "remove") {
-      const r = prompt(`Remove ${u.name}? They'll be hidden from the site and can't log in. Reason (kept on record):`);
-      if (r === null) return;
-      if (!r.trim()) return alert("A reason is required.");
-      reason = r;
-    } else if (action === "pause") {
-      const r = prompt(
-        `Pause ${u.name} pending review? ${u.role === "SELLER" ? "They'll be hidden from search and can't unpause themselves." : "They won't be able to send messages."} They get an email. Reason (kept on record):`
-      );
-      if (r === null) return;
-      reason = r.trim() || undefined;
-    }
+  const { ask, notify, dialog } = useAdminDialog();
+
+  // Sends the change; returns an error message for the pop-up, or nothing.
+  async function send(u: any, action: string, reason?: string): Promise<string | void> {
     const res = await fetch(`/api/admin/users/${u.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action, reason }),
     });
     const d = await res.json().catch(() => ({}));
-    if (!res.ok) return alert(d.error || "Couldn't update");
-    if (action === "remove" && d.activeOrders > 0) {
-      alert(`Done. ${u.name} has ${d.activeOrders} active order${d.activeOrders === 1 ? "" : "s"}. Open each one to refund or release it.`);
-    }
+    if (!res.ok) return d.error || "Couldn't update";
     load();
+    if (action === "remove" && d.activeOrders > 0) {
+      setTimeout(() => notify("Removed", `${u.name} has ${d.activeOrders} active order${d.activeOrders === 1 ? "" : "s"}. Open each one to refund or release it.`), 0);
+    }
   }
 
+  async function act(u: any, action: string) {
+    if (action === "remove") {
+      await ask({
+        title: `Remove ${u.name}?`,
+        body: "They'll be hidden from the site and can't log in. You can restore them later.",
+        reason: { label: "Reason (kept on record)", required: true },
+        typeToConfirm: u.name,
+        confirmLabel: "Remove",
+        danger: true,
+        run: (reason) => send(u, action, reason),
+      });
+    } else if (action === "pause") {
+      await ask({
+        title: `Pause ${u.name} pending review?`,
+        body: `${u.role === "SELLER" ? "They'll be hidden from search and can't unpause themselves." : "They won't be able to send messages."} They get an email.`,
+        reason: { label: "Reason (kept on record, optional)" },
+        confirmLabel: "Pause",
+        run: (reason) => send(u, action, reason || undefined),
+      });
+    } else {
+      const err = await send(u, action);
+      if (err) notify("Couldn't update", err);
+    }
+  }
   return (
     <section className="stack-sm">
+      {dialog}
       <PeopleTabs role={role} counts={counts} />
       <div className="row" style={{ gap: 8 }}>
         <input className="input grow" style={{ marginBottom: 0 }} placeholder="Search by name or email" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
@@ -77,7 +93,15 @@ export function People() {
       </div>
       <div className="card" style={{ padding: "4px 20px" }}>
         {users === null && <p className="text-muted" style={{ padding: 12 }}>Loading…</p>}
-        {users?.length === 0 && <p className="text-muted" style={{ padding: 12 }}>No one found.</p>}
+        {users?.length === 0 &&
+          (q.trim() ? (
+            <div className="row-wrap" style={{ padding: 12 }}>
+              <span className="text-muted">No {role === "SELLER" ? "mentors" : "students"} match this search.</span>
+              <button type="button" className="btn btn-sm" onClick={() => setQ("")}>Clear Search</button>
+            </div>
+          ) : (
+            <p className="text-muted" style={{ padding: 12 }}>Nothing here yet.</p>
+          ))}
         {users?.map((u) => (
           <div key={u.id}>
             <div className="list-row" style={{ flexWrap: "wrap" }}>
@@ -217,6 +241,7 @@ function StudentCredit({ userId }: { userId: string }) {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const { confirm, dialog } = useAdminDialog();
   useEffect(() => {
     fetch(`/api/admin/users/${userId}/credit`).then((r) => r.json()).then(setData).catch(() => setData({ balanceCents: 0, entries: [] }));
   }, [userId]);
@@ -226,7 +251,7 @@ function StudentCredit({ userId }: { userId: string }) {
     const cents = Math.round(Number(amount) * 100);
     if (!Number.isFinite(cents) || cents <= 0) return setError("Enter an amount.");
     if (!reason.trim()) return setError("Say why (it's saved in the action log).");
-    if (!confirm(`${sign > 0 ? "Add" : "Remove"} ${money(cents)} of credit ${sign > 0 ? "to" : "from"} this student?`)) return;
+    if (!(await confirm({ title: `${sign > 0 ? "Add" : "Remove"} ${money(cents)} of credit ${sign > 0 ? "to" : "from"} this student?`, body: sign > 0 ? "They get an email (without the reason)." : undefined, confirmLabel: sign > 0 ? "Add Credit" : "Remove Credit", danger: sign < 0 }))) return;
     setBusy(true);
     const res = await fetch(`/api/admin/users/${userId}/credit`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amountCents: sign * cents, reason }) });
     const d = await res.json().catch(() => ({}));
@@ -241,6 +266,7 @@ function StudentCredit({ userId }: { userId: string }) {
     <details className="collapse">
       <summary><span className="row" style={{ gap: 8 }}>MentorsMD credit <span className="tab-count">{data ? money(data.balanceCents) : "…"}</span></span></summary>
       <div className="collapse-body" style={{ gap: 8 }}>
+        {dialog}
         {data && data.entries.length === 0 && <span className="text-muted small">No credit history.</span>}
         {(data?.entries || []).map((e: any) => (
           <div key={e.id} className="list-row small" style={{ flexWrap: "wrap" }}>

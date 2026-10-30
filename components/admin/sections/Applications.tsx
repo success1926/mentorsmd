@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 
 // Admin -> Mentor applications: the list (Pending / Invited / Declined)
 // and its actions. Self-contained so it can grow into a leads inbox.
@@ -12,10 +13,11 @@ const APP_TABS = [
   { key: "DECLINED", label: "Declined" },
 ] as const;
 
-export function Applications({ onInvited, setNotice }: { onInvited?: () => void; setNotice: (n: { ok: boolean; text: string } | null) => void }) {
+export function Applications({ onInvited, setNotice }: { onInvited?: () => void; setNotice: (n: { ok: boolean; text: string; link?: string } | null) => void }) {
   const [apps, setApps] = useState<any[] | null>(null);
   const [tab, setTab] = useState<"PENDING" | "INVITED" | "DECLINED">("PENDING");
   const [busy, setBusy] = useState<string | null>(null);
+  const { confirm, dialog } = useAdminDialog();
 
   const load = useCallback(() => {
     fetch("/api/admin/applications").then((r) => r.json()).then((d) => setApps(d.applications || [])).catch(() => setApps([]));
@@ -23,8 +25,8 @@ export function Applications({ onInvited, setNotice }: { onInvited?: () => void;
   useEffect(load, [load]);
 
   async function act(app: any, action: "invite" | "decline" | "reopen") {
-    if (action === "invite" && !confirm(`Send a mentor invite to ${app.email}?`)) return;
-    if (action === "decline" && !confirm(`Decline ${app.name}'s application? No email is sent.`)) return;
+    if (action === "invite" && !(await confirm({ title: `Send a mentor invite to ${app.email}?`, body: "They get a one-time link to join (valid 7 days).", confirmLabel: "Send Invite" }))) return;
+    if (action === "decline" && !(await confirm({ title: `Decline ${app.name}'s application?`, body: "No email is sent. You can move it back to pending later.", confirmLabel: "Decline", danger: true }))) return;
     setBusy(app.id);
     const res = await fetch(`/api/admin/applications/${app.id}`, {
       method: "PATCH",
@@ -35,7 +37,7 @@ export function Applications({ onInvited, setNotice }: { onInvited?: () => void;
     setBusy(null);
     if (!res.ok) setNotice({ ok: false, text: d.error || "That didn't work." });
     else if (action === "invite") {
-      setNotice(d.emailSent === false ? { ok: false, text: d.warning || "Invite created but the email failed. Use Resend on the Mentors page." } : { ok: true, text: `Invite sent to ${app.email}.` });
+      setNotice(d.emailSent === false ? { ok: false, text: d.warning || "Invite created but the email failed. Use Resend on the Mentors page.", link: d.link } : { ok: true, text: `Invite sent to ${app.email}.` });
       onInvited?.();
     }
     load();
@@ -46,6 +48,7 @@ export function Applications({ onInvited, setNotice }: { onInvited?: () => void;
 
   return (
     <section className="stack-sm" id="applications">
+      {dialog}
       <h2 style={{ fontSize: 30 }}>Mentor applications</h2>
       <div className="tabs" role="tablist">
         {APP_TABS.map((t) => (
@@ -56,7 +59,7 @@ export function Applications({ onInvited, setNotice }: { onInvited?: () => void;
       </div>
       <div className="card" style={{ padding: "4px 20px" }}>
         {apps === null && <p className="text-muted" style={{ padding: 12 }}>Loading…</p>}
-        {apps && list.length === 0 && <p className="text-muted" style={{ padding: 12 }}>No {tab.toLowerCase()} applications.</p>}
+        {apps && list.length === 0 && <p className="text-muted" style={{ padding: 12 }}>{apps.length === 0 ? "Nothing here yet." : `No ${tab.toLowerCase()} applications.`}</p>}
         {list.map((a) => (
           <details key={a.id} className="list-row" style={{ display: "block" }}>
             <summary className="between" style={{ cursor: "pointer", flexWrap: "wrap", gap: 8 }}>

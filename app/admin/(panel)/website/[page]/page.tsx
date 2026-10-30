@@ -8,6 +8,7 @@ import { ChangedTag, ListEditor, ScalarEditor, same } from "@/components/website
 import { EditorPreview, type EditorPreviewHandle } from "@/components/website/EditorPreview";
 import { LayoutEditor } from "@/components/website/LayoutEditor";
 import { EDIT_MESSAGE } from "@/components/website/SiteEditButtons";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 import { hasLayout, sectionLabel, sectionsFor, type BuiltinSection, type LayoutItem } from "@/lib/pageLayout";
 
 type Values = Record<string, any>;
@@ -47,6 +48,7 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveErrors, setSaveErrors] = useState<{ text: string; errors?: string[] } | null>(null);
+  const { confirm, dialog } = useAdminDialog();
 
   // Autosave bookkeeping: every change bumps `rev`; a save remembers the rev
   // it sent. Saves go out one at a time, in order, so an older save can
@@ -277,8 +279,8 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
     });
   };
 
-  const onPublish = () => {
-    if (!confirm(`Publish your changes to the ${data.page.label} page? Everyone will see them.`)) return;
+  const onPublish = async () => {
+    if (!(await confirm({ title: `Publish your changes to the ${data.page.label} page?`, body: "Everyone will see them.", confirmLabel: "Publish" }))) return;
     run("publish", async () => {
       if (!(await flush())) return setNotice({ ok: false, text: "Couldn't save your latest changes, so nothing was published. Fix the problems above and try again." });
       const res = await fetch(`/api/admin/website/${params.page}/publish`, { method: "POST" });
@@ -289,8 +291,8 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
     });
   };
 
-  const onDiscard = () => {
-    if (!confirm("Discard all unpublished changes to this page? It goes back to what's live now.")) return;
+  const onDiscard = async () => {
+    if (!(await confirm({ title: "Discard all unpublished changes to this page?", body: "It goes back to what's live now. This can't be undone.", confirmLabel: "Discard Changes", danger: true }))) return;
     run("discard", async () => {
       window.clearTimeout(timer.current);
       timer.current = undefined;
@@ -310,6 +312,7 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
 
   return (
     <div className={`page stack-lg ws-ed${showPanel ? " ws-ed-wide" : ""}`} style={{ gap: 28 }}>
+      {dialog}
       <div className={showPanel ? "ws-ed-grid" : undefined}>
         <div className="stack-lg" style={{ gap: 28, minWidth: 0, maxWidth: showPanel ? undefined : 980 }}>
           <div className="row-wrap" style={{ gap: 16 }}>
@@ -427,8 +430,8 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
                         type="button"
                         className="link small"
                         style={{ alignSelf: "flex-start", background: "none", border: 0, padding: 0, cursor: "pointer" }}
-                        onClick={() => {
-                          if (confirm(`Put “${f.label}” back to the built-in default?`)) change(name, structuredClone(data.defaults[name]));
+                        onClick={async () => {
+                          if (await confirm({ title: `Put “${f.label}” back to the built-in default?`, confirmLabel: "Reset" })) change(name, structuredClone(data.defaults[name]));
                         }}
                       >
                         Reset to default
