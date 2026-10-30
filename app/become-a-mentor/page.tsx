@@ -4,7 +4,7 @@ import { getSiteContent } from "@/lib/siteContentStore";
 import { PageSections } from "@/components/website/PageSections";
 import { SchoolMarquee } from "@/components/SchoolMarquee";
 
-export const metadata = { title: "Become a mentor · MentorsMD" };
+export const metadata = { title: "Become a Mentor" };
 
 const PERK_ICONS = [ICONS.pen, ICONS.lock, ICONS.calendar];
 

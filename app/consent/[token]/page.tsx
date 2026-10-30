@@ -5,7 +5,7 @@ import { LegalBody } from "@/components/LegalBody";
 import { ConsentForm } from "./ConsentForm";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Parental consent · MentorsMD", robots: { index: false } };
+export const metadata = { title: "Parental Consent", robots: { index: false } };
 
 // The page a parent or guardian opens from the consent email (#108): the
 // Terms and the Parental Consent form, then a typed full name as their

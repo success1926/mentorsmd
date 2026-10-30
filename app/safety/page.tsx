@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Icon, ICONS } from "@/components/ui";
 
-export const metadata = { title: "Safety tips · MentorsMD" };
+export const metadata = { title: "Safety Tips" };
 
 const TIPS: { icon: string; title: string; body: string }[] = [
   { icon: ICONS.lock, title: "Pay only on MentorsMD", body: "On MentorsMD every hour is logged and our team can help if something goes wrong. If someone asks you to pay with Venmo, Zelle, PayPal, Cash App or cash, it's a red flag. Say no and report it." },

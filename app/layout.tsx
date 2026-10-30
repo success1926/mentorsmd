@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Instrument_Sans } from "next/font/google";
+import { Hanken_Grotesk, IBM_Plex_Mono, Newsreader } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { TopNav } from "@/components/TopNav";
@@ -21,12 +21,14 @@ export const metadata: Metadata = {
   // Makes the link-preview image (app/opengraph-image.png) a full
   // https://mentorsmd.com/... address, which texts and social apps need.
   metadataBase: new URL(siteUrl()),
-  title: "MentorsMD",
-  description: "One-on-one help from med students and residents, every one vetted by our senior team.",
+  // As on AdmitMD: "MentorsMD | what we do" on the homepage, "Page | MentorsMD" everywhere else.
+  title: { default: "MentorsMD | Medical School Admissions Mentors, Vetted by Our Senior Team", template: "%s | MentorsMD" },
+  description:
+    "One-on-one medical school admissions help from vetted med students and residents: personal statements, secondaries, MMI and interview prep, MCAT strategy and school lists.",
   manifest: "/manifest.json", // lets someone "Add to Home Screen" on their phone
   openGraph: {
-    title: "MentorsMD",
-    description: "One-on-one help from med students and residents, every one vetted by our senior team.",
+    title: "MentorsMD | Medical School Admissions Mentors, Vetted by Our Senior Team",
+    description: "One-on-one medical school admissions help from med students and residents, every one vetted by our senior team.",
     type: "website",
   },
 };
@@ -38,16 +40,18 @@ export const viewport: Viewport = {
   themeColor: "#5536D6",
 };
 
-// Brand fonts, self-hosted by Next.js (no request to Google at page load).
-// Fraunces = headlines and coach names; Instrument Sans = everything else.
-const display = Fraunces({ subsets: ["latin"], style: ["normal", "italic"], variable: "--font-display-loaded", display: "swap" });
-const body = Instrument_Sans({ subsets: ["latin"], variable: "--font-body-loaded", display: "swap" });
+// Brand fonts, self-hosted by Next.js (no request to Google at page load). The same three as AdmitMD:
+// Newsreader = headlines and mentor names; Hanken Grotesk = everything else; IBM Plex Mono = the small
+// capital labels above headings.
+const display = Newsreader({ subsets: ["latin"], weight: ["300", "400", "500"], style: ["normal", "italic"], adjustFontFallback: false, variable: "--font-display-loaded", display: "swap" });
+const body = Hanken_Grotesk({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-body-loaded", display: "swap" });
+const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "700"], variable: "--font-mono-loaded", display: "swap" });
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // The Reviews link (top bar and footer) only shows once there are reviews to show.
   const showReviews = await hasReviewWall();
   return (
-    <html lang="en" className={`${display.variable} ${body.variable}`}>
+    <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
       <body>
         <Providers>
           <SitePreviewBar />

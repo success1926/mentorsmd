@@ -1,6 +1,6 @@
 import { RemoveFromWaitlist } from "./RemoveFromWaitlist";
 
-export const metadata = { title: "Leave the waitlist · MentorsMD", robots: { index: false } };
+export const metadata = { title: "Leave the Waitlist", robots: { index: false } };
 
 // Opened from the "Remove me from the waitlist" link in the waitlist
 // email. Nothing happens until they press the button, so email scanners

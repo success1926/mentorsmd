@@ -6,7 +6,7 @@ import { tzOrDefault } from "@/lib/tz";
 import { WithdrawButton } from "./WithdrawButton";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Parent page · MentorsMD", robots: { index: false } };
+export const metadata = { title: "Parent Page", robots: { index: false } };
 
 const ORDER_STATUS: Record<string, string> = {
   IN_ESCROW: "In progress",

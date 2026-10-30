@@ -11,9 +11,9 @@ export function RoleCta({ href, label, className, style }: { href: string; label
   const role = (session?.user as any)?.role;
   let target = { href, label };
   if (status === "authenticated") {
-    if (role === "SELLER") target = { href: "/dashboard", label: "Go to dashboard" };
+    if (role === "SELLER") target = { href: "/dashboard", label: "Go to Dashboard" };
     else if (role === "ADMIN") target = { href: "/admin", label: "Admin" };
-    else target = { href: "/mentors", label: "Browse mentors" };
+    else target = { href: "/mentors", label: "Browse Mentors" };
   }
   return (
     <Link href={target.href} className={className} style={style}>
@@ -29,9 +29,9 @@ export function FooterAccountLink({ kind }: { kind: "student" | "mentor" }) {
     if (kind === "mentor") return null;
     return (
       <button type="button" onClick={() => logOut()} className="link-btn" style={{ textDecoration: "none", textAlign: "left" }}>
-        Log out
+        Log Out
       </button>
     );
   }
-  return kind === "student" ? <Link href="/signup">Create an account</Link> : <Link href="/login">Mentor login</Link>;
+  return kind === "student" ? <Link href="/signup">Create an Account</Link> : <Link href="/login">Mentor Log In</Link>;
 }

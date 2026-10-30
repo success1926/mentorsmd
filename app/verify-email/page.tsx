@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export const metadata = { title: "Confirm your email · MentorsMD" };
+export const metadata = { title: "Confirm Your Email" };
 
 // Where the "Confirm your email" link lands (via /api/email/verify).
 export default function VerifyEmailPage({ searchParams }: { searchParams: { status?: string } }) {

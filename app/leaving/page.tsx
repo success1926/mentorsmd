@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export const metadata = { title: "You're leaving MentorsMD", robots: { index: false } };
+export const metadata = { title: { absolute: "You're Leaving MentorsMD" }, robots: { index: false } };
 
 // Every link inside a message opens this page first (#42), so nobody
 // lands on an outside site thinking it's part of MentorsMD.

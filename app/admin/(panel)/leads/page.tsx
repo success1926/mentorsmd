@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { LeadsInbox } from "@/components/admin/sections/LeadsInbox";
 
-export const metadata = { title: "Leads · Admin · MentorsMD" };
+export const metadata = { title: "Leads · Admin" };
 
 // Admin -> Leads: mentor applications, contact messages and waitlist
 // signups in one place (components/admin/sections/LeadsInbox.tsx).

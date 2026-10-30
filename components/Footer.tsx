@@ -7,7 +7,8 @@ import { hasReviewWall } from "@/lib/reviewWall";
 
 // Same layout as the AdmitMD footer: a big logo centred on the left, link
 // columns on the right, then a bottom row with social icons and contact
-// details on the left and Privacy / Terms / copyright on the right. The
+// details on the left and trust badges plus Privacy / Terms / copyright on
+// the right. Links are in Title Case, as on AdmitMD. The
 // tagline and social links are edited in Admin -> Website -> Footer, and
 // the email and phone in Admin -> Website -> Contact. A social icon whose
 // address is still blank shows greyed out as "coming soon".
@@ -46,6 +47,15 @@ const YouTubeIcon = () => (
   </svg>
 );
 
+const HELP_LINKS = [
+  { label: "Personal Statements", href: "/mentors?service=PERSONAL_STATEMENT" },
+  { label: "Secondary Essays", href: "/mentors?service=SECONDARIES" },
+  { label: "MMI & Interview Prep", href: "/mentors?service=MMI&service=TRADITIONAL_INTERVIEW" },
+  { label: "MCAT Strategy", href: "/mentors?service=MCAT" },
+  { label: "BS/MD Programs", href: "/mentors?best=BS_MD" },
+  { label: "Reapplying", href: "/mentors?best=REAPPLICANT" },
+];
+
 const SOCIALS = [
   { key: "instagram", label: "Instagram", Icon: InstagramIcon },
   { key: "tiktok", label: "TikTok", Icon: TikTokIcon },
@@ -70,26 +80,32 @@ export async function Footer() {
           </div>
           <div className="footer-cols">
             <div className="footer-col">
-              <div className="footer-col-title">Students</div>
-              <Link href="/mentors">Browse mentors</Link>
-              <Link href="/how-it-works">How it works</Link>
+              <div className="footer-col-title">For Students</div>
+              <Link href="/mentors">Browse Mentors</Link>
+              <Link href="/how-it-works">How It Works</Link>
               {showReviews && <Link href="/reviews">Reviews</Link>}
               <Link href="/gift">Gift MentorsMD</Link>
               <FooterAccountLink kind="student" />
             </div>
+            {/* Topic links: what people search for, each opening Browse with that filter. */}
             <div className="footer-col">
-              <div className="footer-col-title">Mentors</div>
-              <Link href="/become-a-mentor">Become a mentor</Link>
-              <FooterAccountLink kind="mentor" />
+              <div className="footer-col-title">Find Help With</div>
+              {HELP_LINKS.map((l) => (
+                <Link key={l.href} href={l.href}>
+                  {l.label}
+                </Link>
+              ))}
             </div>
             <div className="footer-col">
-              <div className="footer-col-title">Company</div>
-              <Link href="/senior-team">Our senior team</Link>
-              <Link href="/contact">Contact us</Link>
+              <div className="footer-col-title">MentorsMD</div>
+              <Link href="/senior-team">Our Senior Team</Link>
+              <Link href="/become-a-mentor">Become a Mentor</Link>
+              <FooterAccountLink kind="mentor" />
               {/* Only once the Press page is switched on (Admin -> Website -> Site settings). */}
               {settings.showPress === "on" && <Link href="/press">Press</Link>}
               <Link href="/community-guidelines">Community Guidelines</Link>
-              <Link href="/safety">Safety tips</Link>
+              <Link href="/safety">Safety Tips</Link>
+              <Link href="/contact">Contact Us</Link>
             </div>
           </div>
         </div>
@@ -117,9 +133,22 @@ export async function Footer() {
             )}
           </div>
           <div className="footer-end">
-            <Link href="/privacy">Privacy</Link>
-            <Link href="/terms">Terms</Link>
-            <span>© {new Date().getFullYear()} MentorsMD</span>
+            <div className="footer-trust">
+              <span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+                Payments Secured by Stripe
+              </span>
+              <span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                Every Mentor Interviewed
+              </span>
+            </div>
+            <div className="footer-legal">
+              <Link href="/privacy">Privacy</Link>
+              <Link href="/terms">Terms</Link>
+              <Link href="/mentor-agreement">Mentor Agreement</Link>
+              <span>© {new Date().getFullYear()} MentorsMD</span>
+            </div>
           </div>
         </div>
       </div>
