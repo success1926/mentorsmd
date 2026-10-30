@@ -312,25 +312,28 @@ export const SITE_PAGES = {
     path: "/how-it-works",
     fields: {
       ...section("Intro", {
+        eyebrow: text("Small label", "How It Works", { max: 40 }),
         title: text("Heading", "How MentorsMD Works", { max: 80, required: true }),
         intro: long("Intro", "MentorsMD connects you with med students and residents who got in recently. Every mentor is vetted by our senior team, prices are set by the hour, and every hour you use is logged where you can see it.", { max: 600 }),
       }),
       ...section("Steps", {
+        stepsEyebrow: text("Small label", "The Process", { max: 40 }),
         stepsTitle: text("Heading", "Four Simple Steps", { max: 80 }),
         steps: list(
           "Steps",
           "Step",
           { title: text("Title", "", { max: 80, required: true }), body: long("Text", "", { max: 400 }) },
           [
-            { title: "Find a mentor", body: "Browse vetted mentors by what you need help with: personal statement, secondaries, interviews, MCAT and more." },
-            { title: "Message or book a free intro call", body: "Ask questions or book a free 15-minute intro call. Buying unlocks once the mentor replies or your intro call happens." },
-            { title: "Book and pay securely", body: "You pay MentorsMD for hours at your mentor's rate, not the mentor directly. Every call and block of written work is logged, and if something goes wrong our team settles it (refunds are given as MentorsMD credit)." },
-            { title: "Get your feedback or have your call", body: "Book 30- or 60-minute calls on your mentor's calendar and join a private MentorsMD video room, or send work for written feedback. Every hour is logged on your package page." },
+            { title: "Find a Mentor", body: "Browse vetted mentors by what you need help with: personal statement, secondaries, interviews, MCAT and more." },
+            { title: "Message or Book a Free Intro Call", body: "Ask questions or book a free 15-minute intro call. Buying unlocks once the mentor replies or your intro call happens." },
+            { title: "Book and Pay Securely", body: "You pay MentorsMD for hours at your mentor's rate, not the mentor directly. Every call and block of written work is logged, and if something goes wrong our team settles it (refunds are given as MentorsMD credit)." },
+            { title: "Get Your Feedback or Have Your Call", body: "Book 30- or 60-minute calls on your mentor's calendar and join a private MentorsMD video room, or send work for written feedback. Every hour is logged on your package page." },
           ],
           { maxItems: 6, help: "Shown as numbered cards. The vetting panel and the questions below them are edited on the Homepage." },
         ),
       }),
       ...section("Payment protection & safety", {
+        protectEyebrow: text("Small label", "Payment & Safety", { max: 40 }),
         protectTitle: text("Heading", "Your Payment and Safety, Protected", { max: 80 }),
         protectText: long("Text", "We built MentorsMD so students never have to take a mentor's word for it.", { max: 400 }),
         protectItems: list(
@@ -338,16 +341,17 @@ export const SITE_PAGES = {
           "Point",
           { title: text("Title", "", { max: 80, required: true }), body: long("Text", "", { max: 400 }) },
           [
-            { title: "Secure payments through MentorsMD", body: "You pay MentorsMD, not the mentor. Your hours are logged as they're used, and when the work is marked complete you have 48 hours to approve it, ask for one last call or revision, or open a dispute." },
-            { title: "One last call or revision, and disputes", body: "When your mentor marks the work complete, you can ask for one last call or one last revision. If something goes wrong, open a dispute and a MentorsMD admin decides; refunds are given as MentorsMD credit you can use with any mentor." },
-            { title: "Private video calls", body: "Calls happen in a private MentorsMD video room that you join from your order, so there's no need to share your phone number or personal accounts." },
-            { title: "Parental consent under 18", body: "Students aged 13 to 17 need a parent or guardian's consent before they can message or book. Parents get a receipt for every order." },
-            { title: "Finishing early", body: "Packages are priced on an estimate of the hours. If you and your mentor finish early, the unused hours aren't refunded: mentors aren't penalised for working efficiently." },
+            { title: "Secure Payments Through MentorsMD", body: "You pay MentorsMD, not the mentor. Your hours are logged as they're used, and when the work is marked complete you have 48 hours to approve it, ask for one last call or revision, or open a dispute." },
+            { title: "One Last Call or Revision, and Disputes", body: "When your mentor marks the work complete, you can ask for one last call or one last revision. If something goes wrong, open a dispute and a MentorsMD admin decides; refunds are given as MentorsMD credit you can use with any mentor." },
+            { title: "Private Video Calls", body: "Calls happen in a private MentorsMD video room that you join from your order, so there's no need to share your phone number or personal accounts." },
+            { title: "Parental Consent Under 18", body: "Students aged 13 to 17 need a parent or guardian's consent before they can message or book. Parents get a receipt for every order." },
+            { title: "Finishing Early", body: "Packages are priced on an estimate of the hours. If you and your mentor finish early, the unused hours aren't refunded: mentors aren't penalised for working efficiently." },
           ],
           { maxItems: 6, help: "Icons follow the order: lock, arrows, video camera, shield, clock. Links to Safety tips and Community Guidelines are added below automatically." },
         ),
       }),
       ...section("Final call to action", {
+        ctaEyebrow: text("Small label", "Get Started", { max: 40 }),
         ctaTitle: text("Heading", "Ready to Get Started?", { max: 80 }),
         ctaText: long("Text", "Message any vetted mentor for free. When you book, we hold your payment until you approve the work.", { max: 400 }),
       }),

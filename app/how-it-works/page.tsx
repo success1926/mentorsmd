@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 // points and closing box are edited in Admin -> Website -> How it works;
 // the vetting panel and the questions come from Admin -> Website ->
 // Homepage, so they stay the same on both pages. Icons follow each
-// point's position.
+// point's position. Spacing and headings match the homepage sections.
 const PROTECT_ICONS = [ICONS.lock, ICONS.cycle, ICONS.video, ICONS.shield, ICONS.clock];
 
 export default async function HowItWorksPage() {
@@ -25,30 +25,36 @@ export default async function HowItWorksPage() {
   // Admin -> Website -> How it works -> Layout.
   const sections: Record<string, React.ReactNode> = {
     intro: (
-      <section className="wrap" style={{ paddingTop: 64, paddingBottom: 80 }}>
-        <div className="center-head" style={{ gap: 20 }}>
+      <section className="home-section" style={{ paddingBottom: 72 }}>
+        <div className="wrap center-head" style={{ gap: 16 }}>
+          {c.eyebrow && <span className="eyebrow">{c.eyebrow}</span>}
           <h1 className="big-title">{c.title}</h1>
           {paragraphs(c.intro).map((p, i) => (
-            <p key={i} className="lede" style={{ maxWidth: 820, fontSize: 21 }}>{p}</p>
+            <p key={i} className="lede" style={{ maxWidth: 760, marginTop: 8 }}>{p}</p>
           ))}
         </div>
       </section>
     ),
 
     steps: c.steps.length > 0 && (
-        <section className="wrap" style={{ paddingBottom: 120 }}>
-          {c.stepsTitle && <h2 style={{ fontSize: "clamp(30px, 3.6vw, 48px)", marginBottom: 36 }}>{c.stepsTitle}</h2>}
-          <ol className="grid-4" style={{ listStyle: "none", margin: 0, padding: 0 }}>
-            {c.steps.map((s, i) => (
-              <li key={i} className="card card-tint stack-sm" style={{ gap: 10 }}>
-                <span className="icon-dot display" style={{ background: "#fff", fontSize: 22, fontWeight: 600 }} aria-hidden="true">{i + 1}</span>
-                <h3 style={{ fontSize: 21 }}>{s.title}</h3>
-                {s.body && <p className="text-secondary" style={{ fontSize: 16, lineHeight: 1.6 }}>{s.body}</p>}
-              </li>
-            ))}
-          </ol>
-          <div className="row-wrap" style={{ marginTop: 32 }}>
-            <Link href="/mentors" className="btn btn-primary btn-lg">Browse mentors</Link>
+        <section className="home-section" style={{ paddingTop: 0 }}>
+          <div className="wrap">
+            <div className="stack" style={{ gap: 14, marginBottom: 40 }}>
+              {c.stepsEyebrow && <span className="eyebrow">{c.stepsEyebrow}</span>}
+              {c.stepsTitle && <h2 className="section-head">{c.stepsTitle}</h2>}
+            </div>
+            <ol className="step-grid">
+              {c.steps.map((s, i) => (
+                <li key={i}>
+                  <span className="vet-num">{String(i + 1).padStart(2, "0")}</span>
+                  <h3>{s.title}</h3>
+                  {s.body && <p>{s.body}</p>}
+                </li>
+              ))}
+            </ol>
+            <div className="row-wrap" style={{ marginTop: 40 }}>
+              <Link href="/mentors" className="btn btn-primary btn-lg">Browse Mentors</Link>
+            </div>
           </div>
         </section>
     ),
@@ -57,23 +63,26 @@ export default async function HowItWorksPage() {
     vetting: <VettingSection c={home} id="vetting" />,
 
     protection: (
-      <section id="protection" className="wrap" style={{ paddingBottom: 120, scrollMarginTop: 150 }}>
-        <div className="stack" style={{ gap: 14, marginBottom: 36 }}>
-          <h2 style={{ fontSize: "clamp(30px, 3.6vw, 48px)" }}>{c.protectTitle}</h2>
-          {c.protectText && <p className="lede" style={{ maxWidth: 760 }}>{c.protectText}</p>}
+      <section id="protection" className="home-section" style={{ scrollMarginTop: 150 }}>
+        <div className="wrap">
+          <div className="stack" style={{ gap: 14, marginBottom: 40 }}>
+            {c.protectEyebrow && <span className="eyebrow">{c.protectEyebrow}</span>}
+            <h2 className="section-head">{c.protectTitle}</h2>
+            {c.protectText && <p className="lede" style={{ maxWidth: 760, marginTop: 4 }}>{c.protectText}</p>}
+          </div>
+          <div className="feature-grid">
+            {c.protectItems.map((p, i) => (
+              <div key={i}>
+                <span className="icon-dot" style={{ width: 44, height: 44 }}><Icon d={PROTECT_ICONS[i % PROTECT_ICONS.length]} size={20} /></span>
+                <h3>{p.title}</h3>
+                {p.body && <p>{p.body}</p>}
+              </div>
+            ))}
+          </div>
+          <p className="text-secondary" style={{ marginTop: 32, fontSize: 16 }}>
+            Read our <Link href="/safety" className="link">Safety Tips</Link> and <Link href="/community-guidelines" className="link">Community Guidelines</Link>.
+          </p>
         </div>
-        <div className="grid-4">
-          {c.protectItems.map((p, i) => (
-            <div key={i} className="vet-item">
-              <span className="icon-dot"><Icon d={PROTECT_ICONS[i % PROTECT_ICONS.length]} size={22} /></span>
-              <h3 style={{ fontSize: 21, marginTop: 4 }}>{p.title}</h3>
-              {p.body && <p className="text-secondary" style={{ fontSize: 17 }}>{p.body}</p>}
-            </div>
-          ))}
-        </div>
-        <p className="text-secondary" style={{ marginTop: 32, fontSize: 17 }}>
-          Read our <Link href="/safety" className="link">Safety tips</Link> and <Link href="/community-guidelines" className="link">Community Guidelines</Link>.
-        </p>
       </section>
     ),
 
@@ -81,13 +90,14 @@ export default async function HowItWorksPage() {
     faq: <FaqSection title={home.faqTitle} faq={home.faq} />,
 
     cta: (
-      <section className="home-section">
-        <div className="wrap center-head" style={{ gap: 24 }}>
+      <section className="home-section home-cta">
+        <div className="wrap center-head" style={{ gap: 20 }}>
+          {c.ctaEyebrow && <span className="eyebrow">{c.ctaEyebrow}</span>}
           <h2 className="big-title">{c.ctaTitle}</h2>
-          {c.ctaText && <p className="lede" style={{ fontSize: 21, maxWidth: 760 }}>{c.ctaText}</p>}
-          <div className="row-wrap" style={{ justifyContent: "center", gap: 14 }}>
-            <Link href="/mentors" className="btn btn-primary btn-lg">Browse mentors</Link>
-            <Link href="/become-a-mentor" className="btn btn-lg">Become a mentor</Link>
+          {c.ctaText && <p className="lede" style={{ maxWidth: 760 }}>{c.ctaText}</p>}
+          <div className="row-wrap" style={{ justifyContent: "center", gap: 12, marginTop: 8 }}>
+            <Link href="/mentors" className="btn btn-primary btn-lg">Browse Mentors</Link>
+            <Link href="/become-a-mentor" className="btn btn-lg">Become a Mentor</Link>
           </div>
         </div>
       </section>

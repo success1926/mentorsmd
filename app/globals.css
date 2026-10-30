@@ -291,7 +291,8 @@ a.footer-social:hover .bg { fill: var(--tint-2); }
 .footer-col { display: flex; flex-direction: column; gap: 12px; font-size: 16px; }
 
 /* ---------- Homepage ---------- */
-.home-hero { position: relative; overflow: hidden; background: linear-gradient(180deg, #FFFFFF 0%, #F6F2FF 38%, #E9E2FF 100%); padding-top: 84px; }
+/* Fills the whole first screen (under the top bar); the school strip sits at the bottom. */
+.home-hero { position: relative; overflow: hidden; background: linear-gradient(180deg, #FFFFFF 0%, #F6F2FF 38%, #E9E2FF 100%); padding-top: 84px; min-height: 100vh; min-height: 100svh; display: flex; flex-direction: column; }
 .blob { position: absolute; border-radius: 50%; pointer-events: none; }
 .hero-title { font-size: clamp(48px, 7vw, 96px); line-height: 1; letter-spacing: -0.03em; }
 .hero-sub { font-size: clamp(17px, 1.6vw, 20px); line-height: 1.6; color: var(--ink-2); max-width: 760px; }
@@ -343,10 +344,20 @@ a.footer-social:hover .bg { fill: var(--tint-2); }
 .feature-grid p { color: var(--muted); line-height: 1.65; }
 .feature-grid .link { margin-top: auto; padding-top: 4px; font-size: 15px; }
 .home-cta { background: var(--surface-2); border-top: 1px solid var(--line); }
+/* Numbered steps (How it works): four columns divided by thin lines. */
+.step-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); }
+.step-grid li { padding: 28px 28px 28px 0; display: flex; flex-direction: column; gap: 10px; }
+.step-grid li + li { padding-left: 28px; border-left: 1px solid var(--line); }
+.step-grid .vet-num { color: var(--primary); }
+.step-grid h3 { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+.step-grid p { color: var(--muted); line-height: 1.65; }
 
 @media (max-width: 900px) {
   .home-section, .vet-band { padding: 72px 0; }
   .vet-grid, .feature-grid { grid-template-columns: 1fr; }
+  .step-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .step-grid li:nth-child(odd) { padding-left: 0; border-left: none; }
+  .step-grid li:nth-child(n+3) { border-top: 1px solid var(--line); }
   .vet-grid { gap: 40px; }
   .school-strip { grid-template-columns: 1fr; gap: 14px; }
   .school-strip-names { justify-content: flex-start; }
@@ -354,8 +365,11 @@ a.footer-social:hover .bg { fill: var(--tint-2); }
 }
 @media (max-width: 560px) {
   .vet-items { grid-template-columns: 1fr; }
+  .step-grid { grid-template-columns: 1fr; }
+  .step-grid li { padding-left: 0 !important; border-left: none !important; }
+  .step-grid li + li { border-top: 1px solid var(--line); }
 }
-.hero-body { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 26px; padding: 110px 24px 90px; }
+.hero-body { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 26px; padding: 56px 24px; }
 .hero-proof { margin-top: 26px; display: flex; align-items: center; gap: 16px; text-align: left; }
 .hero-dots { display: flex; }
 .hero-dots span { width: 46px; height: 46px; border-radius: 50%; border: 2px solid #fff; }
@@ -485,7 +499,7 @@ a.footer-social:hover .bg { fill: var(--tint-2); }
   .page, .page-mid, .page-narrow, .container { padding: 28px 16px 72px; }
   .wrap { padding: 0 16px; }
   .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
-  .hero-body { padding: 64px 16px 56px; }
+  .hero-body { padding: 40px 16px; }
   .hero-search { padding-left: 16px; }
   .hero-search input { font-size: 16px; }
   .hero-search .btn { padding: 0 16px; }
