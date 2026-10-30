@@ -53,7 +53,7 @@ const HELP_LINKS = [
   { label: "MMI & Interview Prep", href: "/mentors?service=MMI&service=TRADITIONAL_INTERVIEW" },
   { label: "MCAT Strategy", href: "/mentors?service=MCAT" },
   { label: "BS/MD Programs", href: "/mentors?best=BS_MD" },
-  { label: "Reapplying", href: "/mentors?service=REAPPLICANT&bg=REAPPLICANT" },
+  { label: "Reapplying", href: "/mentors?best=REAPPLICANT" },
 ];
 
 const SOCIALS = [

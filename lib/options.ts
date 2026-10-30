@@ -237,12 +237,12 @@ export const FILTER_GROUPS = [
 // clears the others.
 export const MENTOR_QUICK_LINKS: { label: string; qs: string }[] = [
   { label: "Popular", qs: "" },
-  { label: "Personal statement", qs: "service=PERSONAL_STATEMENT" },
+  { label: "Personal Statement", qs: "service=PERSONAL_STATEMENT" },
   { label: "Secondaries", qs: "service=SECONDARIES" },
   { label: "MMI", qs: "service=MMI" },
-  { label: "Traditional interviews", qs: "service=TRADITIONAL_INTERVIEW" },
+  { label: "Traditional Interviews", qs: "service=TRADITIONAL_INTERVIEW" },
   { label: "MCAT", qs: "service=MCAT" },
-  { label: "School list", qs: "service=SCHOOL_LIST" },
+  { label: "School List", qs: "service=SCHOOL_LIST" },
   { label: "Reapplicants", qs: "best=REAPPLICANT" },
   { label: "Nontraditional", qs: "best=NONTRADITIONAL" },
   { label: "DO", qs: "best=DO" },
