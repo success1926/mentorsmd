@@ -2,6 +2,7 @@
 
 import type { ListDef, ScalarDef } from "@/lib/siteContent";
 import { ImageFocusEditor } from "@/components/ImageFocusEditor";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 
 // The inputs used by Admin -> Website: one per field type (text, longer
 // text, link, photo, one-per-line list) plus a list of cards. The page is
@@ -85,6 +86,7 @@ export function ScalarEditor({ def, value, onChange, compact, changed }: { def: 
 
 export function ListEditor({ def, value, live, onChange }: { def: ListDef; value: Values[]; live?: Values[]; onChange: (v: Values[]) => void }) {
   const fields = Object.entries(def.fields as Record<string, ScalarDef>);
+  const { confirm: confirmDialog, dialog } = useAdminDialog();
   const blank = () => Object.fromEntries(fields.map(([k, f]) => [k, structuredClone(f.default)]));
   const move = (i: number, d: number) => {
     const next = [...value];
@@ -99,6 +101,7 @@ export function ListEditor({ def, value, live, onChange }: { def: ListDef; value
   };
   const changedCount = live && live.length !== value.length ? Math.abs(live.length - value.length) : 0;
   return (
+    <>
     <div className="stack" style={{ gap: 12 }}>
       <span className="field-label">
         {def.label}
@@ -127,7 +130,7 @@ export function ListEditor({ def, value, live, onChange }: { def: ListDef; value
                   className="btn"
                   style={{ padding: "6px 12px", fontSize: 14, color: "var(--danger)" }}
                   onClick={() => {
-                    if (confirm(`Remove ${def.itemLabel.toLowerCase()} ${i + 1}?`)) onChange(value.filter((_, j) => j !== i));
+                    void confirmDialog({ title: `Remove ${def.itemLabel.toLowerCase()} ${i + 1}?`, confirmLabel: "Remove", danger: true }).then((ok) => ok && onChange(value.filter((_, j) => j !== i)));
                   }}
                 >
                   Remove
@@ -151,5 +154,7 @@ export function ListEditor({ def, value, live, onChange }: { def: ListDef; value
         + Add {def.itemLabel.toLowerCase()}
       </button>
     </div>
+      {dialog}
+    </>
   );
 }

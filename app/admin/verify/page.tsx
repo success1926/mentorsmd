@@ -1,7 +1,7 @@
 import { TwoStepVerify } from "@/components/TwoStepVerify";
 import { safeNext } from "@/lib/sessionRules";
 
-export const metadata = { title: "2-step verification · Admin", robots: { index: false } };
+export const metadata = { title: "2-Step Verification", robots: { index: false, follow: false } };
 
 // 2-step verification for admins (#116). Every admin login stops here
 // until the code is right (or the browser was trusted for 30 days).

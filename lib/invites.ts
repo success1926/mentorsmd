@@ -28,7 +28,9 @@ export async function createAndSendInvite(email: string, adminId: string) {
     // transient email error. Pass the real reason back so the admin sees
     // it (e.g. "domain is not verified") instead of a silent failure.
     const reason = err instanceof Error ? err.message : String(err);
-    return { invite, emailSent: false as const, warning: `Invite created but the email failed to send: ${reason}` };
+    // The link goes back to the admin who made the invite (only admins who
+    // can create invites reach this), so they can copy and send it themselves.
+    return { invite, emailSent: false as const, link: inviteUrl, warning: `Invite created but the email failed to send (${reason}). Copy this link and send it to ${email} yourself:` };
   }
   return { invite, emailSent: true as const };
 }

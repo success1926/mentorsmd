@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { AdminGuard } from "@/components/admin/AdminNav";
 import { logOut } from "@/components/TopNav";
+import { CopyLink } from "@/components/admin/CopyLink";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 import { TeamRoles, rolePickToBody, rolePickValue, type CustomRole } from "@/components/admin/TeamRoles";
 
 const fmtDay = (d: string) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
@@ -19,7 +21,9 @@ export default function AdminTeamPage() {
   // "OWNER", "ADMIN" or "role:<id>" for a custom role.
   const [role, setRole] = useState("ADMIN");
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  // `link`: the invite link, shown with a Copy button when the email failed.
+  const [notice, setNotice] = useState<{ ok: boolean; text: string; link?: string } | null>(null);
+  const { confirm, dialog } = useAdminDialog();
 
   const load = useCallback(() => {
     fetch("/api/admin/team").then((r) => r.json()).then((d) => (d.members ? setData(d) : null)).catch(() => {});
@@ -40,27 +44,29 @@ export default function AdminTeamPage() {
     const d = await res.json().catch(() => ({}));
     setBusy(false);
     if (!res.ok) return setNotice({ ok: false, text: d.error || "Couldn't send the invite" });
-    setNotice(d.emailSent === false ? { ok: false, text: d.warning } : { ok: true, text: `Invite sent to ${email}.` });
+    setNotice(d.emailSent === false ? { ok: false, text: d.warning, link: d.link } : { ok: true, text: `Invite sent to ${email}.` });
     setEmail("");
     load();
   }
 
   async function inviteAction(inv: any, method: "POST" | "DELETE") {
-    if (method === "DELETE" && !confirm(`Cancel the invite for ${inv.email}? Their link stops working.`)) return;
+    if (method === "DELETE" && !(await confirm({ title: `Cancel the invite for ${inv.email}?`, body: "Their link stops working.", confirmLabel: "Cancel Invite", cancelLabel: "Keep It", danger: true }))) return;
     const res = await fetch(`/api/admin/team/invites/${inv.id}`, { method });
     const d = await res.json().catch(() => ({}));
-    setNotice(res.ok ? { ok: true, text: method === "POST" ? `New invite link sent to ${inv.email}.` : "Invite cancelled." } : { ok: false, text: d.error || "That didn't work" });
+    if (res.ok && d.emailSent === false) setNotice({ ok: false, text: d.warning, link: d.link });
+    else setNotice(res.ok ? { ok: true, text: method === "POST" ? `New invite link sent to ${inv.email}.` : "Invite cancelled." } : { ok: false, text: d.error || "That didn't work" });
     load();
   }
 
   async function memberAction(m: any, action: string, extra: Record<string, unknown> = {}) {
-    const prompts: Record<string, string> = {
-      disable: `Turn off ${m.name}'s admin access? They're logged out right away and can't log in until you turn it back on.`,
-      remove: `Remove ${m.name} from the team? They're logged out right away and lose admin access for good (you can invite them again later).`,
-      "reset-2fa": `Reset ${m.name}'s 2-step verification? They're logged out and set it up again at their next login.`,
-      "end-sessions": `Log ${m.name} out on every device?`,
+    const prompts: Record<string, { title: string; body: string; label: string; danger?: boolean }> = {
+      disable: { title: `Turn off ${m.name}'s admin access?`, body: "They're logged out right away and can't log in until you turn it back on.", label: "Disable", danger: true },
+      remove: { title: `Remove ${m.name} from the team?`, body: "They're logged out right away and lose admin access for good (you can invite them again later).", label: "Remove", danger: true },
+      "reset-2fa": { title: `Reset ${m.name}'s 2-step verification?`, body: "They're logged out and set it up again at their next login.", label: "Reset 2-Step" },
+      "end-sessions": { title: `Log ${m.name} out on every device?`, body: "They'll need to log in again.", label: "Log Out Everywhere" },
     };
-    if (prompts[action] && !confirm(prompts[action])) return;
+    const p = prompts[action];
+    if (p && !(await confirm({ title: p.title, body: p.body, confirmLabel: p.label, danger: p.danger, typeToConfirm: action === "remove" ? m.name : undefined }))) return;
     const res = await fetch(`/api/admin/team/members/${m.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, ...extra }) });
     const d = await res.json().catch(() => ({}));
     if (!res.ok) return setNotice({ ok: false, text: d.error || "That didn't work" });
@@ -78,7 +84,13 @@ export default function AdminTeamPage() {
         <h1 className="page-title">Team &amp; roles</h1>
         <p className="lede">Who can use Admin. Owners manage the team and roles; Admins can do everything else; a custom role only opens the areas ticked for it.</p>
       </div>
-      {notice && <div role="status" className={`alert ${notice.ok ? "alert-success" : "alert-danger"}`}>{notice.text}</div>}
+      {dialog}
+      {notice && (
+        <div role="status" className={`alert ${notice.ok ? "alert-success" : "alert-danger"}`}>
+          {notice.text}
+          {notice.link && <CopyLink link={notice.link} />}
+        </div>
+      )}
       {data && !isOwner && <div className="alert alert-blue">Only Owners can invite or change team members.</div>}
 
       {isOwner && (
@@ -120,8 +132,8 @@ export default function AdminTeamPage() {
                         value={rolePickValue(m)}
                         roles={data.roles}
                         label={`Role for ${m.name}`}
-                        onChange={(v) => {
-                          if (v === "OWNER" && !confirm(`Make ${m.name} an Owner? Owners have full access and manage the team, and an Owner's role can't be changed afterwards.`)) return;
+                        onChange={async (v) => {
+                          if (v === "OWNER" && !(await confirm({ title: `Make ${m.name} an Owner?`, body: "Owners have full access and manage the team, and an Owner's role can't be changed afterwards.", confirmLabel: "Make Owner", typeToConfirm: m.name }))) return;
                           memberAction(m, "role", rolePickToBody(v));
                         }}
                       />

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { AdminGuard } from "@/components/admin/AdminNav";
 import { LegalBody } from "@/components/LegalBody";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 import { LEGAL_INFO, LEGAL_KINDS } from "@/lib/legalKinds";
 
 const fmtDay = (d: string) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
@@ -133,11 +134,12 @@ function DraftEditor({ draft, isFirst, onChanged, setNotice, label }: { draft: a
   const [preview, setPreview] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const { confirm, dialog } = useAdminDialog();
 
   async function save(publish: boolean) {
     if (publish) {
       const who = isFirst || changeType === "MAJOR" ? "Everyone it applies to will have to accept it before they can continue." : "It's a minor change, so nobody has to accept it again.";
-      if (!confirm(`Publish this as the new ${label}? ${who} Published versions can't be changed.`)) return;
+      if (!(await confirm({ title: `Publish this as the new ${label}?`, body: `${who} Published versions can't be changed.`, confirmLabel: "Publish" }))) return;
     }
     setBusy(true);
     setMsg(null);
@@ -158,13 +160,14 @@ function DraftEditor({ draft, isFirst, onChanged, setNotice, label }: { draft: a
   }
 
   async function discard() {
-    if (!confirm("Delete this draft?")) return;
+    if (!(await confirm({ title: "Delete this draft?", body: "The published version stays as it is.", confirmLabel: "Delete Draft", danger: true }))) return;
     const res = await fetch(`/api/admin/legal/${draft.id}`, { method: "DELETE" });
     if (res.ok) onChanged();
   }
 
   return (
     <div className="card card-tint stack-sm" style={{ padding: 18 }}>
+      {dialog}
       <b>Draft{draft.updatedAt ? ` (last saved ${fmtTime(draft.updatedAt)})` : ""}</b>
       <label className="field" style={{ marginBottom: 6 }}>
         <span className="field-label">Title</span>

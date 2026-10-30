@@ -1,4 +1,4 @@
-import { can, type AdminPermission, type PermissionCheck } from "@/lib/adminPermissions";
+import { ALL_PERMISSIONS, can, type AdminPermission, type PermissionCheck } from "@/lib/adminPermissions";
 import { CYCLE_RESULTS_ON } from "@/lib/cycleResults";
 
 // The admin sidebar, in groups. Adding a page is one line here. Each
@@ -28,15 +28,15 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin", label: "Overview", perm: "overview", group: "Home", exact: true },
 
   { href: "/admin/leads", label: "Leads", perm: "leads", group: "Inbox" },
-  { href: "/admin/applications", label: "Mentor applications", perm: "applications", group: "Inbox", hideIfCan: "leads" },
-  { href: "/admin/disputes", label: "Disputes & flags", perm: ["disputes", "flags"], group: "Inbox" },
+  { href: "/admin/applications", label: "Mentor Applications", perm: "applications", group: "Inbox", hideIfCan: "leads" },
+  { href: "/admin/disputes", label: "Disputes & Flags", perm: ["disputes", "flags"], group: "Inbox" },
 
   { href: "/admin/people", label: "Everyone", perm: ["people", "mentors"], group: "People", also: ["/admin/mentors"], otherwise: { unless: "people", href: "/admin/mentors" } },
   { href: "/admin/minors", label: "Under 18", perm: "minors", group: "People" },
 
-  { href: "/admin/orders", label: "Orders & payouts", perm: "orders", group: "Money" },
+  { href: "/admin/orders", label: "Orders & Payouts", perm: "orders", group: "Money" },
 
-  { href: "/admin/calls", label: "Calls & recordings", perm: "calls", group: "Calls" },
+  { href: "/admin/calls", label: "Calls & Recordings", perm: "calls", group: "Calls" },
 
   { href: "/admin/website", label: "Pages", perm: "website", group: "Website" },
   { href: "/admin/emails", label: "Emails", perm: "emails", group: "Website", also: ["/admin/email-log"] },
@@ -46,17 +46,35 @@ export const ADMIN_NAV: AdminNavItem[] = [
 
   { href: "/admin/insights", label: "Insights", perm: "insights", group: "Reports" },
   { href: "/admin/analytics", label: "Analytics", perm: "analytics", group: "Reports" },
-  { href: "/admin/action-log", label: "Action log", perm: "actionlog", group: "Reports" },
+  { href: "/admin/action-log", label: "Action Log", perm: "actionlog", group: "Reports" },
   // Read-only; only while NEXT_PUBLIC_CYCLE_RESULTS=1 (lib/cycleResults.ts).
-  { href: "/admin/results", label: "Cycle results", perm: "people", group: "Reports", ready: CYCLE_RESULTS_ON },
+  { href: "/admin/results", label: "Cycle Results", perm: "people", group: "Reports", ready: CYCLE_RESULTS_ON },
 
-  { href: "/admin/team", label: "Team & roles", perm: "team", group: "Settings" },
+  { href: "/admin/team", label: "Team & Roles", perm: "team", group: "Settings" },
 ];
 
 export function visibleAdminNav(user: { perms: readonly string[] }) {
   return ADMIN_NAV.filter((n) => n.ready !== false && can(user, n.perm) && !(n.hideIfCan && can(user, n.hideIfCan))).map((n) =>
     n.otherwise && !can(user, n.otherwise.unless) ? { ...n, href: n.otherwise.href } : n
   );
+}
+
+// "Other Tools" at the bottom of the sidebar: the outside dashboards,
+// opened in a new tab. `perm: "full"` means Owners and Admins only (full
+// access); the others follow the area they belong to.
+export type AdminTool = { label: string; note: string; href: string; perm: PermissionCheck | "full" };
+export const ADMIN_TOOLS: AdminTool[] = [
+  { label: "Stripe", note: "Payments", href: "https://dashboard.stripe.com", perm: "orders" },
+  { label: "Vercel", note: "Hosting", href: "https://vercel.com/dashboard", perm: "full" },
+  { label: "Neon", note: "Database", href: "https://console.neon.tech", perm: "full" },
+  { label: "Resend", note: "Email sending", href: "https://resend.com/emails", perm: "full" },
+  { label: "Supabase", note: "Files & live updates", href: "https://supabase.com/dashboard", perm: "full" },
+  { label: "PostHog", note: "Visitor analytics", href: "https://us.posthog.com", perm: "analytics" },
+  { label: "Daily", note: "Video calls", href: "https://dashboard.daily.co", perm: "full" },
+];
+
+export function visibleAdminTools(user: { perms: readonly string[] }) {
+  return ADMIN_TOOLS.filter((t) => (t.perm === "full" ? user.perms.includes(ALL_PERMISSIONS) : can(user, t.perm)));
 }
 
 // Where to send someone whose role can't see the Overview.

@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ListDef, ScalarDef } from "@/lib/siteContent";
 import { ADDON_TYPES, MAX_ADDONS, SPACE_OPTIONS, isAddonType, newAddonId, sectionLabel, sectionsFor, type AddonType, type LayoutItem } from "@/lib/pageLayout";
 import { ChangedTag, ListEditor, ScalarEditor, same } from "@/components/website/FieldEditors";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 
 // Admin -> Website -> (page) -> Layout tab: the page's sections top to
 // bottom. Move them, hide/show them, choose the space above, add sections
@@ -22,6 +23,7 @@ export function LayoutEditor({
 }) {
   const builtins = sectionsFor(page);
   const [adding, setAdding] = useState<AddonType>("text");
+  const { confirm: confirmDialog, dialog } = useAdminDialog();
   const addons = value.filter((i) => !builtins.some((b) => b.id === i.id)).length;
 
   const update = (i: number, patch: Partial<LayoutItem>) =>
@@ -57,6 +59,7 @@ export function LayoutEditor({
   };
 
   return (
+    <>
     <div className="stack" style={{ gap: 14 }}>
       <p className="text-secondary" style={{ fontSize: 15 }}>
         Top to bottom, the order of this page. Hidden sections stay saved; show them again any time. “Space above” gives a section a little less or more room.
@@ -103,7 +106,7 @@ export function LayoutEditor({
                     className="ws-layout-remove"
                     aria-label={`Remove ${label}`}
                     onClick={() => {
-                      if (confirm(`Remove this “${label}” section? Its text goes too.`)) onChange(value.filter((_, n) => n !== i));
+                      void confirmDialog({ title: `Remove the “${label}” section?`, body: "Its text goes too.", confirmLabel: "Remove", danger: true }).then((ok) => ok && onChange(value.filter((_, n) => n !== i)));
                     }}
                   >
                     Remove
@@ -153,5 +156,7 @@ export function LayoutEditor({
         <span className="text-muted small">Added at the bottom; move it with the arrows.</span>
       </div>
     </div>
+      {dialog}
+    </>
   );
 }

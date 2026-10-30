@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 import { GROUP_LABELS, parseTiming, renderEmail, sampleValues, validateTemplate, waitLabel, type EmailDef, type EmailVar } from "@/lib/emailTemplates";
 
 type Saved = { subject: string; body: string; updatedAt: string; updatedBy: string | null } | null;
@@ -15,11 +16,12 @@ function ReminderSettings({ def, schedule, onSaved }: { def: EmailDef; schedule:
   const [timing, setTiming] = useState(schedule.timing);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const { confirm, dialog } = useAdminDialog();
   const parsed = parseTiming(timing);
   const dirty = enabled !== schedule.enabled || timing.trim() !== schedule.timing;
 
   async function save() {
-    if (enabled && !schedule.enabled && !confirm(`Turn on "${def.name}"? It starts going out with the next daily run.`)) return;
+    if (enabled && !schedule.enabled && !(await confirm({ title: `Turn on "${def.name}"?`, body: "It starts going out with the next daily run.", confirmLabel: "Turn On" }))) return;
     setBusy(true);
     setNotice(null);
     const res = await fetch(`/api/admin/emails/${def.key}/schedule`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled, timing }) });
@@ -32,6 +34,7 @@ function ReminderSettings({ def, schedule, onSaved }: { def: EmailDef; schedule:
 
   return (
     <div className="card stack" style={{ gap: 12 }}>
+      {dialog}
       <div className="row-wrap" style={{ justifyContent: "space-between" }}>
         <b>Reminder timing</b>
         {schedule.enabled ? <span className="badge badge-success">On</span> : <span className="badge">Off</span>}
@@ -83,6 +86,7 @@ export default function EditEmailPage({ params }: { params: { key: string } }) {
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState<"" | "save" | "reset" | "test">("");
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const { confirm, dialog } = useAdminDialog();
   const subjectRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const lastField = useRef<"subject" | "body">("body");
@@ -145,7 +149,7 @@ export default function EditEmailPage({ params }: { params: { key: string } }) {
   }
 
   async function reset() {
-    if (!confirm("Go back to the standard wording for this email? Your edited version will be deleted.")) return;
+    if (!(await confirm({ title: "Go back to the standard wording for this email?", body: "Your edited version will be deleted.", confirmLabel: "Use Standard Wording", danger: true }))) return;
     setBusy("reset");
     setNotice(null);
     const res = await fetch(`/api/admin/emails/${def!.key}`, { method: "DELETE" });
@@ -170,6 +174,7 @@ export default function EditEmailPage({ params }: { params: { key: string } }) {
 
   return (
     <div className="page stack-lg" style={{ gap: 28 }}>
+      {dialog}
       <div className="stack-sm">
         <div className="row-wrap">
           <span className="text-muted">/</span>

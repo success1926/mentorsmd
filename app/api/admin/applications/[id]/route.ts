@@ -60,7 +60,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       return NextResponse.json({ error: "Couldn't create the invite. Try again." }, { status: 500 });
     }
     const updated = await prisma.mentorApplication.update({ where: { id: app.id }, data: { inviteId: result.invite.id } });
-    return NextResponse.json({ application: updated, emailSent: result.emailSent, warning: "warning" in result ? result.warning : undefined });
+    return NextResponse.json({ application: updated, emailSent: result.emailSent, warning: "warning" in result ? result.warning : undefined, link: "link" in result ? result.link : undefined });
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });

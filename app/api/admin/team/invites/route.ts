@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ADMIN_INVITE_DAYS, ADMIN_ROLE_LABEL, currentAdmin, findCustomRole, newInviteToken } from "@/lib/adminTeam";
 import { normalizeEmail } from "@/lib/validate";
-import { SITE_URL, sendAdminInviteEmail } from "@/lib/email";
+import { sendAdminInviteEmail } from "@/lib/email";
+import { siteUrl } from "@/lib/siteUrl";
 import { logAdminAction } from "@/lib/adminLog";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
 
@@ -43,11 +44,14 @@ export async function POST(req: Request) {
     targetType: "INVITE",
     targetId: invite.id,
   });
+  const link = `${siteUrl()}/join-team?token=${token}`;
   try {
-    await sendAdminInviteEmail(email, admin.name, roleLabel, `${SITE_URL}/join-team?token=${token}`);
+    await sendAdminInviteEmail(email, admin.name, roleLabel, link);
     return NextResponse.json({ ok: true, emailSent: true });
   } catch (err) {
     console.error("Couldn't send the team invite:", err);
-    return NextResponse.json({ ok: true, emailSent: false, warning: "The invite was created but the email failed. Use Resend." });
+    // Only Owners get here (checked above), so they can copy the link and
+    // send it themselves.
+    return NextResponse.json({ ok: true, emailSent: false, link, warning: `The invite was created but the email failed. Copy this link and send it to ${email} yourself (it works once, for ${ADMIN_INVITE_DAYS} days):` });
   }
 }
