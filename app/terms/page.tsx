@@ -2,6 +2,8 @@ import { currentDoc } from "@/lib/legal";
 import { LegalBody, LegalHeader } from "@/components/LegalBody";
 import { RECORDING_RETENTION_DAYS } from "@/lib/calls";
 
+export const metadata = { title: "Terms of Service", description: "The terms for using MentorsMD as a student, parent or mentor." };
+
 // Once a version is published in Admin -> Legal, it replaces the built-in
 // text below (#99, #103).
 export const dynamic = "force-dynamic";

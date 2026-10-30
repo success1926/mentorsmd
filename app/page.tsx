@@ -4,6 +4,7 @@ import { ReviewWall } from "@/components/ReviewWall";
 import { VettingSection } from "@/components/VettingSection";
 import { FaqSection } from "@/components/FaqSection";
 import { Underline } from "@/components/Underline";
+import { ScrollCue } from "@/components/ScrollCue";
 import { Icon, ICONS, Vetted, Rating, tintFor, initialsOf } from "@/components/ui";
 import { getFeaturedMentors, getReviewStats } from "@/lib/mentorQueries";
 import { HOME_WALL_REVIEWS, REVIEW_WALL_MIN, getReviewWall } from "@/lib/reviewWall";
@@ -77,6 +78,8 @@ export default async function HomePage() {
             </div>
           )}
         </div>
+
+        <ScrollCue />
 
         {c.schools.length > 0 && (
           <div className="wrap">

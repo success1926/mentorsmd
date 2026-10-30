@@ -14,7 +14,7 @@ import { BEST_FOR, FILTER_GROUPS, FORMATS, MENTOR_QUICK_LINKS as QUICK, SCHOOL_T
 import { hoursLabel } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Find Your Mentor" };
+export const metadata = { title: "Find Your Mentor", description: "Browse vetted medical school admissions mentors by service, school and price: personal statements, secondaries, MMI and interview prep, MCAT and more." };
 
 type SP = Record<string, string | string[] | undefined>;
 

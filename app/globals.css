@@ -220,6 +220,8 @@ details.collapse > .collapse-body { padding: 0 22px 20px; display: flex; flex-di
 .nav-quick { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border-bottom: 1px solid var(--line); }
 .nav-quick-inner { max-width: 1440px; margin: 0 auto; padding: 0 32px; height: 48px; display: flex; align-items: center; gap: 28px; overflow-x: auto; scrollbar-width: none; font-size: 15px; white-space: nowrap; }
 .nav-quick-inner::-webkit-scrollbar { display: none; }
+/* A soft fade on the right edge so it's clear the topic row scrolls sideways. */
+@media (max-width: 1100px) { .nav-quick-inner { -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); } }
 .nav-quick-inner a { flex-shrink: 0; color: var(--ink-2); }
 .nav-inner { height: 84px; max-width: 1440px; margin: 0 auto; padding: 0 32px; display: flex; align-items: center; gap: 40px; font-size: 17px; }
 .nav-links { display: flex; align-items: center; gap: 32px; white-space: nowrap; }
@@ -300,6 +302,14 @@ a.footer-social:hover .bg { fill: var(--tint-2); }
 .hero-search:focus-within { border-color: var(--primary); }
 .hero-search input { flex: 1; min-width: 0; border: none; outline: none; background: transparent; font: 400 17px var(--font-body); color: var(--ink); }
 .hero-search .btn { min-height: 48px; padding: 0 22px; flex-shrink: 0; }
+/* "Scroll" at the bottom of the full-screen hero; fades out once the page moves. */
+.hero-scroll-cue { position: relative; align-self: center; margin: 0 0 28px; display: inline-flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; font: 700 12px var(--font-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--primary-deep); transition: opacity .4s ease; }
+.hero-scroll-cue svg { animation: cueBob 1.8s ease-in-out infinite; }
+.hero-scroll-cue.is-hidden { opacity: 0; pointer-events: none; }
+@keyframes cueBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
+/* "Scroll" pill at the bottom of a long pop-up (components/Modal.tsx). */
+.scroll-pill-wrap { position: sticky; bottom: -28px; display: flex; justify-content: center; pointer-events: none; margin-top: 8px; padding-bottom: 4px; }
+.scroll-pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px; background: var(--ink); color: #fff; font: 700 11px var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; box-shadow: var(--shadow-sm); }
 .hero-topics { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 22px; font-size: 15px; color: var(--muted); }
 .hero-topics a { color: var(--ink); text-decoration: underline; text-decoration-color: #CFC4FF; text-underline-offset: 5px; }
 .hero-topics a:hover { text-decoration-color: var(--primary); opacity: 1; }
@@ -965,3 +975,9 @@ a.press-card:hover { border-color: var(--tint-2); box-shadow: var(--shadow-sm); 
 .site-edit-pill button, .site-edit-pill a { border: 0; background: rgba(255, 255, 255, 0.14); color: #fff; border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 13px; cursor: pointer; text-decoration: none; }
 .site-edit-pill button:hover, .site-edit-pill a:hover { background: rgba(255, 255, 255, 0.24); opacity: 1; }
 @media (hover: none) { .site-edit-outline, .site-edit-btn { display: none; } }
+
+/* Less motion for people who ask for it (as on AdmitMD): animations and
+   transitions finish at once and the page jumps instead of gliding. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}

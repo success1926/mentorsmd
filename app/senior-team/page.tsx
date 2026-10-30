@@ -6,7 +6,7 @@ import { SeniorTeamCards } from "@/components/SeniorTeamCards";
 import { PageSections } from "@/components/website/PageSections";
 import { SchoolMarquee } from "@/components/SchoolMarquee";
 
-export const metadata = { title: "Our Senior Team" };
+export const metadata = { title: "Our Senior Team", description: "Meet the MentorsMD senior team, who interview every mentor before they are invited to work with students." };
 
 // The people who interview every mentor before they're invited. Names,
 // photos and bios are edited in Admin -> Website (defaults: SENIOR_TEAM in
