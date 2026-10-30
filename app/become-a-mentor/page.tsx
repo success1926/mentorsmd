@@ -17,11 +17,11 @@ export default async function BecomeMentorPage() {
   const sections: Record<string, React.ReactNode> = {
     intro: (
       <div className="stack" style={{ gap: 18 }}>
-        <Vetted />
+        {c.eyebrow ? <span className="eyebrow">{c.eyebrow}</span> : <Vetted />}
         <h1 className="page-title">{c.title}</h1>
         {c.intro && <p className="lede">{c.intro}</p>}
         <div className="row-wrap">
-          <a href="#apply" className="btn btn-primary btn-lg">{c.applyButton}</a>
+          <a href="#apply" className="btn btn-primary btn-lg">{c.applyButton} <span className="cue-arrow" aria-hidden="true">↓</span></a>
         </div>
       </div>
     ),
@@ -49,7 +49,7 @@ export default async function BecomeMentorPage() {
           </ol>
         )}
         <div className="row-wrap">
-          <a href="#apply" className="btn btn-primary btn-lg">{c.applyButton}</a>
+          <a href="#apply" className="btn btn-primary btn-lg">{c.applyButton} <span className="cue-arrow" aria-hidden="true">↓</span></a>
           {c.inviteNote && <span className="text-secondary">{c.inviteNote}</span>}
         </div>
       </div>

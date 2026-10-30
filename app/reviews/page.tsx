@@ -29,6 +29,7 @@ export default async function ReviewsPage() {
   const sections: Record<string, React.ReactNode> = {
     intro: (
       <div className="center-head" style={{ gap: 18 }}>
+        {c.eyebrow && <span className="eyebrow">{c.eyebrow}</span>}
         <h1 className="big-title">{c.title}</h1>
         {paragraphs(c.intro).map((p, i) => (
           <p key={i} className="lede" style={{ maxWidth: 760, fontSize: 21 }}>{p}</p>
@@ -45,8 +46,8 @@ export default async function ReviewsPage() {
               <p key={i} className="text-secondary" style={{ lineHeight: 1.6 }}>{p}</p>
             ))}
             <div className="row-wrap" style={{ gap: 12 }}>
-              <Link href="/mentors" className="btn btn-primary">Browse mentors</Link>
-              <Link href="/how-it-works" className="btn">How it works</Link>
+              <Link href="/mentors" className="btn btn-primary">Browse Mentors</Link>
+              <Link href="/how-it-works" className="btn">How It Works</Link>
             </div>
           </div>
         ),

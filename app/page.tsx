@@ -5,6 +5,8 @@ import { VettingSection } from "@/components/VettingSection";
 import { FaqSection } from "@/components/FaqSection";
 import { Underline } from "@/components/Underline";
 import { ScrollCue } from "@/components/ScrollCue";
+import { Rail } from "@/components/Rail";
+import { ReviewStats } from "@/components/ReviewStats";
 import { Icon, ICONS, Vetted, Rating, tintFor, initialsOf } from "@/components/ui";
 import { getFeaturedMentors, getReviewStats } from "@/lib/mentorQueries";
 import { HOME_WALL_REVIEWS, REVIEW_WALL_MIN, getReviewWall } from "@/lib/reviewWall";
@@ -71,10 +73,7 @@ export default async function HomePage() {
                 <span style={{ background: "#DDD5FF" }} />
                 <span style={{ background: "#FCE4EC" }} />
               </div>
-              <div style={{ fontSize: 18 }}>
-                <span className="stars">★★★★★</span> <b>{stats.count} reviews</b> <span style={{ opacity: 0.5 }}>|</span>{" "}
-                <span className="text-secondary" style={{ fontSize: 18 }}>{stats.avg.toFixed(1)} avg</span>
-              </div>
+              <ReviewStats count={stats.count} avg={stats.avg} />
             </div>
           )}
         </div>
@@ -145,11 +144,12 @@ export default async function HomePage() {
               </div>
               {c.featuredLink && <Link href="/mentors" className="link">{c.featuredLink}</Link>}
             </div>
-            <div className="grid-4">
+            {/* Four across on computers; a sideways row with arrows on phones. */}
+            <Rail className="featured-row" label="Featured mentors">
               {mentors.map((m) => {
                 const firstBestFor = m.bestFor[0];
                 return (
-                  <Link key={m.id} href={`/mentors/${m.id}`} className="mentor-tile">
+                  <Link key={m.id} href={`/mentors/${m.id}`} className="mentor-tile" role="listitem">
                     <div className="mentor-tile-photo" style={{ background: tintFor(m.id) }}>
                       {m.photoUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -177,7 +177,7 @@ export default async function HomePage() {
                   </Link>
                 );
               })}
-            </div>
+            </Rail>
           </div>
         </section>
     ),
@@ -215,7 +215,7 @@ export default async function HomePage() {
               {c.testimonialsEyebrow && <span className="eyebrow">{c.testimonialsEyebrow}</span>}
               <h2 className="big-title">{c.testimonialsTitle}</h2>
             </div>
-            <ReviewWall items={wall} />
+            <ReviewWall items={wall} rail />
           </div>
         </section>
     ),

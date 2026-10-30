@@ -104,6 +104,7 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
 
       <div className="page" style={{ paddingTop: 40 }}>
         <section className="stack" style={{ gap: 14, marginBottom: 36 }}>
+          {c.eyebrow && <span className="eyebrow">{c.eyebrow}</span>}
           <h1 className="page-title">{c.title}</h1>
           {c.intro && <p className="lede">{c.intro}</p>}
           <form action="/mentors" method="get" className="search-inline" role="search" style={{ maxWidth: 760 }}>

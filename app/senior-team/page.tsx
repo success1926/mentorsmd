@@ -28,6 +28,7 @@ export default async function SeniorTeamPage() {
   const sections: Record<string, React.ReactNode> = {
     intro: (
       <div className="stack" style={{ gap: 14, maxWidth: 760 }}>
+        {c.eyebrow && <span className="eyebrow">{c.eyebrow}</span>}
         <h1 className="page-title">{c.title}</h1>
         {c.intro && <p className="lede">{c.intro}</p>}
       </div>

@@ -21,6 +21,7 @@ export default async function ContactPage({ searchParams }: { searchParams: { to
     intro: (
       <>
         <div className="stack-sm">
+          {c.eyebrow && <span className="eyebrow">{c.eyebrow}</span>}
           <h1 className="page-title">{mentor ? c.mentorTitle : c.title}</h1>
           {(mentor ? c.mentorIntro : c.intro) && <p className="lede">{mentor ? c.mentorIntro : c.intro}</p>}
         </div>

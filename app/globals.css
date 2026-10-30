@@ -68,6 +68,15 @@ button { font-family: inherit; }
 .page-narrow, .container { max-width: 720px; margin: 0 auto; padding: 44px 20px 96px; }
 .bleed { width: 100vw; margin-left: calc(50% - 50vw); }
 .wrap { max-width: 1296px; margin: 0 auto; padding: 0 24px; }
+/* Large monitors (1800px and up): use more of the screen and step the type up
+   a little, so pages don't sit as a narrow strip in the middle. */
+@media (min-width: 1800px) {
+  html { font-size: 17px; }
+  body { font-size: 17px; }
+  .wrap { max-width: 1520px; padding: 0 40px; }
+  .page { max-width: 1440px; }
+  .nav-inner, .nav-quick-inner { max-width: 1600px; }
+}
 .stack { display: flex; flex-direction: column; gap: 16px; }
 .stack-sm { display: flex; flex-direction: column; gap: 8px; }
 .stack-lg { display: flex; flex-direction: column; gap: 28px; }
@@ -306,6 +315,8 @@ a.footer-social:hover .bg { fill: var(--tint-2); }
 .hero-scroll-cue { position: relative; align-self: center; margin: 0 0 28px; display: inline-flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; font: 700 12px var(--font-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--primary-deep); transition: opacity .4s ease; }
 .hero-scroll-cue svg { animation: cueBob 1.8s ease-in-out infinite; }
 .hero-scroll-cue.is-hidden { opacity: 0; pointer-events: none; }
+/* The bouncing ↓ inside buttons that jump further down the page (Apply to Mentor). */
+.cue-arrow { display: inline-block; animation: cueBob 1.8s ease-in-out infinite; }
 @keyframes cueBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
 /* "Scroll" pill at the bottom of a long pop-up (components/Modal.tsx). */
 .scroll-pill-wrap { position: sticky; bottom: -28px; display: flex; justify-content: center; pointer-events: none; margin-top: 8px; padding-bottom: 4px; }
@@ -396,6 +407,19 @@ a.footer-social:hover .bg { fill: var(--tint-2); }
 
 .wall { background: var(--tint-soft); padding: 110px 0 120px; }
 .wall-grid { columns: 4 260px; column-gap: 24px; }
+.only-mobile { display: none; }
+@media (max-width: 640px) { .only-mobile { display: block; } }
+.wall-rail { display: grid; grid-auto-flow: column; grid-auto-columns: 82%; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; align-items: start; }
+.wall-rail::-webkit-scrollbar { display: none; }
+.wall-rail > * { scroll-snap-align: start; }
+/* Featured mentors: four across on computers, a sideways row on phones. */
+.featured-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
+@media (max-width: 960px) { .featured-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) {
+  .featured-row { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 78%; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; }
+  .featured-row::-webkit-scrollbar { display: none; }
+  .featured-row > * { scroll-snap-align: start; }
+}
 .testi { break-inside: avoid; margin-bottom: 24px; background: #fff; border-radius: var(--radius-lg); padding: 30px; display: flex; flex-direction: column; gap: 16px; }
 .testi-video { break-inside: avoid; margin-bottom: 24px; position: relative; border-radius: var(--radius-lg); color: #fff; overflow: hidden; display: flex; align-items: flex-end; padding: 24px; }
 .play { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 64px; height: 64px; border-radius: 50%; background: rgba(27,24,52,0.55); display: flex; align-items: center; justify-content: center; }
@@ -685,6 +709,21 @@ a.footer-social:hover .bg { fill: var(--tint-2); }
 .bio-more h3 { font-size: 16px; font-weight: 700; font-family: inherit; }
 .bio-more ul { margin: 6px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; line-height: 1.5; }
 .pkg-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(240px, 280px); gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 2px 2px 10px; overscroll-behavior-x: contain; }
+.pkg-row.rail-track { scrollbar-width: none; }
+.pkg-row.rail-track::-webkit-scrollbar { display: none; }
+/* Sideways rows (components/Rail.tsx): arrows under the row on the right, fades on edges with more. */
+.rail { position: relative; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.rail-track { scroll-behavior: smooth; }
+.rail-more-right .rail-track { -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }
+.rail-more-left .rail-track { -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%); mask-image: linear-gradient(90deg, transparent, #000 12%); }
+.rail-more-left.rail-more-right .rail-track { -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
+.rail-arrows { display: flex; justify-content: flex-end; gap: 10px; }
+.rail-arrow { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: #fff; color: var(--ink); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: border-color .2s, background .2s; }
+.rail-arrow:hover:not(:disabled) { border-color: var(--primary); background: var(--tint-soft); }
+.rail-arrow:disabled { opacity: 0.35; cursor: default; }
+/* A box that scrolls on its own (components/ScrollBox.tsx), with its Scroll pill. */
+.scroll-box { position: relative; }
+.scroll-box-pill { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); pointer-events: none; }
 .pkg-tile { scroll-snap-align: start; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; }
 .pkg-tile-cover { position: relative; min-height: 132px; display: flex; align-items: flex-end; padding: 14px 16px; background: var(--tint); color: var(--ink); }
 .pkg-tile-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
