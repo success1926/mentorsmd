@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { publicCache, toDate } from "@/lib/publicCache";
 import { searchableGigWhere, visibleMentorWhere } from "@/lib/mentor";
 import { completeProfileWhere } from "@/lib/profileCompleteness";
-import { BEST_FOR, FORMATS, PRICE_BANDS, SCHOOL_TYPES, SERVICES, SERVICE_TO_STAGE, STAGES, isValue } from "@/lib/options";
+import { BEST_FOR, FORMATS, PRICE_BANDS, SCHOOL_TYPES, SERVICES, SERVICE_TO_STAGE, STAGES, isValue, mentorSchoolName } from "@/lib/options";
 
 export type BrowseFilters = {
   q: string;
@@ -131,6 +131,7 @@ async function searchMentorsFresh(f: BrowseFilters): Promise<MentorCardData[]> {
         { name: { contains: f.q, mode: "insensitive" } },
         { credential: { contains: f.q, mode: "insensitive" } },
         { medicalSchool: { contains: f.q, mode: "insensitive" } },
+        { undergradSchool: { contains: f.q, mode: "insensitive" } },
         { bio: { contains: f.q, mode: "insensitive" } },
         { specialtyInterest: { contains: f.q, mode: "insensitive" } },
         { researchSummary: { contains: f.q, mode: "insensitive" } },
@@ -158,6 +159,7 @@ async function searchMentorsFresh(f: BrowseFilters): Promise<MentorCardData[]> {
       name: true,
       credential: true,
       medicalSchool: true,
+      undergradSchool: true,
       bio: true,
       photoUrl: true,
       mentorStage: true,
@@ -179,7 +181,8 @@ async function searchMentorsFresh(f: BrowseFilters): Promise<MentorCardData[]> {
       id: m.id,
       name: m.name,
       credential: m.credential,
-      medicalSchool: m.medicalSchool,
+      // The school shown on the card: the college for undergrads.
+      medicalSchool: mentorSchoolName(m),
       bio: m.bio,
       photoUrl: m.photoUrl,
       mentorStage: m.mentorStage,

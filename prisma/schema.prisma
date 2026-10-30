@@ -109,7 +109,10 @@ model User {
   removedByAdmin Boolean       @default(false) // admin removal also blocks login
 
   // ---- Mentor-level search answers (asked once, used by every package) ----
-  mentorStage String? // MS1, MS2, MS3, MS4, RESIDENT
+  mentorStage String? // UNDERGRAD, MS1, MS2, MS3, MS4, RESIDENT
+  // Undergrads in a BS/MD program (stage UNDERGRAD): their college. Shown
+  // instead of the medical school, which is optional for them.
+  undergradSchool String?
   schoolType  String? // MD, DO, MD_PHD
   // No longer used since the Oct 2026 redesign: "Who you're best for"
   // (bestFor below) replaced it everywhere. Kept so old data isn't lost.
@@ -164,6 +167,7 @@ model User {
   weeklyHours           Json?
   bufferMinutes         Int       @default(15) // gap kept free before and after each call
   minNoticeHours        Int       @default(24) // how far ahead students must book
+  bookingWindowDays     Int       @default(60) // how far into the future students can book (lib/schedule.ts BOOKING_WINDOW_OPTIONS)
   daysOff               String[]  @default([]) // single dates with no calls, "YYYY-MM-DD"
   // A secret iCal address from Google / iCloud. Busy times in it are
   // blocked in the slot picker. The parsed busy times are cached here.

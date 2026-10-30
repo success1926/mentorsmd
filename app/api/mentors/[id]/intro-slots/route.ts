@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { INTRO_CALL_MINUTES } from "@/lib/options";
-import { hasAvailability } from "@/lib/schedule";
+import { bookingWindowFor, hasAvailability } from "@/lib/schedule";
 import { tzOrDefault } from "@/lib/tz";
 import { introBlockReason, loadIntroMentor, openIntroSlots } from "@/lib/introCalls";
 
@@ -25,6 +25,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     slots: slots.map((s) => s.toISOString()),
     lengthMinutes: INTRO_CALL_MINUTES,
     hasAvailability: hasAvailability(mentor.weeklyHours),
+    bookingWindowDays: bookingWindowFor(mentor.bookingWindowDays),
     timeZone: tzOrDefault(mentor.timeZone),
   });
 }

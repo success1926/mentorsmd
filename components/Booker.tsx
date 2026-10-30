@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { initialsOf, tintFor } from "@/components/ui";
 import { RECORDING_NOTICE } from "@/lib/calls";
-import { BOOKING_HORIZON_DAYS } from "@/lib/schedule";
+import { bookingWindowFor, bookingWindowLabel } from "@/lib/schedule";
 import { addDays, browserTimeZone, dayInZone, fmtDayLabel, isValidTimeZone, timeZoneList, weekdayOfDay } from "@/lib/tz";
 
 // The booking screen students see when they pick a call time, laid out
@@ -16,11 +16,10 @@ import { addDays, browserTimeZone, dayInZone, fmtDayLabel, isValidTimeZone, time
 // addresses (intro-slots, call-slots, an order's slots), and confirming
 // calls the same booking action the page used before (onConfirm).
 
-type SlotData = { slots: string[]; lengthMinutes: number; hasAvailability: boolean };
+type SlotData = { slots: string[]; lengthMinutes: number; hasAvailability: boolean; bookingWindowDays: number };
 
 export type BookerMentor = { id?: string; name: string; photoUrl?: string | null };
 
-const HORIZON_WEEKS = Math.floor(BOOKING_HORIZON_DAYS / 7);
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const firstName = (n: string) => (n || "").split(" ")[0];
 
@@ -105,7 +104,7 @@ export function Booker({
         if (!r.ok) throw new Error(d.error || "Couldn't load times");
         if (latestUrl.current !== url) return;
         onLoaded?.(d);
-        setData({ slots: d.slots || [], lengthMinutes: d.lengthMinutes || durationMinutes || 30, hasAvailability: !!d.hasAvailability });
+        setData({ slots: d.slots || [], lengthMinutes: d.lengthMinutes || durationMinutes || 30, hasAvailability: !!d.hasAvailability, bookingWindowDays: bookingWindowFor(d.bookingWindowDays) });
       })
       .catch((e) => {
         if (latestUrl.current === url) setLoadError(e.message || "Couldn't load times");
@@ -270,7 +269,7 @@ export function Booker({
       <div className="booker-msg">
         {error && <div role="alert" className="alert alert-danger">{error}</div>}
         <div className="alert alert-blue stack-sm">
-          <b>{data!.hasAvailability ? `No times available in the next ${HORIZON_WEEKS} weeks` : noHoursTitle || `${first} hasn't set their call hours yet`}</b>
+          <b>{data!.hasAvailability ? `No times available in the next ${bookingWindowLabel(data!.bookingWindowDays)}` : noHoursTitle || `${first} hasn't set their call hours yet`}</b>
           {emptyHint && <span>{emptyHint}</span>}
           <div className="row-wrap">
             {onMessage && <button className="btn btn-sm btn-primary" onClick={onMessage}>Message {first}</button>}

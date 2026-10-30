@@ -17,6 +17,7 @@ import {
   INTRO_CALL_MINUTES,
   LANGUAGE_LEVELS,
   SCHOOL_TYPES,
+  mentorSchoolName,
   STAGES,
   STRONGEST_STAGES,
   labelFor,
@@ -248,7 +249,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null }: 
                   <Vetted />
                 </div>
                 {seller.credential && <span style={{ fontSize: 18 }}>{seller.credential}</span>}
-                {(seller.medicalSchool || tags.length > 0) && <span className="text-secondary" style={{ fontSize: 16 }}>{[seller.medicalSchool, ...tags].filter(Boolean).join(" · ")}</span>}
+                {(mentorSchoolName(seller) || tags.length > 0) && <span className="text-secondary" style={{ fontSize: 16 }}>{[mentorSchoolName(seller), ...tags].filter(Boolean).join(" · ")}</span>}
                 <Rating avg={avg} count={reviews.length} />
               </div>
             </div>

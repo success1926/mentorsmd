@@ -224,8 +224,11 @@ const callValues = (c: CallEmail): Values => ({ packageTitle: c.gigTitle, otherN
 
 // Sent to both sides when a call is booked or rescheduled, with a
 // calendar invite attached.
-export async function sendCallScheduledEmail(toEmail: string, c: CallEmail, rescheduled = false) {
-  await sendTemplate(rescheduled ? "call_rescheduled" : "call_booked", toEmail, callValues(c), { attachments: icsAttachment(c) });
+// lateReason: the call was moved within 24 hours of the start (see
+// lib/calls.ts isLateChange); quoted in the "Call moved" email.
+export async function sendCallScheduledEmail(toEmail: string, c: CallEmail, rescheduled = false, late?: { by: string; reason: string }) {
+  const values = rescheduled && late ? { ...callValues(c), lateReason: `${late.by} moved it with less than 24 hours to go. Their reason: "${late.reason}"` } : callValues(c);
+  await sendTemplate(rescheduled ? "call_rescheduled" : "call_booked", toEmail, values, { attachments: icsAttachment(c) });
 }
 
 export async function sendCallCancelledEmail(toEmail: string, c: CallEmail, cancelledBy: string) {

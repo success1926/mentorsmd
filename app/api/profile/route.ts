@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { LIMITS, isNonEmptyString } from "@/lib/validate";
-import { SCHOOL_TYPES, STAGES, isValue } from "@/lib/options";
+import { SCHOOL_TYPES, STAGES, UNDERGRAD_SCHOOL_MAX, isUndergrad, isValue } from "@/lib/options";
 import { parseMentorProfile } from "@/lib/mentorProfileInput";
 import { profileFieldsSelect, profileProgress } from "@/lib/profileCompleteness";
 import { syncProfileComplete } from "@/lib/profileSync";
@@ -34,10 +34,10 @@ export async function GET() {
     where: { id: (session.user as any).id },
     select: {
       id: true, name: true, email: true, role: true, credential: true, bio: true, photoUrl: true, passwordHash: true,
-      mentorStage: true, schoolType: true, medicalSchool: true,
+      mentorStage: true, schoolType: true, medicalSchool: true, undergradSchool: true,
       ...profileFieldsSelect, bestForOther: true, profileCompleteAt: true,
       profileStatus: true, pausedUntil: true, awayNote: true, removedAt: true, removedByAdmin: true,
-      timeZone: true, weeklyHours: true, bufferMinutes: true, minNoticeHours: true, daysOff: true,
+      timeZone: true, weeklyHours: true, bufferMinutes: true, minNoticeHours: true, bookingWindowDays: true, daysOff: true,
       externalCalUrl: true, externalCalError: true, externalBusyFetchedAt: true, googleCalEmail: true, googleCalConnectedAt: true,
       acceptsMinors: true, dateOfBirth: true, minorStatus: true,
     },
@@ -83,6 +83,7 @@ export async function PATCH(req: Request) {
     timeZone?: string;
     acceptsMinors?: boolean;
     medicalSchool?: string | null;
+    undergradSchool?: string | null;
     [section: string]: unknown; // the profile sections (lib/mentorProfileInput.ts)
   } = {};
 
@@ -131,11 +132,25 @@ export async function PATCH(req: Request) {
       if (!isValue(SCHOOL_TYPES, body.schoolType)) return NextResponse.json({ error: "Pick your school type" }, { status: 400 });
       data.schoolType = body.schoolType;
     }
+    // Undergrads (BS/MD) give their college instead; for them the medical
+    // school is optional (and can be cleared).
+    const current = await prisma.user.findUnique({ where: { id: userId }, select: { mentorStage: true, bestFor: true } });
+    const undergrad = isUndergrad(data.mentorStage ?? current?.mentorStage);
     // Medical school (#85): picked from the list or typed in.
     if (body.medicalSchool !== undefined) {
       const school = normalizeMedicalSchool(body.medicalSchool);
-      if (!school) return NextResponse.json({ error: "Enter your medical school" }, { status: 400 });
+      if (!school && !undergrad) return NextResponse.json({ error: "Enter your medical school" }, { status: 400 });
       data.medicalSchool = school;
+    }
+    if (body.undergradSchool !== undefined) {
+      const school = typeof body.undergradSchool === "string" ? body.undergradSchool.replace(/\s+/g, " ").trim().slice(0, UNDERGRAD_SCHOOL_MAX) : "";
+      if (!school && undergrad) return NextResponse.json({ error: "Enter your undergraduate school" }, { status: 400 });
+      data.undergradSchool = school || null;
+    }
+    // Becoming an undergrad mentor ticks "BS/MD" under "Who you're best
+    // for" (they can untick it).
+    if (isUndergrad(data.mentorStage) && !isUndergrad(current?.mentorStage) && body.bestFor === undefined && current && !current.bestFor.includes("BS_MD")) {
+      data.bestFor = [...current.bestFor, "BS_MD"];
     }
     // "Work with students under 18" (#110).
     if (body.acceptsMinors !== undefined) {
@@ -151,7 +166,7 @@ export async function PATCH(req: Request) {
   const updated = await prisma.user.update({
     where: { id: userId },
     data: data as any,
-    select: { id: true, name: true, credential: true, bio: true, photoUrl: true, mentorStage: true, schoolType: true, medicalSchool: true, timeZone: true, acceptsMinors: true },
+    select: { id: true, name: true, credential: true, bio: true, photoUrl: true, mentorStage: true, schoolType: true, medicalSchool: true, undergradSchool: true, timeZone: true, acceptsMinors: true },
   });
 
   if (isSeller) {

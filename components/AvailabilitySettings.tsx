@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Icon, ICONS } from "@/components/ui";
-import { BOOKING_HORIZON_DAYS, BUFFER_OPTIONS, NOTICE_OPTIONS, WEEKDAY_NAMES, WeeklyHours } from "@/lib/schedule";
+import { BOOKING_WINDOW_OPTIONS, BUFFER_OPTIONS, NOTICE_OPTIONS, WEEKDAY_NAMES, WeeklyHours, bookingWindowFor, bookingWindowLabel } from "@/lib/schedule";
 import { CANCEL_CUTOFF_HOURS } from "@/lib/calls";
 import { browserTimeZone, fmtDayLabel, timeZoneList } from "@/lib/tz";
 
@@ -75,6 +75,7 @@ export function CallHoursCard({ profile, onSaved }: { profile: any; onSaved?: ()
   const [tz, setTz] = useState<string>(profile.timeZone || browserTimeZone() || "America/New_York");
   const [buffer, setBuffer] = useState<number>(profile.bufferMinutes ?? 15);
   const [notice, setNotice] = useState<number>(profile.minNoticeHours ?? 24);
+  const [windowDays, setWindowDays] = useState<number>(bookingWindowFor(profile.bookingWindowDays));
   const [daysOff, setDaysOff] = useState<string[]>(profile.daysOff || []);
   const [newOff, setNewOff] = useState("");
   const [saving, setSaving] = useState(false);
@@ -95,7 +96,7 @@ export function CallHoursCard({ profile, onSaved }: { profile: any; onSaved?: ()
     const res = await fetch("/api/profile/schedule", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ weeklyHours: hours, timeZone: tz, bufferMinutes: buffer, minNoticeHours: notice, daysOff }),
+      body: JSON.stringify({ weeklyHours: hours, timeZone: tz, bufferMinutes: buffer, minNoticeHours: notice, bookingWindowDays: windowDays, daysOff }),
     });
     const d = await res.json().catch(() => ({}));
     setSaving(false);
@@ -113,8 +114,8 @@ export function CallHoursCard({ profile, onSaved }: { profile: any; onSaved?: ()
         </span>
         <div className="alert alert-blue small stack-sm" style={{ gap: 4 }}>
           <b>How booking works</b>
-          <span>Students only see times inside your weekly hours, from your minimum notice ({notice} hours) up to {BOOKING_HORIZON_DAYS} days ahead, with your break kept free around each call.</span>
-          <span>In the last {CANCEL_CUTOFF_HOURS} hours before a call, neither of you can cancel or move it on the site: message each other, or contact us.</span>
+          <span>Students only see times inside your weekly hours, from your minimum notice ({notice} hours) up to {bookingWindowLabel(windowDays)} ahead, with your break kept free around each call.</span>
+          <span>In the last {CANCEL_CUTOFF_HOURS} hours before a call, neither of you can cancel it on the site, and moving it needs a short reason, which is sent to the other person as a message.</span>
           <span>You can always add a call at a time you&apos;ve agreed with a student, from their package page.</span>
         </div>
       </div>
@@ -170,6 +171,13 @@ export function CallHoursCard({ profile, onSaved }: { profile: any; onSaved?: ()
             {NOTICE_OPTIONS.map((h) => <option key={h} value={h}>{h} hours ahead</option>)}
           </select>
           <span className="field-help">How far ahead students must book (intro calls too). Pick 2 or 4 hours to allow same-day calls.</span>
+        </div>
+        <div className="field" style={{ marginBottom: 0 }}>
+          <label className="field-label" htmlFor="avail-window">Furthest ahead students can book</label>
+          <select id="avail-window" className="input" value={windowDays} onChange={(e) => setWindowDays(Number(e.target.value))} style={{ marginBottom: 0 }}>
+            {BOOKING_WINDOW_OPTIONS.map((d) => <option key={d} value={d}>{bookingWindowLabel(d)} ahead</option>)}
+          </select>
+          <span className="field-help">Students can&apos;t pick a time further out than this (intro calls too). Calls already booked stay booked.</span>
         </div>
         <div className="field" style={{ marginBottom: 0 }}>
           <label className="field-label" htmlFor="avail-buffer">Break between calls</label>

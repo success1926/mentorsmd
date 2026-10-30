@@ -27,6 +27,7 @@ async function loadProfile(id: string, onlyBookable: boolean) {
       mentorStage: true,
       schoolType: true,
       medicalSchool: true,
+      undergradSchool: true,
       profileStatus: true,
       pausedUntil: true,
       awayNote: true,

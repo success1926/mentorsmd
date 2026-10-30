@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { openSlotsForOrder, orderForCallsInclude } from "@/lib/callBooking";
 import { callMinutes, isBlockMinutes } from "@/lib/hours";
-import { hasAvailability } from "@/lib/schedule";
+import { bookingWindowFor, hasAvailability } from "@/lib/schedule";
 import { tzOrDefault } from "@/lib/tz";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +36,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     slots: slots.map((s) => s.toISOString()),
     lengthMinutes,
     hasAvailability: hasAvailability(order.seller.weeklyHours),
+    bookingWindowDays: bookingWindowFor(order.seller.bookingWindowDays),
     timeZone: tzOrDefault(order.seller.timeZone),
   });
 }
