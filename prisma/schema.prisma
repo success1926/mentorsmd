@@ -661,6 +661,7 @@ model MentorPayout {
   stripeTransferId String?
   error            String?
   createdAt        DateTime  @default(now())
+  claimedAt        DateTime? // when the monthly run or a Retry last started sending it ("stuck" is measured from here)
   paidAt           DateTime?
 
   mentor   User   @relation("MentorPayouts", fields: [mentorId], references: [id])

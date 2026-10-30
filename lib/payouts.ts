@@ -172,6 +172,7 @@ async function payMentor(m: MentorForPayout, period: string, now: Date): Promise
             minutes: preview.minutes,
             entryCount: preview.entryCount,
             status: "PROCESSING",
+            claimedAt: now,
           },
         });
         const entryIds = preview.lines.flatMap((l) => l.entryIds);
@@ -280,10 +281,17 @@ export class PayoutError extends Error {
 export async function retryPayout(payoutId: string, adminId: string) {
   const p = await prisma.mentorPayout.findUnique({ where: { id: payoutId }, include: { mentor: { select: { id: true, name: true, email: true, stripeAccountId: true } } } });
   if (!p) throw new PayoutError("Payout not found", 404);
-  const stuck = p.status === "PROCESSING" && Date.now() - p.createdAt.getTime() > STUCK_PROCESSING_MS;
+  // "Stuck" counts from the last claim, not from when the payout was made:
+  // otherwise a Retry still sending an old payout would look stuck to a
+  // second Retry, and both would send.
+  const stuck = p.status === "PROCESSING" && Date.now() - (p.claimedAt ?? p.createdAt).getTime() > STUCK_PROCESSING_MS;
   if (p.status !== "FAILED" && !stuck) throw new PayoutError(p.status === "PAID" ? "This payout was already paid." : "This payout is still being sent. Try again in a few minutes.");
   if (!p.mentor.stripeAccountId) throw new PayoutError("This mentor hasn't connected payouts.");
-  const claim = await prisma.mentorPayout.updateMany({ where: { id: p.id, status: p.status }, data: { status: "PROCESSING", error: null } });
+  // Only one Retry wins: the claim also needs claimedAt unchanged since we read it.
+  const claim = await prisma.mentorPayout.updateMany({
+    where: { id: p.id, status: p.status, claimedAt: p.claimedAt },
+    data: { status: "PROCESSING", error: null, claimedAt: new Date() },
+  });
   if (!claim.count) throw new PayoutError("This payout just changed. Refresh the page.", 409);
 
   let existing: { id: string } | undefined;
