@@ -130,8 +130,10 @@ export default async function HomePage() {
     // Also on /how-it-works.
     vetting: <VettingSection c={c} id="vetting" />,
 
+    // No bottom space here: the next section brings its own, so the gap stays
+    // the same when this row is hidden (no mentors yet).
     featured: mentors.length > 0 && (
-        <section className="home-section">
+        <section className="home-section" style={{ paddingBottom: 0 }}>
           <div className="wrap">
             <div className="between" style={{ alignItems: "flex-end", marginBottom: 40, flexWrap: "wrap", gap: 24 }}>
               <div className="stack" style={{ gap: 14 }}>
@@ -178,7 +180,7 @@ export default async function HomePage() {
     ),
 
     features: (
-      <section className="home-section" style={{ paddingTop: 0 }}>
+      <section className="home-section">
         <div className="wrap">
           <div className="stack" style={{ gap: 14, marginBottom: 44 }}>
             {c.featuresEyebrow && <span className="eyebrow">{c.featuresEyebrow}</span>}
