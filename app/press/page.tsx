@@ -22,7 +22,7 @@ async function pressVisible() {
 
 export async function generateMetadata(): Promise<Metadata> {
   const visible = await pressVisible();
-  return { title: "Press · MentorsMD", robots: visible ? undefined : { index: false, follow: false } };
+  return { title: "Press", robots: visible ? undefined : { index: false, follow: false } };
 }
 
 export default async function PressPage() {

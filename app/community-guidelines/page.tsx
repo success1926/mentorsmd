@@ -3,7 +3,7 @@ import { LegalBody, LegalHeader } from "@/components/LegalBody";
 import Link from "next/link";
 import { MENTOR_AGREEMENT_POINTS } from "@/lib/agreement";
 
-export const metadata = { title: "Community Guidelines · MentorsMD" };
+export const metadata = { title: "Community Guidelines" };
 
 const SECTIONS: { title: string; points: string[] }[] = [
   {

@@ -8,7 +8,7 @@ import { getSiteContent } from "@/lib/siteContentStore";
 import { PageSections } from "@/components/website/PageSections";
 
 export const metadata: Metadata = {
-  title: "How it works · MentorsMD",
+  title: "How It Works",
   description: "Find a vetted mentor, message them or book a free 15-minute intro call, then buy hours at their rate. Every hour is logged.",
 };
 

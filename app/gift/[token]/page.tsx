@@ -7,7 +7,7 @@ import { money } from "@/lib/options";
 import { tzOrDefault } from "@/lib/tz";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Your gift · MentorsMD", robots: { index: false } };
+export const metadata = { title: "Your Gift", robots: { index: false } };
 
 const fmtDay = (d: Date, tz?: string) => d.toLocaleDateString("en-US", { timeZone: tz, month: "short", day: "numeric", year: "numeric" });
 const ORDER_STATUS: Record<string, string> = {

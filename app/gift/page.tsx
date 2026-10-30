@@ -5,7 +5,7 @@ import { GiftForm, type GiftOffer } from "./GiftForm";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
-  title: "Gift MentorsMD",
+  title: { absolute: "Gift MentorsMD" },
   description: "Buy MentorsMD credit or a mentor's package for your student. No account needed.",
 };
 

@@ -94,30 +94,34 @@ export const SITE_PAGES = {
     path: "/",
     fields: {
       ...section("Hero (top of the page)", {
-        heroTitle: text("Headline", "Your white coat starts here", { required: true }),
-        heroSub: long("Text under the headline", "One-on-one help from med students and residents, every one vetted by our senior team.", { max: 400 }),
-        searchPlaceholder: text("Search box hint", "Search for help with your personal statement, MMI, MCAT…"),
+        heroEyebrow: text("Small label above the headline", "Medical School Admissions Mentors", { max: 60, help: "Says what the site is, for readers and search engines." }),
+        heroTitle: text("Headline", "Your White Coat Starts Here", { required: true }),
+        heroUnderline: text("Underlined words in the headline", "Starts Here", { max: 60, help: "Words from the headline that get the hand-drawn line under them. Leave blank for none." }),
+        heroSub: long("Text under the headline", "One-on-one help from med students and residents, every one vetted by our senior team, with personal statements, secondaries, MMI and interview prep, MCAT strategy and school lists.", { max: 400 }),
+        searchPlaceholder: text("Search box hint", "Search by topic, school or exam, e.g. MMI practice"),
         quickTopics: list(
-          "Quick topic buttons",
-          "Button",
+          "Popular topics",
+          "Topic",
           { label: text("Label", "", { max: 40, required: true }), href: link("Opens", "/mentors", { required: true }) },
           [
-            { label: "Personal statement", href: "/mentors?service=PERSONAL_STATEMENT" },
+            { label: "Personal Statement", href: "/mentors?service=PERSONAL_STATEMENT" },
             { label: "Secondaries", href: "/mentors?service=SECONDARIES" },
             { label: "Interviews", href: "/mentors?service=MMI&service=TRADITIONAL_INTERVIEW" },
             { label: "MCAT", href: "/mentors?service=MCAT" },
             { label: "Reapplying", href: "/mentors?service=REAPPLICANT&bg=REAPPLICANT" },
           ],
-          { maxItems: 8, help: "Icons follow the order: pen, page, chat, chart, arrows." },
+          { maxItems: 8, help: "Shown as links under the search box, after “Popular:”." },
         ),
       }),
       ...section("Our mentors study at", {
-        schoolsLabel: text("Label", "Our mentors study at", { max: 60 }),
+        schoolsLabel: text("Label", "Our Mentors Study At", { max: 60 }),
         schools: lines("Schools", MENTOR_SCHOOLS, { max: 80, maxItems: 20, help: "One school per line. The strip is hidden when the list is empty. Use only schools your current mentors actually attend." }),
       }),
       ...section("“Getting into med school is hard”", {
-        pathsTitle: long("Heading", "Getting into med school is hard.\nYou don't have to do it alone.", { max: 200, help: "A line break starts a new line." }),
-        pathsText: long("Text", "The process is long, competitive and hard to read from the outside. MentorsMD pairs you with people who got in recently and know what works now.", { max: 600 }),
+        pathsEyebrow: text("Small label", "Why MentorsMD", { max: 40 }),
+        pathsTitle: long("Heading", "Getting Into Medical School Is Hard.\nYou Don't Have to Do It Alone", { max: 200, help: "A line break starts a new line." }),
+        pathsUnderline: text("Underlined words in the heading", "Alone", { max: 60, help: "Leave blank for none." }),
+        pathsText: long("Text", "The process is long, competitive and hard to read from the outside. MentorsMD pairs you with people who were admitted recently and know what works now.", { max: 600 }),
         paths: list(
           "Path cards",
           "Card",
@@ -125,67 +129,71 @@ export const SITE_PAGES = {
             title: text("Title", "", { max: 80, required: true }),
             body: long("Text", "", { max: 300 }),
             photo: image("Photo", "", "Optional. Without a photo the card shows the brand colors."),
-            button: text("Button label", "Find a mentor", { max: 40 }),
+            button: text("Link label", "Find a Mentor", { max: 40 }),
             href: link("Button opens", "/mentors", { required: true }),
           },
           [
-            { title: "Write a standout application", body: "Personal statement, activities and secondaries, shaped by someone who just wrote theirs.", photo: PHOTOS.pathApplication, button: "Find a mentor", href: "/mentors?service=PERSONAL_STATEMENT&service=SECONDARIES&service=ACTIVITIES" },
-            { title: "Ace your interviews", body: "MMI and traditional mock interviews with written feedback after every session.", photo: PHOTOS.pathInterviews, button: "Find a mentor", href: "/mentors?service=MMI&service=TRADITIONAL_INTERVIEW" },
-            { title: "Plan your path", body: "School lists, MCAT strategy, gap years and reapplying, from people who made the same calls.", photo: PHOTOS.pathPlan, button: "Find a mentor", href: "/mentors?service=SCHOOL_LIST&service=MCAT&service=REAPPLICANT" },
+            { title: "Write a Standout Application", body: "Personal statement, activities and secondaries, shaped by someone who just wrote theirs.", photo: PHOTOS.pathApplication, button: "Find an Application Mentor →", href: "/mentors?service=PERSONAL_STATEMENT&service=SECONDARIES&service=ACTIVITIES" },
+            { title: "Prepare for MMI and Traditional Interviews", body: "Mock interviews with written feedback after every session.", photo: PHOTOS.pathInterviews, button: "Find an Interview Mentor →", href: "/mentors?service=MMI&service=TRADITIONAL_INTERVIEW" },
+            { title: "Plan Your Path to Medicine", body: "School lists, MCAT strategy, gap years and reapplying, from people who made the same calls.", photo: PHOTOS.pathPlan, button: "Find a Strategy Mentor →", href: "/mentors?service=SCHOOL_LIST&service=MCAT&service=REAPPLICANT" },
           ],
           { maxItems: 6 },
         ),
       }),
       ...section("“Every mentor, vetted”", {
-        vetTitle: text("Heading", "Every mentor, vetted.", { max: 80 }),
-        vetText: long("Text", "Anyone can call themselves an admissions coach. On MentorsMD, nobody mentors until they've been through a rigorous interview with each of our senior team members, so every mentor has real experience and outstanding results.", { max: 800 }),
-        vetLink: text("Link to the senior team", "Meet our senior team →", { max: 60 }),
-        vetPhoto: image("Background photo", PHOTOS.vetting, "Optional. Without a photo the panel shows the brand colors."),
+        vetEyebrow: text("Small label", "How We Vet Mentors", { max: 40 }),
+        vetTitle: text("Heading", "Every Mentor, Interviewed by Our Senior Team", { max: 80 }),
+        vetText: long("Text", "Anyone can call themselves an admissions coach. On MentorsMD, nobody mentors until they've interviewed with each member of our senior team, so every mentor has real experience and outstanding results.", { max: 800 }),
+        vetLink: text("Link to the senior team", "Meet Our Senior Team →", { max: 60 }),
+        vetPhoto: image("Background photo", PHOTOS.vetting, "Not shown in the current design (the panel is plain dark purple)."),
         vetItems: list(
-          "Points under the panel",
+          "Points beside the text",
           "Point",
           { title: text("Title", "", { max: 60, required: true }), body: long("Text", "", { max: 300 }) },
           [
-            { title: "Interviewed", body: "Every mentor goes through a rigorous interview with each of our senior team members." },
-            { title: "Real experience", body: "We make sure they have real, hands-on experience with what they offer." },
-            { title: "Outstanding results", body: "Only mentors with outstanding results of their own are accepted." },
+            { title: "Interviewed", body: "A rigorous interview with each of our senior team members." },
+            { title: "Real Experience", body: "Real, hands-on experience with every service they offer." },
+            { title: "Outstanding Results", body: "Only mentors with outstanding results of their own are accepted." },
             // Mentors are invite-only, so there's no acceptance rate to show.
-            { title: "Invite-only", body: "Nobody can sign up to mentor. Every mentor joins through an invite from our team." },
+            { title: "Invite-Only", body: "Nobody can sign up to mentor. Every mentor joins by invitation from our team." },
           ],
-          { maxItems: 8, help: "Icons follow the order: chat, page, check mark, star. This panel also shows on the How it works page." },
+          { maxItems: 8, help: "Numbered in order. This panel also shows on the How it works page." },
         ),
       }),
       ...section("Featured mentors", {
-        featuredTitle: text("Heading", "Meet a few of our mentors.", { max: 80 }),
-        featuredLink: text("Link", "Browse all mentors →", { max: 60 }),
+        featuredEyebrow: text("Small label", "Featured Mentors", { max: 40 }),
+        featuredTitle: text("Heading", "Meet a Few of Our Mentors", { max: 80 }),
+        featuredLink: text("Link", "Browse All Mentors →", { max: 60 }),
       }),
       ...section("“Everything you need to get in”", {
-        featuresTitle: text("Heading", "Everything you need to get in.", { max: 80 }),
+        featuresEyebrow: text("Small label", "How It Works", { max: 40 }),
+        featuresTitle: text("Heading", "Everything You Need to Get In", { max: 80 }),
+        featuresUnderline: text("Underlined words in the heading", "Get In", { max: 60, help: "Leave blank for none." }),
         features: list(
           "Items",
           "Item",
           {
             title: text("Title", "", { max: 80, required: true }),
             body: long("Text", "", { max: 500 }),
-            cta: text("Button label", "Browse mentors", { max: 40 }),
+            cta: text("Link label", "Browse Mentors", { max: 40 }),
             href: link("Button opens", "/mentors", { required: true }),
-            tag: text("Label on the picture", "", { max: 30 }),
-            screen: text("Text on the picture", "", { max: 120 }),
+            tag: text("Label on the picture (not shown in the current design)", "", { max: 30 }),
+            screen: text("Text on the picture (not shown in the current design)", "", { max: 120 }),
           },
           [
-            { title: "Work 1-on-1 with a vetted mentor", body: "Message any mentor for free, then book help with one specific task, on your timeline.", cta: "Browse mentors", href: "/mentors", tag: "MESSAGING", screen: "Message a mentor, ask questions, and book once they reply." },
-            { title: "Get your essays reviewed", body: "Personal statements, activities and secondaries, with line edits and written feedback from someone who wrote winning ones.", cta: "Find an essay mentor", href: "/mentors?service=PERSONAL_STATEMENT&service=SECONDARIES&service=ACTIVITIES", tag: "ESSAY REVIEW", screen: "Line edits and written feedback, logged against your hours." },
-            { title: "Practice your interviews", body: "MMI and traditional mock interviews over video, with written feedback after every session. Book the call on your mentor's calendar once you've paid.", cta: "Book a mock interview", href: "/mentors?service=MMI&service=TRADITIONAL_INTERVIEW", tag: "MOCK MMI", screen: "Pick a time on your mentor's calendar and join from your order." },
-            { title: "Pay for hours, see every one", body: "You pay MentorsMD for hours, not the mentor. Every call and block of written work is logged on your package page, and when the work is marked complete you have 48 hours to approve it or ask for one last call or revision.", cta: "Get started", href: "/signup", tag: "SECURE PAYMENT", screen: "Hours bought → Hours logged → Marked complete → Approved" },
-            { title: "Ask for one last revision", body: "When your mentor marks the work complete, you have 48 hours to approve it, or ask for one last call or one last revision.", cta: "Browse mentors", href: "/mentors", tag: "REVISIONS", screen: "Marked complete → 48 hours to approve or ask for one more" },
-            { title: "Help if something goes wrong", body: "Open a dispute from your order and a MentorsMD admin steps in. They look at what happened and can refund your payment.", cta: "Get started", href: "/signup", tag: "DISPUTES", screen: "Dispute opened → MentorsMD admin reviews → Refund if needed" },
+            { title: "Work 1-on-1 With a Vetted Mentor", body: "Message any mentor for free, then book help with one specific task, on your timeline.", cta: "Browse Mentors", href: "/mentors", tag: "MESSAGING", screen: "Message a mentor, ask questions, and book once they reply." },
+            { title: "Get Your Essays Reviewed", body: "Personal statements, activities and secondaries, with line edits and written feedback from someone who wrote winning ones.", cta: "Find an Essay Mentor", href: "/mentors?service=PERSONAL_STATEMENT&service=SECONDARIES&service=ACTIVITIES", tag: "ESSAY REVIEW", screen: "Line edits and written feedback, logged against your hours." },
+            { title: "Practice Your Interviews", body: "MMI and traditional mock interviews over video, with written feedback after every session. Book the call on your mentor's calendar once you've paid.", cta: "Book a Mock Interview", href: "/mentors?service=MMI&service=TRADITIONAL_INTERVIEW", tag: "MOCK MMI", screen: "Pick a time on your mentor's calendar and join from your order." },
+            { title: "Pay for Hours, See Every One", body: "You pay MentorsMD for hours, not the mentor. Every call and block of written work is logged on your package page, and when the work is marked complete you have 48 hours to approve it or ask for one last call or revision.", cta: "Get Started", href: "/signup", tag: "SECURE PAYMENT", screen: "Hours bought → Hours logged → Marked complete → Approved" },
+            { title: "Ask for One Last Revision", body: "When your mentor marks the work complete, you have 48 hours to approve it, or ask for one last call or one last revision.", cta: "Browse Mentors", href: "/mentors", tag: "REVISIONS", screen: "Marked complete → 48 hours to approve or ask for one more" },
+            { title: "Help If Something Goes Wrong", body: "Open a dispute from your order and a MentorsMD admin steps in. They look at what happened and can refund your payment.", cta: "Get Started", href: "/signup", tag: "DISPUTES", screen: "Dispute opened → MentorsMD admin reviews → Refund if needed" },
           ],
           { maxItems: 10 },
         ),
       }),
       ...section("Testimonials", {
         testimonialsEyebrow: text("Small label", "Testimonials", { max: 40 }),
-        testimonialsTitle: text("Heading", "Don't just take our word for it.", { max: 80 }),
+        testimonialsTitle: text("Heading", "Don't Just Take Our Word for It", { max: 80 }),
         testimonials: list(
           "Hand-picked testimonials",
           "Testimonial",
@@ -200,7 +208,7 @@ export const SITE_PAGES = {
         ),
       }),
       ...section("Frequently asked questions", {
-        faqTitle: text("Heading", "Questions, answered.", { max: 80 }),
+        faqTitle: text("Heading", "Questions, Answered", { max: 80 }),
         faq: list(
           "Questions",
           "Question",
@@ -210,9 +218,10 @@ export const SITE_PAGES = {
         ),
       }),
       ...section("Final call to action", {
-        ctaTitle: text("Heading", "Ready when you are.", { max: 80 }),
+        ctaEyebrow: text("Small label", "Get Started", { max: 40 }),
+        ctaTitle: text("Heading", "Ready When You Are", { max: 80 }),
         ctaText: long("Text", "Message any vetted mentor or book a free 15-minute intro call. You only pay for the hours you buy, and every hour is logged.", { max: 400 }),
-        ctaButton: text("Button label", "Get started", { max: 40 }),
+        ctaButton: text("Button label", "Find a Mentor", { max: 40 }),
       }),
     },
   },
@@ -222,7 +231,7 @@ export const SITE_PAGES = {
     path: "/senior-team",
     fields: {
       ...section("Intro", {
-        title: text("Heading", "Our senior team.", { max: 80 }),
+        title: text("Heading", "Our Senior Team", { max: 80 }),
         intro: long("Intro", "Every MentorsMD mentor goes through a rigorous interview with each of us before they're invited, so students know anyone they message has real experience and outstanding results.", { max: 800 }),
       }),
       ...section("People", {
@@ -249,9 +258,9 @@ export const SITE_PAGES = {
         ),
       }),
       ...section("Bottom box", {
-        ctaTitle: text("Heading", "Want to mentor with us?", { max: 80 }),
+        ctaTitle: text("Heading", "Want to Mentor With Us?", { max: 80 }),
         ctaText: long("Text", "Med students and residents can apply. If it looks like a fit, you'll interview with each of us.", { max: 400 }),
-        ctaButton: text("Button label", "Apply to mentor", { max: 40 }),
+        ctaButton: text("Button label", "Apply to Mentor", { max: 40 }),
       }),
     },
   },
@@ -261,9 +270,9 @@ export const SITE_PAGES = {
     path: "/become-a-mentor",
     fields: {
       ...section("Intro", {
-        title: text("Heading", "Mentor the next class of doctors.", { max: 100 }),
+        title: text("Heading", "Mentor the Next Class of Doctors", { max: 100 }),
         intro: long("Intro", "MentorsMD is invite-only. Every mentor goes through a rigorous interview with each of our senior team members before they receive an invite, so students know anyone they message has real experience and outstanding results.", { max: 800 }),
-        applyButton: text("Button label", "Apply to mentor", { max: 40 }),
+        applyButton: text("Button label", "Apply to Mentor", { max: 40 }),
       }),
       ...section("Perks", {
         perks: list(
@@ -278,8 +287,8 @@ export const SITE_PAGES = {
           { maxItems: 6, help: "Icons follow the order: pen, lock, calendar." },
         ),
       }),
-      ...section("How to join", {
-        howTitle: text("Heading", "How to join", { max: 60 }),
+      ...section("How to Join", {
+        howTitle: text("Heading", "How to Join", { max: 60 }),
         steps: lines(
           "Steps",
           [
@@ -292,7 +301,7 @@ export const SITE_PAGES = {
         inviteNote: text("Note next to the button", "Already have an invite? Open the link in your invite email.", { max: 200 }),
       }),
       ...section("Application form", {
-        applyTitle: text("Heading", "Apply to mentor", { max: 60 }),
+        applyTitle: text("Heading", "Apply to Mentor", { max: 60 }),
         applyText: long("Text", "Tell us a little about yourself. Our senior team reviews every application and usually replies within a few days.", { max: 400 }),
       }),
     },
@@ -303,11 +312,11 @@ export const SITE_PAGES = {
     path: "/how-it-works",
     fields: {
       ...section("Intro", {
-        title: text("Heading", "How MentorsMD works", { max: 80, required: true }),
+        title: text("Heading", "How MentorsMD Works", { max: 80, required: true }),
         intro: long("Intro", "MentorsMD connects you with med students and residents who got in recently. Every mentor is vetted by our senior team, prices are set by the hour, and every hour you use is logged where you can see it.", { max: 600 }),
       }),
       ...section("Steps", {
-        stepsTitle: text("Heading", "Four simple steps", { max: 80 }),
+        stepsTitle: text("Heading", "Four Simple Steps", { max: 80 }),
         steps: list(
           "Steps",
           "Step",
@@ -322,7 +331,7 @@ export const SITE_PAGES = {
         ),
       }),
       ...section("Payment protection & safety", {
-        protectTitle: text("Heading", "Your payment and safety, protected.", { max: 80 }),
+        protectTitle: text("Heading", "Your Payment and Safety, Protected", { max: 80 }),
         protectText: long("Text", "We built MentorsMD so students never have to take a mentor's word for it.", { max: 400 }),
         protectItems: list(
           "Points",
@@ -339,7 +348,7 @@ export const SITE_PAGES = {
         ),
       }),
       ...section("Final call to action", {
-        ctaTitle: text("Heading", "Ready to get started?", { max: 80 }),
+        ctaTitle: text("Heading", "Ready to Get Started?", { max: 80 }),
         ctaText: long("Text", "Message any vetted mentor for free. When you book, we hold your payment until you approve the work.", { max: 400 }),
       }),
     },
@@ -350,11 +359,11 @@ export const SITE_PAGES = {
     path: "/reviews",
     fields: {
       ...section("Intro", {
-        title: text("Heading", "What students say", { max: 80, required: true }),
+        title: text("Heading", "What Students Say", { max: 80, required: true }),
         intro: long("Intro", "Reviews from students who worked with a MentorsMD mentor. Reviews from completed orders are added automatically.", { max: 400, help: "The reviews themselves come from completed orders, plus the hand-picked testimonials in Homepage → Testimonials." }),
       }),
       ...section("When there are no reviews yet", {
-        emptyTitle: text("Heading", "Reviews are on their way.", { max: 80 }),
+        emptyTitle: text("Heading", "Reviews Are on Their Way", { max: 80 }),
         emptyText: long("Text", "Our first students are working with their mentors now. In the meantime, every mentor is vetted by our senior team, and every hour you use is logged where you can see it.", { max: 400 }),
       }),
     },
@@ -365,16 +374,16 @@ export const SITE_PAGES = {
     path: "/mentors",
     fields: {
       ...section("Intro", {
-        title: text("Heading", "Find your mentor", { max: 60 }),
+        title: text("Heading", "Find Your Mentor", { max: 60 }),
         intro: text("Intro line", "Every mentor is vetted by our senior team. Message anyone for free.", { max: 200 }),
       }),
       ...section("When there are no mentors yet", {
-        emptyTitle: text("Heading", "Mentors are joining soon.", { max: 80 }),
+        emptyTitle: text("Heading", "Mentors Are Joining Soon", { max: 80 }),
         emptyText: long("Text", "Every mentor goes through a rigorous interview with our senior team, so we add them carefully. Check back soon.", { max: 400 }),
         emptyLink: text("Link to Become a mentor", "Are you a med student or resident? Apply to mentor", { max: 100 }),
       }),
       ...section("“Tell me when mentors join” box (shown with the no-mentors message)", {
-        waitlistTitle: text("Heading", "Get an email when mentors join", { max: 80 }),
+        waitlistTitle: text("Heading", "Get an Email When Mentors Join", { max: 80 }),
         waitlistText: long("Text", "Leave your email and we'll let you know as soon as you can book a mentor. No spam, one email.", { max: 300 }),
         waitlistButton: text("Button", "Tell me when mentors join", { max: 40, required: true }),
         waitlistSuccess: long("Thank-you message", "You're on the list. We'll email you as soon as mentors are available.", { max: 300, required: true }),
@@ -391,22 +400,22 @@ export const SITE_PAGES = {
         phone: text("Phone (optional)", process.env.NEXT_PUBLIC_CONTACT_PHONE || "", { max: 40, help: "The phone card only shows when a number is set." }),
       }),
       ...section("Contact us", {
-        title: text("Heading", "Contact us", { max: 60 }),
+        title: text("Heading", "Contact Us", { max: 60 }),
         intro: long("Intro", "Have a question, ran into an issue, or want to talk to a real person? We usually reply within one business day.", { max: 400 }),
-        orderTitle: text("Box 1 heading", "Problem with an order?", { max: 80 }),
+        orderTitle: text("Box 1 heading", "Problem With an Order?", { max: 80 }),
         orderText: long("Box 1 text", "Open the order and use “Report a problem” (or “Open a dispute” under a delivery). Payment stays on hold while our team looks into it.", { max: 400 }),
-        mentorBoxTitle: text("Box 2 heading", "Want to become a mentor?", { max: 80 }),
+        mentorBoxTitle: text("Box 2 heading", "Want to Become a Mentor?", { max: 80 }),
         mentorBoxBefore: text("Box 2 text before the link", "Please don't email your resume.", { max: 200 }),
         mentorBoxLink: text("Box 2 link", "Apply with the mentor application form", { max: 100 }),
         mentorBoxAfter: text("Box 2 text after the link", "so our senior team can review it.", { max: 200 }),
       }),
       ...section("Message form", {
-        formTitle: text("Heading", "Send us a message", { max: 80 }),
+        formTitle: text("Heading", "Send Us a Message", { max: 80 }),
         formIntro: long("Text above the form", "Or write to us here and we'll reply by email.", { max: 300 }),
         formSuccess: long("Thank-you message", "Thanks, your message is on its way. We've emailed you a copy and usually reply within one business day.", { max: 300, required: true }),
       }),
       ...section("Contact page for future mentors (/contact?topic=mentor)", {
-        mentorTitle: text("Heading", "Apply to mentor", { max: 60 }),
+        mentorTitle: text("Heading", "Apply to Mentor", { max: 60 }),
         mentorIntro: long("Intro", "Mentor applications go through our short application form: your medical school, resume and a few lines about yourself. Our senior team reviews every one and replies within a few days.", { max: 400 }),
       }),
     },
@@ -418,7 +427,7 @@ export const SITE_PAGES = {
     about: "The page at /press. Hidden from visitors (they get “page not found”) until “Press page” is switched on in Site settings; admins can always open it.",
     fields: {
       ...section("Intro", {
-        title: text("Heading", "MentorsMD in the news", { max: 80, required: true }),
+        title: text("Heading", "MentorsMD in the News", { max: 80, required: true }),
         intro: long("Intro", "Articles, interviews and podcasts featuring MentorsMD and our mentors.", { max: 600 }),
       }),
       ...section("Press mentions", {
@@ -439,7 +448,7 @@ export const SITE_PAGES = {
         emptyText: text("Text while there are no mentions", "Press mentions are coming soon.", { max: 200 }),
       }),
       ...section("Press questions box", {
-        contactTitle: text("Heading", "Press questions", { max: 80 }),
+        contactTitle: text("Heading", "Press Questions", { max: 80 }),
         contactText: long("Text", "For interviews and press questions, email us.", { max: 400, help: "The email address under it is the one set on the Contact page." }),
       }),
     },
@@ -469,14 +478,14 @@ export const SITE_PAGES = {
     about: "Things used on several pages: the scrolling school logo strips and whether the Press page is shown.",
     fields: {
       ...section("Mentor schools strip", {
-        mentorSchoolsTitle: text("Heading", "Our mentors come from", { max: 80 }),
+        mentorSchoolsTitle: text("Heading", "Our Mentors Come From", { max: 80 }),
         mentorSchools: schoolList(
           "Schools",
           "The scrolling strip of school logos on the Homepage and Become a mentor pages (move or hide it on each page's Layout tab). It's hidden while the list is empty. Use only schools your current mentors actually attend.",
         ),
       }),
       ...section("Senior team “trained at” strip", {
-        trainedAtTitle: text("Heading", "Our senior team studied and trained at", { max: 80 }),
+        trainedAtTitle: text("Heading", "Our Senior Team Studied and Trained At", { max: 80 }),
         trainedAt: schoolList("Schools", "The scrolling strip on the Senior team page (move or hide it on that page's Layout tab). It's hidden while the list is empty."),
       }),
       ...section("Press page", {

@@ -9,7 +9,7 @@ import { PageSections } from "@/components/website/PageSections";
 export const dynamic = "force-dynamic"; // reads the latest reviews
 
 export const metadata: Metadata = {
-  title: "Reviews · MentorsMD",
+  title: "Reviews",
   description: "What students say about working with a MentorsMD mentor.",
 };
 

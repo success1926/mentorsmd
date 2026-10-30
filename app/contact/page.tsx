@@ -4,7 +4,7 @@ import { getSiteContent } from "@/lib/siteContentStore";
 import { ContactForm } from "@/components/ContactForm";
 import { PageSections } from "@/components/website/PageSections";
 
-export const metadata = { title: "Contact us · MentorsMD" };
+export const metadata = { title: "Contact Us" };
 
 // The email, phone and text are edited in Admin -> Website. Their defaults
 // come from NEXT_PUBLIC_CONTACT_EMAIL / NEXT_PUBLIC_CONTACT_PHONE in Vercel

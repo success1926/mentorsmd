@@ -1,29 +1,28 @@
 import Link from "next/link";
-import { HomeFeatures } from "@/components/HomeFeatures";
 import { RoleCta } from "@/components/RoleCta";
 import { ReviewWall } from "@/components/ReviewWall";
 import { VettingSection } from "@/components/VettingSection";
 import { FaqSection } from "@/components/FaqSection";
+import { Underline } from "@/components/Underline";
 import { Icon, ICONS, Vetted, Rating, tintFor, initialsOf } from "@/components/ui";
 import { getFeaturedMentors, getReviewStats } from "@/lib/mentorQueries";
 import { HOME_WALL_REVIEWS, REVIEW_WALL_MIN, getReviewWall } from "@/lib/reviewWall";
 import { safeHref } from "@/lib/siteContent";
 import { getSiteContent } from "@/lib/siteContentStore";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
-import { Fragment } from "react";
 import { PageSections } from "@/components/website/PageSections";
 import { SchoolMarquee } from "@/components/SchoolMarquee";
 import { BEST_FOR, labelFor, money, STAGES } from "@/lib/options";
 
 export const dynamic = "force-dynamic"; // mentor cards and review counts read live data
 
-// Icons and card colors follow each item's position; the text, links and
-// photos are edited in Admin -> Website (defaults in lib/siteContent.ts).
-const QUICK_ICONS = [ICONS.pen, ICONS.doc, ICONS.chat, ICONS.chart, ICONS.cycle];
+// Card colors follow each item's position (shown when a path card has no
+// photo); the text, links and photos are edited in Admin -> Website
+// (defaults in lib/siteContent.ts).
 const PATH_BGS = [
-  "linear-gradient(180deg, #CFC4FF 0%, #8E78F0 50%, #2B1F6B 100%)",
-  "linear-gradient(180deg, #F5B9CD 0%, #9A7BE8 50%, #2B1F6B 100%)",
-  "linear-gradient(180deg, #E4EEFF 0%, #8E9BF0 50%, #2B1F6B 100%)",
+  "linear-gradient(135deg, #DDD5FF 0%, #F1EDFF 100%)",
+  "linear-gradient(135deg, #FCE4EC 0%, #F1EDFF 100%)",
+  "linear-gradient(135deg, #E4EEFF 0%, #F1EDFF 100%)",
 ];
 
 export default async function HomePage() {
@@ -40,23 +39,29 @@ export default async function HomePage() {
         <div className="blob" style={{ left: "35%", top: 40, width: 520, height: 200, background: "rgba(207,196,255,0.45)", filter: "blur(60px)" }} />
 
         <div className="hero-body">
-          <h1 className="hero-title">{c.heroTitle}</h1>
+          {c.heroEyebrow && <span className="eyebrow">{c.heroEyebrow}</span>}
+          <h1 className="hero-title">
+            <Underline text={c.heroTitle} phrase={c.heroUnderline} />
+          </h1>
           {c.heroSub && <p className="hero-sub">{c.heroSub}</p>}
           <form action="/mentors" method="get" className="hero-search" role="search">
-            <Icon d={ICONS.search} size={22} />
+            <Icon d={ICONS.search} size={20} />
             <input name="q" aria-label="Search for help" placeholder={c.searchPlaceholder} />
-            <button type="submit" aria-label="Search mentors">
-              <Icon d={ICONS.arrow} size={22} />
+            <button type="submit" className="btn btn-primary">
+              <span className="hide-mobile">Search Mentors</span>
+              <Icon d={ICONS.arrow} size={18} />
             </button>
           </form>
-          <div className="row-wrap" style={{ justifyContent: "center", gap: 10 }}>
-            {c.quickTopics.map((q, i) => (
-              <Link key={i} href={safeHref(q.href)} className="chip">
-                <Icon d={QUICK_ICONS[i % QUICK_ICONS.length]} size={17} />
-                {q.label}
-              </Link>
-            ))}
-          </div>
+          {c.quickTopics.length > 0 && (
+            <div className="hero-topics">
+              <span>Popular:</span>
+              {c.quickTopics.map((q, i) => (
+                <Link key={i} href={safeHref(q.href)}>
+                  {q.label}
+                </Link>
+              ))}
+            </div>
+          )}
           {stats.count >= 3 && stats.avg !== null && (
             <div className="hero-proof">
               <div className="hero-dots" aria-hidden="true">
@@ -74,11 +79,15 @@ export default async function HomePage() {
         </div>
 
         {c.schools.length > 0 && (
-          <div className="school-strip">
-            <span>{c.schoolsLabel}</span>
-            {c.schools.map((s, i) => (
-              <b key={i}>{s}</b>
-            ))}
+          <div className="wrap">
+            <div className="school-strip">
+              <span className="eyebrow">{c.schoolsLabel}</span>
+              <div className="school-strip-names">
+                {c.schools.map((s, i) => (
+                  <b key={i}>{s}</b>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </section>
@@ -91,29 +100,27 @@ export default async function HomePage() {
       <section className="home-section">
         <div className="wrap">
           <div className="center-head">
+            {c.pathsEyebrow && <span className="eyebrow">{c.pathsEyebrow}</span>}
             <h2 className="big-title">
-              <Lines text={c.pathsTitle} />
+              <Underline text={c.pathsTitle} phrase={c.pathsUnderline} />
             </h2>
-            {c.pathsText && (
-              <p className="lede" style={{ maxWidth: 880, fontSize: 21 }}>
-                {c.pathsText}
-              </p>
-            )}
+            {c.pathsText && <p className="lede" style={{ maxWidth: 760, marginTop: 8 }}>{c.pathsText}</p>}
           </div>
           <div className="grid-3" style={{ marginTop: 56 }}>
             {c.paths.map((p, i) => (
-              <div key={i} className="path-card" style={{ background: PATH_BGS[i % PATH_BGS.length] }}>
-                {p.photo && (
-                  <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img className="path-photo" src={stripFocus(p.photo)} alt="" style={{ objectPosition: focusPosition(p.photo) }} />
-                    <div className="path-shade" />
-                  </>
-                )}
-                <h3>{p.title}</h3>
-                {p.body && <p>{p.body}</p>}
-                {p.button && <Link href={safeHref(p.href)} className="btn">{p.button}</Link>}
-              </div>
+              <Link key={i} href={safeHref(p.href)} className="path-card">
+                <div className="path-photo" style={{ background: PATH_BGS[i % PATH_BGS.length] }}>
+                  {p.photo && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={stripFocus(p.photo)} alt="" loading="lazy" style={{ objectPosition: focusPosition(p.photo) }} />
+                  )}
+                </div>
+                <div className="path-body">
+                  <h3>{p.title}</h3>
+                  {p.body && <p>{p.body}</p>}
+                  {p.button && <span className="link">{p.button}</span>}
+                </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -124,11 +131,14 @@ export default async function HomePage() {
     vetting: <VettingSection c={c} id="vetting" />,
 
     featured: mentors.length > 0 && (
-        <section style={{ paddingBottom: 130 }}>
+        <section className="home-section">
           <div className="wrap">
-            <div className="between" style={{ alignItems: "flex-end", marginBottom: 40, flexWrap: "wrap" }}>
-              <h2 style={{ fontSize: "clamp(34px, 4.4vw, 64px)" }}>{c.featuredTitle}</h2>
-              {c.featuredLink && <Link href="/mentors" className="link" style={{ fontSize: 18 }}>{c.featuredLink}</Link>}
+            <div className="between" style={{ alignItems: "flex-end", marginBottom: 40, flexWrap: "wrap", gap: 24 }}>
+              <div className="stack" style={{ gap: 14 }}>
+                {c.featuredEyebrow && <span className="eyebrow">{c.featuredEyebrow}</span>}
+                <h2 className="section-head">{c.featuredTitle}</h2>
+              </div>
+              {c.featuredLink && <Link href="/mentors" className="link">{c.featuredLink}</Link>}
             </div>
             <div className="grid-4">
               {mentors.map((m) => {
@@ -144,17 +154,17 @@ export default async function HomePage() {
                       )}
                       <Vetted />
                     </div>
-                    <div className="stack-sm" style={{ gap: 6 }}>
+                    <div className="stack-sm" style={{ gap: 4 }}>
                       <div className="between" style={{ alignItems: "baseline" }}>
-                        <b style={{ fontSize: 21, fontWeight: 600 }}>{m.name}</b>
+                        <b className="mentor-tile-name">{m.name}</b>
                         <Rating avg={m.avgRating} count={m.reviewCount} />
                       </div>
-                      <span className="text-secondary" style={{ fontSize: 16 }}>
+                      <span className="text-secondary">
                         {m.credential || labelFor(STAGES, m.mentorStage)}
+                        {firstBestFor && <> · Best for {labelFor(BEST_FOR, firstBestFor)}</>}
                       </span>
-                      {firstBestFor && <span style={{ fontSize: 16 }}>Best for: {labelFor(BEST_FOR, firstBestFor)}</span>}
                       {m.fromRateCents && (
-                        <span className="text-secondary" style={{ fontSize: 15 }}>
+                        <span className="text-secondary" style={{ marginTop: 4 }}>
                           From <b style={{ color: "var(--ink)" }}>{money(m.fromRateCents)}/hr</b>
                         </span>
                       )}
@@ -168,10 +178,27 @@ export default async function HomePage() {
     ),
 
     features: (
-      <section style={{ paddingBottom: 140 }}>
+      <section className="home-section" style={{ paddingTop: 0 }}>
         <div className="wrap">
-          <h2 className="big-title" style={{ textAlign: "center", marginBottom: 64 }}>{c.featuresTitle}</h2>
-          <HomeFeatures features={c.features.map((f) => ({ ...f, href: safeHref(f.href) }))} />
+          <div className="stack" style={{ gap: 14, marginBottom: 44 }}>
+            {c.featuresEyebrow && <span className="eyebrow">{c.featuresEyebrow}</span>}
+            <h2 className="section-head">
+              <Underline text={c.featuresTitle} phrase={c.featuresUnderline} />
+            </h2>
+          </div>
+          <div className="feature-grid">
+            {c.features.map((f, i) => (
+              <div key={i}>
+                <h3>{f.title}</h3>
+                {f.body && <p>{f.body}</p>}
+                {!f.cta ? null : f.href === "/signup" ? (
+                  <RoleCta href={f.href} label={`${f.cta} →`} className="link" />
+                ) : (
+                  <Link href={safeHref(f.href)} className="link">{f.cta} →</Link>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </section>
     ),
@@ -179,8 +206,8 @@ export default async function HomePage() {
     testimonials: wall.length >= REVIEW_WALL_MIN && (
         <section id="reviews" className="wall" style={{ scrollMarginTop: 150 }}>
           <div className="wrap">
-            <div className="center-head" style={{ marginBottom: 56, gap: 18 }}>
-              <span className="eyebrow" style={{ color: "var(--ink)", fontSize: 18, fontWeight: 500 }}>{c.testimonialsEyebrow}</span>
+            <div className="center-head" style={{ marginBottom: 56, gap: 16 }}>
+              {c.testimonialsEyebrow && <span className="eyebrow">{c.testimonialsEyebrow}</span>}
               <h2 className="big-title">{c.testimonialsTitle}</h2>
             </div>
             <ReviewWall items={wall} />
@@ -192,15 +219,12 @@ export default async function HomePage() {
     faq: <FaqSection title={c.faqTitle} faq={c.faq} />,
 
     cta: (
-      <section className="home-section">
-        <div className="wrap center-head" style={{ gap: 24 }}>
+      <section className="home-section home-cta">
+        <div className="wrap center-head" style={{ gap: 20 }}>
+          {c.ctaEyebrow && <span className="eyebrow">{c.ctaEyebrow}</span>}
           <h2 className="big-title">{c.ctaTitle}</h2>
-          {c.ctaText && (
-            <p className="lede" style={{ fontSize: 21 }}>
-              {c.ctaText}
-            </p>
-          )}
-          <RoleCta href="/mentors" label={c.ctaButton} className="btn btn-primary btn-lg" style={{ padding: "20px 38px", fontSize: 19 }} />
+          {c.ctaText && <p className="lede">{c.ctaText}</p>}
+          <RoleCta href="/mentors" label={c.ctaButton} className="btn btn-primary btn-lg" style={{ marginTop: 8 }} />
         </div>
       </section>
     ),
@@ -210,20 +234,5 @@ export default async function HomePage() {
     <div>
       <PageSections page="home" layout={c.layout} sections={sections} navGap="hero" />
     </div>
-  );
-}
-
-// A heading where each line break in the text starts a new line.
-function Lines({ text }: { text: string }) {
-  const parts = text.split("\n").map((l) => l.trim()).filter(Boolean);
-  return (
-    <>
-      {parts.map((l, i) => (
-        <Fragment key={i}>
-          {i > 0 && <br />}
-          {l}
-        </Fragment>
-      ))}
-    </>
   );
 }
