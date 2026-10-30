@@ -2,16 +2,17 @@
 
 // The student's Calendar (student area v2, Oct 2026): upcoming calls with
 // Join (today's), Reschedule / Cancel for package calls until 24 hours
-// before, Cancel only for free intro calls (then book a new time from the
-// mentor's profile); past calls collapsed. On the side: adding the calls to
+// before (after that Reschedule only, with a reason), Cancel only for free
+// intro calls (then book a new time from the mentor's profile); past calls collapsed. On the side: adding the calls to
 // their own calendar app (moved here from /account), reminders and a note
 // about calls.
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Booker } from "@/components/Booker";
 import { CalendarSync } from "@/components/CalendarSync";
+import { LateReasonField, useMoveCall } from "@/components/Calls";
 import { notifyPackagesChanged } from "@/components/StudentShell";
-import { CANCEL_CUTOFF_HOURS, JOIN_OPENS_MINUTES_BEFORE, RECORDING_NOTICE, canChangeOnline, fmtDateTime, joinState } from "@/lib/calls";
+import { CANCEL_CUTOFF_HOURS, JOIN_OPENS_MINUTES_BEFORE, RECORDING_NOTICE, canChangeOnline, fmtDateTime, isLateChange, joinState } from "@/lib/calls";
 import { browserTimeZone } from "@/lib/tz";
 
 const fmtTime = (d: string | Date, zone = false) => new Date(d).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", ...(zone ? { timeZoneName: "short" } : {}) });
@@ -45,6 +46,8 @@ function UpcomingCall({ c, now, onChanged }: { c: any; now: Date; onChanged: () 
   const intro = c.kind === "INTRO";
   const state = joinState(c, now);
   const changeable = canChangeOnline(c, now);
+  // Package calls can still be moved in the last 24 hours, with a reason.
+  const late = !intro && isLateChange(c, now);
   const changeUntil = new Date(start.getTime() - CANCEL_CUTOFF_HOURS * 3600_000);
   const mins = minutesOf(c);
   const first = (c.withName || "your mentor").split(" ")[0];
@@ -63,14 +66,10 @@ function UpcomingCall({ c, now, onChanged }: { c: any; now: Date; onChanged: () 
     onChanged();
   }
 
-  async function move(startIso: string) {
-    const res = await fetch(`/api/orders/${c.orderId}/calls`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bookingId: c.id, startTime: startIso }) });
-    const d = await res.json().catch(() => ({}));
-    if (!res.ok) return d.error || "Couldn't move the call.";
+  const mover = useMoveCall(c.orderId, c.id, late, () => {
     setMoving(false);
     onChanged();
-    return null;
-  }
+  });
 
   return (
     <div className="cal-item">
@@ -89,13 +88,17 @@ function UpcomingCall({ c, now, onChanged }: { c: any; now: Date; onChanged: () 
             : `Join opens ${JOIN_OPENS_MINUTES_BEFORE} minutes before${changeable ? ` · Change until ${fmtDateTime(changeUntil)}` : ""}`}
         </span>
         {!changeable && state !== "open" && (
-          <span className="text-muted small">Less than {CANCEL_CUTOFF_HOURS} hours to go: message {first} if something comes up.</span>
+          <span className="text-muted small">
+            {late && c.orderId && !c.disputed
+              ? `Less than ${CANCEL_CUTOFF_HOURS} hours to go: it can't be cancelled on the site, and moving it needs a short reason that's sent to ${first}.`
+              : `Less than ${CANCEL_CUTOFF_HOURS} hours to go: message ${first} if something comes up.`}
+          </span>
         )}
         {err && <div role="alert" className="alert alert-danger small">{err}</div>}
       </div>
       <div className="row-wrap" style={{ gap: 6 }}>
         <Link href={`/calls/${c.id}`} className={`btn btn-sm ${state === "open" ? "btn-deep" : ""}`}>{state === "open" ? "Join call" : "Call page"}</Link>
-        {changeable && !intro && !c.disputed && c.orderId && (
+        {(changeable || late) && !intro && !c.disputed && c.orderId && (
           <button className="btn btn-sm" aria-expanded={moving} onClick={() => setMoving((m) => !m)}>Reschedule</button>
         )}
         {changeable && (
@@ -103,7 +106,8 @@ function UpcomingCall({ c, now, onChanged }: { c: any; now: Date; onChanged: () 
         )}
       </div>
       {moving && (
-        <div style={{ flexBasis: "100%" }}>
+        <div className="stack" style={{ flexBasis: "100%" }}>
+          {late && <LateReasonField otherFirst={first} reason={mover.reason} setReason={mover.setReason} />}
           <Booker
             framed
             slotsUrl={`/api/orders/${c.orderId}/slots?exclude=${encodeURIComponent(c.id)}`}
@@ -111,7 +115,7 @@ function UpcomingCall({ c, now, onChanged }: { c: any; now: Date; onChanged: () 
             title="Reschedule the call"
             description={<>Now: {fmtDateTime(c.startTime)}. Pick a new time; you&apos;ll both get an email with the updated calendar invite.</>}
             confirmLabel="Move here"
-            onConfirm={move}
+            onConfirm={mover.move}
             onCancel={() => setMoving(false)}
             emptyHint={<>Message {first} to agree a time.</>}
           />
@@ -143,7 +147,7 @@ export function StudentCalendar({ data, reload }: { data: any; reload: () => voi
           <section className="mentor-box">
             <div className="mentor-box-head" style={{ flexWrap: "wrap" }}>
               <h2>Upcoming · {upcoming.length}</h2>
-              <span className="text-muted small">Reschedule or cancel up to {CANCEL_CUTOFF_HOURS} hours before a call</span>
+              <span className="text-muted small">Reschedule or cancel up to {CANCEL_CUTOFF_HOURS} hours before a call. After that, moving it needs a short reason.</span>
             </div>
             {upcoming.length === 0 ? (
               <div className="stack-sm" style={{ padding: "8px 0" }}>

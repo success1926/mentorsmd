@@ -8,6 +8,10 @@ import { COUNTS_AS_HELD, DECIDE_WITHIN_HOURS, FREES_THE_CALL, NEEDS_ADMIN } from
 export const JOIN_OPENS_MINUTES_BEFORE = 10; // Join button appears 10 min before start
 export const JOIN_CLOSES_MINUTES_AFTER = 30; // ...and stays until 30 min after the scheduled end
 export const CANCEL_CUTOFF_HOURS = 24; // on-site cancel/reschedule closes 24h before the call
+// Inside those 24 hours a package call can still be moved, but only with a
+// written reason, which is posted to the other person as a message.
+export const LATE_REASON_MIN = 20;
+export const LATE_REASON_MAX = 600;
 export const CALL_HOLD_HOURS = 48; // after the due date, the student has 48h to book or waive
 export const CALL_REMINDER_EVERY_DAYS = 3; // "book your call" nudges while a call is unbooked
 
@@ -95,6 +99,11 @@ export function joinState(b: BookingLike, now: Date = new Date()): "early" | "op
 
 export function canChangeOnline(b: BookingLike, now: Date = new Date()) {
   return new Date(b.startTime).getTime() - now.getTime() > CANCEL_CUTOFF_HOURS * 3600_000;
+}
+
+// Less than 24 hours to go but not started yet: moving needs a reason.
+export function isLateChange(b: BookingLike, now: Date = new Date()) {
+  return !canChangeOnline(b, now) && new Date(b.startTime).getTime() > now.getTime();
 }
 
 // Shown when booking, on the order page, on the pre-join screen, and in

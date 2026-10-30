@@ -12,7 +12,13 @@ export const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thurs
 export const BUFFER_OPTIONS = [0, 10, 15, 30, 60]; // minutes kept free around each call
 export const NOTICE_OPTIONS = [2, 4, 12, 24, 48, 72]; // hours of notice a student must give
 export const SLOT_STEP_MINUTES = 30; // calls can start on the hour or half hour
-export const BOOKING_HORIZON_DAYS = 60; // how far ahead students can book
+export const BOOKING_HORIZON_DAYS = 60; // how far ahead students can book, unless the mentor picks another window
+// Each mentor picks how far into the future students can book (User.bookingWindowDays).
+export const BOOKING_WINDOW_OPTIONS = [7, 14, 30, 60, 90];
+export const MAX_BOOKING_WINDOW_DAYS = Math.max(...BOOKING_WINDOW_OPTIONS);
+export const bookingWindowLabel = (days: number) => (days === 7 ? "1 week" : days === 14 ? "2 weeks" : `${days} days`);
+// The mentor's window, or the standard one for an unexpected value.
+export const bookingWindowFor = (days: number | null | undefined) => (days && BOOKING_WINDOW_OPTIONS.includes(days) ? days : BOOKING_HORIZON_DAYS);
 export const MAX_WINDOWS_PER_DAY = 4;
 
 // Validates weekly hours from the browser. Returns null when invalid.

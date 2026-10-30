@@ -145,7 +145,8 @@ function PersonDetail({ id }: { id: string }) {
       )}
       <HealthCard d={d} />
       <div className="row-wrap small text-secondary">
-        {isMentor && <span><b>Medical school:</b> {u.medicalSchool || "not added yet"}</span>}
+        {isMentor && u.mentorStage === "UNDERGRAD" && <span><b>Undergraduate school:</b> {u.undergradSchool || "not added yet"}</span>}
+        {isMentor && <span><b>Medical school:</b> {u.medicalSchool || (u.mentorStage === "UNDERGRAD" ? "not given (optional for undergrads)" : "not added yet")}</span>}
         <span><b>Signup source:</b> {u.signupSource ? `${u.signupSource}${u.signupDetail ? ` (${u.signupDetail})` : ""}` : "unknown"}</span>
       </div>
       {isMentor && (

@@ -8,7 +8,7 @@ import { callMinutes, hoursSummary, isBlockMinutes } from "@/lib/hours";
 import { finishPhase } from "@/lib/finishing";
 import { blockBetween } from "@/lib/blocks";
 import { maybeSendLowHours } from "@/lib/hourLog";
-import { BusyRange, Interval, generateSlots, BOOKING_HORIZON_DAYS } from "@/lib/schedule";
+import { BusyRange, Interval, generateSlots, MAX_BOOKING_WINDOW_DAYS, bookingWindowFor } from "@/lib/schedule";
 import { addDays, dayInZone, tzOrDefault } from "@/lib/tz";
 import { EXTERNAL_CAL_CACHE_MINUTES, fetchIcal, parseIcalBusy } from "@/lib/icalBusy";
 import { googleBusy } from "@/lib/googleCalendar";
@@ -24,6 +24,7 @@ export const mentorScheduleSelect = {
   weeklyHours: true,
   bufferMinutes: true,
   minNoticeHours: true,
+  bookingWindowDays: true,
   daysOff: true,
   externalCalUrl: true,
   externalBusy: true,
@@ -62,7 +63,8 @@ export async function externalBusyFor(mentor: MentorForSchedule, force = false):
   if (fresh && !force) return fromCache();
   try {
     const from = Date.now() - 24 * 3600_000;
-    const to = Date.now() + (BOOKING_HORIZON_DAYS + 2) * 24 * 3600_000;
+    // Every window a mentor can pick, so changing it needs no re-read.
+    const to = Date.now() + (MAX_BOOKING_WINDOW_DAYS + 2) * 24 * 3600_000;
     const parts = await Promise.all([
       google ? googleBusy(mentor.id, from, to) : Promise.resolve([] as Interval[]),
       icalUrl ? fetchIcal(icalUrl).then((text) => parseIcalBusy(text, tzOrDefault(mentor.timeZone), from, to)) : Promise.resolve([] as Interval[]),
@@ -156,6 +158,7 @@ export async function openSlotsFor(
     busyRanges: ranges,
     busy: [...booked, ...external],
     lengthMinutes,
+    horizonDays: bookingWindowFor(mentor.bookingWindowDays),
     onlyDay: opts.onlyDay,
   });
 }
@@ -218,13 +221,13 @@ function callEmail(order: OrderForCalls, booking: { id: string; startTime: Date;
   };
 }
 
-async function emailBoth(order: OrderForCalls, booking: any, kind: "booked" | "rescheduled" | "cancelled", byName?: string) {
+async function emailBoth(order: OrderForCalls, booking: any, kind: "booked" | "rescheduled" | "cancelled", byName?: string, lateReason?: string) {
   await Promise.all(
     (["buyer", "seller"] as const).map(async (who) => {
       const c = callEmail(order, booking, who, kind === "cancelled" ? "CANCEL" : "REQUEST");
       try {
         if (kind === "cancelled") await sendCallCancelledEmail(c.email, c, byName || "Someone");
-        else await sendCallScheduledEmail(c.email, c, kind === "rescheduled");
+        else await sendCallScheduledEmail(c.email, c, kind === "rescheduled", lateReason ? { by: byName || "Someone", reason: lateReason } : undefined);
       } catch (err) {
         console.error(`Call ${kind} email failed`, err);
       }
@@ -343,7 +346,9 @@ export async function bookCall(order: OrderForCalls, start: Date, by: { id: stri
   return saved;
 }
 
-export async function rescheduleCall(order: OrderForCalls, bookingId: string, start: Date, by: { id: string; isMentor: boolean }) {
+// lateReason: moved within 24 hours of the start; the caller posts it as
+// a message, and it's quoted in both emails.
+export async function rescheduleCall(order: OrderForCalls, bookingId: string, start: Date, by: { id: string; isMentor: boolean; name?: string }, lateReason?: string) {
   const current = order.callBookings.find((b) => b.id === bookingId);
   if (!current || current.status !== "BOOKED") throw new CallError("Call not found", 404);
   // A moved call keeps its length (hours orders: the 30 or 60 booked).
@@ -385,7 +390,7 @@ export async function rescheduleCall(order: OrderForCalls, bookingId: string, st
     room && room.name !== updated.roomName
       ? await prisma.callBooking.update({ where: { id: updated.id }, data: { roomName: room.name, roomUrl: room.url } })
       : updated;
-  await emailBoth(order, saved, "rescheduled");
+  await emailBoth(order, saved, "rescheduled", by.name, lateReason);
   return saved;
 }
 

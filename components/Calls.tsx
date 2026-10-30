@@ -11,8 +11,11 @@ import {
   RECORDING_NOTICE,
   callHeld,
   callSummary,
+  LATE_REASON_MAX,
+  LATE_REASON_MIN,
   canChangeOnline,
   fmtDateTime,
+  isLateChange,
   joinState,
 } from "@/lib/calls";
 import { NEEDS_ADMIN, outcomeLabel } from "@/lib/callOutcomes";
@@ -38,6 +41,59 @@ async function callApi(orderId: string, method: "POST" | "PATCH" | "DELETE", bod
 }
 
 const fmtTime = (d: string | Date) => new Date(d).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+
+// Moving a package call. With less than 24 hours to go it needs a reason,
+// which is sent to the other person as a message (and quoted in the
+// "Call moved" email). A message warning (e.g. off-site contact) is shown
+// once; picking the time again sends it anyway, like the message box.
+export function useMoveCall(orderId: string, bookingId: string, late: boolean, onMoved: () => void) {
+  const [reason, setReason] = useState("");
+  const [ack, setAck] = useState(false);
+  const reasonOk = !late || reason.trim().length >= LATE_REASON_MIN;
+  async function move(startIso: string): Promise<string | null> {
+    if (!reasonOk) return `Please explain why you need to move the call (at least ${LATE_REASON_MIN} characters).`;
+    const res = await fetch(`/api/orders/${orderId}/calls`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookingId, startTime: startIso, ...(late ? { reason: reason.trim(), acknowledgeWarnings: ack } : {}) }),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setReason("");
+      setAck(false);
+      onMoved();
+      return null;
+    }
+    if (d.code === "WARNING" && Array.isArray(d.warnings)) {
+      setAck(true);
+      return `${d.warnings.map((w: any) => w.text).join(" ")} Pick the time again to send it anyway.`;
+    }
+    return d.error || "Couldn't move the call.";
+  }
+  return { reason, setReason, reasonOk, move };
+}
+
+// The reason box shown above the time picker for a late move.
+export function LateReasonField({ otherFirst, reason, setReason }: { otherFirst: string; reason: string; setReason: (v: string) => void }) {
+  const left = LATE_REASON_MIN - reason.trim().length;
+  return (
+    <label className="field" style={{ marginBottom: 0 }}>
+      <span className="field-label">Why do you need to move it?</span>
+      <span className="text-secondary small">
+        The call is less than {CANCEL_CUTOFF_HOURS} hours away, so moving it needs a short explanation. It&apos;s sent to {otherFirst} as a message with the new time.
+      </span>
+      <textarea
+        className="input"
+        rows={3}
+        maxLength={LATE_REASON_MAX}
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        placeholder="e.g. My clinical shift was moved to that afternoon."
+      />
+      {left > 0 && <span className="text-muted small">{left} more character{left === 1 ? "" : "s"} needed</span>}
+    </label>
+  );
+}
 
 // Who joined a call and when (from Daily). Shown on the order page and to admins.
 export function Attendance({ booking, order }: { booking: any; order: any }) {
@@ -118,11 +174,17 @@ export function CallRow({
   const now = useNow();
   const state = joinState(booking, now);
   const changeable = canChangeOnline(booking, now);
+  const late = isLateChange(booking, now);
   const [moving, setMoving] = useState(false);
   const [busy, setBusy] = useState(false);
   const [custom, setCustom] = useState("");
   const [err, setErr] = useState("");
   const studentFirst = (order.buyer?.name || "the student").split(" ")[0];
+  const otherFirst = isSeller ? studentFirst : (order.seller?.name || "your mentor").split(" ")[0];
+  const mover = useMoveCall(order.id, booking.id, late, () => {
+    setMoving(false);
+    onChanged?.();
+  });
 
   async function cancel() {
     if (!confirm("Cancel this call? You'll both get an email, and the call goes back to unbooked.")) return;
@@ -134,14 +196,7 @@ export function CallRow({
     else onChanged?.();
   }
 
-  async function move(startIso: string) {
-    const e = await callApi(order.id, "PATCH", { bookingId: booking.id, startTime: startIso });
-    if (!e) {
-      setMoving(false);
-      onChanged?.();
-    }
-    return e;
-  }
+  const move = mover.move;
 
   return (
     <div className="stack-sm">
@@ -162,7 +217,7 @@ export function CallRow({
                 {state === "open" ? "Join" : "Call page"}
               </Link>
             )}
-            {canManage && changeable && !order.disputed && (
+            {canManage && (changeable || late) && !order.disputed && (
               <button className="btn btn-sm" onClick={() => setMoving((m) => !m)} aria-expanded={moving}>Reschedule</button>
             )}
             {((changeable || blocked) && canManage) || isAdmin ? (
@@ -170,15 +225,16 @@ export function CallRow({
             ) : null}
           </div>
         )}
-        {state !== "ended" && !changeable && canManage && (
+        {late && canManage && !order.disputed && (
           <span className="text-muted" style={{ flexBasis: "100%" }}>
-            Within {CANCEL_CUTOFF_HOURS} hours of the call, changes are made by message. Contact us if something comes up.
+            Less than {CANCEL_CUTOFF_HOURS} hours to go: the call can&apos;t be cancelled on the site, and moving it needs a short reason that&apos;s sent to {otherFirst}. Contact us if something comes up.
           </span>
         )}
       </div>
       {err && <div role="alert" className="alert alert-danger">{err}</div>}
       {moving && (
         <div className="stack">
+          {late && <LateReasonField otherFirst={otherFirst} reason={mover.reason} setReason={mover.setReason} />}
           <Booker
             framed
             slotsUrl={`/api/orders/${order.id}/slots?exclude=${encodeURIComponent(booking.id)}`}
@@ -202,7 +258,7 @@ export function CallRow({
               <span className="text-secondary small">Or enter another time you agreed with {studentFirst}:</span>
               <div className="row-wrap">
                 <input type="datetime-local" className="input time-input" value={custom} onChange={(e) => setCustom(e.target.value)} aria-label="New call date and time" />
-                <button className="btn btn-soft btn-sm" disabled={!custom} onClick={async () => { const e = await move(new Date(custom).toISOString()); if (e) setErr(e); }}>
+                <button className="btn btn-soft btn-sm" disabled={!custom || !mover.reasonOk} onClick={async () => { const e = await move(new Date(custom).toISOString()); if (e) setErr(e); }}>
                   Move to this time
                 </button>
               </div>

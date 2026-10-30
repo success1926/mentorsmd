@@ -4,7 +4,7 @@
 // both server and client code. The server keeps User.profileCompleteAt in
 // step with this (lib/profileSync.ts), so browse can filter on it.
 import type { Prisma } from "@prisma/client";
-import { BEST_FOR, PROFILE_RULES as R, RATE_MIN_CENTS, STRONGEST_STAGES, countWords, isValue } from "@/lib/options";
+import { BEST_FOR, PROFILE_RULES as R, RATE_MIN_CENTS, STRONGEST_STAGES, countWords, isUndergrad, isValue } from "@/lib/options";
 
 export type AdmissionsRole = { type: string; place: string; years: string; former: boolean };
 export type Language = { name: string; level: string; canAdvise: boolean };
@@ -13,6 +13,7 @@ export type ProfileFields = {
   photoUrl: string | null;
   credential: string | null;
   medicalSchool: string | null;
+  undergradSchool: string | null;
   mentorStage: string | null;
   schoolType: string | null;
   bio: string | null;
@@ -36,6 +37,7 @@ export const profileFieldsSelect = {
   photoUrl: true,
   credential: true,
   medicalSchool: true,
+  undergradSchool: true,
   mentorStage: true,
   schoolType: true,
   bio: true,
@@ -91,7 +93,8 @@ export function profileSections(u: ProfileFields): ProfileSection[] {
   const basicsMissing = [
     !u.photoUrl && "photo",
     !filled(u.credential) && "one-line credential",
-    !filled(u.medicalSchool) && "medical school",
+    // Undergrads (BS/MD) give their college; the medical school is optional.
+    isUndergrad(u.mentorStage) ? !filled(u.undergradSchool) && "undergraduate school" : !filled(u.medicalSchool) && "medical school",
     !u.mentorStage && "stage",
     !u.schoolType && "school type",
   ].filter(Boolean) as string[];

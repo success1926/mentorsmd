@@ -45,12 +45,24 @@ export const TURNAROUNDS: Option[] = [
 ];
 
 export const STAGES: Option[] = [
+  // Undergrads in a BS/MD program (approved Oct 2026): they give their
+  // college (User.undergradSchool); the medical school is optional.
+  { value: "UNDERGRAD", label: "Undergrad student" },
   { value: "MS1", label: "MS1" },
   { value: "MS2", label: "MS2" },
   { value: "MS3", label: "MS3" },
   { value: "MS4", label: "MS4" },
   { value: "RESIDENT", label: "Resident" },
 ];
+
+export const isUndergrad = (stage: string | null | undefined) => stage === "UNDERGRAD";
+export const UNDERGRAD_SCHOOL_MAX = 120;
+
+// The school shown on a mentor's card and profile: their college for
+// undergrads, otherwise their medical school.
+export function mentorSchoolName(m: { mentorStage?: string | null; medicalSchool?: string | null; undergradSchool?: string | null }) {
+  return isUndergrad(m.mentorStage) ? m.undergradSchool || null : m.medicalSchool || null;
+}
 
 export const SCHOOL_TYPES: Option[] = [
   { value: "MD", label: "MD" },

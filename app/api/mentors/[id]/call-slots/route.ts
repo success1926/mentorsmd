@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { mentorScheduleSelect, openSlotsFor } from "@/lib/callBooking";
-import { hasAvailability } from "@/lib/schedule";
+import { bookingWindowFor, hasAvailability } from "@/lib/schedule";
 import { tzOrDefault } from "@/lib/tz";
 import { isBlockMinutes } from "@/lib/hours";
 import { bookablePackages, payPerCallOffer } from "@/lib/bookFromHours";
@@ -30,6 +30,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     slots: slots.map((s) => s.toISOString()),
     lengthMinutes: minutes,
     hasAvailability: hasAvailability(mentor.weeklyHours),
+    bookingWindowDays: bookingWindowFor(mentor.bookingWindowDays),
     timeZone: tzOrDefault(mentor.timeZone),
     packages,
     payPerCall,
