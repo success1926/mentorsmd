@@ -115,6 +115,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const blocks = await blockBetween(senderId, otherId);
   if (blocks.iBlocked) return NextResponse.json({ error: "You blocked this person. Unblock them to send a message.", code: "BLOCKED_USER" }, { status: 403 });
   if (blocks.theyBlocked) return NextResponse.json({ error: "You can't message this person.", code: "BLOCKED_USER" }, { status: 403 });
+  // The other person deleted their account (lib/accountDeletion.ts).
+  const other = await prisma.user.findUnique({ where: { id: otherId }, select: { deletedAt: true } });
+  if (!other || other.deletedAt) return NextResponse.json({ error: "This person deleted their account, so they can't get messages.", code: "ACCOUNT_DELETED" }, { status: 403 });
 
   for (const limit of [RATE_LIMITS.messagesPerMinute, RATE_LIMITS.messagesPerDay]) {
     const r = await rateLimit(limit, senderId);

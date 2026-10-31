@@ -115,6 +115,10 @@ function BuiltInPrivacyPage() {
         </div>
         <div>
           <h2 style={{ fontSize: 22, marginBottom: 6 }}>7. Your rights</h2>
+          <p className="text-secondary" style={{ marginBottom: 8 }}>
+            You can delete your account at any time in Settings, on the website or in the app. See{" "}
+            <a href="/delete-account" style={{ textDecoration: "underline" }}>Delete your account</a> for what is deleted and what is kept.
+          </p>
           <p className="text-secondary">
             [Placeholder - if you have users in the EU/UK or California, this section has specific legal
             requirements (GDPR/CCPA) that a generic placeholder won't satisfy - get this reviewed.]

@@ -13,6 +13,7 @@ import { studentAccountRedirect } from "@/lib/studentNav";
 import { logOut } from "@/components/TopNav";
 import { TwoStepSettings } from "@/components/TwoStepSettings";
 import { AppDevices } from "@/components/AppDevices";
+import { DeleteAccount } from "@/components/DeleteAccount";
 
 const LIMITS = { name: 100 };
 
@@ -267,6 +268,8 @@ function StudentSettings({
           <span aria-hidden="true">→</span>
         </Link>
       </section>
+
+      <DeleteAccount />
 
       <section className="card between" style={{ flexWrap: "wrap", gap: 12 }}>
         <span className="stack-sm" style={{ gap: 0 }}>
