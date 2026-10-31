@@ -629,16 +629,19 @@ export async function fulfilAppPayment(intent: Stripe.PaymentIntent) {
   }
 }
 
-// The student's own pending app payment, or null.
-async function pendingAppPayment(studentId: string, target: AppTarget) {
+// The student's own app payment (paid with the payment sheet, so its
+// PaymentIntent id starts "pi_"), or null. A website checkout (a Stripe page,
+// "cs_...") is never touched here: cancelling it here wouldn't close the
+// Stripe page, which could then still be paid.
+async function pendingAppPayment(studentId: string, target: AppTarget): Promise<{ done: "paid" | "cancelled" | null; intentId: string } | null> {
   if (target.topUpId) {
-    const t = await prisma.hourTopUp.findUnique({ where: { id: target.topUpId }, select: { buyerId: true, status: true, stripePaymentIntentId: true } });
-    if (!t || t.buyerId !== studentId) return null;
+    const t = await prisma.hourTopUp.findUnique({ where: { id: target.topUpId }, select: { buyerId: true, status: true, stripePaymentIntentId: true, stripeSessionId: true } });
+    if (!t || t.buyerId !== studentId || t.stripeSessionId || !t.stripePaymentIntentId?.startsWith("pi_")) return null;
     return { done: t.status === "PAID" ? "paid" : t.status === "CANCELLED" ? "cancelled" : null, intentId: t.stripePaymentIntentId };
   }
   if (target.orderId) {
     const o = await prisma.order.findUnique({ where: { id: target.orderId }, select: { buyerId: true, status: true, kind: true, stripePaymentIntentId: true } });
-    if (!o || o.buyerId !== studentId || !o.kind) return null;
+    if (!o || o.buyerId !== studentId || !o.kind || !o.stripePaymentIntentId?.startsWith("pi_")) return null;
     return { done: o.status === "PENDING_PAYMENT" ? null : o.status === "CANCELLED" ? "cancelled" : "paid", intentId: o.stripePaymentIntentId };
   }
   return null;
@@ -653,13 +656,17 @@ const matches = (intent: Stripe.PaymentIntent, target: AppTarget) =>
 export async function confirmAppPayment(studentId: string, target: AppTarget): Promise<"paid" | "pending" | "cancelled" | null> {
   const p = await pendingAppPayment(studentId, target);
   if (!p) return null;
-  if (p.done) return p.done as "paid" | "cancelled";
-  if (!p.intentId?.startsWith("pi_")) return "pending";
+  if (p.done) return p.done;
   const intent = await stripe.paymentIntents.retrieve(p.intentId);
   if (!matches(intent, target)) return null;
   if (intent.status === "succeeded") {
     await fulfilAppPayment(intent);
     return "paid";
+  }
+  // Cancelled on Stripe but the webhook hasn't caught up: close it here.
+  if (intent.status === "canceled") {
+    await cancelUnpaid(target);
+    return "cancelled";
   }
   return "pending";
 }
@@ -670,48 +677,66 @@ export async function confirmAppPayment(studentId: string, target: AppTarget): P
 export async function cancelAppPayment(studentId: string, target: AppTarget): Promise<"cancelled" | "paid" | "pending" | null> {
   const p = await pendingAppPayment(studentId, target);
   if (!p) return null;
-  if (p.done) return p.done as "paid" | "cancelled";
+  if (p.done) return p.done;
   return closeAppPayment(target, p.intentId);
 }
 
-async function closeAppPayment(target: AppTarget, intentId: string | null): Promise<"cancelled" | "paid" | "pending"> {
-  if (intentId?.startsWith("pi_")) {
-    try {
-      const intent = await stripe.paymentIntents.retrieve(intentId);
-      if (intent.status === "succeeded") {
-        await fulfilAppPayment(intent);
-        return "paid";
-      }
-      if (intent.status === "processing") return "pending";
-      if (intent.status !== "canceled") await stripe.paymentIntents.cancel(intentId);
-    } catch (err) {
-      // Can't confirm it's closed: leave it for the next try or the cron.
-      console.error("Couldn't cancel an app payment", err);
-      return "pending";
+// Cancels an app payment on Stripe first, then the order / top-up (only
+// ever called with a "pi_" id).
+async function closeAppPayment(target: AppTarget, intentId: string): Promise<"cancelled" | "paid" | "pending"> {
+  if (!intentId.startsWith("pi_")) return "pending";
+  try {
+    const intent = await stripe.paymentIntents.retrieve(intentId);
+    if (intent.status === "succeeded") {
+      await fulfilAppPayment(intent);
+      return "paid";
     }
+    if (intent.status === "processing") return "pending";
+    if (intent.status !== "canceled") await stripe.paymentIntents.cancel(intentId);
+  } catch (err) {
+    // Can't confirm it's closed: leave it for the next try or the cron.
+    console.error("Couldn't cancel an app payment", err);
+    return "pending";
   }
   await cancelUnpaid(target);
   return "cancelled";
 }
 
 // Every 15 minutes (the call-reminders cron): app payment sheets left open
-// for more than an hour are closed, like an expired Stripe page.
+// for more than an hour are closed, like an expired Stripe page. Oldest
+// first, a page at a time; a payment Stripe is still processing stays
+// pending and is skipped, so it can't hold up the rest.
 export async function expireStaleAppPayments(now = new Date()) {
   const before = new Date(now.getTime() - APP_PAYMENT_MINUTES * 60_000);
-  const [orders, topUps] = await Promise.all([
-    prisma.order.findMany({
-      where: { status: "PENDING_PAYMENT", kind: { not: null }, stripePaymentIntentId: { startsWith: "pi_" }, createdAt: { lt: before } },
-      select: { id: true, stripePaymentIntentId: true },
-      take: 50,
-    }),
-    prisma.hourTopUp.findMany({
-      where: { status: "PENDING", stripeSessionId: null, stripePaymentIntentId: { startsWith: "pi_" }, createdAt: { lt: before } },
-      select: { id: true, orderId: true, stripePaymentIntentId: true },
-      take: 50,
-    }),
-  ]);
   const results = { cancelled: 0, paid: 0, pending: 0 };
-  for (const o of orders) results[await closeAppPayment({ orderId: o.id }, o.stripePaymentIntentId)]++;
-  for (const t of topUps) results[await closeAppPayment({ topUpId: t.id, orderId: t.orderId }, t.stripePaymentIntentId)]++;
+  const skip = new Set<string>();
+  for (let page = 0; page < 10; page++) {
+    const orders = await prisma.order.findMany({
+      where: { status: "PENDING_PAYMENT", kind: { not: null }, stripePaymentIntentId: { startsWith: "pi_" }, createdAt: { lt: before }, id: { notIn: Array.from(skip) } },
+      select: { id: true, stripePaymentIntentId: true },
+      orderBy: { createdAt: "asc" },
+      take: 50,
+    });
+    for (const o of orders) {
+      const r = await closeAppPayment({ orderId: o.id }, o.stripePaymentIntentId!);
+      results[r]++;
+      if (r === "pending") skip.add(o.id);
+    }
+    if (orders.length < 50) break;
+  }
+  for (let page = 0; page < 10; page++) {
+    const topUps = await prisma.hourTopUp.findMany({
+      where: { status: "PENDING", stripeSessionId: null, stripePaymentIntentId: { startsWith: "pi_" }, createdAt: { lt: before }, id: { notIn: Array.from(skip) } },
+      select: { id: true, orderId: true, stripePaymentIntentId: true },
+      orderBy: { createdAt: "asc" },
+      take: 50,
+    });
+    for (const t of topUps) {
+      const r = await closeAppPayment({ topUpId: t.id, orderId: t.orderId }, t.stripePaymentIntentId!);
+      results[r]++;
+      if (r === "pending") skip.add(t.id);
+    }
+    if (topUps.length < 50) break;
+  }
   return results;
 }

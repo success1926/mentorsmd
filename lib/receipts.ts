@@ -6,7 +6,8 @@
 //     order from before the hourly redesign (Order.amount is the full
 //     price; creditAppliedCents of it was paid with MentorsMD credit, the
 //     rest by card through Stripe). Order.stripePaymentIntentId holds the
-//     Stripe Checkout Session id ("cs_...").
+//     Stripe Checkout Session id ("cs_...") for website purchases, or the
+//     PaymentIntent id ("pi_...") for phone app purchases.
 //   - "Add hours" on a package (HourTopUp, status PAID).
 // Refunds: orders from before the redesign could be refunded to the card
 // (status REFUNDED); hours packages are only ever refunded as MentorsMD
