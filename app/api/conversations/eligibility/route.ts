@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/session";
 
 // Powers the disabled/enabled state of the due-date picker on the frontend.
 // Same rule the checkout route enforces server-side - this just lets the
@@ -11,7 +10,7 @@ export async function GET(req: Request) {
   const sellerId = searchParams.get("sellerId");
   if (!sellerId) return NextResponse.json({ error: "sellerId is required" }, { status: 400 });
 
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user || (session.user as any).role !== "BUYER") {
     return NextResponse.json({ error: "Log in with a student account" }, { status: 401 });
   }

@@ -1,17 +1,16 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createFlag } from "@/lib/flags";
 import { reportReason } from "@/lib/reportReasons";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
+import { getSession } from "@/lib/session";
 
 // Report a student or mentor (from a conversation, a profile or a package
 // page). Goes to Admin -> Flags. Optionally blocks them at the same time
 // (which also stops new calls on their packages, lib/callBooking.ts).
 //   { subjectUserId, reason, details?, conversationId?, messageId?, orderId?, block? }
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Log in to report someone" }, { status: 401 });
   const userId = (session.user as any).id as string;
 

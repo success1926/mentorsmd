@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseDate } from "@/lib/validate";
+import { getSession } from "@/lib/session";
 
 // Seller-only, on purpose: a buyer moving their own deadline out would
 // defeat the point of having one. This exists specifically for the case
 // where the automatic 7-day extension after a revision request isn't
 // enough time - the seller can push it to whatever date they actually need.
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const order = await prisma.order.findUnique({ where: { id: params.id } });

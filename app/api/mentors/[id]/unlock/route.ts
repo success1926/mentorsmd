@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { unlockState } from "@/lib/unlock";
 import { introBlockReason, loadIntroMentor } from "@/lib/introCalls";
 import { canChangeOnline } from "@/lib/calls";
+import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 // For the mentor's public profile: can this student buy yet (lib/unlock.ts),
 // and their free intro call with this mentor (booked, held, or can book).
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user || (session.user as any).role !== "BUYER") {
     return NextResponse.json({ error: "Log in with a student account" }, { status: 401 });
   }

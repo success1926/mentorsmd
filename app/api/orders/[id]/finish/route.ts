@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { FinishError, markWorkComplete, studentResponds } from "@/lib/orderFinish";
+import { getSession } from "@/lib/session";
 
 // Finishing an hours package (docs/redesign-2026-10.md section 5):
 //   { action: "MARK_COMPLETE" }                    mentor
@@ -9,7 +8,7 @@ import { FinishError, markWorkComplete, studentResponds } from "@/lib/orderFinis
 //   { action: "LAST_CALL" | "LAST_REVISION", note } student, once per package
 // Opening a dispute uses /api/orders/[id]/dispute, as before.
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   const userId = (session.user as any).id;
   const body = await req.json().catch(() => ({}));

@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { CheckoutError, startOfferCheckout } from "@/lib/hourCheckout";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
+import { getSession } from "@/lib/session";
 
 // The Buy buttons on a mentor's profile (Hourly, bundles, specialized
 // packages) post here with { gigId }. Checks (student, offer on sale,
@@ -10,7 +9,7 @@ import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
 // Stripe Checkout for the rest (lib/hourCheckout.ts). Answers { url }: the
 // Stripe page, or the new package page when credit covered everything.
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user || (session.user as any).role !== "BUYER") {
     return NextResponse.json({ error: "Only student accounts can buy" }, { status: 403 });
   }

@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { mentorScheduleSelect, openSlotsFor } from "@/lib/callBooking";
 import { bookingWindowFor, hasAvailability } from "@/lib/schedule";
 import { tzOrDefault } from "@/lib/tz";
 import { isBlockMinutes } from "@/lib/hours";
 import { bookablePackages, payPerCallOffer } from "@/lib/bookFromHours";
+import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +13,7 @@ export const dynamic = "force-dynamic";
 // calendar, the student's packages with hours left, and the pay-per-call
 // price for when there are none (lib/bookFromHours.ts).
 export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user || (session.user as any).role !== "BUYER") {
     return NextResponse.json({ error: "Log in with a student account to book a call" }, { status: 401 });
   }

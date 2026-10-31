@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { FORMATS, RATE_RULE, isValue } from "@/lib/options";
 import { parseRateDollars } from "@/lib/pricing";
 import { ensureHourlyOffer, offersFor, syncOfferPrices } from "@/lib/offers";
 import { syncProfileComplete } from "@/lib/profileSync";
+import { getSession } from "@/lib/session";
 
 // The mentor's "Rate & offers" page (docs/redesign-2026-10.md section 3).
 //   GET                                    hourly rate + every offer
@@ -14,7 +13,7 @@ import { syncProfileComplete } from "@/lib/profileSync";
 // Bundles and specialized packages are saved through /api/gigs. Changing a
 // rate re-prices the offers that use it; existing orders keep what they paid.
 async function mentorId() {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user || (session.user as any).role !== "SELLER") return null;
   return (session.user as any).id as string;
 }

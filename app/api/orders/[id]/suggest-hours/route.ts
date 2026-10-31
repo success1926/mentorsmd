@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendLive } from "@/lib/realtime";
 import { SITE_URL, sendMoreHoursSuggestedEmail } from "@/lib/email";
@@ -12,6 +10,7 @@ import { runAfterResponse } from "@/lib/request";
 import { finishPhase } from "@/lib/finishing";
 import { hoursSummary, TOP_UP_HOURS } from "@/lib/hours";
 import { hoursLabel } from "@/lib/pricing";
+import { getSession } from "@/lib/session";
 
 // The mentor suggests the student adds hours to a package: { hours: one of
 // TOP_UP_HOURS, note?, acknowledgeWarnings? }. Posts a message in the
@@ -23,7 +22,7 @@ const COOLDOWN_HOURS = 6;
 const SUGGESTION_PREFIX = "Suggested adding";
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   const mentorId = (session.user as any).id;
   const body = await req.json().catch(() => ({}));

@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseOffer } from "@/lib/offerInput";
 import { offerPrice } from "@/lib/pricing";
@@ -9,6 +7,7 @@ import { acceptedAgreement } from "@/lib/agreement";
 import { mentorAgreementLabel } from "@/lib/legal";
 import { checkText } from "@/lib/moderation";
 import { createFlagsForFindings } from "@/lib/flags";
+import { getSession } from "@/lib/session";
 
 // Public: a single package, used by the checkout page (which previously
 // downloaded every gig on the site just to find this one).
@@ -33,7 +32,7 @@ async function assertOwnsGig(gigId: string, userId: string) {
 // Edits an hour bundle or a specialized package. Its price follows from
 // the new hours and rate; existing orders keep what they paid.
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const gig = await assertOwnsGig(params.id, (session.user as any).id);
@@ -87,7 +86,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const gig = await assertOwnsGig(params.id, (session.user as any).id);

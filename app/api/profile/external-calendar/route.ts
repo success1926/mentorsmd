@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { normalizeIcalUrl } from "@/lib/icalBusy";
 import { externalBusyFor, mentorScheduleSelect } from "@/lib/callBooking";
+import { getSession } from "@/lib/session";
 
 // Mentor-only: block busy times from their own Google / iCloud calendar.
 // They paste the calendar's SECRET iCal address; we read it (at most every
 // 15 minutes) and hide those times from the slot picker. Nothing is ever
 // written to their calendar, and event titles aren't stored.
 async function requireMentor() {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user || (session.user as any).role !== "SELLER") return null;
   return (session.user as any).id as string;
 }

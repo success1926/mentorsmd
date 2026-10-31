@@ -12,6 +12,7 @@ import { mentorAccountRedirect } from "@/lib/mentorNav";
 import { studentAccountRedirect } from "@/lib/studentNav";
 import { logOut } from "@/components/TopNav";
 import { TwoStepSettings } from "@/components/TwoStepSettings";
+import { AppDevices } from "@/components/AppDevices";
 
 const LIMITS = { name: 100 };
 
@@ -213,6 +214,8 @@ function StudentSettings({
       </section>
 
       <TwoStepSettings />
+
+      <AppDevices />
 
       <section id="time-zone" className="card stack" style={{ gap: 14, scrollMarginTop: 100 }}>
         <h2 style={{ fontSize: 24 }}>Time zone</h2>

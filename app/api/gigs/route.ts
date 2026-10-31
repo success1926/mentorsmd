@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { MAX_BUNDLES, MAX_SPECIALIZED } from "@/lib/options";
 import { parseOffer } from "@/lib/offerInput";
@@ -10,6 +8,7 @@ import { acceptedAgreement } from "@/lib/agreement";
 import { mentorAgreementLabel } from "@/lib/legal";
 import { checkText } from "@/lib/moderation";
 import { createFlagsForFindings } from "@/lib/flags";
+import { getSession } from "@/lib/session";
 
 // Public: anyone (even logged out) can browse gigs.
 //   ?mine=true      (mentor session) the mentor's own offers, including the
@@ -21,7 +20,7 @@ export async function GET(req: Request) {
 
   let sellerId: string | undefined = searchParams.get("sellerId") || undefined;
   if (mine) {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
     if (!session?.user || (session.user as any).role !== "SELLER") {
       return NextResponse.json({ error: "Only mentor accounts have packages" }, { status: 403 });
     }
@@ -44,7 +43,7 @@ export async function GET(req: Request) {
 // package (lib/offerInput.ts); its price is hours x rate. The Hourly offer
 // itself is switched on/off on /api/offers.
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user || (session.user as any).role !== "SELLER") {
     return NextResponse.json({ error: "Only mentor accounts can create packages" }, { status: 403 });
   }

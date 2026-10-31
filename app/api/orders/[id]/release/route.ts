@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { adminCan } from "@/lib/adminTeam";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logAdminAction } from "@/lib/adminLog";
 import { closeDisputeFlag } from "@/lib/flags";
 import { FinishError, adminApprove, studentResponds } from "@/lib/orderFinish";
 import { releaseOrder, FundsNotYetAvailableError, OrderStateChangedError } from "@/lib/orderRelease";
+import { getSession } from "@/lib/session";
 
 // Two ways a human reaches this:
 //   1. Buyer confirms early, once the seller has marked work COMPLETED.
@@ -18,7 +17,7 @@ import { releaseOrder, FundsNotYetAvailableError, OrderStateChangedError } from 
 // this route, since there's no logged-in user in that context. It calls
 // releaseOrder() directly instead (see /api/cron/auto-release).
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const order = await prisma.order.findUnique({ where: { id: params.id } });

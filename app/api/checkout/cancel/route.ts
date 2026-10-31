@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { cancelFromStripePage } from "@/lib/hourCheckout";
 import { siteUrl } from "@/lib/siteUrl";
+import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +12,7 @@ export const dynamic = "force-dynamic";
 // was paid after all, nothing changes.
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   const studentId = (session?.user as any)?.id;
   let back = "/orders";
   if (studentId) {

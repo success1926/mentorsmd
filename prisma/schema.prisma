@@ -109,14 +109,14 @@ model User {
   removedByAdmin Boolean       @default(false) // admin removal also blocks login
 
   // ---- Mentor-level search answers (asked once, used by every package) ----
-  mentorStage String? // UNDERGRAD, MS1, MS2, MS3, MS4, RESIDENT
+  mentorStage     String? // UNDERGRAD, MS1, MS2, MS3, MS4, RESIDENT
   // Undergrads in a BS/MD program (stage UNDERGRAD): their college. Shown
   // instead of the medical school, which is optional for them.
   undergradSchool String?
-  schoolType  String? // MD, DO, MD_PHD
+  schoolType      String? // MD, DO, MD_PHD
   // No longer used since the Oct 2026 redesign: "Who you're best for"
   // (bestFor below) replaced it everywhere. Kept so old data isn't lost.
-  backgrounds String[] @default([]) // REAPPLICANT, NON_TRADITIONAL, FIRST_GEN, GAP_YEARS, CAREER_CHANGER
+  backgrounds     String[] @default([]) // REAPPLICANT, NON_TRADITIONAL, FIRST_GEN, GAP_YEARS, CAREER_CHANGER
 
   // ---- Mentor profile sections (redesign Oct 2026, docs/redesign-2026-10.md section 2) ----
   // A mentor is listed only once every section is filled in
@@ -263,6 +263,7 @@ model User {
   parentConsents   ParentConsent[]
   adminInvitesSent AdminInvite[]     @relation("AdminInvitesSent")
   adminMfaTokens   AdminMfaToken[]
+  appSessions      AppSession[]
 
   emailVerificationTokens EmailVerificationToken[]
   flagsAbout              Flag[]                   @relation("FlagsAbout")
@@ -1151,6 +1152,27 @@ model AdminCustomRole {
 
   members User[]
   invites AdminInvite[]
+}
+
+// A phone signed in to the MentorsMD app (lib/appAuth.ts). The app keeps a
+// refresh token (only its hash is stored here) and trades it for
+// 15-minute access tokens. Ended by signing out in the app, "Sign out" on
+// the device in Settings, "Sign out of other devices", a password change,
+// an admin removing the account, or 30 days without use (1 hour for
+// admins, as on the website).
+model AppSession {
+  id          String    @id @default(cuid())
+  refreshHash String    @unique
+  platform    String // IOS or ANDROID
+  deviceName  String?
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime  @default(now())
+  revokedAt   DateTime?
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@index([userId, revokedAt])
 }
 
 // Admin 2-step verification: emailed codes (EMAIL_CODE) and the one-time

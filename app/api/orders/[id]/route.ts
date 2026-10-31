@@ -1,17 +1,16 @@
 import { NextResponse } from "next/server";
 import { adminCan } from "@/lib/adminTeam";
 import { ORDER_VIEW_PERMISSIONS } from "@/lib/adminPermissions";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasAvailability } from "@/lib/schedule";
+import { getSession } from "@/lib/session";
 
 // A single order, for the order detail page. Previously that page fetched
 // EVERY order the user had and searched for one client-side, which also
 // meant admins (who aren't the buyer or seller) couldn't open a disputed
 // order at all.
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const userId = (session.user as any).id;

@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { adminCan } from "@/lib/adminTeam";
 import { CANCEL_CUTOFF_HOURS, canChangeOnline } from "@/lib/calls";
 import { CallError } from "@/lib/callBooking";
 import { cancelIntroCall } from "@/lib/introCalls";
+import { getSession } from "@/lib/session";
 
 // Cancels a free intro call: the student or mentor until 24 hours before
 // the start, admins any time. The student can then book a new one.
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   const user = session.user as any;
 

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 import { logOut } from "@/components/TopNav";
 import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { AppDevices } from "@/components/AppDevices";
 
 // The Account & Security page's sections (app/admin/(panel)/account/page.tsx).
 export function AccountSecurity({ name, email, roleName, hasPassword, twoStep, joined }: { name: string; email: string; roleName: string; hasPassword: boolean; twoStep: "TOTP" | "EMAIL" | null; joined: string | null }) {
@@ -85,6 +86,8 @@ export function AccountSecurity({ name, email, roleName, hasPassword, twoStep, j
         <button type="button" className="btn btn-sm" style={{ alignSelf: "flex-start" }} onClick={signOutOthers}>Sign Out of All Other Devices</button>
         {note("devices")}
       </section>
+
+      <AppDevices admin />
 
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} email={email} />
     </div>

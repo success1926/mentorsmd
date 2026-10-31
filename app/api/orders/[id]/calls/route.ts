@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { adminCan } from "@/lib/adminTeam";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseDate } from "@/lib/validate";
 import { canChangeOnline, isLateChange, CANCEL_CUTOFF_HOURS, LATE_REASON_MAX, LATE_REASON_MIN } from "@/lib/calls";
@@ -13,6 +11,7 @@ import { gateBlockReason } from "@/lib/gate";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
 import { aiCheckAndFlag, checkOutgoingMessage, flagSavedMessage } from "@/lib/messageSafety";
 import { runAfterResponse } from "@/lib/request";
+import { getSession } from "@/lib/session";
 
 // Calls on one order (built-in calendar):
 //   POST   { startTime }            book a call (student: an open slot; mentor: any agreed time)
@@ -24,7 +23,7 @@ import { runAfterResponse } from "@/lib/request";
 // (hours orders, redesign Oct 2026) { startTime, minutes: 30 | 60 } that
 // fits in the hours left.
 async function load(params: { id: string }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return { error: NextResponse.json({ error: "Not authenticated" }, { status: 401 }) };
   const user = session.user as any;
   const order = await prisma.order.findUnique({ where: { id: params.id }, include: orderForCallsInclude });

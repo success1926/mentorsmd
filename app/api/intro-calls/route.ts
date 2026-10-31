@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { parseDate } from "@/lib/validate";
 import { CallError } from "@/lib/callBooking";
 import { bookIntroCall } from "@/lib/introCalls";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
+import { getSession } from "@/lib/session";
 
 // Books the student's free 15-minute intro call with a mentor
 // (lib/introCalls.ts): { mentorId, startTime }. One per student and mentor.
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user || (session.user as any).role !== "BUYER") {
     return NextResponse.json({ error: "Only student accounts can book an intro call" }, { status: 403 });
   }

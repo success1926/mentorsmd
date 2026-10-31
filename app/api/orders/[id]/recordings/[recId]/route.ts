@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { recordingAccessLink } from "@/lib/daily";
+import { getSession } from "@/lib/session";
 
 // "Watch recording" for the mentor in their package workspace (redesign
 // Oct 2026): a short-lived link from Daily, like Admin's, for recordings of
 // calls on their own hours packages. Never stored; students can't use it.
 export async function POST(_req: Request, { params }: { params: { id: string; recId: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   const userId = (session.user as any).id;
   const rec = await prisma.callRecording.findUnique({

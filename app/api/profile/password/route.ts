@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import bcrypt from "bcrypt";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isValidNewPassword, PASSWORD_RULE } from "@/lib/validate";
+import { getSession } from "@/lib/session";
 
 // Change password while logged in. Requires the current password, so
 // someone who walks up to an unlocked laptop can't lock the owner out.
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   const userId = (session.user as any).id;
 

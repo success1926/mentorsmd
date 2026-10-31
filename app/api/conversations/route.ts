@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { blockBetween } from "@/lib/blocks";
 import { gateBlockReason } from "@/lib/gate";
 import { hoursSummary } from "@/lib/hours";
+import { getSession } from "@/lib/session";
 
 // New accounts (under NEW_ACCOUNT_DAYS old) can start at most
 // NEW_ACCOUNT_DAILY_CONVERSATIONS new conversations with mentors a day.
@@ -15,7 +14,7 @@ const NEW_ACCOUNT_DAILY_CONVERSATIONS = 5;
 // One conversation per (buyer, seller) pair - reused across every gig they
 // discuss, so message history doesn't get fragmented per package.
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const { sellerId } = await req.json().catch(() => ({}));
@@ -71,7 +70,7 @@ export async function POST(req: Request) {
 
 // Lists the current user's conversations (works for both buyers and sellers).
 export async function GET() {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const userId = (session.user as any).id;

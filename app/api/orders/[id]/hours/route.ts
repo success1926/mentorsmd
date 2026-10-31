@@ -1,18 +1,17 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isDayString } from "@/lib/tz";
 import { isOurPath } from "@/lib/storage";
 import { checkText } from "@/lib/moderation";
 import { createFlagsForFindings } from "@/lib/flags";
 import { HoursError, logWrittenWork } from "@/lib/hourLog";
+import { getSession } from "@/lib/session";
 
 // The mentor logs written work on a package: { minutes: 30 | 60, workDate:
 // "YYYY-MM-DD", note, fileUrl?, fileName? } (the file is uploaded first
 // through /api/upload with { orderId }). It can't go over the hours left.
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   const mentorId = (session.user as any).id;
   const body = await req.json().catch(() => ({}));

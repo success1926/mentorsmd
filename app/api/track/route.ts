@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { RATE_LIMITS, rateLimit } from "@/lib/rateLimit";
 import { ipKey } from "@/lib/request";
 import { attributionFromCookieHeader, isBotUserAgent, recordActivity } from "@/lib/activity";
+import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +21,7 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => ({}));
   const { visitorId, source } = attributionFromCookieHeader(req.headers.get("cookie"));
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   const userId: string | null = (session?.user as any)?.id || null;
   const role: string | null = (session?.user as any)?.role || null;
   // Staff browsing the site isn't customer activity.
