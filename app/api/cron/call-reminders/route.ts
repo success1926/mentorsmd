@@ -3,6 +3,7 @@ import { isAuthorizedCron } from "@/lib/cron";
 import { runCallReminders } from "@/lib/callReminders";
 import { runCallOutcomes } from "@/lib/callOutcomeRunner";
 import { runAutoApprovals } from "@/lib/orderFinish";
+import { expireStaleAppPayments } from "@/lib/hourCheckout";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -27,5 +28,10 @@ export async function GET(req: Request) {
     console.error("Auto-approvals failed", err);
     return { error: true };
   });
-  return NextResponse.json({ reminders, outcomes, approvals });
+  // Phone app payment sheets left open for an hour (lib/hourCheckout.ts).
+  const appPayments = await expireStaleAppPayments().catch((err) => {
+    console.error("Closing old app payments failed", err);
+    return { error: true };
+  });
+  return NextResponse.json({ reminders, outcomes, approvals, appPayments });
 }
