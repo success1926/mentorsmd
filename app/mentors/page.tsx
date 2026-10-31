@@ -6,8 +6,8 @@ import { headers } from "next/headers";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { parseBrowseFilters, searchMentors, type BrowseFilters as Filters } from "@/lib/mentorQueries";
-import { attributionFromCookieHeader, isBotUserAgent, recordActivity } from "@/lib/activity";
-import { runAfterResponse } from "@/lib/request";
+import { attributionFromCookieHeader } from "@/lib/activity";
+import { logBrowseSearch } from "@/lib/searchLog";
 import { getSiteContent } from "@/lib/siteContentStore";
 import { WaitlistBox } from "@/components/WaitlistBox";
 import { BEST_FOR, FILTER_GROUPS, FORMATS, MENTOR_QUICK_LINKS as QUICK, SCHOOL_TYPES, STAGES, labelFor, money, quickLinkHref } from "@/lib/options";
@@ -18,27 +18,13 @@ export const metadata = { title: "Find Your Mentor", description: "Browse vetted
 
 type SP = Record<string, string | string[] | undefined>;
 
-// Student demand (#82): every search or filter on this page goes into the
-// private activity log, with how many mentors matched. Sorting alone,
-// bots, mentors and admins aren't logged.
+// Student demand (#82): every search or filter is logged (lib/searchLog.ts).
 async function logSearch(f: Filters, resultCount: number) {
-  const picked: Record<string, string[]> = {};
-  for (const k of ["service", "format", "price", "stage", "school", "best"] as const) {
-    if (f[k].length) picked[k] = [...f[k]].sort();
-  }
-  if (f.rating !== null) picked.rating = [String(f.rating)];
-  if (!f.q && Object.keys(picked).length === 0) return;
   try {
     const h = headers();
-    if (isBotUserAgent(h.get("user-agent"))) return;
     const session = await getServerSession(authOptions);
-    const role = (session?.user as any)?.role;
-    if (role && role !== "BUYER") return;
     const { visitorId } = attributionFromCookieHeader(h.get("cookie"));
-    const userId = (session?.user as any)?.id || null;
-    // A first-time visitor has no visitor id yet: still logged (just not
-    // de-duplicated). Written after the page is sent, so it never slows it down.
-    runAfterResponse(() => recordActivity({ kind: "SEARCH", visitorId, userId, query: f.q ? f.q.toLowerCase() : null, filters: picked, resultCount }));
+    logBrowseSearch(f, resultCount, { userId: (session?.user as any)?.id, role: (session?.user as any)?.role, visitorId, userAgent: h.get("user-agent") });
   } catch (err) {
     console.error("Couldn't log the search:", err);
   }
