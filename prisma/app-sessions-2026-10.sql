@@ -9,7 +9,9 @@
 --   SET search_path TO preview;
 -- on the first line, and
 --   GRANT SELECT, INSERT, UPDATE, DELETE ON "AppSession" TO mentorsmd_preview;
--- on the last.
+--   CREATE POLICY "preview app full access" ON "AppSession" FOR ALL TO mentorsmd_preview USING (true) WITH CHECK (true);
+-- at the end (the preview site connects as mentorsmd_preview, which row
+-- level security would otherwise shut out). Both were run Oct 30, 2026.
 -- It only ADDS a table (IF NOT EXISTS), so it's safe to run while the
 -- current site is live, and safe to run twice. Run it BEFORE the new code
 -- goes live (before merging the pull request).
