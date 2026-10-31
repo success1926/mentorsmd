@@ -9,12 +9,15 @@
 //      can't be spent twice by two checkouts open at the same time.
 //   2. If credit covers everything, the order / top-up is paid right here,
 //      with no Stripe page.
-//   3. Otherwise a Stripe Checkout page charges the rest. The money lands
-//      in our Stripe balance (separate charges and transfers: mentors are
-//      paid monthly). The webhook (app/api/webhooks/stripe) fulfils it,
+//   3. Otherwise Stripe charges the rest: on the website a Stripe Checkout
+//      page, in the phone app Stripe's payment sheet (a PaymentIntent with
+//      metadata channel "app", Apple Pay and Google Pay included). The money
+//      lands in our Stripe balance (separate charges and transfers: mentors
+//      are paid monthly). The webhook (app/api/webhooks/stripe) fulfils it,
 //      once, however many times Stripe sends the event.
-//   4. If the Stripe page expires or the student cancels it, the order /
-//      top-up is cancelled and the credit given back (once).
+//   4. If the Stripe page expires, the student cancels it or closes the
+//      app's payment sheet (or leaves it for an hour), the order / top-up
+//      is cancelled and the credit given back (once).
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
@@ -111,10 +114,11 @@ async function stripePage(opts: {
 }
 
 // When Stripe will let us move this payment's money (used by payouts).
-export async function fundsAvailableFor(session: Stripe.Checkout.Session): Promise<Date | null> {
+export async function fundsAvailableFor(payment: Stripe.Checkout.Session | string | null): Promise<Date | null> {
   try {
-    if (!session.payment_intent) return null;
-    const pi = await stripe.paymentIntents.retrieve(session.payment_intent as string, { expand: ["latest_charge.balance_transaction"] });
+    const intentId = typeof payment === "string" ? payment : (payment?.payment_intent as string | null);
+    if (!intentId) return null;
+    const pi = await stripe.paymentIntents.retrieve(intentId, { expand: ["latest_charge.balance_transaction"] });
     const charge = pi.latest_charge as Stripe.Charge | null;
     const txn = charge?.balance_transaction as Stripe.BalanceTransaction | undefined;
     return txn?.available_on ? new Date(txn.available_on * 1000) : null;
@@ -123,6 +127,32 @@ export async function fundsAvailableFor(session: Stripe.Checkout.Session): Promi
     return null;
   }
 }
+
+// The phone app's payment sheet (Stripe's own sheet, with Apple Pay and
+// Google Pay). Same amount, wording and metadata as the website's Stripe
+// page, plus channel "app" so the webhook knows to fulfil it from the
+// PaymentIntent (a Checkout page's PaymentIntent is ignored there; its
+// session is used instead).
+async function appPaymentIntent(opts: { description: string; chargeCents: number; creditCents: number; email?: string | null; metadata: Record<string, string>; key: string }) {
+  const description = (opts.creditCents > 0 ? `MentorsMD credit applied: ${money(opts.creditCents)}. ` : "") + opts.description;
+  return stripe.paymentIntents.create(
+    {
+      amount: opts.chargeCents,
+      currency: "usd",
+      automatic_payment_methods: { enabled: true },
+      description: description.slice(0, 1000),
+      metadata: { ...opts.metadata, channel: "app" },
+      receipt_email: opts.email || undefined,
+    },
+    { idempotencyKey: `app-payment-${opts.key}` }
+  );
+}
+
+// What the app gets back: paid already (credit covered everything), or
+// what the payment sheet needs.
+export type AppPayment =
+  | { paid: true; orderId: string; topUpId?: string }
+  | { paid: false; orderId: string; topUpId?: string; clientSecret: string; paymentIntentId: string; chargeCents: number; creditCents: number };
 
 // ---------- New orders ----------
 
@@ -139,7 +169,9 @@ type NewOrder = {
   requestedCallStart?: Date | null;
 };
 
-async function createOrderCheckout(o: NewOrder): Promise<{ url: string; orderId: string }> {
+// Creates the order and takes the credit (the shared first half of a
+// checkout). chargeCents is what Stripe still has to charge.
+async function reserveOrder(o: NewOrder) {
   const total = priceFor(o.minutes, o.rateCents);
   if (total <= 0) throw new CheckoutError("This isn't available to buy right now");
   // One conversation per student and mentor; the order's messages live there.
@@ -175,7 +207,11 @@ async function createOrderCheckout(o: NewOrder): Promise<{ url: string; orderId:
     await spendCredit(tx, { userId: o.student.id, amountCents: split.creditCents, orderId: order.id, note: o.title });
     return { order, ...split };
   });
+  return { order, chargeCents, creditCents };
+}
 
+async function createOrderCheckout(o: NewOrder): Promise<{ url: string; orderId: string }> {
+  const { order, chargeCents, creditCents } = await reserveOrder(o);
   if (chargeCents === 0) {
     await afterOrderPaid(order.id);
     return { url: `/orders/${order.id}?success=true`, orderId: order.id };
@@ -210,8 +246,46 @@ async function createOrderCheckout(o: NewOrder): Promise<{ url: string; orderId:
   }
 }
 
+// The phone app's version of createOrderCheckout: the payment sheet
+// instead of a Stripe page.
+async function createOrderAppPayment(o: NewOrder): Promise<AppPayment> {
+  const { order, chargeCents, creditCents } = await reserveOrder(o);
+  if (chargeCents === 0) {
+    await afterOrderPaid(order.id);
+    return { paid: true, orderId: order.id };
+  }
+  try {
+    const intent = await appPaymentIntent({
+      description: `${o.title}. ${o.description}`,
+      chargeCents,
+      creditCents,
+      email: o.student.email,
+      metadata: {
+        orderId: order.id,
+        kind: o.kind,
+        ...(o.requestedCallStart ? { callStart: o.requestedCallStart.toISOString(), callMinutes: String(o.minutes) } : {}),
+      },
+      key: `order-${order.id}`,
+    });
+    await prisma.order.update({ where: { id: order.id }, data: { stripePaymentIntentId: intent.id } });
+    return { paid: false, orderId: order.id, clientSecret: intent.client_secret!, paymentIntentId: intent.id, chargeCents, creditCents };
+  } catch (err) {
+    await prisma.order.updateMany({ where: { id: order.id, status: "PENDING_PAYMENT" }, data: { status: "CANCELLED" } });
+    await reverseCredit({ orderId: order.id }, "Checkout couldn't start");
+    console.error("Stripe app payment failed", err);
+    throw new CheckoutError("Couldn't start checkout. Please try again.", 502);
+  }
+}
+
 // Buy an offer from the mentor's profile (Hourly, a bundle, a specialized package).
 export async function startOfferCheckout(student: Buyer, gigId: string) {
+  return createOrderCheckout(await offerOrder(student, gigId));
+}
+export async function startOfferAppPayment(student: Buyer, gigId: string) {
+  return createOrderAppPayment(await offerOrder(student, gigId));
+}
+
+async function offerOrder(student: Buyer, gigId: string): Promise<NewOrder> {
   const gig = await prisma.gig.findUnique({ where: { id: gigId } });
   if (!gig || !gig.active || !gig.kind || !["HOURLY", "BUNDLE", "SPECIALIZED"].includes(gig.kind)) throw new CheckoutError("Package not found", 404);
   const mentor = await assertCanBuy(student.id, gig.sellerId);
@@ -219,7 +293,7 @@ export async function startOfferCheckout(student: Buyer, gigId: string) {
   const minutes = offerMinutes(gig);
   if (!rateCents || !minutes) throw new CheckoutError("This isn't available to buy right now");
   const title = gig.kind === "HOURLY" ? "Hourly: 1 hour" : gig.title;
-  return createOrderCheckout({
+  return {
     student,
     mentor,
     gigId: gig.id,
@@ -229,13 +303,20 @@ export async function startOfferCheckout(student: Buyer, gigId: string) {
     format: gig.format,
     title,
     description: gig.description,
-  });
+  };
 }
 
 // A single 30- or 60-minute call at the mentor's hourly rate, when the
 // student has no hours left with them (or no package). The time picked is
 // checked now and again when the payment clears.
 export async function startPayPerCallCheckout(student: Buyer, mentorId: string, start: Date, minutes: unknown) {
+  return createOrderCheckout(await payPerCallOrder(student, mentorId, start, minutes));
+}
+export async function startPayPerCallAppPayment(student: Buyer, mentorId: string, start: Date, minutes: unknown) {
+  return createOrderAppPayment(await payPerCallOrder(student, mentorId, start, minutes));
+}
+
+async function payPerCallOrder(student: Buyer, mentorId: string, start: Date, minutes: unknown): Promise<NewOrder> {
   if (!isBlockMinutes(minutes)) throw new CheckoutError("Pick a 30- or 60-minute call");
   const mentor = await assertCanBuy(student.id, mentorId);
   if (!mentor.hourlyRateCents) throw new CheckoutError("This mentor hasn't set an hourly rate yet");
@@ -245,7 +326,7 @@ export async function startPayPerCallCheckout(student: Buyer, mentorId: string, 
   if (!slots.some((s) => s.getTime() === start.getTime())) throw new CheckoutError("That time isn't available anymore. Please pick another.", 409);
   const hourly = await ensureHourlyOffer(mentorId);
   const label = minutes === 60 ? "1-hour call" : "30-minute call";
-  return createOrderCheckout({
+  return {
     student,
     mentor,
     gigId: hourly.id,
@@ -256,7 +337,7 @@ export async function startPayPerCallCheckout(student: Buyer, mentorId: string, 
     title: `${label} with ${first(mentor.name)}`,
     description: `One ${label} on ${first(mentor.name)}'s calendar, at their hourly rate.`,
     requestedCallStart: start,
-  });
+  };
 }
 
 // Everything that happens once an order is paid (by Stripe or by credit):
@@ -305,11 +386,13 @@ async function bookRequestedCall(orderId: string) {
 
 // Webhook: Stripe says the order's page was paid. Only PENDING_PAYMENT ->
 // IN_ESCROW, once.
-export async function fulfilOrderPayment(orderId: string, session: Stripe.Checkout.Session) {
-  const fundsAvailableAt = await fundsAvailableFor(session);
+// payment: the Checkout Session (website) or the PaymentIntent id (app).
+export async function fulfilOrderPayment(orderId: string, payment: Stripe.Checkout.Session | string) {
+  const ref = typeof payment === "string" ? payment : payment.id;
+  const fundsAvailableAt = await fundsAvailableFor(payment);
   const claim = await prisma.order.updateMany({
     where: { id: orderId, status: "PENDING_PAYMENT" },
-    data: { status: "IN_ESCROW", fundsAvailableAt, stripePaymentIntentId: session.id, paidAt: new Date() },
+    data: { status: "IN_ESCROW", fundsAvailableAt, stripePaymentIntentId: ref, paidAt: new Date() },
   });
   if (claim.count === 1) {
     await afterOrderPaid(orderId);
@@ -319,7 +402,7 @@ export async function fulfilOrderPayment(orderId: string, session: Stripe.Checko
   if (order?.status === "CANCELLED") {
     // Paid after we cancelled it (shouldn't happen: a cancelled page is
     // expired first). Someone needs to look.
-    const note = `[NEEDS MANUAL CHECK] Order ${orderId} was paid on Stripe (session ${session.id}) after it was cancelled; its credit may have been given back. Refund the payment or reopen the order.`;
+    const note = `[NEEDS MANUAL CHECK] Order ${orderId} was paid on Stripe (${ref}) after it was cancelled; its credit may have been given back. Refund the payment or reopen the order.`;
     console.error(note);
     await reportError(note, undefined, { orderId }, "fatal");
   }
@@ -344,7 +427,8 @@ export async function confirmOrderFromSession(orderId: string, buyerId: string, 
 // ---------- Top-ups ----------
 
 // "Add hours": 1, 2, 3 or 5 hours at the order's own per-hour rate.
-export async function startTopUpCheckout(student: Buyer, orderId: string, hours: unknown) {
+// Creates the top-up and takes the credit (the shared first half).
+async function reserveTopUp(student: Buyer, orderId: string, hours: unknown) {
   if (typeof hours !== "number" || !TOP_UP_HOURS.includes(hours)) throw new CheckoutError("Pick how many hours to add");
   const order = await prisma.order.findUnique({ where: { id: orderId }, include: { seller: { select: { name: true } }, gig: { select: { title: true } } } });
   if (!order || order.buyerId !== student.id || !order.kind) throw new CheckoutError("Package not found", 404);
@@ -370,7 +454,11 @@ export async function startTopUpCheckout(student: Buyer, orderId: string, hours:
     await spendCredit(tx, { userId: student.id, amountCents: split.creditCents, orderId, topUpId: topUp.id, note: `Hours added: ${title}` });
     return { topUp, ...split };
   });
+  return { topUp, chargeCents, creditCents, minutes, title, order };
+}
 
+export async function startTopUpCheckout(student: Buyer, orderId: string, hours: unknown) {
+  const { topUp, chargeCents, creditCents, minutes, title, order } = await reserveTopUp(student, orderId, hours);
   if (chargeCents === 0) {
     await applyTopUp(topUp.id, null);
     return { url: `/orders/${orderId}?hours_added=1` };
@@ -396,12 +484,46 @@ export async function startTopUpCheckout(student: Buyer, orderId: string, hours:
   }
 }
 
+// The phone app's "Add hours": the payment sheet instead of a Stripe page.
+export async function startTopUpAppPayment(student: Buyer, orderId: string, hours: unknown): Promise<AppPayment> {
+  const { topUp, chargeCents, creditCents, minutes, title, order } = await reserveTopUp(student, orderId, hours);
+  if (chargeCents === 0) {
+    await applyTopUp(topUp.id, null);
+    return { paid: true, orderId, topUpId: topUp.id };
+  }
+  try {
+    const intent = await appPaymentIntent({
+      description: `${hoursLabel(minutes)} more: ${title}. ${hoursLabel(minutes)} with ${order.seller.name} at ${money(order.rateCents!)}/hr.`,
+      chargeCents,
+      creditCents,
+      email: student.email,
+      metadata: { topUpId: topUp.id, orderId },
+      key: `topup-${topUp.id}`,
+    });
+    await prisma.hourTopUp.update({ where: { id: topUp.id }, data: { stripePaymentIntentId: intent.id } });
+    return { paid: false, orderId, topUpId: topUp.id, clientSecret: intent.client_secret!, paymentIntentId: intent.id, chargeCents, creditCents };
+  } catch (err) {
+    await prisma.hourTopUp.updateMany({ where: { id: topUp.id, status: "PENDING" }, data: { status: "CANCELLED" } });
+    await reverseCredit({ topUpId: topUp.id }, "Checkout couldn't start");
+    console.error("Stripe app top-up payment failed", err);
+    throw new CheckoutError("Couldn't start checkout. Please try again.", 502);
+  }
+}
+
 // Adds a paid top-up's minutes to its order, once.
-export async function applyTopUp(topUpId: string, session: Stripe.Checkout.Session | null) {
+// payment: the Checkout Session (website), the PaymentIntent id (app), or
+// null when credit paid for it all.
+export async function applyTopUp(topUpId: string, payment: Stripe.Checkout.Session | string | null) {
+  const paidWith =
+    typeof payment === "string"
+      ? { stripePaymentIntentId: payment }
+      : payment
+        ? { stripeSessionId: payment.id, stripePaymentIntentId: (payment.payment_intent as string) || null }
+        : {};
   const applied = await prisma.$transaction(async (tx) => {
     const claim = await tx.hourTopUp.updateMany({
       where: { id: topUpId, status: "PENDING" },
-      data: { status: "PAID", paidAt: new Date(), ...(session ? { stripeSessionId: session.id, stripePaymentIntentId: (session.payment_intent as string) || null } : {}) },
+      data: { status: "PAID", paidAt: new Date(), ...paidWith },
     });
     if (!claim.count) return null;
     const topUp = await tx.hourTopUp.findUniqueOrThrow({ where: { id: topUpId } });
@@ -410,8 +532,8 @@ export async function applyTopUp(topUpId: string, session: Stripe.Checkout.Sessi
   });
   if (!applied) {
     const t = await prisma.hourTopUp.findUnique({ where: { id: topUpId }, select: { status: true } });
-    if (t?.status === "CANCELLED" && session) {
-      const note = `[NEEDS MANUAL CHECK] Top-up ${topUpId} was paid on Stripe (session ${session.id}) after it was cancelled. Add the hours by hand or refund the payment.`;
+    if (t?.status === "CANCELLED" && payment) {
+      const note = `[NEEDS MANUAL CHECK] Top-up ${topUpId} was paid on Stripe (${typeof payment === "string" ? payment : payment.id}) after it was cancelled. Add the hours by hand or refund the payment.`;
       console.error(note);
       await reportError(note, undefined, { topUpId }, "fatal");
     }
@@ -488,3 +610,133 @@ export async function cancelFromStripePage(studentId: string, target: { orderId?
   return back;
 }
 
+// ---------- The phone app's payment sheet ----------
+
+type AppTarget = { orderId?: string; topUpId?: string };
+// Sheets left open longer than this are cancelled (and the credit given back).
+const APP_PAYMENT_MINUTES = 60;
+
+// Webhook (payment_intent.succeeded) and the checks below: an app payment
+// went through. Fulfilled once, like a Stripe page.
+export async function fulfilAppPayment(intent: Stripe.PaymentIntent) {
+  if (intent.status !== "succeeded" || intent.metadata?.channel !== "app") return;
+  const { orderId, topUpId } = intent.metadata;
+  if (topUpId) {
+    await applyTopUp(topUpId, intent.id);
+  } else if (orderId) {
+    const order = await prisma.order.findUnique({ where: { id: orderId }, select: { kind: true } });
+    if (order?.kind) await fulfilOrderPayment(orderId, intent.id);
+  }
+}
+
+// The student's own app payment (paid with the payment sheet, so its
+// PaymentIntent id starts "pi_"), or null. A website checkout (a Stripe page,
+// "cs_...") is never touched here: cancelling it here wouldn't close the
+// Stripe page, which could then still be paid.
+async function pendingAppPayment(studentId: string, target: AppTarget): Promise<{ done: "paid" | "cancelled" | null; intentId: string } | null> {
+  if (target.topUpId) {
+    const t = await prisma.hourTopUp.findUnique({ where: { id: target.topUpId }, select: { buyerId: true, status: true, stripePaymentIntentId: true, stripeSessionId: true } });
+    if (!t || t.buyerId !== studentId || t.stripeSessionId || !t.stripePaymentIntentId?.startsWith("pi_")) return null;
+    return { done: t.status === "PAID" ? "paid" : t.status === "CANCELLED" ? "cancelled" : null, intentId: t.stripePaymentIntentId };
+  }
+  if (target.orderId) {
+    const o = await prisma.order.findUnique({ where: { id: target.orderId }, select: { buyerId: true, status: true, kind: true, stripePaymentIntentId: true } });
+    if (!o || o.buyerId !== studentId || !o.kind || !o.stripePaymentIntentId?.startsWith("pi_")) return null;
+    return { done: o.status === "PENDING_PAYMENT" ? null : o.status === "CANCELLED" ? "cancelled" : "paid", intentId: o.stripePaymentIntentId };
+  }
+  return null;
+}
+
+const matches = (intent: Stripe.PaymentIntent, target: AppTarget) =>
+  intent.metadata?.channel === "app" && (target.topUpId ? intent.metadata.topUpId === target.topUpId : intent.metadata.orderId === target.orderId && !intent.metadata.topUpId);
+
+// The app's back-up for a slow webhook, right after the sheet says it's
+// paid: asks Stripe itself (never trusts the app) and fulfils it.
+// "paid" | "pending" (still processing) | "cancelled" | null (not theirs).
+export async function confirmAppPayment(studentId: string, target: AppTarget): Promise<"paid" | "pending" | "cancelled" | null> {
+  const p = await pendingAppPayment(studentId, target);
+  if (!p) return null;
+  if (p.done) return p.done;
+  const intent = await stripe.paymentIntents.retrieve(p.intentId);
+  if (!matches(intent, target)) return null;
+  if (intent.status === "succeeded") {
+    await fulfilAppPayment(intent);
+    return "paid";
+  }
+  // Cancelled on Stripe but the webhook hasn't caught up: close it here.
+  if (intent.status === "canceled") {
+    await cancelUnpaid(target);
+    return "cancelled";
+  }
+  return "pending";
+}
+
+// The student closed the payment sheet without paying: cancel the payment
+// on Stripe first (so it can't go through later), then the order / top-up,
+// and give the credit back. If it was paid after all, it's fulfilled.
+export async function cancelAppPayment(studentId: string, target: AppTarget): Promise<"cancelled" | "paid" | "pending" | null> {
+  const p = await pendingAppPayment(studentId, target);
+  if (!p) return null;
+  if (p.done) return p.done;
+  return closeAppPayment(target, p.intentId);
+}
+
+// Cancels an app payment on Stripe first, then the order / top-up (only
+// ever called with a "pi_" id).
+async function closeAppPayment(target: AppTarget, intentId: string): Promise<"cancelled" | "paid" | "pending"> {
+  if (!intentId.startsWith("pi_")) return "pending";
+  try {
+    const intent = await stripe.paymentIntents.retrieve(intentId);
+    if (intent.status === "succeeded") {
+      await fulfilAppPayment(intent);
+      return "paid";
+    }
+    if (intent.status === "processing") return "pending";
+    if (intent.status !== "canceled") await stripe.paymentIntents.cancel(intentId);
+  } catch (err) {
+    // Can't confirm it's closed: leave it for the next try or the cron.
+    console.error("Couldn't cancel an app payment", err);
+    return "pending";
+  }
+  await cancelUnpaid(target);
+  return "cancelled";
+}
+
+// Every 15 minutes (the call-reminders cron): app payment sheets left open
+// for more than an hour are closed, like an expired Stripe page. Oldest
+// first, a page at a time; a payment Stripe is still processing stays
+// pending and is skipped, so it can't hold up the rest.
+export async function expireStaleAppPayments(now = new Date()) {
+  const before = new Date(now.getTime() - APP_PAYMENT_MINUTES * 60_000);
+  const results = { cancelled: 0, paid: 0, pending: 0 };
+  const skip = new Set<string>();
+  for (let page = 0; page < 10; page++) {
+    const orders = await prisma.order.findMany({
+      where: { status: "PENDING_PAYMENT", kind: { not: null }, stripePaymentIntentId: { startsWith: "pi_" }, createdAt: { lt: before }, id: { notIn: Array.from(skip) } },
+      select: { id: true, stripePaymentIntentId: true },
+      orderBy: { createdAt: "asc" },
+      take: 50,
+    });
+    for (const o of orders) {
+      const r = await closeAppPayment({ orderId: o.id }, o.stripePaymentIntentId!);
+      results[r]++;
+      if (r === "pending") skip.add(o.id);
+    }
+    if (orders.length < 50) break;
+  }
+  for (let page = 0; page < 10; page++) {
+    const topUps = await prisma.hourTopUp.findMany({
+      where: { status: "PENDING", stripeSessionId: null, stripePaymentIntentId: { startsWith: "pi_" }, createdAt: { lt: before }, id: { notIn: Array.from(skip) } },
+      select: { id: true, orderId: true, stripePaymentIntentId: true },
+      orderBy: { createdAt: "asc" },
+      take: 50,
+    });
+    for (const t of topUps) {
+      const r = await closeAppPayment({ topUpId: t.id, orderId: t.orderId }, t.stripePaymentIntentId!);
+      results[r]++;
+      if (r === "pending") skip.add(t.id);
+    }
+    if (topUps.length < 50) break;
+  }
+  return results;
+}

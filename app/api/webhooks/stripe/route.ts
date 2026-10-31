@@ -4,7 +4,7 @@ import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { sendOrderPaidEmail, SITE_URL } from "@/lib/email";
 import { sendParentReceipt } from "@/lib/minors";
-import { applyTopUp, cancelUnpaid, fulfilOrderPayment, fundsAvailableFor } from "@/lib/hourCheckout";
+import { applyTopUp, cancelUnpaid, fulfilAppPayment, fulfilOrderPayment, fundsAvailableFor } from "@/lib/hourCheckout";
 import { cancelUnpaidGift, fulfilGift } from "@/lib/gifts";
 
 // Stripe calls this URL directly (not the browser), so it's the only
@@ -16,6 +16,9 @@ import { cancelUnpaidGift, fulfilGift } from "@/lib/gifts";
 //   topUpId           "Add hours" on a package (lib/hourCheckout.ts)
 //   orderId + kind    a new hours order or pay-per-call (lib/hourCheckout.ts)
 //   orderId           an order from before the redesign (handled below)
+// The phone app pays with Stripe's payment sheet instead of a Checkout
+// page: a PaymentIntent whose metadata has channel "app" plus orderId /
+// topUpId (payment_intent.succeeded and payment_intent.canceled below).
 // Every one is fulfilled once, however many times Stripe sends the event.
 export async function POST(req: Request) {
   const body = await req.text();
@@ -66,6 +69,24 @@ export async function POST(req: Request) {
           where: { id: orderId, status: "PENDING_PAYMENT" },
           data: { status: "CANCELLED" },
         });
+    }
+  }
+
+  // The phone app's payment sheet (lib/hourCheckout.ts). Payments made
+  // on a Checkout page also have a PaymentIntent; those are handled above
+  // from the session, so only channel "app" counts here.
+  // (Enable payment_intent.succeeded and payment_intent.canceled on the
+  // webhook in your Stripe dashboard.)
+  if (event.type === "payment_intent.succeeded") {
+    const intent = event.data.object as Stripe.PaymentIntent;
+    if (intent.metadata?.channel === "app") await fulfilAppPayment(intent);
+  }
+  if (event.type === "payment_intent.canceled") {
+    const intent = event.data.object as Stripe.PaymentIntent;
+    if (intent.metadata?.channel === "app") {
+      const { orderId, topUpId } = intent.metadata;
+      if (topUpId) await cancelUnpaid({ topUpId });
+      else if (orderId) await cancelUnpaid({ orderId });
     }
   }
 
