@@ -7,6 +7,7 @@ import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 import { notifyProfileChanged } from "@/components/MentorShell";
 import { TwoStepSettings } from "@/components/TwoStepSettings";
 import { AppDevices } from "@/components/AppDevices";
+import { DeleteAccount } from "@/components/DeleteAccount";
 
 // Mentor Settings (mentor area v2, Oct 2026): name and sign-in, students
 // under 18, payout account status, Pause (with a return date and a note)
@@ -90,6 +91,7 @@ export default function MentorSettingsPage() {
       </section>
 
       <PauseAndRemove profile={profile} activeOrders={activeOrders} onSaved={reload} />
+      <DeleteAccount />
 
       <p className="text-muted small">
         Moved out of Settings: time zone, call hours and calendar link are in <Link href="/dashboard/availability" className="link">Calendar &amp; availability</Link>; photo, bio and the rest are in{" "}

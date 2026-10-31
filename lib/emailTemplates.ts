@@ -1187,6 +1187,22 @@ const LIST: EmailDef[] = [
     required: ["change"],
   },
   {
+    key: "account_deleted",
+    name: "Account deleted (mentors and students)",
+    description: "Sent to the old email address right after someone deletes their own account (Settings or the phone app).",
+    group: "BOTH",
+    subject: "Your MentorsMD account was deleted",
+    body: [
+      "Hi {{firstName}},",
+      "Your MentorsMD account has been deleted, as you asked. Your profile and login are gone, and you've been signed out everywhere.",
+      "We keep payment and order records for as long as the law requires. Messages you sent stay with the people you sent them to, shown as from a deleted user.",
+      "> If you didn't delete your account, contact the MentorsMD team right away.",
+      "[Contact MentorsMD]({{contactLink}})",
+    ].join("\n\n"),
+    vars: [V.firstName, text("contactLink", "Contact page link", "https://mentorsmd.com/contact")],
+    required: [],
+  },
+  {
     key: "team_access_changed",
     name: "Admin access changed",
     description: "Sent to a team member when their admin access changes (role, disabled, removed, 2-step reset).",

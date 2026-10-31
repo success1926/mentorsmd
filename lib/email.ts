@@ -57,6 +57,12 @@ async function savedTemplate(key: string) {
 
 // Sends one email and writes the attempt to the email log.
 async function deliver(key: string, to: string, subject: string, html: string, extra: Extra = {}) {
+  // A deleted account's placeholder address (lib/accountDeletion.ts): nobody
+  // reads it, so nothing is sent.
+  if (to.toLowerCase().endsWith("@deleted.mentorsmd.invalid")) {
+    await logEmail({ templateKey: key, toEmail: to, subject, status: "FAILED", error: "Not sent: the account was deleted." });
+    return null;
+  }
   try {
     const result = await resend.emails.send({
       from: FROM,
@@ -550,6 +556,10 @@ export async function sendLoginCodeEmail(toEmail: string, code: string) {
 // their first login).
 export async function sendTwoStepChangedEmail(toEmail: string, name: string, change: string) {
   await sendTemplate("two_step_changed", toEmail, { firstName: first(name), change, siteLink: SITE_URL });
+}
+
+export async function sendAccountDeletedEmail(toEmail: string, name: string) {
+  await sendTemplate("account_deleted", toEmail, { firstName: first(name), contactLink: `${SITE_URL}/contact` });
 }
 
 export async function sendTeamAccessChangedEmail(toEmail: string, name: string, text: string) {

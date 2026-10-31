@@ -217,6 +217,10 @@ model User {
   adminRoleId         String?
   adminDisabledAt     DateTime? // disabled admins can't log in
   sessionsRevokedAt   DateTime? // every login started before this is ended
+  // The person deleted their own account (lib/accountDeletion.ts): their
+  // details and login are wiped; orders, payments and messages stay, shown
+  // as "Deleted user".
+  deletedAt           DateTime?
   // 2-step verification (lib/mfa.ts): TOTP (authenticator app) or EMAIL
   // (a 6-digit code by email). Required for admins and mentors (a mentor
   // with nothing set gets email codes); students can turn it on.
