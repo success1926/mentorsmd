@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { blockBetween } from "@/lib/blocks";
+import { getSession } from "@/lib/session";
 
 // Block / unblock someone. Blocked people can't message each other.
 //   GET    ?userId=  -> { iBlocked, theyBlocked }
 //   POST   { userId } -> block
 //   DELETE ?userId=  -> unblock
 async function me() {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   return session?.user ? ((session.user as any).id as string) : null;
 }
 

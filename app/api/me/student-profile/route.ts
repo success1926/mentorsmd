@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseStudentProfile, profileFromRow, studentProfileSelect } from "@/lib/studentProfile";
+import { getSession } from "@/lib/session";
 
 // The student's own profile for mentors (lib/studentProfile.ts).
 //   GET                 -> { profile, photoUrl, name, minor, savedAt }
 //   PATCH { ...fields } -> saves it (every field optional)
 //   PATCH { skip: true } -> "Skip for now" after signup (nothing saved)
 async function student() {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   const user = session?.user as any;
   return user && user.role === "BUYER" ? (user.id as string) : null;
 }

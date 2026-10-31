@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { adminCan, adminIdsWith } from "@/lib/adminTeam";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendLive } from "@/lib/realtime";
 import { sendDisputeMessageEmail, SITE_URL } from "@/lib/email";
 import { LIMITS } from "@/lib/validate";
+import { getSession } from "@/lib/session";
 
 async function getAuthorizedOrder(orderId: string, userId: string, role: string) {
   const order = await prisma.order.findUnique({
@@ -20,7 +19,7 @@ async function getAuthorizedOrder(orderId: string, userId: string, role: string)
 }
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const order = await getAuthorizedOrder(params.id, (session.user as any).id, (session.user as any).role);
@@ -41,7 +40,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 // admin posts -> buyer and seller are emailed; buyer or seller posts ->
 // every admin is emailed.
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const userId = (session.user as any).id;

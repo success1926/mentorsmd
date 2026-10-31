@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseDate } from "@/lib/validate";
 import { CallError, bookCall, orderForCallsInclude } from "@/lib/callBooking";
 import { CheckoutError, startPayPerCallCheckout } from "@/lib/hourCheckout";
 import { isBlockMinutes } from "@/lib/hours";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
+import { getSession } from "@/lib/session";
 
 // "Book a call" with a mentor: { startTime, minutes: 30 | 60, orderId? }.
 //   orderId: book it from that package's hours (no payment).
@@ -14,7 +13,7 @@ import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
 //   { url } (Stripe Checkout, or the paid package when credit covered it),
 //   and the call is booked when the payment clears.
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user || (session.user as any).role !== "BUYER") {
     return NextResponse.json({ error: "Only student accounts can book a call" }, { status: 403 });
   }

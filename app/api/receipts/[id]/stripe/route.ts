@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { receiptFor, stripeReceiptUrl } from "@/lib/receipts";
+import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +8,7 @@ export const dynamic = "force-dynamic";
 // from Stripe when asked (the address isn't stored); only the student who
 // paid can open it. If Stripe has none, back to our receipt page.
 export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   const user = session?.user as any;
   if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (user.role !== "BUYER") return NextResponse.json({ error: "Receipt not found" }, { status: 404 });

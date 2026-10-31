@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendDisputeOpenedEmail, SITE_URL } from "@/lib/email";
 import { createFlag } from "@/lib/flags";
+import { getSession } from "@/lib/session";
 
 // Disputes are buyer-raised, admin-resolved - opening one does NOT
 // automatically refund or release anything. It just flags the order and
@@ -11,7 +10,7 @@ import { createFlag } from "@/lib/flags";
 // and the release endpoint, which an admin can call on any order regardless
 // of who'd normally be allowed to).
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const order = await prisma.order.findUnique({ where: { id: params.id }, include: { gig: true } });

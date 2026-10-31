@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendWorkCompleteEmail, SITE_URL } from "@/lib/email";
 import { callSummary } from "@/lib/calls";
@@ -10,6 +8,7 @@ import { checkText } from "@/lib/moderation";
 import { createFlagsForFindings } from "@/lib/flags";
 import { aiCheckAndFlag } from "@/lib/messageSafety";
 import { runAfterResponse } from "@/lib/request";
+import { getSession } from "@/lib/session";
 
 // This is now the ONLY way an order moves out of IN_ESCROW under normal
 // circumstances - the seller says the work is done, which starts the
@@ -21,7 +20,7 @@ import { runAfterResponse } from "@/lib/request";
 // files already uploaded through /api/upload). A revision request sends
 // the order back here, and the next delivery becomes Delivery 2, 3...
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const order = await prisma.order.findUnique({ where: { id: params.id }, include: { buyer: true, gig: true, callBookings: true } });

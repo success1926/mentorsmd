@@ -64,6 +64,70 @@ async function linkGoogleToPasswordlessStudent(
   await adapter.linkAccount!({ ...(account as any), userId: existing.id });
 }
 
+// The password check behind every email-and-password login: the website
+// (the Credentials provider below) and the phone app (lib/appAuth.ts).
+// The caller has already done its own bot check and the per-IP limit.
+// Returns the account, or null for every kind of refusal (wrong password,
+// no password, locked, removed or disabled), so the answer never reveals
+// which accounts exist.
+export async function checkPassword(email: string, password: string, ip: string) {
+  // Case-insensitive, so "Jane@x.com" and "jane@x.com" are the same account.
+  const user = await prisma.user.findFirst({
+    where: { email: { equals: email.trim(), mode: "insensitive" } },
+  });
+  // No password on file means this account was created via Google
+  // only - there's nothing to check a typed password against.
+  if (!user || !user.passwordHash) return null;
+
+  // Accounts removed by an admin can't sign in. (A mentor who
+  // removed their own profile still can - they may have orders to
+  // finish and payouts to collect.)
+  if (user.removedByAdmin) return null;
+  // Disabled admins (Admin -> Team) can't sign in either.
+  if (user.adminDisabledAt) return null;
+
+  // Locked out: refuse regardless of whether the password given
+  // this time would have been correct. Deliberately returns the
+  // same generic null as a wrong password, rather than a distinct
+  // "you're locked out" message - this avoids confirming to an
+  // attacker that the account/email exists and is just rate
+  // limited, versus not existing at all.
+  if (user.lockedUntil && user.lockedUntil > new Date()) {
+    return null;
+  }
+  const pairKey = `${user.id}:${ip}`;
+  if ((await rateLimitCount(RATE_LIMITS.loginFailPerAccountIp, pairKey)) >= RATE_LIMITS.loginFailPerAccountIp.max) {
+    return null;
+  }
+
+  const valid = await bcrypt.compare(password, user.passwordHash);
+
+  if (!valid) {
+    await rateLimit(RATE_LIMITS.loginFailPerAccountIp, pairKey);
+    const attempts = user.failedLoginAttempts + 1;
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        failedLoginAttempts: attempts,
+        lockedUntil: attempts >= MAX_FAILED_ATTEMPTS
+          ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000)
+          : null,
+      },
+    });
+    return null;
+  }
+
+  // Successful login - reset the counter so a legitimate person
+  // who mistyped their password a couple times isn't penalized
+  // once they get it right.
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { failedLoginAttempts: 0, lockedUntil: null, lastActiveAt: new Date() },
+  });
+  await clearRateLimit(RATE_LIMITS.loginFailPerAccountIp, pairKey);
+  return user;
+}
+
 export const authOptions: NextAuthOptions = {
   adapter,
   // maxAge is the inactivity limit: the login cookie is renewed whenever
@@ -96,61 +160,8 @@ export const authOptions: NextAuthOptions = {
         if (!perIp.ok) return null;
         if (!(await verifyRecaptcha(credentials.recaptchaToken, "login", clientIp(req)))) return null;
 
-        // Case-insensitive, so "Jane@x.com" and "jane@x.com" are the same account.
-        const user = await prisma.user.findFirst({
-          where: { email: { equals: credentials.email.trim(), mode: "insensitive" } },
-        });
-        // No password on file means this account was created via Google
-        // only - there's nothing to check a typed password against.
-        if (!user || !user.passwordHash) return null;
-
-        // Accounts removed by an admin can't sign in. (A mentor who
-        // removed their own profile still can - they may have orders to
-        // finish and payouts to collect.)
-        if (user.removedByAdmin) return null;
-        // Disabled admins (Admin -> Team) can't sign in either.
-        if (user.adminDisabledAt) return null;
-
-        // Locked out: refuse regardless of whether the password given
-        // this time would have been correct. Deliberately returns the
-        // same generic null as a wrong password, rather than a distinct
-        // "you're locked out" message - this avoids confirming to an
-        // attacker that the account/email exists and is just rate
-        // limited, versus not existing at all.
-        if (user.lockedUntil && user.lockedUntil > new Date()) {
-          return null;
-        }
-        const pairKey = `${user.id}:${ip}`;
-        if ((await rateLimitCount(RATE_LIMITS.loginFailPerAccountIp, pairKey)) >= RATE_LIMITS.loginFailPerAccountIp.max) {
-          return null;
-        }
-
-        const valid = await bcrypt.compare(credentials.password, user.passwordHash);
-
-        if (!valid) {
-          await rateLimit(RATE_LIMITS.loginFailPerAccountIp, pairKey);
-          const attempts = user.failedLoginAttempts + 1;
-          await prisma.user.update({
-            where: { id: user.id },
-            data: {
-              failedLoginAttempts: attempts,
-              lockedUntil: attempts >= MAX_FAILED_ATTEMPTS
-                ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000)
-                : null,
-            },
-          });
-          return null;
-        }
-
-        // Successful login - reset the counter so a legitimate person
-        // who mistyped their password a couple times isn't penalized
-        // once they get it right.
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { failedLoginAttempts: 0, lockedUntil: null, lastActiveAt: new Date() },
-        });
-        await clearRateLimit(RATE_LIMITS.loginFailPerAccountIp, pairKey);
-
+        const user = await checkPassword(credentials.email, credentials.password, ip);
+        if (!user) return null;
         return { id: user.id, email: user.email, name: user.name, role: user.role };
       },
     }),

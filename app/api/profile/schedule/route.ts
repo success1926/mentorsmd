@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { BOOKING_WINDOW_OPTIONS, BUFFER_OPTIONS, NOTICE_OPTIONS, hasAvailability, parseWeeklyHours } from "@/lib/schedule";
 import { isDayString, isValidTimeZone } from "@/lib/tz";
+import { getSession } from "@/lib/session";
 
 // Mentor-only: call availability for the built-in calendar.
 // Body: { weeklyHours, timeZone, bufferMinutes, minNoticeHours, bookingWindowDays, daysOff }
 export async function PUT(req: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user || (session.user as any).role !== "SELLER") {
     return NextResponse.json({ error: "Mentor accounts only" }, { status: 403 });
   }

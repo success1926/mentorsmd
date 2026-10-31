@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendLive } from "@/lib/realtime";
 import { isOurPath } from "@/lib/storage";
@@ -13,6 +11,7 @@ import { blockBetween } from "@/lib/blocks";
 import { aiCheckAndFlag, checkOutgoingMessage, flagSavedMessage, senderBlockReason } from "@/lib/messageSafety";
 import { runAfterResponse } from "@/lib/request";
 import { gateBlockReason } from "@/lib/gate";
+import { getSession } from "@/lib/session";
 
 // Most recent N messages returned when a thread opens. Keeps long-running
 // threads fast; older history can be paged in with ?before=<messageId>.
@@ -36,7 +35,7 @@ async function assertParticipant(conversationId: string, userId: string) {
 // Still useful for loading history when a thread first opens, even though
 // new messages after that arrive instantly over Supabase Realtime.
 export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const convo = await assertParticipant(params.id, (session.user as any).id);
@@ -63,7 +62,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 }
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const convo = await assertParticipant(params.id, (session.user as any).id);

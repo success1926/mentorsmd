@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { openSlotsForOrder, orderForCallsInclude } from "@/lib/callBooking";
 import { callMinutes, isBlockMinutes } from "@/lib/hours";
 import { bookingWindowFor, hasAvailability } from "@/lib/schedule";
 import { tzOrDefault } from "@/lib/tz";
+import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +12,7 @@ export const dynamic = "force-dynamic";
 // their other calls, buffers, notice, days off, busy dates and their own
 // calendar's busy times. ?exclude=<callId> when moving an existing call.
 export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   const userId = (session.user as any).id;
 

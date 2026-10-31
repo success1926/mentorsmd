@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { LIMITS, parseDate } from "@/lib/validate";
+import { getSession } from "@/lib/session";
 
 // Mentor-only: pause, unpause, remove or restore their own profile.
 //   pause   { pausedUntil?: date, awayNote?: string } - hidden from search; returns automatically on pausedUntil
@@ -11,7 +10,7 @@ import { LIMITS, parseDate } from "@/lib/validate";
 //   restore                                          - undo a self-removal (not an admin removal)
 // Existing orders are never affected - the mentor still finishes them.
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user || (session.user as any).role !== "SELLER") {
     return NextResponse.json({ error: "Mentor accounts only" }, { status: 403 });
   }

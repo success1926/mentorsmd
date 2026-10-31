@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { unreadFor } from "@/lib/unread";
 import { isMentorListed, isMentorVisible } from "@/lib/mentor";
 import { profileFieldsSelect, profileProgress } from "@/lib/profileCompleteness";
 import { creditBalance } from "@/lib/credit";
 import { isStudentProfileFilled, profileFromRow, studentProfileSelect } from "@/lib/studentProfile";
+import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +15,7 @@ export const dynamic = "force-dynamic";
 // v2): active packages, how many wait on their answer, upcoming calls and
 // their MentorsMD credit.
 export async function GET() {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ unread: 0, unreadConversations: 0, mentor: null, student: null });
   const userId = (session.user as any).id;
   const role = (session.user as any).role;

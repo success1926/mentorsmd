@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { INTRO_CALL_MINUTES } from "@/lib/options";
 import { bookingWindowFor, hasAvailability } from "@/lib/schedule";
 import { tzOrDefault } from "@/lib/tz";
 import { introBlockReason, loadIntroMentor, openIntroSlots } from "@/lib/introCalls";
+import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +11,7 @@ export const dynamic = "force-dynamic";
 // hours minus their other calls, buffers, notice, days off, busy dates and
 // their own calendar's busy times), for the logged-in student.
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user || (session.user as any).role !== "BUYER") {
     return NextResponse.json({ error: "Log in with a student account to book an intro call" }, { status: 401 });
   }

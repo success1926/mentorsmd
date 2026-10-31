@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { GOOGLE_CAL_STATE_COOKIE, checkState, encryptToken, exchangeCode } from "@/lib/googleCalendar";
 import { siteUrl } from "@/lib/siteUrl";
 import { externalBusyFor, mentorScheduleSelect } from "@/lib/callBooking";
+import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +22,7 @@ export async function GET(req: Request) {
     return res;
   };
 
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   const userId = (session?.user as any)?.id as string | undefined;
   const stateUser = checkState(url.searchParams.get("state"), stateCookie);
   if (!userId || !stateUser || stateUser !== userId) return back("expired");

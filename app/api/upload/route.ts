@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
 import { PRIVATE_BUCKET, fileExtension, newPath, safeFileName, uploadLinkResponse } from "@/lib/storage";
+import { getSession } from "@/lib/session";
 
 // Upload link for a file attached to a message or a delivery (essay
 // drafts, PDFs, images). The browser then sends the file straight to
@@ -24,7 +23,7 @@ const ALLOWED_EXTENSIONS = new Set([
 ]);
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   const userId = (session.user as any).id;
 

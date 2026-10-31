@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 import { notifyProfileChanged } from "@/components/MentorShell";
 import { TwoStepSettings } from "@/components/TwoStepSettings";
+import { AppDevices } from "@/components/AppDevices";
 
 // Mentor Settings (mentor area v2, Oct 2026): name and sign-in, students
 // under 18, payout account status, Pause (with a return date and a note)
@@ -70,6 +71,7 @@ export default function MentorSettingsPage() {
 
       <NameAndSignIn profile={profile} onSaved={reload} />
       <TwoStepSettings />
+      <AppDevices />
       <MinorsCard profile={profile} onSaved={reload} />
 
       <section className="card row-wrap" style={{ justifyContent: "space-between", gap: 12 }}>

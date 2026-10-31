@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { joinState, JOIN_CLOSES_MINUTES_AFTER, JOIN_OPENS_MINUTES_BEFORE } from "@/lib/calls";
 import { createMeetingToken, dailyConfigured, ensureRoom } from "@/lib/daily";
 import { blockBetween } from "@/lib/blocks";
+import { getSession } from "@/lib/session";
 
 // The Join button. Calls happen in a private Daily room; each person gets
 // their own meeting token (with their name), and only:
@@ -13,7 +12,7 @@ import { blockBetween } from "@/lib/blocks";
 //   - from 10 minutes before the start until 30 minutes after the end.
 // The token itself also stops working shortly after the call.
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   const userId = (session.user as any).id;
 

@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PUBLIC_BUCKET, newPath, publicPathFromUrl, publicUrl, removeFiles } from "@/lib/storage";
 import { supabaseAdmin, NOT_SET_UP } from "@/lib/supabase";
 import { syncProfileComplete } from "@/lib/profileSync";
+import { getSession } from "@/lib/session";
 
 // Profile photo upload (mentors, and students 18+), stored in the
 // public-media bucket (lib/storage.ts).
@@ -28,7 +27,7 @@ const recentUploads = new Map<string, number[]>();
 const ALLOWED_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   // Mentors (shown publicly) and students (optional, shown only to their
   // mentors: the student profile). Students under 18 can't add one.
@@ -88,7 +87,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE() {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   const userId = (session.user as any).id;
 

@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { adminCan } from "@/lib/adminTeam";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { INTRO_TITLE } from "@/lib/introCalls";
+import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +10,7 @@ export const dynamic = "force-dynamic";
 // call (and admins) can see it. A free intro call (kind INTRO) has no
 // order: its people are on the call itself.
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   const user = session.user as any;
 

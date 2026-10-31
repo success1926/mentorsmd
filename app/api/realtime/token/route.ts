@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { isPending2faRole } from "@/lib/sessionRules";
 import { realtimeToken } from "@/lib/realtime";
+import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +10,7 @@ export const dynamic = "force-dynamic";
 // { enabled: false } when Supabase isn't set up; pages then work as before
 // without live updates.
 export async function GET() {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   const user = session?.user as any;
   if (!user?.id || isPending2faRole(user.role)) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   const pass = realtimeToken(user.id);

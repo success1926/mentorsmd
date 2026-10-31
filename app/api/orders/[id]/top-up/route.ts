@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { CheckoutError, startTopUpCheckout } from "@/lib/hourCheckout";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
+import { getSession } from "@/lib/session";
 
 // "Add hours" on a package: { hours: 1 | 2 | 3 | 5 } at the package's own
 // per-hour rate. Credit first, then Stripe Checkout (lib/hourCheckout.ts).
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+  const session = await getSession();
   if (!session?.user || (session.user as any).role !== "BUYER") {
     return NextResponse.json({ error: "Only the student on this package can add hours" }, { status: 403 });
   }
