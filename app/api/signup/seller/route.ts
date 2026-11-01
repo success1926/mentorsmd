@@ -12,7 +12,8 @@ import { acceptedAgreement } from "@/lib/agreement";
 import { mentorAgreementLabel, recordAcceptances, requestMeta } from "@/lib/legal";
 import { requiredKindsFor } from "@/lib/legalKinds";
 import { recordSignup, signupAttribution } from "@/lib/activity";
-import { applicationSchoolForInvite } from "@/lib/applications";
+import { applicationSchoolsForInvite } from "@/lib/applications";
+import { UNDERGRAD_SCHOOL_MAX } from "@/lib/options";
 import { normalizeMedicalSchool } from "@/lib/medicalSchools";
 
 // THIS is the route that enforces "sellers can't sign up on their own."
@@ -70,7 +71,15 @@ export async function POST(req: Request) {
 
   // Medical school (#85): what they picked on the join page, or else the
   // school from their mentor application.
-  const medicalSchool = normalizeMedicalSchool(body.medicalSchool) || (await applicationSchoolForInvite(invite.id, email).catch(() => null));
+  const fromApplication = await applicationSchoolsForInvite(invite.id, email).catch(() => null);
+  const medicalSchool = normalizeMedicalSchool(body.medicalSchool) || fromApplication?.medicalSchool || null;
+  // Applied as an undergrad (BS/MD): the same setup as picking "Undergrad
+  // student" on the profile, including "BS/MD" under "Who you're best for".
+  const undergradFromApplication = fromApplication?.undergradSchool || null;
+  const typedUndergradSchool = typeof body.undergradSchool === "string" ? body.undergradSchool.replace(/\s+/g, " ").trim().slice(0, UNDERGRAD_SCHOOL_MAX) : "";
+  const undergradData = undergradFromApplication
+    ? { mentorStage: "UNDERGRAD", undergradSchool: typedUndergradSchool || undergradFromApplication, bestFor: ["BS_MD"] }
+    : {};
 
   const firstVisit = signupAttribution(req.headers.get("cookie"));
   const passwordHash = await bcrypt.hash(password, 12);
@@ -93,6 +102,7 @@ export async function POST(req: Request) {
           mentorAgreementVersion: agreementLabel,
           mentorAgreementAt: new Date(),
           medicalSchool,
+          ...undergradData,
           // Mentors always join through an invite; the detail keeps how
           // they first found the site, if we know.
           signupSource: "invite",

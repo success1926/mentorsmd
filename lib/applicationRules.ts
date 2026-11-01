@@ -17,9 +17,16 @@ export const APPLICATION_LIMITS = {
   email: 254,
   phone: 30,
   medicalSchool: 150,
+  undergradSchool: 120,
   residency: 150,
   blurbChars: 1500,
 };
+
+// The applicant's school as the team reads it (admin, emails, Sheet, CSV).
+export function applicationSchool(app: { medicalSchool?: string | null; undergradSchool?: string | null }): string {
+  if (!app.undergradSchool) return app.medicalSchool || "";
+  return `Undergrad at ${app.undergradSchool} (BS/MD)${app.medicalSchool ? `, ${app.medicalSchool}` : ""}`;
+}
 
 export function countWords(text: string): number {
   const t = text.trim();

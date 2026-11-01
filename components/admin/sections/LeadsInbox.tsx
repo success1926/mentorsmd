@@ -15,6 +15,7 @@ import {
   type LeadKind,
 } from "@/lib/leadOptions";
 import { labelFor, SERVICES } from "@/lib/options";
+import { applicationSchool } from "@/lib/applicationRules";
 
 // Admin -> Leads: mentor applications, contact messages and waitlist
 // signups. Each lead has a stage (New / In progress / Done), who on the
@@ -37,6 +38,7 @@ type Row = {
   // applications
   phone?: string;
   medicalSchool?: string;
+  undergradSchool?: string | null;
   residency?: string | null;
   blurb?: string;
   resumeUrl?: string;
@@ -108,7 +110,7 @@ export function LeadsInbox() {
       if (who === "me" && r.assignedToId !== data?.me) return false;
       if (who === "none" && r.assignedToId) return false;
       if (who && who !== "me" && who !== "none" && r.assignedToId !== who) return false;
-      if (needle && ![r.name, r.email, r.message, r.medicalSchool].some((v) => v && v.toLowerCase().includes(needle))) return false;
+      if (needle && ![r.name, r.email, r.message, r.medicalSchool, r.undergradSchool].some((v) => v && v.toLowerCase().includes(needle))) return false;
       return true;
     });
   }, [data, stage, who, q]);
@@ -226,7 +228,7 @@ function LeadRow({
   const title = r.kind === "WAITLIST" ? r.email : r.name || r.email;
   const sub =
     r.kind === "APPLICATION"
-      ? `${r.medicalSchool}${r.residency ? ` · ${r.residency}` : ""} · applied ${fmtDay(r.createdAt)}`
+      ? `${applicationSchool(r)}${r.residency ? ` · ${r.residency}` : ""} · applied ${fmtDay(r.createdAt)}`
       : r.kind === "CONTACT"
         ? `${contactTopicLabel(r.topic)} · ${fmtDay(r.createdAt)}`
         : [r.service ? labelFor(SERVICES, r.service) : null, r.applyYear ? `applying ${r.applyYear}` : null, `signed up ${fmtDay(r.createdAt)}`].filter(Boolean).join(" · ");

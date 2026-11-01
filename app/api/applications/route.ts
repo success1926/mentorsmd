@@ -9,6 +9,7 @@ import {
   BLURB_MIN_WORDS,
   HONEYPOT_FIELD,
   RESUME_MAX_BYTES,
+  applicationSchool,
   countWords,
   resumeExtension,
 } from "@/lib/applicationRules";
@@ -45,8 +46,12 @@ export async function POST(req: Request) {
   const name = text(body.name, L.name);
   const email = normalizeEmail(body.email);
   const phone = text(body.phone, L.phone);
+  // Undergrads (BS/MD) give their college; for them the medical school is
+  // optional and there's no residency.
+  const undergrad = body.undergrad === true;
+  const undergradSchool = undergrad ? text(body.undergradSchool, L.undergradSchool) : null;
   const medicalSchool = text(body.medicalSchool, L.medicalSchool);
-  const residency = typeof body.residency === "string" && body.residency.trim() ? text(body.residency, L.residency) : null;
+  const residency = !undergrad && typeof body.residency === "string" && body.residency.trim() ? text(body.residency, L.residency) : null;
   const blurb = text(body.blurb, L.blurbChars);
   // Storage path from /api/applications/resume (field name kept from the
   // Vercel Blob days).
@@ -56,8 +61,9 @@ export async function POST(req: Request) {
   if (!name) return NextResponse.json({ error: "Please enter your name." }, { status: 400 });
   if (!email) return NextResponse.json({ error: "Please enter a valid email address." }, { status: 400 });
   if (!phone || !/^[+()\d\s.-]{7,30}$/.test(phone)) return NextResponse.json({ error: "Please enter a valid phone number." }, { status: 400 });
-  if (!medicalSchool) return NextResponse.json({ error: "Please enter your medical school." }, { status: 400 });
-  if (typeof body.residency === "string" && body.residency.trim() && !residency) {
+  if (undergrad && !undergradSchool) return NextResponse.json({ error: "Please enter your undergraduate school." }, { status: 400 });
+  if (!undergrad && !medicalSchool) return NextResponse.json({ error: "Please enter your medical school." }, { status: 400 });
+  if (!undergrad && typeof body.residency === "string" && body.residency.trim() && !residency) {
     return NextResponse.json({ error: "Residency is too long." }, { status: 400 });
   }
   const words = blurb ? countWords(blurb) : 0;
@@ -92,7 +98,7 @@ export async function POST(req: Request) {
   }
 
   const application = await prisma.mentorApplication.create({
-    data: { name, email, phone, medicalSchool, residency, blurb, resumeUrl, resumeName, ipHash },
+    data: { name, email, phone, medicalSchool: medicalSchool || "", undergradSchool, residency, blurb, resumeUrl, resumeName, ipHash },
   });
 
   // Résumés are private: the email's link goes through an admin-only route.
@@ -104,7 +110,7 @@ export async function POST(req: Request) {
       Name: name,
       Email: email,
       Phone: phone,
-      "Medical school": medicalSchool,
+      "Medical school": applicationSchool(application),
       Residency: residency || "",
       "About them": blurb,
       "Résumé (admins only)": resumeLink,

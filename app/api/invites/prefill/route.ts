@@ -3,12 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { normalizeEmail } from "@/lib/validate";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
 import { ipKey } from "@/lib/request";
-import { applicationSchoolForInvite } from "@/lib/applications";
+import { applicationSchoolsForInvite } from "@/lib/applications";
 
 export const dynamic = "force-dynamic";
 
 // The mentor join page (/become-a-mentor/join) pre-fills the medical
-// school from the person's mentor application (#85). Only answers for a
+// school, or an undergrad's college, from the person's mentor application (#85). Only answers for a
 // valid, unused invite code that matches the email in the link.
 export async function GET(req: Request) {
   const r = await rateLimit(RATE_LIMITS.invitePrefillPerIpHour, ipKey(req));
@@ -21,5 +21,5 @@ export async function GET(req: Request) {
   if (!invite || invite.status !== "PENDING" || invite.expiresAt < new Date() || invite.email.toLowerCase() !== email) {
     return NextResponse.json({ medicalSchool: null });
   }
-  return NextResponse.json({ medicalSchool: await applicationSchoolForInvite(invite.id, email) });
+  return NextResponse.json(await applicationSchoolsForInvite(invite.id, email));
 }

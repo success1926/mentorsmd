@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { applicationSchool } from "@/lib/applicationRules";
 
 // Admin -> Mentor applications: the list (Pending / Invited / Declined)
 // and its actions. Self-contained so it can grow into a leads inbox.
@@ -65,7 +66,7 @@ export function Applications({ onInvited, setNotice }: { onInvited?: () => void;
             <summary className="between" style={{ cursor: "pointer", flexWrap: "wrap", gap: 8 }}>
               <span className="stack-sm" style={{ gap: 2 }}>
                 <b style={{ fontSize: 15 }}>{a.name}</b>
-                <span className="text-muted">{a.medicalSchool}{a.residency ? ` · ${a.residency}` : ""} · applied {fmtDay(a.createdAt)}</span>
+                <span className="text-muted">{applicationSchool(a)}{a.residency ? ` · ${a.residency}` : ""} · applied {fmtDay(a.createdAt)}</span>
               </span>
               {a.status === "INVITED" && <span className="badge badge-success">Invited{a.decidedAt ? ` ${fmtDay(a.decidedAt)}` : ""}</span>}
               {a.status === "DECLINED" && <span className="badge">Declined{a.decidedAt ? ` ${fmtDay(a.decidedAt)}` : ""}</span>}
