@@ -42,14 +42,15 @@ function BuiltInPrivacyPage() {
             To understand how the site is used, we keep a private log of visits, which mentor profiles are viewed and what is searched
             on Find a mentor, and we note how you first found us (for example the website that linked to us). This uses two of our own
             cookies (a random browser id and the first-visit source), no advertising trackers, and only the
-            MentorsMD team can see it. Entries are deleted after about 13 months. We also use PostHog for product analytics (see below).
+            MentorsMD team can see it. Entries are deleted after about 13 months. We also use PostHog for product analytics (see below),
+            and Google Analytics to count visits to our public pages by people who aren&apos;t logged in. Google Analytics sets its own cookies.
           </p>
         </div>
         <div>
           <h2 style={{ fontSize: 22, marginBottom: 6 }}>2. Third-party services we use</h2>
           <p className="text-secondary">
             Stripe (payments), Daily.co (video calls), Supabase (file storage and real-time messaging), Resend (email notifications), Sentry (error reports),
-            PostHog (product analytics), and our database host. Each has its own privacy practices governing the data that passes through them.
+            PostHog (product analytics), Google Analytics (visit counts on public pages), and our database host. Each has its own privacy practices governing the data that passes through them.
           </p>
           <p className="text-secondary">
             Sentry receives technical error reports when something breaks. For errors in your browser we send only the page address

@@ -7,6 +7,7 @@ import { Footer } from "@/components/Footer";
 import { AccountGate } from "@/components/AccountGate";
 import { Tracker } from "@/components/Tracker";
 import { PostHogAnalytics } from "@/components/PostHogAnalytics";
+import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { SitePreviewBar } from "@/components/website/SitePreviewBar";
 import { SiteEditButtons } from "@/components/website/SiteEditButtons";
 import { siteUrl } from "@/lib/siteUrl";
@@ -59,6 +60,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <AccountGate />
           <Tracker />
           <PostHogAnalytics />
+          <GoogleAnalytics />
           <main className="site-main">{children}</main>
           <Footer />
           <SiteEditButtons />
