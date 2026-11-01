@@ -29,12 +29,13 @@ const HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com";
 
 // Pages where a session recording may run (logged-out visitors only).
 const RECORDABLE = [/^\/$/, /^\/mentors(\/[^/]+)?\/?$/, /^\/senior-team\/?$/, /^\/how-it-works\/?$/, /^\/reviews\/?$/, /^\/become-a-mentor\/?$/, /^\/contact\/?$/, /^\/signup\/?$/, /^\/login\/?$/];
-const recordable = (path: string) => RECORDABLE.some((r) => r.test(path));
+export const recordable = (path: string) => RECORDABLE.some((r) => r.test(path));
 
 // Paths whose last part is a private token.
 const TOKEN_PATHS = /\/(consent|parent)\/[^/?#"'\s]+/g;
 // Query values that must never leave the browser.
 const SECRET_PARAMS = /([?&])(token|code|email|callbackUrl|mfaTicket)=[^&#"'\s]*/gi;
+export const hasSecretParams = (query: string) => query.search(SECRET_PARAMS) !== -1;
 
 // Our own addresses: keep only utm_ tags from the query string, hide tokens in the path.
 function cleanUrl(value: string): string {
