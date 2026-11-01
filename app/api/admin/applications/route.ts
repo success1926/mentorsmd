@@ -18,6 +18,7 @@ export async function GET() {
       email: true,
       phone: true,
       medicalSchool: true,
+      undergradSchool: true,
       residency: true,
       blurb: true,
       resumeUrl: true,

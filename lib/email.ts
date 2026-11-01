@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { applicationSchool } from "@/lib/applicationRules";
 import { fmtInZone } from "@/lib/tz";
 import { siteUrl } from "@/lib/siteUrl";
 import { prisma } from "@/lib/prisma";
@@ -393,6 +394,7 @@ type ApplicationForEmail = {
   email: string;
   phone: string;
   medicalSchool: string;
+  undergradSchool: string | null;
   residency: string | null;
   blurb: string;
   resumeName: string;
@@ -409,7 +411,7 @@ export async function sendApplicationEmail(app: ApplicationForEmail, adminUrl: s
       applicantName: app.name,
       applicantEmail: app.email,
       phone: app.phone,
-      medicalSchool: app.medicalSchool,
+      medicalSchool: applicationSchool(app),
       residency: app.residency || "-",
       about: blocks.quote(app.blurb),
       resumeStatus: resume ? "attached" : "not attached",

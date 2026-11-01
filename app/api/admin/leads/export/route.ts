@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { applicationSchool } from "@/lib/applicationRules";
 import { csvBody, csvResponse } from "@/lib/csv";
 import { APPLICATION_STATUS_LABEL, contactTopicLabel, leadStatusLabel } from "@/lib/leads";
 import { leadsAdmin, listLeads, parseKind } from "@/lib/leadQueries";
@@ -21,7 +22,7 @@ export async function GET(req: Request) {
       `mentor-applications-${day}.csv`,
       csvBody(
         ["Applied", "Name", "Email", "Phone", "Medical school", "Residency", "Status", "Decided", "Assigned to", "About", "Resume", "Notes"],
-        rows.map((r) => [r.createdAt, r.name, r.email, r.phone, r.medicalSchool, r.residency, APPLICATION_STATUS_LABEL[r.status] || r.status, r.decidedAt, r.assignedTo?.name, r.blurb, `${siteUrl()}/api/admin/applications/${r.id}/resume`, notes(r)])
+        rows.map((r) => [r.createdAt, r.name, r.email, r.phone, applicationSchool(r), r.residency, APPLICATION_STATUS_LABEL[r.status] || r.status, r.decidedAt, r.assignedTo?.name, r.blurb, `${siteUrl()}/api/admin/applications/${r.id}/resume`, notes(r)])
       )
     );
   }

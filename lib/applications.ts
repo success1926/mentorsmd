@@ -38,11 +38,13 @@ export async function applicationLimitError(ipHash: string | null, email?: strin
   return null;
 }
 
-// The medical school from the application behind this invite (or, for an
-// invite sent by hand, the newest application from the same email).
-export async function applicationSchoolForInvite(inviteId: string, email: string) {
+// The schools from the application behind this invite (or, for an invite
+// sent by hand, the newest application from the same email). undergradSchool
+// is set only for an undergrad (BS/MD) applicant.
+export async function applicationSchoolsForInvite(inviteId: string, email: string) {
+  const select = { medicalSchool: true, undergradSchool: true };
   const app =
-    (await prisma.mentorApplication.findFirst({ where: { inviteId }, select: { medicalSchool: true } })) ||
-    (await prisma.mentorApplication.findFirst({ where: { email: { equals: email, mode: "insensitive" } }, orderBy: { createdAt: "desc" }, select: { medicalSchool: true } }));
-  return guessMedicalSchool(app?.medicalSchool);
+    (await prisma.mentorApplication.findFirst({ where: { inviteId }, select })) ||
+    (await prisma.mentorApplication.findFirst({ where: { email: { equals: email, mode: "insensitive" } }, orderBy: { createdAt: "desc" }, select }));
+  return { medicalSchool: guessMedicalSchool(app?.medicalSchool), undergradSchool: app?.undergradSchool || null };
 }

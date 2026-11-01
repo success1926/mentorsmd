@@ -910,26 +910,28 @@ model Message {
 // it in Admin -> Applications and either invites them (the normal invite
 // flow) or declines.
 model MentorApplication {
-  id            String            @id @default(cuid())
-  name          String
-  email         String
-  phone         String
-  medicalSchool String
-  residency     String?
-  blurb         String
-  resumeUrl     String // private storage path (lib/storage.ts); old rows hold a Vercel Blob address
-  resumeName    String
-  status        ApplicationStatus @default(PENDING)
+  id              String            @id @default(cuid())
+  name            String
+  email           String
+  phone           String
+  medicalSchool   String // empty for an undergrad who didn't give one
+  // Undergrads in a BS/MD program: their college. Empty for everyone else.
+  undergradSchool String?
+  residency       String?
+  blurb           String
+  resumeUrl       String // private storage path (lib/storage.ts); old rows hold a Vercel Blob address
+  resumeName      String
+  status          ApplicationStatus @default(PENDING)
   // SHA-256 of the sender's IP (never the IP itself), for the simple
   // "too many applications from here" limit.
-  ipHash        String?
-  createdAt     DateTime          @default(now())
-  decidedAt     DateTime?
-  inviteId      String?
+  ipHash          String?
+  createdAt       DateTime          @default(now())
+  decidedAt       DateTime?
+  inviteId        String?
   // Leads inbox: the team member looking after it, and internal notes.
-  assignedToId  String?
-  assignedTo    User?             @relation("ApplicationAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
-  notes         LeadNote[]
+  assignedToId    String?
+  assignedTo      User?             @relation("ApplicationAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  notes           LeadNote[]
 
   @@index([status, createdAt])
   @@index([email, createdAt])

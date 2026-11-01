@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { currentAdmin } from "@/lib/adminTeam";
+import { applicationSchool } from "@/lib/applicationRules";
 import { can, ORDER_VIEW_PERMISSIONS } from "@/lib/adminPermissions";
 
 export const dynamic = "force-dynamic";
@@ -109,8 +110,8 @@ export async function GET(req: Request) {
     searches.push(
       prisma.mentorApplication
         .findMany({
-          where: { OR: [{ name: contains(q) }, { email: contains(q) }, { medicalSchool: contains(q) }, ...(idLike ? [{ id: q }] : [])] },
-          select: { id: true, name: true, email: true, medicalSchool: true, status: true, createdAt: true },
+          where: { OR: [{ name: contains(q) }, { email: contains(q) }, { medicalSchool: contains(q) }, { undergradSchool: contains(q) }, ...(idLike ? [{ id: q }] : [])] },
+          select: { id: true, name: true, email: true, medicalSchool: true, undergradSchool: true, status: true, createdAt: true },
           orderBy: { createdAt: "desc" },
           take: PER_TYPE,
         })
@@ -118,7 +119,7 @@ export async function GET(req: Request) {
           rows.map((a) => ({
             type: "Mentor application",
             label: a.name,
-            sub: `Mentor application · ${a.medicalSchool} · ${a.email} · ${fmtDay(a.createdAt)}`,
+            sub: `Mentor application · ${applicationSchool(a)} · ${a.email} · ${fmtDay(a.createdAt)}`,
             href: inLeads ? `/admin/leads?tab=APPLICATION&open=${a.id}` : "/admin/applications",
           }))
         )

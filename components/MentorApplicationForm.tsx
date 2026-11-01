@@ -19,7 +19,8 @@ import { MedicalSchoolPicker } from "@/components/MedicalSchoolPicker";
 // storage first (upload link from /api/applications/resume, lib/upload.ts),
 // then the form is sent to /api/applications with the file's path.
 export function MentorApplicationForm() {
-  const [form, setForm] = useState({ name: "", email: "", phone: "", medicalSchool: "", residency: "", blurb: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", medicalSchool: "", undergradSchool: "", residency: "", blurb: "" });
+  const [undergrad, setUndergrad] = useState(false);
   const [honeypot, setHoneypot] = useState("");
   const [resume, setResume] = useState<File | null>(null);
   const [error, setError] = useState("");
@@ -38,7 +39,7 @@ export function MentorApplicationForm() {
 
   const words = countWords(form.blurb);
   const blurbOk = words >= BLURB_MIN_WORDS && words <= BLURB_MAX_WORDS;
-  const ready = form.name.trim() && form.email.trim() && form.phone.trim() && form.medicalSchool.trim() && blurbOk && resume;
+  const ready = form.name.trim() && form.email.trim() && form.phone.trim() && (undergrad ? form.undergradSchool : form.medicalSchool).trim() && blurbOk && resume;
   const busy = status === "uploading" || status === "sending";
 
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm({ ...form, [key]: e.target.value });
@@ -70,6 +71,7 @@ export function MentorApplicationForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          undergrad,
           resumeUrl: uploaded.path,
           resumeName: resume.name.slice(0, 150),
           [HONEYPOT_FIELD]: honeypot,
@@ -113,6 +115,13 @@ export function MentorApplicationForm() {
 
   return (
     <form onSubmit={submit} className="card stack" style={{ gap: 0 }} noValidate>
+      <div className="field">
+        <span className="field-label">Where are you in training?</span>
+        <div className="seg">
+          <button type="button" className="seg-opt" aria-pressed={!undergrad} onClick={() => setUndergrad(false)}>Medical student or resident</button>
+          <button type="button" className="seg-opt" aria-pressed={undergrad} onClick={() => setUndergrad(true)}>Undergrad (BS/MD)</button>
+        </div>
+      </div>
       <div className="grid-2" style={{ gap: "0 20px" }}>
         <label className="field"><span className="field-label">Full name</span>
           <input className="input" autoComplete="name" maxLength={L.name} value={form.name} onChange={set("name")} required /></label>
@@ -120,10 +129,19 @@ export function MentorApplicationForm() {
           <input className="input" type="email" autoComplete="email" maxLength={L.email} value={form.email} onChange={set("email")} required /></label>
         <label className="field"><span className="field-label">Phone</span>
           <input className="input" type="tel" autoComplete="tel" maxLength={L.phone} value={form.phone} onChange={set("phone")} required /></label>
-        <MedicalSchoolPicker value={form.medicalSchool} onChange={(v) => setForm({ ...form, medicalSchool: v })} help="" />
+        {undergrad ? (
+          <label className="field"><span className="field-label">Undergraduate school</span>
+            <input className="input" maxLength={L.undergradSchool} placeholder="e.g. Brown University" value={form.undergradSchool} onChange={set("undergradSchool")} required /></label>
+        ) : (
+          <MedicalSchoolPicker value={form.medicalSchool} onChange={(v) => setForm({ ...form, medicalSchool: v })} help="" />
+        )}
       </div>
-      <label className="field"><span className="field-label">Residency (optional)</span>
-        <input className="input" maxLength={L.residency} placeholder="e.g. Internal Medicine, PGY-2" value={form.residency} onChange={set("residency")} /></label>
+      {undergrad ? (
+        <MedicalSchoolPicker label="Medical school (optional)" value={form.medicalSchool} onChange={(v) => setForm({ ...form, medicalSchool: v })} help="The medical school your BS/MD program leads to." />
+      ) : (
+        <label className="field"><span className="field-label">Residency (optional)</span>
+          <input className="input" maxLength={L.residency} placeholder="e.g. Internal Medicine, PGY-2" value={form.residency} onChange={set("residency")} /></label>
+      )}
 
       <label className="field">
         <span className="field-label">About you</span>
