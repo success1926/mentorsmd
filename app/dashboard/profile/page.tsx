@@ -254,7 +254,7 @@ function BasicsStep({ profile, basics, setBasics, photoUrl, setPhotoUrl, status,
       <ProfilePhoto name={profile.name} photoUrl={photoUrl} onChanged={setPhotoUrl} />
       <label className="field" style={{ marginBottom: 0 }}>
         <span className="field-label">One-line credential</span>
-        <input className="input" placeholder="e.g. MS3 at [school] · Admissions interviewer" value={basics.credential} maxLength={LIMITS.credential} onChange={(e) => set({ credential: e.target.value })} />
+        <input className="input" placeholder={undergrad ? "e.g. BS/MD junior at [school]" : "e.g. MS3 at [school] · Admissions interviewer"} value={basics.credential} maxLength={LIMITS.credential} onChange={(e) => set({ credential: e.target.value })} />
       </label>
       <div className="field" style={{ marginBottom: 0 }}>
         <span className="field-label">Your stage</span>

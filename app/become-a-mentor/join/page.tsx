@@ -136,7 +136,7 @@ function OnboardCoachForm() {
           <label className="field"><span className="field-label">Full name</span>
             <input className="input" value={name} onChange={(e) => setName(e.target.value)} /></label>
           <label className="field"><span className="field-label">Credential</span>
-            <input className="input" placeholder="e.g. MS3, PGY-2 IM" value={credential} onChange={(e) => setCredential(e.target.value)} /></label>
+            <input className="input" placeholder={undergrad ? "e.g. BS/MD junior" : "e.g. MS3, PGY-2 IM"} value={credential} onChange={(e) => setCredential(e.target.value)} /></label>
           {undergrad ? (
             <>
               <label className="field"><span className="field-label">Undergraduate school</span>
