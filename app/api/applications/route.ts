@@ -12,7 +12,8 @@ import {
   applicationSchool,
   countWords,
   resumeExtension,
-} from "@/lib/applicationRules";
+  APPLICATION_STAGES,
+ } from "@/lib/applicationRules";
 import { applicationLimitError, ipHashFor } from "@/lib/applications";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
 import { clientIp, ipKey, runAfterResponse } from "@/lib/request";
@@ -46,9 +47,10 @@ export async function POST(req: Request) {
   const name = text(body.name, L.name);
   const email = normalizeEmail(body.email);
   const phone = text(body.phone, L.phone);
-  // Undergrads (BS/MD) give their college; for them the medical school is
-  // optional and there's no residency.
-  const undergrad = body.undergrad === true;
+  // Undergrads (BS/MD), gap years and others give their own school; for
+  // them the medical school is optional and there's no residency.
+  const stage = APPLICATION_STAGES.find((s) => s.value === body.stage)?.value ?? "MEDICAL";
+  const undergrad = stage !== "MEDICAL";
   const undergradSchool = undergrad ? text(body.undergradSchool, L.undergradSchool) : null;
   const medicalSchool = text(body.medicalSchool, L.medicalSchool);
   const residency = !undergrad && typeof body.residency === "string" && body.residency.trim() ? text(body.residency, L.residency) : null;
@@ -61,7 +63,7 @@ export async function POST(req: Request) {
   if (!name) return NextResponse.json({ error: "Please enter your name." }, { status: 400 });
   if (!email) return NextResponse.json({ error: "Please enter a valid email address." }, { status: 400 });
   if (!phone || !/^[+()\d\s.-]{7,30}$/.test(phone)) return NextResponse.json({ error: "Please enter a valid phone number." }, { status: 400 });
-  if (undergrad && !undergradSchool) return NextResponse.json({ error: "Please enter your undergraduate school." }, { status: 400 });
+  if (undergrad && !undergradSchool) return NextResponse.json({ error: stage === "OTHER" ? "Please enter your school or organization." : "Please enter your undergraduate school." }, { status: 400 });
   if (!undergrad && !medicalSchool) return NextResponse.json({ error: "Please enter your medical school." }, { status: 400 });
   if (!undergrad && typeof body.residency === "string" && body.residency.trim() && !residency) {
     return NextResponse.json({ error: "Residency is too long." }, { status: 400 });
@@ -98,7 +100,7 @@ export async function POST(req: Request) {
   }
 
   const application = await prisma.mentorApplication.create({
-    data: { name, email, phone, medicalSchool: medicalSchool || "", undergradSchool, residency, blurb, resumeUrl, resumeName, ipHash },
+    data: { name, email, phone, trainingStage: stage === "MEDICAL" ? null : stage, medicalSchool: medicalSchool || "", undergradSchool, residency, blurb, resumeUrl, resumeName, ipHash },
   });
 
   // Résumés are private: the email's link goes through an admin-only route.

@@ -205,7 +205,7 @@ const LIST: EmailDef[] = [
     subject: "Mentors are now available on MentorsMD",
     body: [
       "Hi there,",
-      "You asked us to let you know when mentors join MentorsMD. They're here: medical students and residents, every one vetted by our senior team.",
+      "You asked us to let you know when mentors join MentorsMD. They're here: medical students, residents, gap-year students and more, every one vetted by our senior team.",
       "You can message any mentor for free before you book.",
       "[[Browse mentors]]({{mentorsLink}})",
       ">> You're getting this because you joined the MentorsMD waitlist. [Remove me from the waitlist]({{removeLink}}).",
@@ -266,7 +266,7 @@ const LIST: EmailDef[] = [
     subject: "Find your MentorsMD mentor",
     body: [
       "Hi {{firstName}},",
-      "Thanks for joining MentorsMD. Our mentors are medical students and residents who've been through admissions, and every one is vetted by our senior team.",
+      "Thanks for joining MentorsMD. Our mentors are medical students, residents, gap-year students and more who've been through admissions, and every one is vetted by our senior team.",
       "You can message any mentor for free, or book a **free 15-minute intro call** to see if they're the right fit before you buy anything.",
       "[[Browse mentors]]({{mentorsLink}})",
       STOP_LINE,
@@ -696,7 +696,7 @@ const LIST: EmailDef[] = [
       "Hi {{firstName}},",
       "**{{parentName}}** sent you **{{giftLine}}** on MentorsMD.",
       "{{note}}",
-      "MentorsMD connects you with medical students and doctors who help with every part of getting into medical school. Credit never expires and you can use it with any mentor.",
+      "MentorsMD connects you with medical students, residents, gap-year students and more who help with every part of getting into medical school. Credit never expires and you can use it with any mentor.",
       "[[Set up your account]]({{claimLink}})",
       "[[Log in to MentorsMD]]({{loginLink}})",
       "> {{claimHelp}}",
@@ -1220,7 +1220,7 @@ const LIST: EmailDef[] = [
 function PARENT_CONSENT_BODY() {
   return [
     "Hi {{parentFirstName}},",
-    "**{{studentName}}** created a student account on MentorsMD, where students applying to medical school get one-on-one help from vetted medical students and residents.",
+    "**{{studentName}}** created a student account on MentorsMD, where students applying to medical school get one-on-one help from vetted medical students, residents, gap-year students and more.",
     "Because {{studentFirstName}} is under 18, their account stays paused until a parent or guardian reads our Terms and the Parental Consent form and consents.",
     "[[Review and give consent]]({{consentLink}})",
     '> This link expires on {{expiresOn}}. If you don\'t know this student, or don\'t want them to use MentorsMD, you can ignore this email or choose "I don\'t consent" on the page.',

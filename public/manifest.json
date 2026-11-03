@@ -1,7 +1,7 @@
 {
   "name": "MentorsMD",
   "short_name": "MentorsMD",
-  "description": "Book one-on-one help from vetted med students and residents",
+  "description": "Book one-on-one help from vetted med students, residents, gap-year students and more",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FFFFFF",

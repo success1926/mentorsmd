@@ -21,7 +21,7 @@ export const DEFAULT_LEGAL_TEXT: Partial<Record<LegalKind, { title: string; body
   PARENTAL_CONSENT: {
     title: "Parental Consent form",
     body: [
-      "MentorsMD connects students applying to medical school with mentors (medical students and residents) who are vetted by our senior team. Students aged 13 to 17 need a parent or legal guardian's consent before they can use the site.",
+      "MentorsMD connects students applying to medical school with mentors (medical students, residents, undergraduates in BS/MD programs, gap-year students and others on the path to medicine) who are vetted by our senior team. Students aged 13 to 17 need a parent or legal guardian's consent before they can use the site.",
       "",
       "## What your student can do on MentorsMD",
       "- Message mentors through MentorsMD messages. Conversations are checked automatically for safety, and our team may read them if something is flagged.",

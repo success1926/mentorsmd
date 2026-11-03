@@ -395,6 +395,7 @@ type ApplicationForEmail = {
   phone: string;
   medicalSchool: string;
   undergradSchool: string | null;
+  trainingStage?: string | null;
   residency: string | null;
   blurb: string;
   resumeName: string;

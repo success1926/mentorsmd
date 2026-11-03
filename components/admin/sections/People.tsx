@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { PeopleTabs } from "@/components/admin/AdminTabs";
 import { statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { SEVERITY, kindLabel } from "@/components/admin/Flags";
-import { BEST_FOR, SCHOOL_TYPES, STAGES, labelFor, money } from "@/lib/options";
+import { BEST_FOR, SCHOOL_TYPES, STAGES, labelFor, money, ownSchoolLabel, usesOwnSchool } from "@/lib/options";
 import { CREDIT_REASON_LABEL } from "@/lib/hours";
 import { useAdminCan } from "@/components/admin/AdminShell";
 import { useAdminDialog } from "@/components/admin/AdminDialog";
@@ -169,8 +169,8 @@ function PersonDetail({ id }: { id: string }) {
       )}
       <HealthCard d={d} />
       <div className="row-wrap small text-secondary">
-        {isMentor && u.mentorStage === "UNDERGRAD" && <span><b>Undergraduate school:</b> {u.undergradSchool || "not added yet"}</span>}
-        {isMentor && <span><b>Medical school:</b> {u.medicalSchool || (u.mentorStage === "UNDERGRAD" ? "not given (optional for undergrads)" : "not added yet")}</span>}
+        {isMentor && usesOwnSchool(u.mentorStage) && <span><b>{ownSchoolLabel(u.mentorStage)}:</b> {u.undergradSchool || "not added yet"}</span>}
+        {isMentor && <span><b>Medical school:</b> {u.medicalSchool || (usesOwnSchool(u.mentorStage) ? "not given (optional)" : "not added yet")}</span>}
         <span><b>Signup source:</b> {u.signupSource ? `${u.signupSource}${u.signupDetail ? ` (${u.signupDetail})` : ""}` : "unknown"}</span>
       </div>
       {isMentor && (

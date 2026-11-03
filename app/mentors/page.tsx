@@ -10,7 +10,7 @@ import { attributionFromCookieHeader } from "@/lib/activity";
 import { logBrowseSearch } from "@/lib/searchLog";
 import { getSiteContent } from "@/lib/siteContentStore";
 import { WaitlistBox } from "@/components/WaitlistBox";
-import { BEST_FOR, FILTER_GROUPS, FORMATS, MENTOR_QUICK_LINKS as QUICK, SCHOOL_TYPES, STAGES, labelFor, money, quickLinkHref } from "@/lib/options";
+import { BEST_FOR, FILTER_GROUPS, FORMATS, MENTOR_QUICK_LINKS as QUICK, SCHOOL_TYPES, labelFor, mentorStageTag, money, quickLinkHref } from "@/lib/options";
 import { hoursLabel } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
@@ -162,7 +162,7 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
             )}
 
             {mentors.map((m) => {
-              const tags = [labelFor(STAGES, m.mentorStage), labelFor(SCHOOL_TYPES, m.schoolType)].filter(Boolean);
+              const tags = [mentorStageTag(m.mentorStage), labelFor(SCHOOL_TYPES, m.schoolType)].filter(Boolean);
               const bestFor = m.bestFor.map((b) => labelFor(BEST_FOR, b));
               return (
                 <article key={m.id} className="mentor-card">

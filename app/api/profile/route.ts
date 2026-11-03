@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { LIMITS, isNonEmptyString } from "@/lib/validate";
-import { SCHOOL_TYPES, STAGES, UNDERGRAD_SCHOOL_MAX, isUndergrad, isValue } from "@/lib/options";
+import { SCHOOL_TYPES, STAGES, UNDERGRAD_SCHOOL_MAX, isUndergrad, isValue, ownSchoolLabel, schoolTypeOptional, usesOwnSchool } from "@/lib/options";
 import { parseMentorProfile } from "@/lib/mentorProfileInput";
 import { profileFieldsSelect, profileProgress } from "@/lib/profileCompleteness";
 import { syncProfileComplete } from "@/lib/profileSync";
@@ -78,7 +78,7 @@ export async function PATCH(req: Request) {
     credential?: string | null;
     bio?: string | null;
     mentorStage?: string;
-    schoolType?: string;
+    schoolType?: string | null;
     timeZone?: string;
     acceptsMinors?: boolean;
     medicalSchool?: string | null;
@@ -128,13 +128,16 @@ export async function PATCH(req: Request) {
       data.mentorStage = body.mentorStage;
     }
     if (body.schoolType !== undefined) {
-      if (!isValue(SCHOOL_TYPES, body.schoolType)) return NextResponse.json({ error: "Pick your school type" }, { status: 400 });
+      // Null clears it (only where it's optional, checked below).
+      if (body.schoolType !== null && !isValue(SCHOOL_TYPES, body.schoolType)) return NextResponse.json({ error: "Pick your school type" }, { status: 400 });
       data.schoolType = body.schoolType;
     }
-    // Undergrads (BS/MD) give their college instead; for them the medical
-    // school is optional (and can be cleared).
+    // Undergrads, gap years and others give their own school instead; for
+    // them the medical school is optional (and can be cleared).
     const current = await prisma.user.findUnique({ where: { id: userId }, select: { mentorStage: true, bestFor: true } });
-    const undergrad = isUndergrad(data.mentorStage ?? current?.mentorStage);
+    const stage = data.mentorStage ?? current?.mentorStage;
+    if (body.schoolType === null && !schoolTypeOptional(stage)) return NextResponse.json({ error: "Pick your school type" }, { status: 400 });
+    const undergrad = usesOwnSchool(stage);
     // Medical school (#85): picked from the list or typed in.
     if (body.medicalSchool !== undefined) {
       const school = normalizeMedicalSchool(body.medicalSchool);
@@ -143,7 +146,7 @@ export async function PATCH(req: Request) {
     }
     if (body.undergradSchool !== undefined) {
       const school = typeof body.undergradSchool === "string" ? body.undergradSchool.replace(/\s+/g, " ").trim().slice(0, UNDERGRAD_SCHOOL_MAX) : "";
-      if (!school && undergrad) return NextResponse.json({ error: "Enter your undergraduate school" }, { status: 400 });
+      if (!school && undergrad) return NextResponse.json({ error: `Enter your ${ownSchoolLabel(stage).toLowerCase()}` }, { status: 400 });
       data.undergradSchool = school || null;
     }
     // Becoming an undergrad mentor ticks "BS/MD" under "Who you're best

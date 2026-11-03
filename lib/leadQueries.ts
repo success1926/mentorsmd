@@ -26,7 +26,7 @@ export async function listLeads(kind: LeadKind) {
       orderBy: { createdAt: "desc" },
       take: MAX_ROWS,
       select: {
-        id: true, name: true, email: true, phone: true, medicalSchool: true, undergradSchool: true, residency: true, blurb: true,
+        id: true, name: true, email: true, phone: true, medicalSchool: true, undergradSchool: true, trainingStage: true, residency: true, blurb: true,
         resumeUrl: true, resumeName: true, status: true, createdAt: true, decidedAt: true, assignedToId: true,
         assignedTo: { select: assigneeSelect },
         notes: { orderBy: { createdAt: "asc" }, select: noteSelect },

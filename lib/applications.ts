@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { applicantStage } from "@/lib/applicationRules";
 import { prisma } from "@/lib/prisma";
 import { guessMedicalSchool } from "@/lib/medicalSchools";
 
@@ -40,11 +41,12 @@ export async function applicationLimitError(ipHash: string | null, email?: strin
 
 // The schools from the application behind this invite (or, for an invite
 // sent by hand, the newest application from the same email). undergradSchool
-// is set only for an undergrad (BS/MD) applicant.
+// is set only for applicants not at a medical school (BS/MD, gap year, other),
+// and stage says which.
 export async function applicationSchoolsForInvite(inviteId: string, email: string) {
-  const select = { medicalSchool: true, undergradSchool: true };
+  const select = { medicalSchool: true, undergradSchool: true, trainingStage: true };
   const app =
     (await prisma.mentorApplication.findFirst({ where: { inviteId }, select })) ||
     (await prisma.mentorApplication.findFirst({ where: { email: { equals: email, mode: "insensitive" } }, orderBy: { createdAt: "desc" }, select }));
-  return { medicalSchool: guessMedicalSchool(app?.medicalSchool), undergradSchool: app?.undergradSchool || null };
+  return { medicalSchool: guessMedicalSchool(app?.medicalSchool), undergradSchool: app?.undergradSchool || null, stage: app ? applicantStage(app) : null };
 }
