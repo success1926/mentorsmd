@@ -97,7 +97,7 @@ export const SITE_PAGES = {
         heroEyebrow: text("Small label above the headline", "Medical School Admissions Mentors", { max: 60, help: "Says what the site is, for readers and search engines." }),
         heroTitle: text("Headline", "Your White Coat Starts Here", { required: true }),
         heroUnderline: text("Underlined words in the headline", "Starts Here", { max: 60, help: "Words from the headline that get the hand-drawn line under them. Leave blank for none." }),
-        heroSub: long("Text under the headline", "One-on-one help from med students and residents, every one vetted by our senior team, with personal statements, secondaries, MMI and interview prep, MCAT strategy and school lists.", { max: 400 }),
+        heroSub: long("Text under the headline", "One-on-one help from med students, residents, gap-year students and more, every one vetted by our senior team, with personal statements, secondaries, MMI and interview prep, MCAT strategy and school lists.", { max: 400 }),
         searchPlaceholder: text("Search box hint", "Search by topic, school or exam, e.g. MMI practice"),
         quickTopics: list(
           "Popular topics",
@@ -316,7 +316,7 @@ export const SITE_PAGES = {
       ...section("Intro", {
         eyebrow: text("Small label", "How It Works", { max: 40 }),
         title: text("Heading", "How MentorsMD Works", { max: 80, required: true }),
-        intro: long("Intro", "MentorsMD connects you with med students and residents who got in recently. Every mentor is vetted by our senior team, prices are set by the hour, and every hour you use is logged where you can see it.", { max: 600 }),
+        intro: long("Intro", "MentorsMD connects you with med students, residents, gap-year students and more who've been through admissions recently. Every mentor is vetted by our senior team, prices are set by the hour, and every hour you use is logged where you can see it.", { max: 600 }),
       }),
       ...section("Steps", {
         stepsEyebrow: text("Small label", "The Process", { max: 40 }),

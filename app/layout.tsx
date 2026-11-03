@@ -25,11 +25,11 @@ export const metadata: Metadata = {
   // As on AdmitMD: "MentorsMD | what we do" on the homepage, "Page | MentorsMD" everywhere else.
   title: { default: "MentorsMD | Medical School Admissions Mentors, Vetted by Our Senior Team", template: "%s | MentorsMD" },
   description:
-    "One-on-one medical school admissions help from vetted med students and residents: personal statements, secondaries, MMI and interview prep, MCAT strategy and school lists.",
+    "One-on-one medical school admissions help from vetted med students, residents, gap-year students and more: personal statements, secondaries, MMI and interview prep, MCAT strategy and school lists.",
   manifest: "/manifest.json", // lets someone "Add to Home Screen" on their phone
   openGraph: {
     title: "MentorsMD | Medical School Admissions Mentors, Vetted by Our Senior Team",
-    description: "One-on-one medical school admissions help from med students and residents, every one vetted by our senior team.",
+    description: "One-on-one medical school admissions help from med students, residents, gap-year students and more, every one vetted by our senior team.",
     type: "website",
   },
 };

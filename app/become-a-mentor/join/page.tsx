@@ -150,7 +150,7 @@ function OnboardCoachForm() {
             <MedicalSchoolPicker value={medicalSchool} onChange={setMedicalSchool} required help="Filled in from your application when we have it. Start typing to pick from the list; not listed? Type its full name." />
           )}
           <label className="field"><span className="field-label">Short bio (optional)</span>
-            <textarea className="input" maxLength={3000} placeholder="Where you are in training, what you help with, and what you went through to get in." value={bio} onChange={(e) => setBio(e.target.value)} /></label>
+            <textarea className="input" maxLength={3000} placeholder="Where you are on your path, what you help with, and what you went through to get in." value={bio} onChange={(e) => setBio(e.target.value)} /></label>
           <label className="field"><span className="field-label">Set a password</span>
             <input className="input" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
             <span className="field-help">At least 8 characters.</span></label>
