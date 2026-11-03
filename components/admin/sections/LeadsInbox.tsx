@@ -39,6 +39,7 @@ type Row = {
   phone?: string;
   medicalSchool?: string;
   undergradSchool?: string | null;
+  trainingStage?: string | null;
   residency?: string | null;
   blurb?: string;
   resumeUrl?: string;

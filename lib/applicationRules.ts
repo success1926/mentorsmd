@@ -22,10 +22,30 @@ export const APPLICATION_LIMITS = {
   blurbChars: 1500,
 };
 
+// "Where are you now?" on the application. MEDICAL is stored as empty, like
+// every application from before these options.
+export const APPLICATION_STAGES = [
+  { value: "MEDICAL", label: "Medical student or resident" },
+  { value: "UNDERGRAD", label: "Undergrad (BS/MD)" },
+  { value: "GAP_YEAR", label: "Gap year" },
+  { value: "OTHER", label: "Something else" },
+] as const;
+export type ApplicationStage = (typeof APPLICATION_STAGES)[number]["value"];
+
+// The applicant's stage: older rows have none, and a college means BS/MD.
+export function applicantStage(app: { trainingStage?: string | null; undergradSchool?: string | null }): ApplicationStage {
+  if (app.trainingStage === "UNDERGRAD" || app.trainingStage === "GAP_YEAR" || app.trainingStage === "OTHER") return app.trainingStage;
+  return app.undergradSchool ? "UNDERGRAD" : "MEDICAL";
+}
+
 // The applicant's school as the team reads it (admin, emails, Sheet, CSV).
-export function applicationSchool(app: { medicalSchool?: string | null; undergradSchool?: string | null }): string {
-  if (!app.undergradSchool) return app.medicalSchool || "";
-  return `Undergrad at ${app.undergradSchool} (BS/MD)${app.medicalSchool ? `, ${app.medicalSchool}` : ""}`;
+export function applicationSchool(app: { trainingStage?: string | null; medicalSchool?: string | null; undergradSchool?: string | null }): string {
+  const stage = applicantStage(app);
+  const med = app.medicalSchool ? `, ${app.medicalSchool}` : "";
+  if (stage === "UNDERGRAD") return `Undergrad at ${app.undergradSchool} (BS/MD)${med}`;
+  if (stage === "GAP_YEAR") return `Gap year, ${app.undergradSchool}${med}`;
+  if (stage === "OTHER") return `Other, ${app.undergradSchool}${med}`;
+  return app.medicalSchool || "";
 }
 
 export function countWords(text: string): number {

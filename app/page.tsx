@@ -15,7 +15,7 @@ import { getSiteContent } from "@/lib/siteContentStore";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
 import { PageSections } from "@/components/website/PageSections";
 import { SchoolMarquee } from "@/components/SchoolMarquee";
-import { BEST_FOR, labelFor, money, STAGES } from "@/lib/options";
+import { BEST_FOR, labelFor, mentorStageTag, money } from "@/lib/options";
 
 export const dynamic = "force-dynamic"; // mentor cards and review counts read live data
 
@@ -165,7 +165,7 @@ export default async function HomePage() {
                         <Rating avg={m.avgRating} count={m.reviewCount} />
                       </div>
                       <span className="text-secondary">
-                        {m.credential || labelFor(STAGES, m.mentorStage)}
+                        {m.credential || mentorStageTag(m.mentorStage)}
                         {firstBestFor && <> · Best for {labelFor(BEST_FOR, firstBestFor)}</>}
                       </span>
                       {m.fromRateCents && (

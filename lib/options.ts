@@ -48,20 +48,37 @@ export const STAGES: Option[] = [
   // Undergrads in a BS/MD program (approved Oct 2026): they give their
   // college (User.undergradSchool); the medical school is optional.
   { value: "UNDERGRAD", label: "Undergrad student" },
+  // Between college and medical school (approved Nov 2026). Same school
+  // rules as undergrads, without the BS/MD setup.
+  { value: "GAP_YEAR", label: "Gap year" },
   { value: "MS1", label: "MS1" },
   { value: "MS2", label: "MS2" },
   { value: "MS3", label: "MS3" },
   { value: "MS4", label: "MS4" },
   { value: "RESIDENT", label: "Resident" },
+  // Anything else on the path to medicine (a PhD, a post-bac...). Their
+  // one-line credential says what; "Other" isn't shown as a public tag.
+  { value: "OTHER", label: "Other" },
 ];
 
 export const isUndergrad = (stage: string | null | undefined) => stage === "UNDERGRAD";
 export const UNDERGRAD_SCHOOL_MAX = 120;
 
-// The school shown on a mentor's card and profile: their college for
-// undergrads, otherwise their medical school.
+// Stages not based at a medical school: they give their own school
+// (User.undergradSchool), and the medical school is optional.
+export const usesOwnSchool = (stage: string | null | undefined) => stage === "UNDERGRAD" || stage === "GAP_YEAR" || stage === "OTHER";
+// What that school is called on forms and in admin.
+export const ownSchoolLabel = (stage: string | null | undefined) => (stage === "OTHER" ? "School or organization" : "Undergraduate school");
+// School type (MD/DO) is optional when there's no medical school yet.
+export const schoolTypeOptional = (stage: string | null | undefined) => stage === "GAP_YEAR" || stage === "OTHER";
+// The public tag on cards and profiles ("Other" says nothing to a student,
+// so it has none: the credential line describes them).
+export const mentorStageTag = (stage: string | null | undefined) => (stage === "OTHER" ? "" : labelFor(STAGES, stage));
+
+// The school shown on a mentor's card and profile: their own school for
+// undergrads, gap years and others, otherwise their medical school.
 export function mentorSchoolName(m: { mentorStage?: string | null; medicalSchool?: string | null; undergradSchool?: string | null }) {
-  return isUndergrad(m.mentorStage) ? m.undergradSchool || null : m.medicalSchool || null;
+  return usesOwnSchool(m.mentorStage) ? m.undergradSchool || null : m.medicalSchool || null;
 }
 
 export const SCHOOL_TYPES: Option[] = [
@@ -238,7 +255,7 @@ export const FILTER_GROUPS = [
   { key: "service", title: "Service", sub: "What you need help with", options: SERVICES, multi: true },
   { key: "format", title: "Format", sub: "How the help is delivered", options: FORMATS, multi: true },
   { key: "price", title: "Price", sub: "An hour, a bundle or a package", options: PRICE_BANDS.map(({ value, label }) => ({ value, label })), multi: true },
-  { key: "stage", title: "Mentor stage", sub: "Where they are in training", options: STAGES, multi: true },
+  { key: "stage", title: "Mentor stage", sub: "Where they are on the path to medicine", options: STAGES, multi: true },
   { key: "school", title: "School type", sub: "Where they study or train", options: SCHOOL_TYPES, multi: true },
   { key: "best", title: "Best for", sub: "The students they help most", options: BEST_FOR, multi: true },
   { key: "rating", title: "Rating", sub: "From student reviews", options: RATINGS, multi: false },

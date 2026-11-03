@@ -73,12 +73,13 @@ export async function POST(req: Request) {
   // school from their mentor application.
   const fromApplication = await applicationSchoolsForInvite(invite.id, email).catch(() => null);
   const medicalSchool = normalizeMedicalSchool(body.medicalSchool) || fromApplication?.medicalSchool || null;
-  // Applied as an undergrad (BS/MD): the same setup as picking "Undergrad
+  // Applied as an undergrad (BS/MD), gap year or other: their stage and
+  // school carry over. Undergrads get the same setup as picking "Undergrad
   // student" on the profile, including "BS/MD" under "Who you're best for".
   const undergradFromApplication = fromApplication?.undergradSchool || null;
   const typedUndergradSchool = typeof body.undergradSchool === "string" ? body.undergradSchool.replace(/\s+/g, " ").trim().slice(0, UNDERGRAD_SCHOOL_MAX) : "";
   const undergradData = undergradFromApplication
-    ? { mentorStage: "UNDERGRAD", undergradSchool: typedUndergradSchool || undergradFromApplication, bestFor: ["BS_MD"] }
+    ? { mentorStage: fromApplication?.stage, undergradSchool: typedUndergradSchool || undergradFromApplication, ...(fromApplication?.stage === "UNDERGRAD" ? { bestFor: ["BS_MD"] } : {}) }
     : {};
 
   const firstVisit = signupAttribution(req.headers.get("cookie"));

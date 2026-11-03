@@ -260,7 +260,7 @@ export const SITE_PAGES = {
       }),
       ...section("Bottom box", {
         ctaTitle: text("Heading", "Want to Mentor With Us?", { max: 80 }),
-        ctaText: long("Text", "Med students, residents and undergrads in BS/MD programs can apply. If it looks like a fit, you'll interview with each of us.", { max: 400 }),
+        ctaText: long("Text", "Med students, residents, BS/MD undergrads, gap-year students and others on the path to medicine can apply. If it looks like a fit, you'll interview with each of us.", { max: 400 }),
         ctaButton: text("Button label", "Apply to Mentor", { max: 40 }),
       }),
     },
@@ -271,7 +271,7 @@ export const SITE_PAGES = {
     path: "/become-a-mentor",
     fields: {
       ...section("Intro", {
-        eyebrow: text("Small label", "For Med Students, Residents & BS/MD Undergrads", { max: 60 }),
+        eyebrow: text("Small label", "For Med Students, Residents, Gap Years & BS/MD Undergrads", { max: 60 }),
         title: text("Heading", "Mentor the Next Class of Doctors", { max: 100 }),
         intro: long("Intro", "MentorsMD is invite-only. Every mentor goes through a rigorous interview with each of our senior team members before they receive an invite, so students know anyone they message has real experience and outstanding results.", { max: 800 }),
         applyButton: text("Button label", "Apply to Mentor", { max: 40 }),
@@ -388,7 +388,7 @@ export const SITE_PAGES = {
       ...section("When there are no mentors yet", {
         emptyTitle: text("Heading", "Mentors Are Joining Soon", { max: 80 }),
         emptyText: long("Text", "Every mentor goes through a rigorous interview with our senior team, so we add them carefully. Check back soon.", { max: 400 }),
-        emptyLink: text("Link to Become a mentor", "Are you a med student, resident or BS/MD undergrad? Apply to mentor", { max: 100 }),
+        emptyLink: text("Link to Become a mentor", "Are you a med student, resident, gap-year student or BS/MD undergrad? Apply to mentor", { max: 100 }),
       }),
       ...section("“Tell me when mentors join” box (shown with the no-mentors message)", {
         waitlistTitle: text("Heading", "Get an Email When Mentors Join", { max: 80 }),

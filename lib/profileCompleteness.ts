@@ -4,7 +4,7 @@
 // both server and client code. The server keeps User.profileCompleteAt in
 // step with this (lib/profileSync.ts), so browse can filter on it.
 import type { Prisma } from "@prisma/client";
-import { BEST_FOR, PROFILE_RULES as R, RATE_MIN_CENTS, STRONGEST_STAGES, countWords, isUndergrad, isValue } from "@/lib/options";
+import { BEST_FOR, PROFILE_RULES as R, RATE_MIN_CENTS, STRONGEST_STAGES, countWords, isValue, ownSchoolLabel, schoolTypeOptional, usesOwnSchool } from "@/lib/options";
 
 export type AdmissionsRole = { type: string; place: string; years: string; former: boolean };
 export type Language = { name: string; level: string; canAdvise: boolean };
@@ -93,10 +93,11 @@ export function profileSections(u: ProfileFields): ProfileSection[] {
   const basicsMissing = [
     !u.photoUrl && "photo",
     !filled(u.credential) && "one-line credential",
-    // Undergrads (BS/MD) give their college; the medical school is optional.
-    isUndergrad(u.mentorStage) ? !filled(u.undergradSchool) && "undergraduate school" : !filled(u.medicalSchool) && "medical school",
+    // Undergrads, gap years and others give their own school; the medical
+    // school is optional for them.
+    usesOwnSchool(u.mentorStage) ? !filled(u.undergradSchool) && ownSchoolLabel(u.mentorStage).toLowerCase() : !filled(u.medicalSchool) && "medical school",
     !u.mentorStage && "stage",
-    !u.schoolType && "school type",
+    !u.schoolType && !schoolTypeOptional(u.mentorStage) && "school type",
   ].filter(Boolean) as string[];
   // Step 3 (approved Oct 2026): the Yes / No question must be answered; Yes
   // needs at least one role, No needs none. Strongest stages are required

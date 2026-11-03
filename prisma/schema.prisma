@@ -109,7 +109,7 @@ model User {
   removedByAdmin Boolean       @default(false) // admin removal also blocks login
 
   // ---- Mentor-level search answers (asked once, used by every package) ----
-  mentorStage     String? // UNDERGRAD, MS1, MS2, MS3, MS4, RESIDENT
+  mentorStage     String? // UNDERGRAD, GAP_YEAR, MS1, MS2, MS3, MS4, RESIDENT, OTHER
   // Undergrads in a BS/MD program (stage UNDERGRAD): their college. Shown
   // instead of the medical school, which is optional for them.
   undergradSchool String?
@@ -915,7 +915,10 @@ model MentorApplication {
   email           String
   phone           String
   medicalSchool   String // empty for an undergrad who didn't give one
-  // Undergrads in a BS/MD program: their college. Empty for everyone else.
+  // UNDERGRAD, GAP_YEAR or OTHER (lib/applicationRules.ts). Empty for a
+  // medical student or resident, and on older applications.
+  trainingStage   String?
+  // Their own school, for those stages. Empty for everyone else.
   undergradSchool String?
   residency       String?
   blurb           String

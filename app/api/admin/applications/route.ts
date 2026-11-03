@@ -19,6 +19,7 @@ export async function GET() {
       phone: true,
       medicalSchool: true,
       undergradSchool: true,
+      trainingStage: true,
       residency: true,
       blurb: true,
       resumeUrl: true,

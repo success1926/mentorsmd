@@ -21,7 +21,7 @@ import {
   LANGUAGE_LEVELS,
   SCHOOL_TYPES,
   mentorSchoolName,
-  STAGES,
+  mentorStageTag,
   STRONGEST_STAGES,
   labelFor,
   money,
@@ -170,7 +170,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null }: 
   }
 
   const avg = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : null;
-  const tags = [labelFor(STAGES, seller.mentorStage), labelFor(SCHOOL_TYPES, seller.schoolType)].filter(Boolean);
+  const tags = [mentorStageTag(seller.mentorStage), labelFor(SCHOOL_TYPES, seller.schoolType)].filter(Boolean);
   const bestFor: string[] = [...(seller.bestFor || []).map((b: string) => labelFor(BEST_FOR, b)), ...(seller.bestForOther ? [seller.bestForOther] : [])];
   const adviseIn = (seller.languages as Language[]).filter((l) => l.canAdvise).map((l) => l.name);
   const closeDialog = () => setDialog(null);

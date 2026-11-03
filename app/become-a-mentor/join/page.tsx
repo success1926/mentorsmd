@@ -10,7 +10,7 @@ import { browserTimeZone } from "@/lib/tz";
 import { Honeypot, useRecaptcha } from "@/components/FormGuards";
 import { MentorAgreement } from "@/components/MentorAgreement";
 import { MedicalSchoolPicker } from "@/components/MedicalSchoolPicker";
-import { UNDERGRAD_SCHOOL_MAX } from "@/lib/options";
+import { UNDERGRAD_SCHOOL_MAX, ownSchoolLabel } from "@/lib/options";
 
 // useSearchParams() requires a Suspense boundary around it for Next.js's
 // production build to prerender this page correctly - this wrapper is
@@ -35,8 +35,10 @@ function OnboardCoachForm() {
   const [credential, setCredential] = useState("");
   const [bio, setBio] = useState("");
   const [medicalSchool, setMedicalSchool] = useState("");
-  // Applied as an undergrad (BS/MD): their college; the medical school is optional.
+  // Applied as an undergrad (BS/MD), gap year or other: their own school;
+  // the medical school is optional.
   const [undergrad, setUndergrad] = useState(false);
+  const [appStage, setAppStage] = useState("");
   const [undergradSchool, setUndergradSchool] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -55,6 +57,7 @@ function OnboardCoachForm() {
         if (d.medicalSchool) setMedicalSchool((cur) => cur || d.medicalSchool);
         if (d.undergradSchool) {
           setUndergrad(true);
+          setAppStage(d.stage || "");
           setUndergradSchool((cur) => cur || d.undergradSchool);
         }
       })
@@ -136,12 +139,12 @@ function OnboardCoachForm() {
           <label className="field"><span className="field-label">Full name</span>
             <input className="input" value={name} onChange={(e) => setName(e.target.value)} /></label>
           <label className="field"><span className="field-label">Credential</span>
-            <input className="input" placeholder={undergrad ? "e.g. BS/MD junior" : "e.g. MS3, PGY-2 IM"} value={credential} onChange={(e) => setCredential(e.target.value)} /></label>
+            <input className="input" placeholder={appStage === "GAP_YEAR" ? "e.g. Gap year, starting at [school] in 2027" : appStage === "OTHER" ? "e.g. PhD candidate at [school]" : undergrad ? "e.g. BS/MD junior" : "e.g. MS3, PGY-2 IM"} value={credential} onChange={(e) => setCredential(e.target.value)} /></label>
           {undergrad ? (
             <>
-              <label className="field"><span className="field-label">Undergraduate school</span>
+              <label className="field"><span className="field-label">{ownSchoolLabel(appStage)}</span>
                 <input className="input" maxLength={UNDERGRAD_SCHOOL_MAX} value={undergradSchool} onChange={(e) => setUndergradSchool(e.target.value)} /></label>
-              <MedicalSchoolPicker label="Medical school (optional)" value={medicalSchool} onChange={setMedicalSchool} help="The medical school your BS/MD program leads to." />
+              <MedicalSchoolPicker label="Medical school (optional)" value={medicalSchool} onChange={setMedicalSchool} help={appStage === "GAP_YEAR" ? "If you've been accepted." : appStage === "OTHER" ? "If you have one." : "The medical school your BS/MD program leads to."} />
             </>
           ) : (
             <MedicalSchoolPicker value={medicalSchool} onChange={setMedicalSchool} required help="Filled in from your application when we have it. Start typing to pick from the list; not listed? Type its full name." />

@@ -8,7 +8,7 @@ import { MedicalSchoolPicker } from "@/components/MedicalSchoolPicker";
 import { EDITOR_STEPS, MentorProfileEditor, ProfileStep, type EditorState } from "@/components/MentorProfileEditor";
 import { PreviewProfileButton, notifyProfileChanged, useMentorStatus } from "@/components/MentorShell";
 import { ProfilePhoto } from "@/components/ProfilePhoto";
-import { ADMISSIONS_ROLE_TYPES, SCHOOL_TYPES, STAGES, UNDERGRAD_SCHOOL_MAX, isUndergrad, labelFor, mentorSchoolName, money } from "@/lib/options";
+import { ADMISSIONS_ROLE_TYPES, SCHOOL_TYPES, STAGES, UNDERGRAD_SCHOOL_MAX, isUndergrad, labelFor, mentorSchoolName, mentorStageTag, money, ownSchoolLabel, schoolTypeOptional, usesOwnSchool } from "@/lib/options";
 import { previewHref } from "@/lib/mentorNav";
 import type { ProfileSection } from "@/lib/profileCompleteness";
 
@@ -212,21 +212,26 @@ function BasicsStep({ profile, basics, setBasics, photoUrl, setPhotoUrl, status,
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const set = (patch: Partial<Basics>) => setBasics({ ...basics, ...patch });
-  const undergrad = isUndergrad(basics.mentorStage);
+  const stage = basics.mentorStage;
+  const undergrad = isUndergrad(stage);
+  const gapYear = stage === "GAP_YEAR";
+  const ownSchool = usesOwnSchool(stage);
+  const typeOptional = schoolTypeOptional(stage);
 
   async function save() {
     setSaving(true);
     setMsg(null);
     // Only what's filled in: each one is checked on its own by the server.
-    const body: Record<string, string> = {};
+    const body: Record<string, string | null> = {};
     if (basics.credential.trim()) body.credential = basics.credential;
-    if (isUndergrad(basics.mentorStage)) {
-      // Undergrads: college required, medical school optional (can be cleared).
+    if (usesOwnSchool(basics.mentorStage)) {
+      // Their own school required, medical school optional (can be cleared).
       body.undergradSchool = basics.undergradSchool;
       body.medicalSchool = basics.medicalSchool;
     } else if (basics.medicalSchool.trim()) body.medicalSchool = basics.medicalSchool;
     if (basics.mentorStage) body.mentorStage = basics.mentorStage;
     if (basics.schoolType) body.schoolType = basics.schoolType;
+    else if (typeOptional) body.schoolType = null;
     const res = await fetch("/api/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const d = await res.json().catch(() => ({}));
     setSaving(false);
@@ -254,7 +259,7 @@ function BasicsStep({ profile, basics, setBasics, photoUrl, setPhotoUrl, status,
       <ProfilePhoto name={profile.name} photoUrl={photoUrl} onChanged={setPhotoUrl} />
       <label className="field" style={{ marginBottom: 0 }}>
         <span className="field-label">One-line credential</span>
-        <input className="input" placeholder={undergrad ? "e.g. BS/MD junior at [school]" : "e.g. MS3 at [school] · Admissions interviewer"} value={basics.credential} maxLength={LIMITS.credential} onChange={(e) => set({ credential: e.target.value })} />
+        <input className="input" placeholder={undergrad ? "e.g. BS/MD junior at [school]" : gapYear ? "e.g. Gap year, starting at [school] in 2027" : stage === "OTHER" ? "e.g. PhD candidate at [school]" : "e.g. MS3 at [school] · Admissions interviewer"} value={basics.credential} maxLength={LIMITS.credential} onChange={(e) => set({ credential: e.target.value })} />
       </label>
       <div className="field" style={{ marginBottom: 0 }}>
         <span className="field-label">Your stage</span>
@@ -264,31 +269,34 @@ function BasicsStep({ profile, basics, setBasics, photoUrl, setPhotoUrl, status,
           ))}
         </div>
         {undergrad && <span className="field-help">For undergrads in a BS/MD program. &quot;BS/MD&quot; is ticked under Who you&apos;re best for when you save; you can untick it.</span>}
+        {gapYear && <span className="field-help">Between college and medical school.</span>}
+        {stage === "OTHER" && <span className="field-help">Your one-line credential above tells students what you do, so write it clearly. &quot;Other&quot; isn&apos;t shown as a tag.</span>}
       </div>
-      {undergrad ? (
+      {ownSchool ? (
         <>
           <label className="field" style={{ marginBottom: 0 }}>
-            <span className="field-label">Undergraduate school</span>
-            <input className="input" placeholder="e.g. Brown University" value={basics.undergradSchool} maxLength={UNDERGRAD_SCHOOL_MAX} onChange={(e) => set({ undergradSchool: e.target.value })} required />
+            <span className="field-label">{ownSchoolLabel(stage)}</span>
+            <input className="input" placeholder={stage === "OTHER" ? "e.g. Johns Hopkins University" : "e.g. Brown University"} value={basics.undergradSchool} maxLength={UNDERGRAD_SCHOOL_MAX} onChange={(e) => set({ undergradSchool: e.target.value })} required />
             <span className="field-help">Shown on your profile in place of a medical school.</span>
           </label>
           <MedicalSchoolPicker
             value={basics.medicalSchool}
             onChange={(v) => set({ medicalSchool: v })}
-            label="Medical school your BS/MD program leads to (optional)"
-            help="Leave blank if you'd rather not say."
+            label={undergrad ? "Medical school your BS/MD program leads to (optional)" : gapYear ? "Medical school you're starting (optional)" : "Medical school (optional)"}
+            help={gapYear ? "If you've been accepted. Leave blank if not, or if you'd rather not say." : "Leave blank if you'd rather not say."}
           />
         </>
       ) : (
         <MedicalSchoolPicker value={basics.medicalSchool} onChange={(v) => set({ medicalSchool: v })} required help="Start typing and pick your school; not listed? Type its full name." />
       )}
       <div className="field" style={{ marginBottom: 0 }}>
-        <span className="field-label">{undergrad ? "Your BS/MD program leads to" : "School type"}</span>
+        <span className="field-label">{undergrad ? "Your BS/MD program leads to" : gapYear ? "Heading to (optional)" : typeOptional ? "School type (optional)" : "School type"}</span>
         <div className="seg">
           {SCHOOL_TYPES.map((o) => (
-            <button type="button" key={o.value} className="seg-opt" aria-pressed={basics.schoolType === o.value} onClick={() => set({ schoolType: o.value })}>{o.label}</button>
+            <button type="button" key={o.value} className="seg-opt" aria-pressed={basics.schoolType === o.value} onClick={() => set({ schoolType: typeOptional && basics.schoolType === o.value ? "" : o.value })}>{o.label}</button>
           ))}
         </div>
+        {typeOptional && <span className="field-help">Shown as a tag on your profile. Click it again to clear.</span>}
       </div>
     </ProfileStep>
   );
@@ -303,7 +311,7 @@ function PreviewCard({ profile, basics, photoUrl, draft, rateCents }: { profile:
   const roleChips = Array.from(
     new Set<string>(roles.map((r) => (r.former ? `Former ${labelFor(ADMISSIONS_ROLE_TYPES, r.type).toLowerCase()}` : labelFor(ADMISSIONS_ROLE_TYPES, r.type))))
   );
-  const line = [mentorSchoolName(basics), labelFor(STAGES, basics.mentorStage)].filter(Boolean).join(" · ");
+  const line = [mentorSchoolName(basics), mentorStageTag(basics.mentorStage)].filter(Boolean).join(" · ");
   return (
     <div className="card stack-sm" style={{ padding: 16, boxShadow: "var(--shadow-sm)" }}>
       <div className="row" style={{ gap: 12, alignItems: "flex-start" }}>
