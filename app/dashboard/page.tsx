@@ -9,6 +9,7 @@ import { formatHasCall, money } from "@/lib/options";
 import { HoursBar, LowHoursBadge, PackageBadge, showLowHours } from "@/components/Packages";
 import { UpcomingCalls } from "@/components/UpcomingCalls";
 import { PreviewProfileButton } from "@/components/MentorShell";
+import { OfferGuideButton } from "@/components/OfferGuide";
 import { finishPhase } from "@/lib/finishing";
 import { hoursSummary, shortHours } from "@/lib/hours";
 import { PLATFORM_FEE_PERCENT } from "@/lib/fee";
@@ -206,6 +207,8 @@ function MentorDashboard() {
             <span className="text-muted small">
               {profile?.hourlyRateCents ? `Your rate: ${money(profile.hourlyRateCents)}/hr · ` : ""}
               <Link href="/dashboard/packages" className="link">Rates &amp; packages</Link>
+              {" · "}
+              <OfferGuideButton rateCents={profile?.hourlyRateCents} className="btn-link">Offer guide</OfferGuideButton>
             </span>
             <span className="text-muted small">You earn {100 - PLATFORM_FEE_PERCENT}% of each hour, paid on the 24th of each month.</span>
           </section>

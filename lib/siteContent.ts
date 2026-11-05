@@ -22,6 +22,8 @@
 
 import { MENTOR_SCHOOLS, PHOTOS, SENIOR_TEAM, TESTIMONIALS } from "@/lib/content";
 import { parseFocus, stripFocus, withFocus } from "@/lib/imageFocus";
+import { GUIDE_DEFAULTS } from "@/lib/offerGuideContent";
+import { FORMATS } from "@/lib/options";
 import { ADDON_ID, ADDON_TYPES, MAX_ADDONS, SPACES, defaultLayout, isAddonType, sectionsFor, videoEmbedUrl, type LayoutItem } from "@/lib/pageLayout";
 
 type Base = { label: string; help?: string; section?: string };
@@ -506,6 +508,66 @@ export const SITE_PAGES = {
             { value: "on", label: "Shown: anyone can open /press, with a Press link in the footer" },
           ],
           "Edit the page itself in Website → Press.",
+        ),
+      }),
+    },
+  },
+  // The "How To Set Up Your Offers" pop-up in the mentor area
+  // (components/OfferGuide.tsx). Not a public page: mentors see it, and
+  // /dashboard/offer-guide shows it to admins for the preview.
+  mentorGuide: {
+    label: "Offer guide",
+    path: "/dashboard/offer-guide",
+    about: "The pop-up mentors open from Rates & packages, Home and My profile: example packages, hourly work and freelancing notes.",
+    fields: {
+      ...section("Top of the pop-up", {
+        title: text("Heading", GUIDE_DEFAULTS.title, { max: 80, required: true }),
+        intro: long("Intro", GUIDE_DEFAULTS.intro, { max: 400 }),
+      }),
+      ...section("Package Examples tab", {
+        packagesIntro: long("Intro", GUIDE_DEFAULTS.packagesIntro, { max: 600 }),
+        packageExamples: list(
+          "Example packages",
+          "Example",
+          {
+            title: text("Title", "", { max: 120, required: true }),
+            hours: text("Estimated hours", "", { max: 5, help: "A number from 1 to 40, in half-hour steps. The price line is worked out from this, and is hidden if it doesn't fit." }),
+            format: choice("Format", "WRITTEN_CALL", FORMATS),
+            topic: text("Topic", "", { max: 60 }),
+            included: long("What's included", "", { max: 1200 }),
+            note: text("Tip", "", { max: 240 }),
+          },
+          GUIDE_DEFAULTS.packageExamples,
+          { maxItems: 10 },
+        ),
+        packageRules: lines("How packages work", GUIDE_DEFAULTS.packageRules, { max: 300, maxItems: 10, help: "One point per line. These describe the site's rules, so change them only if the rule changed." }),
+      }),
+      ...section("Hourly & Bundles tab", {
+        hourlyIntro: long("Intro", GUIDE_DEFAULTS.hourlyIntro, { max: 600 }),
+        hourlyOptions: list(
+          "The three kinds of offer",
+          "Offer",
+          {
+            name: text("Name", "", { max: 60, required: true }),
+            what: long("What it is", "", { max: 500 }),
+            fits: lines("When it fits", [], { max: 240, maxItems: 6, help: "One point per line." }),
+          },
+          GUIDE_DEFAULTS.hourlyOptions,
+          { maxItems: 6 },
+        ),
+        hourlyNotes: lines("Good to know", GUIDE_DEFAULTS.hourlyNotes, { max: 300, maxItems: 10, help: "One point per line." }),
+      }),
+      ...section("Freelancing Notes tab", {
+        notesIntro: long("Intro", GUIDE_DEFAULTS.notesIntro, { max: 600 }),
+        noteGroups: list(
+          "Groups of notes",
+          "Group",
+          {
+            title: text("Heading", "", { max: 80, required: true }),
+            points: lines("Points", [], { max: 500, maxItems: 10, help: "One point per line." }),
+          },
+          GUIDE_DEFAULTS.noteGroups,
+          { maxItems: 12 },
         ),
       }),
     },

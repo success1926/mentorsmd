@@ -7,6 +7,7 @@ import { Avatar } from "@/components/Avatar";
 import { MedicalSchoolPicker } from "@/components/MedicalSchoolPicker";
 import { EDITOR_STEPS, MentorProfileEditor, ProfileStep, type EditorState } from "@/components/MentorProfileEditor";
 import { PreviewProfileButton, notifyProfileChanged, useMentorStatus } from "@/components/MentorShell";
+import { OfferGuideButton } from "@/components/OfferGuide";
 import { ProfilePhoto } from "@/components/ProfilePhoto";
 import { ADMISSIONS_ROLE_TYPES, SCHOOL_TYPES, STAGES, UNDERGRAD_SCHOOL_MAX, isUndergrad, labelFor, mentorSchoolName, mentorStageTag, money, ownSchoolLabel, schoolTypeOptional, usesOwnSchool } from "@/lib/options";
 import { previewHref } from "@/lib/mentorNav";
@@ -147,6 +148,7 @@ export default function MyProfilePage() {
             <Link href="/dashboard/packages#rate" className="btn btn-primary" style={{ alignSelf: "flex-start" }}>
               {rateCents ? "Edit in Rates & packages" : "Set your rate"}
             </Link>
+            <OfferGuideButton rateCents={rateCents} tab="hourly" className="btn-link small">How hourly work, bundles and packages fit together</OfferGuideButton>
           </ProfileStep>
         </div>
 
