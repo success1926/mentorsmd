@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { MentorAgreement } from "@/components/MentorAgreement";
 import { PreviewProfileButton, notifyProfileChanged } from "@/components/MentorShell";
 import { ImageFocusEditor } from "@/components/ImageFocusEditor";
+import { OfferGuideButton } from "@/components/OfferGuide";
 import { Icon, ICONS } from "@/components/ui";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
 import { previewHref } from "@/lib/mentorNav";
@@ -104,6 +105,14 @@ export default function RateAndOffersPage() {
           <PreviewProfileButton mentorId={mentorId} />
         </div>
         <p className="lede">Set one hourly rate. Every price on your profile is hours × rate, so students always see the math. There are no due dates: students use their hours for calls on your calendar and for written work.</p>
+      </div>
+
+      <div className="card card-tint between" style={{ flexWrap: "wrap", gap: 12, padding: 18 }}>
+        <span className="stack-sm grow" style={{ gap: 2, flexBasis: 260 }}>
+          <b>Not Sure How To Structure Your Offers?</b>
+          <span className="text-secondary small">See example packages, when hourly work fits, and freelancing notes.</span>
+        </span>
+        <OfferGuideButton rateCents={rate} className="btn btn-sm btn-primary">Open the guide</OfferGuideButton>
       </div>
 
       {payoutsReady === false && (
@@ -210,6 +219,7 @@ function HourlyCard({ rate, hourly, onSaved }: { rate: number; hourly: any | nul
         <div className="stack-sm">
           <h2 style={{ fontSize: 26 }}>Hourly</h2>
           <span className="text-secondary">1 hour at your hourly rate ({money(rate)}). Students can buy one hour at a time and add more later.</span>
+          <OfferGuideButton rateCents={rate} tab="hourly" className="btn-link small">When hourly fits</OfferGuideButton>
         </div>
         <label className="switch" title={on ? "On" : "Off"}>
           <input type="checkbox" checked={on} disabled={busy} aria-label="Offer single hours" onChange={() => save({ active: !on })} />
@@ -246,6 +256,7 @@ function BundlesCard({ rate, bundles, onSaved }: { rate: number; bundles: any[];
         <div className="stack-sm">
           <h2 style={{ fontSize: 26 }}>Hour bundles</h2>
           <span className="text-secondary">A block of hours bought up front, e.g. 3, 5 or 10. Each bundle can have its own per-hour rate (for example a small discount for 10 hours). Price = hours × rate.</span>
+          <OfferGuideButton rateCents={rate} tab="hourly" className="btn-link small">When a bundle fits</OfferGuideButton>
         </div>
         {editing !== "new" && bundles.length < MAX_BUNDLES && <button className="btn btn-soft btn-sm" onClick={() => setEditing("new")}>+ Add a bundle</button>}
       </div>
@@ -337,6 +348,7 @@ function PackagesCard({ rate, packages, onSaved }: { rate: number; packages: any
         <div className="stack-sm">
           <h2 style={{ fontSize: 26 }}>Specialized packages</h2>
           <span className="text-secondary">A titled package with what&apos;s included and your estimate of the hours it takes. If it takes longer, the student adds hours. Price = estimated hours × rate.</span>
+          <OfferGuideButton rateCents={rate} tab="packages" className="btn-link small">See example packages</OfferGuideButton>
         </div>
         {editing !== "new" && packages.length < MAX_SPECIALIZED && <button className="btn btn-soft btn-sm" onClick={() => setEditing("new")}>+ Add a package</button>}
       </div>

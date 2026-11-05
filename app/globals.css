@@ -704,6 +704,11 @@ a.footer-social:hover .bg { fill: var(--tint-2); }
 
 /* Mentor profile (redesign Oct 2026): pop-ups, packages row, full bio */
 .modal.modal-wide { max-width: 720px; }
+/* Mentor Offer Guide (components/OfferGuide.tsx) */
+.offer-guide-head { font-size: 20px; }
+.offer-guide-list { margin: 0; padding-left: 18px; display: grid; gap: 6px; line-height: 1.5; color: var(--muted); }
+.btn-link { background: none; border: none; padding: 0; font: inherit; color: var(--primary); font-weight: 600; cursor: pointer; text-align: left; align-self: flex-start; }
+.btn-link:hover { text-decoration: underline; }
 .modal-back { background: none; border: none; padding: 0; color: var(--primary); font-weight: 600; font-size: 14px; cursor: pointer; align-self: flex-start; }
 .bio-more { max-height: 320px; overflow-y: auto; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; background: var(--surface); display: flex; flex-direction: column; gap: 14px; }
 .bio-more h3 { font-size: 16px; font-weight: 700; font-family: inherit; }
