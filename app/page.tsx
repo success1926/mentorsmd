@@ -7,7 +7,10 @@ import { Underline } from "@/components/Underline";
 import { ScrollCue } from "@/components/ScrollCue";
 import { Rail } from "@/components/Rail";
 import { ReviewStats } from "@/components/ReviewStats";
-import { Icon, ICONS, Vetted, Rating, tintFor, initialsOf } from "@/components/ui";
+import { Icon, ICONS, Rating, tintFor, initialsOf } from "@/components/ui";
+import { HowItWorks } from "@/components/HowItWorks";
+import { SchoolLogo, ClientSchools } from "@/components/SchoolLogo";
+import { getSchoolLogos } from "@/lib/schoolLogos";
 import { getFeaturedMentors, getReviewStats } from "@/lib/mentorQueries";
 import { HOME_WALL_REVIEWS, REVIEW_WALL_MIN, getReviewWall } from "@/lib/reviewWall";
 import { safeHref } from "@/lib/siteContent";
@@ -15,7 +18,7 @@ import { getSiteContent } from "@/lib/siteContentStore";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
 import { PageSections } from "@/components/website/PageSections";
 import { SchoolMarquee } from "@/components/SchoolMarquee";
-import { BEST_FOR, labelFor, mentorStageTag, money } from "@/lib/options";
+import { mentorRank, mentorStageTag, money } from "@/lib/options";
 
 export const dynamic = "force-dynamic"; // mentor cards and review counts read live data
 
@@ -29,7 +32,7 @@ const PATH_BGS = [
 ];
 
 export default async function HomePage() {
-  const [mentors, stats, c, settings] = await Promise.all([getFeaturedMentors(4), getReviewStats(), getSiteContent("home"), getSiteContent("siteSettings")]);
+  const [mentors, stats, c, settings, logos] = await Promise.all([getFeaturedMentors(4), getReviewStats(), getSiteContent("home"), getSiteContent("siteSettings"), getSchoolLogos()]);
   const wall = await getReviewWall(c.testimonials, HOME_WALL_REVIEWS);
 
   // Each section by its id in lib/pageLayout.ts; shown in the order (and
@@ -146,67 +149,63 @@ export default async function HomePage() {
             </div>
             {/* Four across on computers; a sideways row with arrows on phones. */}
             <Rail className="featured-row" label="Featured mentors">
-              {mentors.map((m) => {
-                const firstBestFor = m.bestFor[0];
-                return (
-                  <Link key={m.id} href={`/mentors/${m.id}`} className="mentor-tile" role="listitem">
-                    <div className="mentor-tile-photo" style={{ background: tintFor(m.id) }}>
-                      {m.photoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={m.photoUrl} alt={m.name} loading="lazy" />
-                      ) : (
-                        initialsOf(m.name)
-                      )}
-                      <Vetted />
+              {mentors.map((m) => (
+                <Link key={m.id} href={`/mentors/${m.id}`} className="mentor-tile" role="listitem">
+                  <div className="mentor-tile-photo" style={{ background: tintFor(m.id) }}>
+                    {m.photoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={m.photoUrl} alt={m.name} loading="lazy" />
+                    ) : (
+                      initialsOf(m.name)
+                    )}
+                  </div>
+                  <div className="stack-sm" style={{ gap: 6 }}>
+                    <div className="between" style={{ alignItems: "baseline" }}>
+                      <b className="mentor-tile-name">{m.name}</b>
+                      <Rating avg={m.avgRating} count={m.reviewCount} />
                     </div>
-                    <div className="stack-sm" style={{ gap: 4 }}>
-                      <div className="between" style={{ alignItems: "baseline" }}>
-                        <b className="mentor-tile-name">{m.name}</b>
-                        <Rating avg={m.avgRating} count={m.reviewCount} />
-                      </div>
-                      <span className="text-secondary">
-                        {m.credential || mentorStageTag(m.mentorStage)}
-                        {firstBestFor && <> · Best for {labelFor(BEST_FOR, firstBestFor)}</>}
+                    {m.credential && <span style={{ lineHeight: 1.4 }}>{m.credential}</span>}
+                    {(m.medicalSchool || mentorRank(m.mentorStage)) && (
+                      <span className="school-line text-secondary small">
+                        {m.medicalSchool && <SchoolLogo name={m.medicalSchool} logos={logos} size={24} title={false} />}
+                        <span>{[mentorRank(m.mentorStage) || mentorStageTag(m.mentorStage), m.medicalSchool].filter(Boolean).join(" · ")}</span>
                       </span>
-                      {m.fromRateCents && (
-                        <span className="text-secondary" style={{ marginTop: 4 }}>
-                          From <b style={{ color: "var(--ink)" }}>{money(m.fromRateCents)}/hr</b>
-                        </span>
-                      )}
-                    </div>
-                  </Link>
-                );
-              })}
+                    )}
+                    <ClientSchools schools={m.clientSchools} logos={logos} size={26} max={5} />
+                    {m.fromRateCents && (
+                      <span className="text-secondary" style={{ marginTop: 2 }}>
+                        From <b style={{ color: "var(--ink)" }}>{money(m.fromRateCents)}/hr</b>
+                      </span>
+                    )}
+                  </div>
+                </Link>
+              ))}
             </Rail>
           </div>
         </section>
     ),
 
-    features: (
-      <section className="home-section">
+    // How it works (Nov 2026): rows that open one at a time, picture on
+    // the right (components/HowItWorks.tsx).
+    features: c.features.length > 0 && (
+      <section className="home-section" id="how-it-works" style={{ scrollMarginTop: 150 }}>
         <div className="wrap">
-          <div className="stack" style={{ gap: 14, marginBottom: 44 }}>
+          <div className="center-head" style={{ marginBottom: 56, gap: 14 }}>
             {c.featuresEyebrow && <span className="eyebrow">{c.featuresEyebrow}</span>}
-            <h2 className="section-head">
+            <h2 className="big-title">
               <Underline text={c.featuresTitle} phrase={c.featuresUnderline} />
             </h2>
           </div>
-          <div className="feature-grid">
-            {c.features.map((f, i) => (
-              <div key={i}>
-                <h3>{f.title}</h3>
-                {f.body && <p>{f.body}</p>}
-                {!f.cta ? null : f.href === "/signup" ? (
-                  <RoleCta href={f.href} label={`${f.cta} →`} className="link" />
-                ) : (
-                  <Link href={safeHref(f.href)} className="link">{f.cta} →</Link>
-                )}
-              </div>
-            ))}
-          </div>
+          <HowItWorks
+            items={c.features}
+            footer={c.featuresButton ? <RoleCta href="/signup" label={c.featuresButton} className="btn btn-primary btn-lg" /> : null}
+          />
         </div>
       </section>
     ),
+
+    // Where students got in (Admin -> Website -> Site settings); hidden while empty.
+    accepted: settings.acceptedSchools.length > 0 && <SchoolMarquee label={settings.acceptedTitle} schools={settings.acceptedSchools} />,
 
     testimonials: wall.length >= REVIEW_WALL_MIN && (
         <section id="reviews" className="wall" style={{ scrollMarginTop: 150 }}>

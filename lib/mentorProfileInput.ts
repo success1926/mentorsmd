@@ -3,7 +3,8 @@
 // are saved on their own), but each one sent must be valid. Saving an
 // unfinished section is allowed: the checklist (lib/profileCompleteness.ts)
 // says what's still missing, and the mentor stays hidden until it's done.
-import { ADMISSIONS_ROLE_TYPES, BEST_FOR, LANGUAGE_LEVELS, PROFILE_RULES as R, STRONGEST_STAGES, isValue } from "@/lib/options";
+import { ADMISSIONS_ROLE_TYPES, BEST_FOR, CLIENT_SCHOOLS_MAX, LANGUAGE_LEVELS, PROFILE_RULES as R, STRONGEST_STAGES, isValue } from "@/lib/options";
+import { MEDICAL_SCHOOL_MAX } from "@/lib/medicalSchools";
 import type { AdmissionsRole, Language } from "@/lib/profileCompleteness";
 
 type Data = {
@@ -20,7 +21,23 @@ type Data = {
   knownFor?: string[];
   languages?: Language[];
   funFact?: string | null;
+  clientSchools?: string[];
 };
+
+// "Successful clients at" (Nov 2026): up to CLIENT_SCHOOLS_MAX school names,
+// best first, no repeats (ignoring case). Also used by the admin People page.
+export function parseClientSchools(v: unknown): string[] | { error: string } {
+  if (!Array.isArray(v)) return { error: "Schools must be a list" };
+  const out: string[] = [];
+  for (const x of v) {
+    const name = line(x);
+    if (!name) continue;
+    if (name.length > MEDICAL_SCHOOL_MAX) return { error: `School names can be up to ${MEDICAL_SCHOOL_MAX} characters` };
+    if (!out.some((o) => o.toLowerCase() === name.toLowerCase())) out.push(name);
+  }
+  if (out.length > CLIENT_SCHOOLS_MAX) return { error: `Add up to ${CLIENT_SCHOOLS_MAX} schools` };
+  return out;
+}
 
 // One line of text: trimmed, inner whitespace collapsed.
 const line = (v: unknown) => (typeof v === "string" ? v.trim().replace(/\s+/g, " ") : "");
@@ -135,6 +152,11 @@ export function parseMentorProfile(body: any): { data: Data } | { error: string 
     const v = para(body.funFact);
     if (v.length > R.funFactMax) return { error: `The fun fact can be up to ${R.funFactMax} characters` };
     data.funFact = v || null;
+  }
+  if (body.clientSchools !== undefined) {
+    const v = parseClientSchools(body.clientSchools);
+    if (!Array.isArray(v)) return v;
+    data.clientSchools = v;
   }
   return { data };
 }

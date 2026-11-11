@@ -9,7 +9,7 @@ import { useSession } from "next-auth/react";
 import { useConversation, SendError } from "@/lib/hooks/useConversation";
 import { onLive } from "@/lib/realtimeClient";
 import { OrderCalls } from "@/components/Calls";
-import { Icon, ICONS, MinorBadge, StaffBadge, Vetted, statusBadge, tintFor, initialsOf } from "@/components/ui";
+import { Icon, ICONS, MinorBadge, StaffBadge, statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { ConfirmEmailNotice, IntegrityBanner, MessageText, ReportDialog, SendWarnings, setBlocked, type SendWarning } from "@/components/Safety";
 import { money } from "@/lib/options";
 import { BookCallModal, HoursBar, LowHoursBadge, PackageBadge, SharedFiles } from "@/components/Packages";
@@ -270,7 +270,6 @@ function Thread({ conversationId }: { conversationId: string }) {
           <div className="grow stack-sm" style={{ gap: 0 }}>
             <div className="row" style={{ gap: 8 }}>
               <b>{other?.name}</b>
-              {role !== "SELLER" && <Vetted />}
               {role === "SELLER" && <MinorBadge person={other} />}
             </div>
             {role !== "SELLER" && convo.seller.credential && <span className="text-muted">{convo.seller.credential}</span>}

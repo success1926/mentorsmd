@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { publicCache, toDate } from "@/lib/publicCache";
 import { searchableGigWhere, visibleMentorWhere } from "@/lib/mentor";
 import { completeProfileWhere } from "@/lib/profileCompleteness";
-import { BEST_FOR, FORMATS, PRICE_BANDS, SCHOOL_TYPES, SERVICES, SERVICE_TO_STAGE, STAGES, isValue, mentorSchoolName } from "@/lib/options";
+import { BEST_FOR, FORMATS, PRICE_BANDS, SCHOOL_TYPES, SERVICES, SERVICE_TO_STAGE, STAGES, isValue, mentorSchoolName, specialtiesOf } from "@/lib/options";
 
 export type BrowseFilters = {
   q: string;
@@ -51,6 +51,9 @@ export type MentorCardData = {
   mentorStage: string | null;
   schoolType: string | null;
   bestFor: string[];
+  // Nov 2026: shown as tags and logos on the cards.
+  specialties: string[];
+  clientSchools: string[];
   avgRating: number | null;
   reviewCount: number;
   hourlyRateCents: number | null;
@@ -81,6 +84,7 @@ const gigSelect = {
   minutes: true,
   rateCents: true,
   format: true,
+  service: true,
   sortOrder: true,
 } as const;
 
@@ -90,7 +94,7 @@ const gigSelect = {
 // mentor's strongest stages, so hourly-only mentors can be found too.
 // Shared by all visitors for up to a minute (lib/publicCache.ts), one cached
 // result per set of filters.
-const cachedSearch = publicCache("browse-mentors-v1", (f: BrowseFilters) => searchMentorsFresh(f));
+const cachedSearch = publicCache("browse-mentors-v2", (f: BrowseFilters) => searchMentorsFresh(f));
 
 export async function searchMentors(f: BrowseFilters): Promise<MentorCardData[]> {
   const cards = await cachedSearch(f);
@@ -165,6 +169,8 @@ async function searchMentorsFresh(f: BrowseFilters): Promise<MentorCardData[]> {
       mentorStage: true,
       schoolType: true,
       bestFor: true,
+      strongestStages: true,
+      clientSchools: true,
       hourlyRateCents: true,
       createdAt: true,
       gigs: { where: searchableGigWhere, select: gigSelect, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
@@ -188,6 +194,8 @@ async function searchMentorsFresh(f: BrowseFilters): Promise<MentorCardData[]> {
       mentorStage: m.mentorStage,
       schoolType: m.schoolType,
       bestFor: m.bestFor,
+      specialties: specialtiesOf(m.strongestStages, specialized.map((g) => g.service)),
+      clientSchools: m.clientSchools,
       avgRating: r?.avg ?? null,
       reviewCount: r?.count ?? 0,
       hourlyRateCents: m.hourlyRateCents,

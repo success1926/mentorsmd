@@ -4,10 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Icon, ICONS, Vetted, Rating, tintFor, initialsOf } from "@/components/ui";
+import { Icon, ICONS, Rating, tintFor, initialsOf } from "@/components/ui";
+import { SchoolLogo, ClientSchools } from "@/components/SchoolLogo";
+import type { LogoMap } from "@/lib/schoolLogoKey";
 import { Modal } from "@/components/Modal";
 import { Rail } from "@/components/Rail";
-import { ScrollBox } from "@/components/ScrollBox";
 import { CountText, useCountUp } from "@/components/CountUp";
 import { Booker } from "@/components/Booker";
 import { AboutYouNudge } from "@/components/AboutYouNudge";
@@ -20,8 +21,10 @@ import {
   INTRO_CALL_MINUTES,
   LANGUAGE_LEVELS,
   SCHOOL_TYPES,
+  mentorRank,
   mentorSchoolName,
   mentorStageTag,
+  specialtiesOf,
   STRONGEST_STAGES,
   labelFor,
   money,
@@ -32,11 +35,13 @@ import { splitCredit } from "@/lib/hours";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
 import type { AdmissionsRole, Language } from "@/lib/profileCompleteness";
 
-// A mentor's public profile (docs/redesign-2026-10.md sections 1 and 2).
-// Left: photo, name, credential, bio, "Best for" and language chips, and
-// "Read full bio" (the other sections, in a box that scrolls on its own).
-// Right: Book a free 15-minute intro call / Message. Then the packages row,
-// the Hourly card and hour bundles, and reviews. Every Details / Buy /
+// A mentor's public profile (docs/redesign-2026-10.md sections 1 and 2,
+// laid out Leland-style in Nov 2026). Left: photo, name, credential, school
+// with its logo and the full rank, "students got into" logos, quick facts,
+// then labelled sections (About, Specialties, Admissions experience, Known
+// for, Credentials, Clinical & research, Languages, Fun fact), the packages
+// row, "Buy hours" (1 hour or a bundle) and reviews. Right: Book a free
+// 15-minute intro call / Message. Every Details / Buy /
 // intro call / message action opens as a pop-up here, never a new page.
 
 export type PublicOffer = {
@@ -108,7 +113,7 @@ function NotVisibleTag() {
   return <span className="preview-tag" title="Only you can see this in preview">Not visible to students</span>;
 }
 
-export function ProfileClient({ seller, offers, reviews, previewState = null }: { seller: any; offers: Offers; reviews: any[]; previewState?: PreviewState }) {
+export function ProfileClient({ seller, offers, reviews, previewState = null, logos = {} }: { seller: any; offers: Offers; reviews: any[]; previewState?: PreviewState; logos?: LogoMap }) {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -121,7 +126,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null }: 
 
   const [unlock, setUnlock] = useState<Unlock | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
-  const [fullBio, setFullBio] = useState(false);
+  const [pickedHours, setPickedHours] = useState<string | null>(offers.bundles[0]?.id || offers.hourly?.id || null);
   const [reportOpen, setReportOpen] = useState(false);
   const [blocked, setBlockedState] = useState<{ iBlocked: boolean; theyBlocked: boolean } | null>(null);
 
@@ -170,11 +175,24 @@ export function ProfileClient({ seller, offers, reviews, previewState = null }: 
   }
 
   const avg = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : null;
-  const tags = [mentorStageTag(seller.mentorStage), labelFor(SCHOOL_TYPES, seller.schoolType)].filter(Boolean);
   const bestFor: string[] = [...(seller.bestFor || []).map((b: string) => labelFor(BEST_FOR, b)), ...(seller.bestForOther ? [seller.bestForOther] : [])];
-  const adviseIn = (seller.languages as Language[]).filter((l) => l.canAdvise).map((l) => l.name);
   const closeDialog = () => setDialog(null);
   const current = dialog?.t === "details" ? allOffers.find((o) => o.id === dialog.offerId) : null;
+  const school = mentorSchoolName(seller);
+  const rank = mentorRank(seller.mentorStage) || mentorStageTag(seller.mentorStage);
+  const clientSchools: string[] = seller.clientSchools || [];
+  const specialties = specialtiesOf(seller.strongestStages, offers.packages.map((p) => p.service));
+  const roles: AdmissionsRole[] = seller.admissionsRoles || [];
+  // The quick facts under the header.
+  const facts: { value: string; label: string }[] = [
+    ...(typeof seller.yearsAdvising === "number" && seller.yearsAdvising > 0 ? [{ value: `${seller.yearsAdvising}+`, label: seller.yearsAdvising === 1 ? "year advising" : "years advising" }] : []),
+    ...(typeof seller.applicantsSupported === "number" && seller.applicantsSupported > 0 ? [{ value: `${seller.applicantsSupported}+`, label: "applicants helped" }] : []),
+    ...(roles.length > 0 ? [{ value: String(roles.length), label: roles.length === 1 ? "admissions role" : "admissions roles" }] : []),
+    ...(clientSchools.length > 0 ? [{ value: String(clientSchools.length), label: clientSchools.length === 1 ? "school students got into" : "schools students got into" }] : []),
+    ...(reviews.length > 0 && avg !== null ? [{ value: `${avg.toFixed(1)}★`, label: `${reviews.length} ${reviews.length === 1 ? "review" : "reviews"}` }] : []),
+  ].slice(0, 4);
+  // "Buy hours": 1 hour, then each bundle.
+  const hourOptions = [...(offers.hourly ? [offers.hourly] : []), ...offers.bundles];
 
   // The two main actions, used in the side box and on phones under the
   // header.
@@ -237,8 +255,10 @@ export function ProfileClient({ seller, offers, reviews, previewState = null }: 
 
       <div className="profile-grid">
         <div className="stack-lg" style={{ gap: 40, minWidth: 0 }}>
-          {/* ---------- About ---------- */}
-          <section className="stack" style={{ gap: 18 }}>
+          {/* ---------- About (Leland-style, Nov 2026) ----------
+              Everything on the page itself, in labelled sections: no
+              scrolling box and no "Read full bio" button. */}
+          <section className="stack" style={{ gap: 22 }}>
             <div className="row" style={{ gap: 24, alignItems: "flex-start", flexWrap: "wrap" }}>
               {seller.photoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -246,13 +266,18 @@ export function ProfileClient({ seller, offers, reviews, previewState = null }: 
               ) : (
                 <span className="avatar profile-photo" style={{ background: tintFor(seller.id) }}>{initialsOf(seller.name)}</span>
               )}
-              <div className="stack grow" style={{ gap: 8, minWidth: 220 }}>
-                <div className="row-wrap">
-                  <h1 className="page-title" style={{ fontSize: "clamp(34px, 4vw, 48px)" }}>{seller.name}</h1>
-                  <Vetted />
-                </div>
-                {seller.credential && <span style={{ fontSize: 18 }}>{seller.credential}</span>}
-                {(mentorSchoolName(seller) || tags.length > 0) && <span className="text-secondary" style={{ fontSize: 16 }}>{[mentorSchoolName(seller), ...tags].filter(Boolean).join(" · ")}</span>}
+              <div className="stack grow" style={{ gap: 10, minWidth: 220 }}>
+                <h1 className="page-title" style={{ fontSize: "clamp(34px, 4vw, 48px)" }}>{seller.name}</h1>
+                {seller.credential && <span style={{ fontSize: 19, lineHeight: 1.4 }}>{seller.credential}</span>}
+                {(school || rank) && (
+                  <span className="school-line" style={{ fontSize: 16 }}>
+                    {school && <SchoolLogo name={school} logos={logos} size={36} title={false} />}
+                    <span className="stack-sm" style={{ gap: 0 }}>
+                      {school && <b>{school}</b>}
+                      <span className="text-secondary">{[rank, labelFor(SCHOOL_TYPES, seller.schoolType)].filter(Boolean).join(" · ")}</span>
+                    </span>
+                  </span>
+                )}
                 <Rating avg={avg} count={reviews.length} />
               </div>
             </div>
@@ -269,32 +294,53 @@ export function ProfileClient({ seller, offers, reviews, previewState = null }: 
               </div>
             )}
 
-            {seller.bio && <p style={{ fontSize: 17, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{seller.bio}</p>}
-
-            {(bestFor.length > 0 || adviseIn.length > 0) && (
-              <div className="stack-sm">
-                {bestFor.length > 0 && (
-                  <div className="row-wrap" style={{ gap: 6 }}>
-                    <span className="text-muted small" style={{ fontWeight: 600 }}>Best for</span>
-                    {bestFor.map((t) => <span key={t} className="badge badge-brand">{t}</span>)}
-                  </div>
-                )}
-                {adviseIn.length > 0 && (
-                  <div className="row-wrap" style={{ gap: 6 }}>
-                    <span className="text-muted small" style={{ fontWeight: 600 }}>Advises in</span>
-                    {adviseIn.map((t) => <span key={t} className="badge badge-blue">{t}</span>)}
-                  </div>
-                )}
+            {clientSchools.length > 0 && (
+              <div className="profile-panel">
+                <ClientSchools schools={clientSchools} logos={logos} size={44} label={`${first}'s students got into:`} />
               </div>
             )}
 
-            <button type="button" className="link-btn link" style={{ alignSelf: "flex-start" }} aria-expanded={fullBio} aria-controls="full-bio" onClick={() => setFullBio((v) => !v)}>
-              {fullBio ? "Hide full bio" : "Read full bio"}
-            </button>
-            {fullBio && <FullBio id="full-bio" seller={seller} />}
+            {facts.length > 0 && (
+              <ul className="profile-facts">
+                {facts.map((f) => (
+                  <li key={f.label}>
+                    <b>{f.value}</b>
+                    <span>{f.label}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
 
             <div className="profile-actions-mobile">{actions(false)}</div>
           </section>
+
+          {seller.bio && (
+            <section className="profile-section" aria-labelledby="about-title">
+              <h2 id="about-title">About {first}</h2>
+              <p style={{ fontSize: 17, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{seller.bio}</p>
+            </section>
+          )}
+
+          {(specialties.length > 0 || bestFor.length > 0) && (
+            <section className="profile-section" aria-labelledby="specialties-title">
+              <h2 id="specialties-title">Specialties</h2>
+              {specialties.length > 0 && (
+                <div className="row-wrap" style={{ gap: 8 }}>
+                  {specialties.map((t) => <span key={t} className="badge badge-brand badge-lg">{t}</span>)}
+                </div>
+              )}
+              {bestFor.length > 0 && (
+                <div className="stack-sm" style={{ marginTop: 8 }}>
+                  <span className="text-muted small" style={{ fontWeight: 600 }}>Best for</span>
+                  <div className="row-wrap" style={{ gap: 6 }}>
+                    {bestFor.map((t) => <span key={t} className="badge">{t}</span>)}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
+          <ProfileSections seller={seller} first={first} />
 
           {/* ---------- Packages ---------- */}
           {offers.packages.length > 0 && (
@@ -328,52 +374,38 @@ export function ProfileClient({ seller, offers, reviews, previewState = null }: 
             </section>
           )}
 
-          {/* ---------- Hourly + bundles ---------- */}
-          {(offers.hourly || offers.bundles.length > 0) && (
+          {/* ---------- Buy hours (Nov 2026) ----------
+              One card: pick 1 hour or any hour bundle, then "Buy hours"
+              opens that option's details. */}
+          {hourOptions.length > 0 && (
             <section className="stack" aria-labelledby="hours-title">
-              <h2 id="hours-title" style={{ fontSize: 30 }}>Hours</h2>
-              {offers.hourly && (
-                <div className="pkg-card">
-                  <div className="between" style={{ alignItems: "flex-start", flexWrap: "wrap" }}>
-                    <div className="stack-sm">
-                      <b style={{ fontSize: 19 }}>Hourly {offers.hourly.hiddenFromStudents && <NotVisibleTag />}</b>
-                      <span className="text-secondary">
-                        Use it for {offers.hourly.format === "LIVE" ? "calls" : offers.hourly.format === "WRITTEN" ? "written feedback" : "calls, written feedback or both"}. Add more hours any time.
-                      </span>
-                    </div>
-                    <span className="nowrap"><span className="display" style={{ fontSize: 30 }}>{money(offers.hourly.rateCents)}</span>/hr</span>
-                  </div>
-                  {preview ? (
-                    <PreviewOnly>
-                      <button className="btn btn-primary" disabled>Buy 1 hour</button>
-                    </PreviewOnly>
-                  ) : (
-                    <button className="btn btn-primary" style={{ alignSelf: "flex-start" }} onClick={() => setDialog({ t: "details", offerId: offers.hourly!.id })} aria-haspopup="dialog">
-                      Buy 1 hour
-                    </button>
-                  )}
-                </div>
-              )}
-              {offers.bundles.length > 0 && (
-                <div className="card stack-sm">
-                  <b style={{ fontSize: 17 }}>Hour bundles</b>
-                  {offers.bundles.map((b) => (
-                    <div key={b.id} className="pkg-line">
-                      <span className="stack-sm" style={{ gap: 2 }}>
-                        <b>{hoursLabel(b.minutes)} {b.hiddenFromStudents && <NotVisibleTag />}</b>
-                        <span className="text-muted">{priceMath(b.minutes, b.rateCents)}</span>
-                      </span>
-                      {preview ? (
-                        <PreviewOnly>
-                          <button className="btn btn-sm btn-primary" disabled>Buy</button>
-                        </PreviewOnly>
-                      ) : (
-                        <button className="btn btn-sm btn-primary" onClick={() => setDialog({ t: "details", offerId: b.id })} aria-haspopup="dialog">Buy</button>
-                      )}
-                    </div>
+              <h2 id="hours-title" style={{ fontSize: 30 }}>Buy Hours</h2>
+              <div className="pkg-card">
+                <span className="text-secondary">
+                  Use your hours for {offers.hourly?.format === "LIVE" ? "calls" : offers.hourly?.format === "WRITTEN" ? "written feedback" : "calls, written feedback or both"}, and add more any time.
+                  {offers.hourly && <> {first}&apos;s rate is <b style={{ color: "var(--ink)" }}>{money(offers.hourly.rateCents)}/hr</b>.</>}
+                </span>
+                <div className="hour-options" role="radiogroup" aria-label="How many hours">
+                  {hourOptions.map((o) => (
+                    <label key={o.id} className={`hour-option${pickedHours === o.id ? " is-on" : ""}`}>
+                      <input type="radio" name="hours" value={o.id} checked={pickedHours === o.id} onChange={() => setPickedHours(o.id)} />
+                      <b>{hoursLabel(o.minutes)}</b>
+                      <span className="display" style={{ fontSize: 22 }}>{money(o.price)}</span>
+                      <span className="text-muted small">{money(o.rateCents)}/hr</span>
+                      {o.hiddenFromStudents && <NotVisibleTag />}
+                    </label>
                   ))}
                 </div>
-              )}
+                {preview ? (
+                  <PreviewOnly>
+                    <button className="btn btn-primary" disabled>Buy hours</button>
+                  </PreviewOnly>
+                ) : (
+                  <button className="btn btn-primary" style={{ alignSelf: "flex-start" }} disabled={!pickedHours} onClick={() => pickedHours && setDialog({ t: "details", offerId: pickedHours })} aria-haspopup="dialog">
+                    Buy hours
+                  </button>
+                )}
+              </div>
             </section>
           )}
 
@@ -512,43 +544,106 @@ export function ProfileClient({ seller, offers, reviews, previewState = null }: 
   );
 }
 
-// ---------------- Full bio ----------------
+// ---------------- Profile sections ----------------
+// The old "Read full bio" box, laid out as sections on the page (Nov 2026).
 
-function FullBio({ id, seller }: { id: string; seller: any }) {
+function ProfileSections({ seller, first }: { seller: any; first: string }) {
   const roles: AdmissionsRole[] = seller.admissionsRoles || [];
   const languages: Language[] = seller.languages || [];
   const stages: string[] = (seller.strongestStages || []).map((s: string) => labelFor(STRONGEST_STAGES, s));
-  const admissions = [
-    ...roles.map((r) => `${labelFor(ADMISSIONS_ROLE_TYPES, r.type)}${r.place ? `, ${r.place}` : ""} (${r.years}${r.former ? ", former" : ""})`),
-    ...(typeof seller.yearsAdvising === "number" ? [`${seller.yearsAdvising} ${seller.yearsAdvising === 1 ? "year" : "years"} advising applicants`] : []),
-    ...(typeof seller.applicantsSupported === "number" ? [`About ${seller.applicantsSupported} applicants supported`] : []),
-    ...(stages.length ? [`Strongest at: ${stages.join(", ")}`] : []),
+  const experience = [
+    ...roles.map((r) => ({ title: `${labelFor(ADMISSIONS_ROLE_TYPES, r.type)}${r.former ? " (former)" : ""}`, sub: [r.place, r.years].filter(Boolean).join(" · ") })),
+    ...(typeof seller.yearsAdvising === "number" ? [{ title: `${seller.yearsAdvising} ${seller.yearsAdvising === 1 ? "year" : "years"} advising applicants`, sub: "" }] : []),
+    ...(typeof seller.applicantsSupported === "number" ? [{ title: `About ${seller.applicantsSupported} applicants supported`, sub: "" }] : []),
   ];
-  const clinical = [
-    ...(seller.specialtyInterest ? [`Specialty interest: ${seller.specialtyInterest}`] : []),
-    ...(seller.researchSummary ? [seller.researchSummary] : []),
-  ];
-  const sections: [string, string[]][] = [
-    ["Admissions experience", admissions],
-    ["Clinical & research", clinical],
-    ["Credentials & highlights", seller.highlights || []],
-    ["Known for", seller.knownFor || []],
-    ["Languages", languages.map((l) => `${l.name} (${labelFor(LANGUAGE_LEVELS, l.level).toLowerCase()})${l.canAdvise ? ", can advise in it" : ""}`)],
-    ["Fun fact", seller.funFact ? [seller.funFact] : []],
-  ];
+  const highlights: string[] = seller.highlights || [];
+  const knownFor: string[] = seller.knownFor || [];
   return (
-    <ScrollBox id={id} className="bio-more" label="Full bio">
-      {sections
-        .filter(([, items]) => items.length > 0)
-        .map(([title, items]) => (
-          <div key={title}>
-            <h3>{title}</h3>
-            <ul>
-              {items.map((t, i) => <li key={i} style={{ whiteSpace: "pre-wrap" }}>{t}</li>)}
+    <>
+      {(experience.length > 0 || stages.length > 0) && (
+        <section className="profile-section" aria-labelledby="experience-title">
+          <h2 id="experience-title">Admissions Experience</h2>
+          {experience.length > 0 && (
+            <ul className="profile-timeline">
+              {experience.map((e, i) => (
+                <li key={i}>
+                  <b>{e.title}</b>
+                  {e.sub && <span className="text-secondary">{e.sub}</span>}
+                </li>
+              ))}
             </ul>
+          )}
+          {stages.length > 0 && (
+            <p className="text-secondary" style={{ marginTop: 4 }}>
+              <b style={{ color: "var(--ink)" }}>Strongest at:</b> {stages.join(", ")}
+            </p>
+          )}
+        </section>
+      )}
+
+      {knownFor.length > 0 && (
+        <section className="profile-section" aria-labelledby="known-title">
+          <h2 id="known-title">What {first} Is Known For</h2>
+          <div className="known-grid">
+            {knownFor.map((t, i) => (
+              <div key={i} className="known-card">
+                <span className="known-num" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
+                <span>{t}</span>
+              </div>
+            ))}
           </div>
-        ))}
-    </ScrollBox>
+        </section>
+      )}
+
+      {highlights.length > 0 && (
+        <section className="profile-section" aria-labelledby="highlights-title">
+          <h2 id="highlights-title">Credentials &amp; Highlights</h2>
+          <ul className="check-list">
+            {highlights.map((t, i) => (
+              <li key={i}>
+                <Icon d={ICONS.check} size={18} stroke={2.4} />
+                <span style={{ whiteSpace: "pre-wrap" }}>{t}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {(seller.specialtyInterest || seller.researchSummary) && (
+        <section className="profile-section" aria-labelledby="clinical-title">
+          <h2 id="clinical-title">Clinical &amp; Research</h2>
+          {seller.specialtyInterest && (
+            <p>
+              <b>Specialty interest:</b> {seller.specialtyInterest}
+            </p>
+          )}
+          {seller.researchSummary && <p className="text-secondary" style={{ lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{seller.researchSummary}</p>}
+        </section>
+      )}
+
+      {(languages.length > 0 || seller.funFact) && (
+        <div className="profile-duo">
+          {languages.length > 0 && (
+            <section className="profile-section" aria-labelledby="languages-title">
+              <h2 id="languages-title">Languages</h2>
+              <ul className="plain-list">
+                {languages.map((l) => (
+                  <li key={l.name}>
+                    <b>{l.name}</b> <span className="text-secondary">· {labelFor(LANGUAGE_LEVELS, l.level)}{l.canAdvise ? " · can advise in it" : ""}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {seller.funFact && (
+            <section className="profile-section" aria-labelledby="fun-title">
+              <h2 id="fun-title">Fun Fact</h2>
+              <p style={{ lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{seller.funFact}</p>
+            </section>
+          )}
+        </div>
+      )}
+    </>
   );
 }
 

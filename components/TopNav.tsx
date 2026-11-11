@@ -40,7 +40,7 @@ type NavLink = { label: string; href: string };
 type MainLink = NavLink & { midHide?: boolean; reviews?: boolean };
 
 // The general pages, in order (as on AdmitMD: a row of real pages).
-// "Reviews" only shows once the homepage shows its review wall.
+// "Reviews" is always shown (Nov 2026); showReviews stays for flexibility.
 const LOGGED_OUT_LINKS: MainLink[] = [
   { label: "Home", href: "/", midHide: true },
   { label: "Browse Mentors", href: "/mentors" },

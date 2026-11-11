@@ -135,9 +135,10 @@ export const SITE_PAGES = {
             href: link("Button opens", "/mentors", { required: true }),
           },
           [
+            // "Plan Your Path to Medicine" first (owner's call, Nov 2026).
+            { title: "Plan Your Path to Medicine", body: "School lists, MCAT strategy, gap years and reapplying, from people who made the same calls.", photo: PHOTOS.pathPlan, button: "Find a Strategy Mentor →", href: "/mentors?service=SCHOOL_LIST&service=MCAT&service=REAPPLICANT" },
             { title: "Write a Standout Application", body: "Personal statement, activities and secondaries, shaped by someone who just wrote theirs.", photo: PHOTOS.pathApplication, button: "Find an Application Mentor →", href: "/mentors?service=PERSONAL_STATEMENT&service=SECONDARIES&service=ACTIVITIES" },
             { title: "Prepare for MMI and Traditional Interviews", body: "Mock interviews with written feedback after every session.", photo: PHOTOS.pathInterviews, button: "Find an Interview Mentor →", href: "/mentors?service=MMI&service=TRADITIONAL_INTERVIEW" },
-            { title: "Plan Your Path to Medicine", body: "School lists, MCAT strategy, gap years and reapplying, from people who made the same calls.", photo: PHOTOS.pathPlan, button: "Find a Strategy Mentor →", href: "/mentors?service=SCHOOL_LIST&service=MCAT&service=REAPPLICANT" },
           ],
           { maxItems: 6 },
         ),
@@ -179,19 +180,21 @@ export const SITE_PAGES = {
             body: long("Text", "", { max: 500 }),
             cta: text("Link label", "Browse Mentors", { max: 40 }),
             href: link("Button opens", "/mentors", { required: true }),
-            tag: text("Label on the picture (not shown in the current design)", "", { max: 30 }),
-            screen: text("Text on the picture (not shown in the current design)", "", { max: 120 }),
+            photo: image("Picture on the right (optional)", "", "Shown beside the rows while this one is open. Without one, a card with the label and short line below shows instead."),
+            tag: text("Small label on the picture card", "", { max: 30 }),
+            screen: text("Short line on the picture card", "", { max: 120 }),
           },
           [
-            { title: "Work 1-on-1 With a Vetted Mentor", body: "Message any mentor for free, then book help with one specific task, on your timeline.", cta: "Browse Mentors", href: "/mentors", tag: "MESSAGING", screen: "Message a mentor, ask questions, and book once they reply." },
-            { title: "Get Your Essays Reviewed", body: "Personal statements, activities and secondaries, with line edits and written feedback from someone who wrote winning ones.", cta: "Find an Essay Mentor", href: "/mentors?service=PERSONAL_STATEMENT&service=SECONDARIES&service=ACTIVITIES", tag: "ESSAY REVIEW", screen: "Line edits and written feedback, logged against your hours." },
-            { title: "Practice Your Interviews", body: "MMI and traditional mock interviews over video, with written feedback after every session. Book the call on your mentor's calendar once you've paid.", cta: "Book a Mock Interview", href: "/mentors?service=MMI&service=TRADITIONAL_INTERVIEW", tag: "MOCK MMI", screen: "Pick a time on your mentor's calendar and join from your order." },
-            { title: "Pay for Hours, See Every One", body: "You pay MentorsMD for hours, not the mentor. Every call and block of written work is logged on your package page, and when the work is marked complete you have 48 hours to approve it or ask for one last call or revision.", cta: "Get Started", href: "/signup", tag: "SECURE PAYMENT", screen: "Hours bought → Hours logged → Marked complete → Approved" },
-            { title: "Ask for One Last Revision", body: "When your mentor marks the work complete, you have 48 hours to approve it, or ask for one last call or one last revision.", cta: "Browse Mentors", href: "/mentors", tag: "REVISIONS", screen: "Marked complete → 48 hours to approve or ask for one more" },
-            { title: "Help If Something Goes Wrong", body: "Open a dispute from your order and a MentorsMD admin steps in. They look at what happened and can refund your payment.", cta: "Get Started", href: "/signup", tag: "DISPUTES", screen: "Dispute opened → MentorsMD admin reviews → Refund if needed" },
+            { title: "Work 1-on-1 With a Vetted Mentor", body: "Message any mentor for free, then book help with one specific task, on your timeline.", cta: "Browse Mentors", href: "/mentors", photo: "", tag: "MESSAGING", screen: "Message a mentor, ask questions, and book once they reply." },
+            { title: "Get Your Essays Reviewed", body: "Personal statements, activities and secondaries, with line edits and written feedback from someone who wrote winning ones.", cta: "Find an Essay Mentor", href: "/mentors?service=PERSONAL_STATEMENT&service=SECONDARIES&service=ACTIVITIES", photo: "", tag: "ESSAY REVIEW", screen: "Line edits and written feedback, logged against your hours." },
+            { title: "Practice Your Interviews", body: "MMI and traditional mock interviews over video, with written feedback after every session. Book the call on your mentor's calendar once you've paid.", cta: "Book a Mock Interview", href: "/mentors?service=MMI&service=TRADITIONAL_INTERVIEW", photo: "", tag: "MOCK MMI", screen: "Pick a time on your mentor's calendar and join from your order." },
+            { title: "Pay for Hours, See Every One", body: "You pay MentorsMD for hours, not the mentor. Every call and block of written work is logged on your package page, and when the work is marked complete you have 48 hours to approve it or ask for one last call or revision.", cta: "Get Started", href: "/signup", photo: "", tag: "SECURE PAYMENT", screen: "Hours bought → Hours logged → Marked complete → Approved" },
+            { title: "Ask for One Last Revision", body: "When your mentor marks the work complete, you have 48 hours to approve it, or ask for one last call or one last revision.", cta: "Browse Mentors", href: "/mentors", photo: "", tag: "REVISIONS", screen: "Marked complete → 48 hours to approve or ask for one more" },
+            { title: "Help If Something Goes Wrong", body: "Open a dispute from your order and a MentorsMD admin steps in. They look at what happened and can refund your payment.", cta: "Get Started", href: "/signup", photo: "", tag: "DISPUTES", screen: "Dispute opened → MentorsMD admin reviews → Refund if needed" },
           ],
-          { maxItems: 10 },
+          { maxItems: 10, help: "Rows that open one at a time, with a picture on the right (the open row's photo, or its label card)." },
         ),
+        featuresButton: text("Button under the rows", "Get Started", { max: 40 }),
       }),
       ...section("Testimonials", {
         testimonialsEyebrow: text("Small label", "Testimonials", { max: 40 }),
@@ -206,7 +209,7 @@ export const SITE_PAGES = {
             rating: text("Stars (1–5)", "5", { max: 1 }),
           },
           TESTIMONIALS.map((t) => ({ name: t.name, detail: t.detail, quote: t.quote, rating: String(t.rating ?? 5) })),
-          { help: "Only with permission. Real reviews from completed orders are added automatically. The section (and the Reviews link in the top bar and footer) shows once there are at least 3 in total. They also show on the Reviews page." },
+          { help: "Only with permission. Real reviews from completed orders are added automatically. The homepage section shows once there are at least 3 in total. They also show on the Reviews page (always linked in the top bar and footer)." },
         ),
       }),
       ...section("Frequently asked questions", {
@@ -474,9 +477,11 @@ export const SITE_PAGES = {
         tagline: text("Tagline under the logo", "Vetted mentors for the road to medical school.", { max: 120 }),
       }),
       ...section("Social links", {
-        instagram: link("Instagram", "", { help: "Full address, e.g. https://www.instagram.com/… Until it is filled in, the icon shows greyed out as \"coming soon\"." }),
-        tiktok: link("TikTok", ""),
+        trustpilot: link("Trustpilot", "", { help: "Full address, e.g. https://www.trustpilot.com/review/mentorsmd.com. Until it is filled in, the icon shows greyed out as \"coming soon\"." }),
+        reddit: link("Reddit", ""),
         linkedin: link("LinkedIn", ""),
+        instagram: link("Instagram", ""),
+        tiktok: link("TikTok (not shown in the current footer)", ""),
         x: link("X (Twitter)", ""),
         youtube: link("YouTube", ""),
       }),
@@ -486,13 +491,35 @@ export const SITE_PAGES = {
   siteSettings: {
     label: "Site settings",
     path: "/",
-    about: "Things used on several pages: the scrolling school logo strips and whether the Press page is shown.",
+    about: "Things used on several pages: the scrolling school logo strips, the school logos on mentor profiles and whether the Press page is shown.",
     fields: {
       ...section("Mentor schools strip", {
         mentorSchoolsTitle: text("Heading", "Our Mentors Come From", { max: 80 }),
         mentorSchools: schoolList(
           "Schools",
           "The scrolling strip of school logos on the Homepage and Become a mentor pages (move or hide it on each page's Layout tab). It's hidden while the list is empty. Use only schools your current mentors actually attend.",
+        ),
+      }),
+      ...section("“Where our students have been accepted” strip", {
+        acceptedTitle: text("Heading", "Where Our Students Have Been Accepted", { max: 80 }),
+        acceptedSchools: schoolList(
+          "Schools",
+          "The scrolling strip on the Homepage and the Reviews page (move or hide it on each page's Layout tab). It's hidden while the list is empty. Use only schools MentorsMD students actually got into.",
+        ),
+      }),
+      ...section("School logos for mentor profiles", {
+        schoolLogos: list(
+          "Logos",
+          "School",
+          {
+            name: text("School name", "", { max: 120, required: true, help: "Spelled exactly as on mentor profiles (the medical school list), e.g. “Duke University School of Medicine”." }),
+            logo: image("Logo", "", "A square logo on a see-through or white background looks best."),
+          },
+          [],
+          {
+            maxItems: 200,
+            help: "Logos shown next to a mentor's school and in “Successful clients at” on cards and profiles. Logos in the strips above are used too, so you don't need to add those twice. A school without a logo shows its initials in a small coloured square.",
+          },
         ),
       }),
       ...section("Senior team “trained at” strip", {

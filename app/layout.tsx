@@ -11,7 +11,6 @@ import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { SitePreviewBar } from "@/components/website/SitePreviewBar";
 import { SiteEditButtons } from "@/components/website/SiteEditButtons";
 import { siteUrl } from "@/lib/siteUrl";
-import { hasReviewWall } from "@/lib/reviewWall";
 
 // This is what actually determines how the site looks when someone
 // finds it via Google on their phone - the title/description below are
@@ -49,14 +48,14 @@ const body = Hanken_Grotesk({ subsets: ["latin"], weight: ["400", "500", "600", 
 const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "700"], variable: "--font-mono-loaded", display: "swap" });
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // The Reviews link (top bar and footer) only shows once there are reviews to show.
-  const showReviews = await hasReviewWall();
+  // Nov 2026: the Reviews link is always in the top bar (owner's call); the
+  // page shows a "no reviews yet" box until there are some.
   return (
     <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
       <body>
         <Providers>
           <SitePreviewBar />
-          <TopNav showReviews={showReviews} />
+          <TopNav showReviews />
           <AccountGate />
           <Tracker />
           <PostHogAnalytics />

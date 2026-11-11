@@ -75,6 +75,20 @@ export const schoolTypeOptional = (stage: string | null | undefined) => stage ==
 // so it has none: the credential line describes them).
 export const mentorStageTag = (stage: string | null | undefined) => (stage === "OTHER" ? "" : labelFor(STAGES, stage));
 
+// The full rank spelled out on cards and profiles (Nov 2026): "Medical
+// Student – Year 4" instead of "MS4". "Other" has none (the credential
+// line says what they do).
+const RANKS: Record<string, string> = {
+  UNDERGRAD: "Undergraduate Student",
+  GAP_YEAR: "Gap Year",
+  MS1: "Medical Student – Year 1",
+  MS2: "Medical Student – Year 2",
+  MS3: "Medical Student – Year 3",
+  MS4: "Medical Student – Year 4",
+  RESIDENT: "Resident Physician",
+};
+export const mentorRank = (stage: string | null | undefined) => (stage && RANKS[stage]) || "";
+
 // The school shown on a mentor's card and profile: their own school for
 // undergrads, gap years and others, otherwise their medical school.
 export function mentorSchoolName(m: { mentorStage?: string | null; medicalSchool?: string | null; undergradSchool?: string | null }) {
@@ -251,15 +265,53 @@ export function money(cents: number) {
 
 // The browse sidebar groups, in order. Lives here (not in the client
 // component) so the server-rendered browse page can use it too.
+// Nov 2026: only Best for, Specialties and Price (owner's call). The other
+// filters (format, stage, school type, rating) still work from a link, but
+// aren't offered in the sidebar.
 export const FILTER_GROUPS = [
-  { key: "service", title: "Service", sub: "What you need help with", options: SERVICES, multi: true },
-  { key: "format", title: "Format", sub: "How the help is delivered", options: FORMATS, multi: true },
-  { key: "price", title: "Price", sub: "An hour, a bundle or a package", options: PRICE_BANDS.map(({ value, label }) => ({ value, label })), multi: true },
-  { key: "stage", title: "Mentor stage", sub: "Where they are on the path to medicine", options: STAGES, multi: true },
-  { key: "school", title: "School type", sub: "Where they study or train", options: SCHOOL_TYPES, multi: true },
   { key: "best", title: "Best for", sub: "The students they help most", options: BEST_FOR, multi: true },
-  { key: "rating", title: "Rating", sub: "From student reviews", options: RATINGS, multi: false },
+  { key: "service", title: "Specialties", sub: "What you need help with", options: SERVICES.filter((o) => o.value !== "OTHER"), multi: true },
+  { key: "price", title: "Price", sub: "An hour, a bundle or a package", options: PRICE_BANDS.map(({ value, label }) => ({ value, label })), multi: true },
 ];
+
+// The pills above the results also name filters that came from a link.
+export const ALL_FILTER_GROUPS = [
+  ...FILTER_GROUPS,
+  { key: "format", title: "Format", sub: "", options: FORMATS, multi: true },
+  { key: "stage", title: "Mentor stage", sub: "", options: STAGES, multi: true },
+  { key: "school", title: "School type", sub: "", options: SCHOOL_TYPES, multi: true },
+  { key: "rating", title: "Rating", sub: "", options: RATINGS, multi: false },
+];
+
+// "Successful clients at": schools a mentor's students got into (Nov 2026).
+export const CLIENT_SCHOOLS_MAX = 12;
+
+// A mentor's specialties, for cards and profiles: their strongest stages,
+// plus the services of their specialized packages, without repeats.
+const STAGE_TO_SPECIALTY: Record<string, string> = {
+  SCHOOL_LIST: "School List & Strategy",
+  PERSONAL_STATEMENT: "Personal Statement",
+  ACTIVITIES: "Activities & Experiences",
+  SECONDARIES: "Secondaries",
+  INTERVIEW_PREP: "Interview Prep",
+  WAITLIST_LETTERS: "Waitlist & Update Letters",
+};
+const SERVICE_TO_SPECIALTY: Record<string, string> = {
+  PERSONAL_STATEMENT: "Personal Statement",
+  SECONDARIES: "Secondaries",
+  ACTIVITIES: "Activities & Experiences",
+  MMI: "Interview Prep",
+  TRADITIONAL_INTERVIEW: "Interview Prep",
+  SCHOOL_LIST: "School List & Strategy",
+  MCAT: "MCAT",
+  REAPPLICANT: "Reapplicants",
+};
+export function specialtiesOf(stages: string[] | null | undefined, services: (string | null | undefined)[] = []) {
+  const out: string[] = [];
+  for (const s of stages || []) if (STAGE_TO_SPECIALTY[s] && !out.includes(STAGE_TO_SPECIALTY[s])) out.push(STAGE_TO_SPECIALTY[s]);
+  for (const s of services) if (s && SERVICE_TO_SPECIALTY[s] && !out.includes(SERVICE_TO_SPECIALTY[s])) out.push(SERVICE_TO_SPECIALTY[s]);
+  return out;
+}
 
 // Quick links across the top of /mentors, also shown in the top bar once
 // the page is scrolled (components/TopNav.tsx). Each sets one filter and

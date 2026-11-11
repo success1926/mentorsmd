@@ -200,6 +200,7 @@ function PersonDetail({ id }: { id: string }) {
           <div className="row-wrap small">
             {u.gigs.map((g: any) => <span key={g.id} className="badge badge-brand">{g.title} · {money(g.price)}</span>)}
           </div>
+          <ClientSchoolsEditor userId={u.id} initial={u.clientSchools || []} />
           <Link href={`/mentors/${u.id}`} className="link small">Open public profile →</Link>
         </>
       )}
@@ -228,6 +229,45 @@ function PersonDetail({ id }: { id: string }) {
         </Link>
       ))}
     </div>
+  );
+}
+
+// "Successful clients at" (Nov 2026): the schools a mentor's students got
+// into, shown as logos on their card and profile. Mentors add them in My
+// profile; admins fill them in here for mentors already on the site.
+function ClientSchoolsEditor({ userId, initial }: { userId: string; initial: string[] }) {
+  const [text, setText] = useState(initial.join("\n"));
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+  async function save() {
+    setSaving(true);
+    setMsg(null);
+    const schools = text.split("\n").map((x) => x.trim()).filter(Boolean);
+    const res = await fetch(`/api/admin/users/${userId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "clientSchools", schools }) });
+    const d = await res.json().catch(() => ({}));
+    setSaving(false);
+    if (res.ok && d.user) setText((d.user.clientSchools || []).join("\n"));
+    setMsg({ ok: res.ok, text: res.ok ? "Saved. The profile updates within a minute." : d.error || "Couldn't save" });
+  }
+  return (
+    <details className="collapse">
+      <summary>
+        <span className="row" style={{ gap: 8 }}>
+          Schools their students got into <span className="tab-count">{initial.length}</span>
+        </span>
+      </summary>
+      <div className="collapse-body">
+        <label className="field" style={{ marginBottom: 0 }}>
+          <span className="field-label">One school per line, best first</span>
+          <textarea className="input" style={{ minHeight: 110 }} value={text} onChange={(e) => setText(e.target.value)} placeholder={"Harvard Medical School\nStanford University School of Medicine"} />
+          <span className="field-help">Shown as logos under &ldquo;Successful clients at&rdquo;. Upload logos in Website → Site settings → School logos (a school without one shows its initials).</span>
+        </label>
+        <div className="row-wrap">
+          <button type="button" className="btn btn-primary btn-sm" disabled={saving} onClick={save}>{saving ? "Saving…" : "Save schools"}</button>
+          {msg && <span role="status" className="small" style={{ color: msg.ok ? "var(--success-fg)" : "var(--danger)" }}>{msg.text}</span>}
+        </div>
+      </div>
+    </details>
   );
 }
 

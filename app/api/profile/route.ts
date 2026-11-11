@@ -34,7 +34,7 @@ export async function GET() {
     select: {
       id: true, name: true, email: true, role: true, credential: true, bio: true, photoUrl: true, passwordHash: true,
       mentorStage: true, schoolType: true, medicalSchool: true, undergradSchool: true,
-      ...profileFieldsSelect, bestForOther: true, profileCompleteAt: true,
+      ...profileFieldsSelect, bestForOther: true, clientSchools: true, profileCompleteAt: true,
       profileStatus: true, pausedUntil: true, awayNote: true, removedAt: true, removedByAdmin: true,
       timeZone: true, weeklyHours: true, bufferMinutes: true, minNoticeHours: true, bookingWindowDays: true, daysOff: true,
       externalCalUrl: true, externalCalError: true, externalBusyFetchedAt: true, googleCalEmail: true, googleCalConnectedAt: true,
