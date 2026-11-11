@@ -49,15 +49,27 @@ const MENTOR_SCHOOLS_STRIP: BuiltinSection = {
   editOn: { page: "siteSettings", section: "mentorSchoolsTitle", label: "Site settings page" },
 };
 
+// "Where our students have been accepted" (Nov 2026), also on Reviews.
+const ACCEPTED_STRIP: BuiltinSection = {
+  id: "accepted",
+  label: "Where our students have been accepted (scrolling strip)",
+  fields: [],
+  editOn: { page: "siteSettings", section: "acceptedTitle", label: "Site settings page" },
+};
+
 export const PAGE_SECTIONS: Record<string, BuiltinSection[]> = {
   home: [
     { id: "hero", label: "Top of the page (headline, search, schools)", fields: HOME_FIELDS.hero },
     MENTOR_SCHOOLS_STRIP,
+    // Order since Nov 2026 (owner's call): How it works above the mentors,
+    // then where students got in, testimonials, and how we vet mentors near
+    // the bottom.
     { id: "paths", label: "Getting into med school is hard", fields: ["pathsTitle", "pathsText", "paths"] },
-    { id: "vetting", label: "Every mentor, vetted", fields: HOME_FIELDS.vetting },
+    { id: "features", label: "How it works (rows with a picture)", fields: ["featuresTitle", "features", "featuresButton"] },
     { id: "featured", label: "Featured mentors", fields: ["featuredTitle", "featuredLink"] },
-    { id: "features", label: "Everything you need to get in", fields: ["featuresTitle", "features"] },
+    ACCEPTED_STRIP,
     { id: "testimonials", label: "Testimonials", fields: ["testimonialsEyebrow", "testimonialsTitle", "testimonials"] },
+    { id: "vetting", label: "How we vet mentors", fields: HOME_FIELDS.vetting },
     { id: "faq", label: "Frequently asked questions", fields: HOME_FIELDS.faq },
     { id: "cta", label: "Final call to action", fields: ["ctaTitle", "ctaText", "ctaButton"] },
   ],
@@ -83,7 +95,8 @@ export const PAGE_SECTIONS: Record<string, BuiltinSection[]> = {
     { id: "apply", label: "Application form", fields: ["applyTitle", "applyText"], keepVisible: true },
   ],
   reviews: [
-    { id: "intro", label: "Intro", fields: ["title", "intro"] },
+    { id: "intro", label: "Intro and rating summary", fields: ["title", "intro"] },
+    ACCEPTED_STRIP,
     { id: "wall", label: "Reviews (or the “no reviews yet” box)", fields: ["emptyTitle", "emptyText"] },
   ],
   press: [

@@ -5,6 +5,7 @@ import { isMentorListed } from "@/lib/mentor";
 import { toDate } from "@/lib/publicCache";
 import { cachedPublicProfile, mentorProfileView } from "@/lib/mentorProfile";
 import { ProfileClient } from "./ProfileClient";
+import { getSchoolLogos } from "@/lib/schoolLogos";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +31,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   const bio = (s.bio || "").replace(/\s+/g, " ").trim();
   const description = bio
     ? bio.length > 155 ? `${bio.slice(0, 152).trimEnd()}…` : bio
-    : `${s.name} is a MentorsMD mentor, vetted by our senior team. Message them for free or book a free 15-minute intro call.`;
+    : `${s.name} is a MentorsMD mentor, interviewed by our senior team. Message them for free or book a free 15-minute intro call.`;
   return {
     title,
     description,
@@ -40,7 +41,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
 
 export default async function MentorProfilePage({ params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
-  const view = await mentorProfileView(params.id, { id: (session?.user as any)?.id, role: (session?.user as any)?.role });
+  const [view, logos] = await Promise.all([mentorProfileView(params.id, { id: (session?.user as any)?.id, role: (session?.user as any)?.role }), getSchoolLogos()]);
   if (!view) notFound();
-  return <ProfileClient seller={view.seller} previewState={view.previewState} offers={view.offers} reviews={view.reviews} />;
+  return <ProfileClient seller={view.seller} previewState={view.previewState} offers={view.offers} reviews={view.reviews} logos={logos} />;
 }

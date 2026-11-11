@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 import {
   ADMISSIONS_ROLE_TYPES,
   BEST_FOR,
+  CLIENT_SCHOOLS_MAX,
   LANGUAGE_LEVELS,
   PROFILE_RULES as R,
   STRONGEST_STAGES,
   countWords,
 } from "@/lib/options";
 import { languagesOf, rolesOf, type AdmissionsRole, type Language } from "@/lib/profileCompleteness";
+import { MedicalSchoolPicker } from "@/components/MedicalSchoolPicker";
 
 // Steps 2 to 9 of "My profile" (/dashboard/profile, mentor area v2, Oct
 // 2026; docs/redesign-2026-10.md section 2): bio, admissions experience,
@@ -35,6 +37,7 @@ export type EditorState = {
   knownFor: string[];
   languages: Language[];
   funFact: string;
+  clientSchools: string[];
 };
 
 const numText = (n: unknown) => (typeof n === "number" ? String(n) : "");
@@ -58,6 +61,7 @@ function initialState(p: any): EditorState {
     knownFor: Array.from({ length: R.knownForCount }, (_, i) => knownFor[i] || ""),
     languages: languagesOf(p.languages).length ? languagesOf(p.languages) : [{ name: "English", level: "NATIVE", canAdvise: true }],
     funFact: p.funFact || "",
+    clientSchools: Array.isArray(p.clientSchools) ? p.clientSchools : [],
   };
 }
 
@@ -130,6 +134,8 @@ export const EDITOR_STEPS: [string, string, string][] = [
   ["known-for", "knownFor", "Known for"],
   ["languages", "languages", "Languages"],
   ["fun-fact", "funFact", "Fun fact"],
+  // Optional (Nov 2026): not part of the checklist, so never "Not done".
+  ["client-schools", "clientSchools", "Schools your students got into (optional)"],
 ];
 
 export function MentorProfileEditor({
@@ -187,6 +193,7 @@ export function MentorProfileEditor({
         knownFor: s.knownFor,
         languages: s.languages,
         funFact: s.funFact,
+        clientSchools: s.clientSchools.map((x) => x.trim()).filter(Boolean),
       }),
     });
     const d = await res.json().catch(() => ({}));
@@ -210,7 +217,10 @@ export function MentorProfileEditor({
       id,
       num: firstNum + i,
       title,
-      status: statusOf(key),
+      status:
+        key === "clientSchools"
+          ? { done: (profile.clientSchools || []).length > 0, hint: "Optional: shown as logos on your card and profile" }
+          : statusOf(key),
       open: openId === id,
       onToggle: () => setOpenId(openId === id ? null : id),
       onSave: () => save(id),
@@ -412,6 +422,32 @@ export function MentorProfileEditor({
           <textarea className="input" style={{ minHeight: 80 }} maxLength={R.funFactMax} value={s.funFact} onChange={(e) => set({ funFact: e.target.value })} />
           <span className="field-help">{s.funFact.length} / {R.funFactMax} characters</span>
         </label>
+      </ProfileStep>
+
+      <ProfileStep
+        {...sectionProps("client-schools")}
+        help={`Medical schools (or programs) your students were accepted to, best first. They show as logos under "Successful clients at" on your card and profile. Only list acceptances you personally helped with. Up to ${CLIENT_SCHOOLS_MAX}.`}
+      >
+        <div className="stack-sm">
+          {s.clientSchools.map((name, i) => (
+            <div key={i} className="row" style={{ gap: 8, alignItems: "flex-end" }}>
+              <div className="grow">
+                <MedicalSchoolPicker
+                  label={`School ${i + 1}`}
+                  help=""
+                  value={name}
+                  onChange={(v) => set({ clientSchools: s.clientSchools.map((x, j) => (j === i ? v : x)) })}
+                />
+              </div>
+              <button type="button" className="btn btn-ghost btn-sm" style={{ marginBottom: 14 }} aria-label={`Remove ${name || "school"}`} onClick={() => set({ clientSchools: s.clientSchools.filter((_, j) => j !== i) })}>
+                Remove
+              </button>
+            </div>
+          ))}
+          <button type="button" className="btn btn-soft btn-sm" style={{ alignSelf: "flex-start" }} disabled={s.clientSchools.length >= CLIENT_SCHOOLS_MAX} onClick={() => set({ clientSchools: [...s.clientSchools, ""] })}>
+            + Add a school
+          </button>
+        </div>
       </ProfileStep>
     </>
   );

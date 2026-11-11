@@ -8,6 +8,7 @@ import { placeSafetyHold } from "@/lib/flags";
 import { healthFor } from "@/lib/health";
 import { describeFilters } from "@/lib/insights";
 import { profileFieldsSelect, profileProgress } from "@/lib/profileCompleteness";
+import { parseClientSchools } from "@/lib/mentorProfileInput";
 
 async function requireAdmin(): Promise<string | null> {
   return (await currentAdmin("people"))?.id ?? null;
@@ -25,7 +26,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       id: true, name: true, email: true, role: true, credential: true, bio: true, photoUrl: true, createdAt: true,
       profileStatus: true, pausedUntil: true, awayNote: true, removedAt: true, removedReason: true, removedByAdmin: true,
       safetyHoldAt: true, safetyHoldReason: true, lastActiveAt: true, emailVerified: true, mentorAgreementVersion: true, mentorAgreementAt: true, dateOfBirth: true, minorStatus: true, becameAdultAt: true, acceptsMinors: true,
-      mentorStage: true, schoolType: true, medicalSchool: true, ...profileFieldsSelect, bestForOther: true, profileCompleteAt: true, signupSource: true, signupDetail: true, weeklyHours: true, timeZone: true, externalCalUrl: true, googleCalConnectedAt: true,
+      mentorStage: true, schoolType: true, medicalSchool: true, ...profileFieldsSelect, bestForOther: true, clientSchools: true, profileCompleteAt: true, signupSource: true, signupDetail: true, weeklyHours: true, timeZone: true, externalCalUrl: true, googleCalConnectedAt: true,
       gigs: { where: { active: true }, select: { id: true, title: true, price: true, service: true, format: true } },
     },
   });
@@ -112,7 +113,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (user.role === "ADMIN") return NextResponse.json({ error: "Admin accounts can't be changed here" }, { status: 400 });
 
-  const { action, reason } = await req.json().catch(() => ({}));
+  const { action, reason, schools } = await req.json().catch(() => ({}));
   let data: Record<string, any>;
 
   switch (action) {
@@ -139,11 +140,20 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     case "restore":
       data = { profileStatus: "ACTIVE", removedAt: null, removedReason: null, removedByAdmin: false, pausedUntil: null, awayNote: null, safetyHoldAt: null, safetyHoldReason: null };
       break;
+    case "clientSchools": {
+      // "Successful clients at" logos on a mentor's card and profile (Nov
+      // 2026), filled in by admins for mentors who were already listed.
+      if (user.role !== "SELLER") return NextResponse.json({ error: "Only mentors have this" }, { status: 400 });
+      const list = parseClientSchools(schools);
+      if (!Array.isArray(list)) return NextResponse.json(list, { status: 400 });
+      data = { clientSchools: list };
+      break;
+    }
     default:
       return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   }
 
-  const labels: Record<string, string> = { pause: "Paused", unpause: "Unpaused", remove: "Removed", restore: "Restored" };
+  const labels: Record<string, string> = { pause: "Paused", unpause: "Unpaused", remove: "Removed", restore: "Restored", clientSchools: "Updated the student acceptances of" };
   await logAdminAction({
     adminId,
     action: `USER_${String(action).toUpperCase()}`,
@@ -156,7 +166,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const updated = await prisma.user.update({
     where: { id: user.id },
     data,
-    select: { id: true, profileStatus: true, removedAt: true, removedReason: true, removedByAdmin: true },
+    select: { id: true, profileStatus: true, removedAt: true, removedReason: true, removedByAdmin: true, clientSchools: true },
   });
 
   const activeOrders = await prisma.order.count({

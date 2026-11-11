@@ -1,7 +1,9 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { BrowseFilters, SortSelect } from "@/components/BrowseFilters";
-import { Icon, ICONS, Vetted, Rating, tintFor, initialsOf } from "@/components/ui";
+import { Icon, ICONS, Rating, tintFor, initialsOf } from "@/components/ui";
+import { SchoolLogo, ClientSchools } from "@/components/SchoolLogo";
+import { getSchoolLogos } from "@/lib/schoolLogos";
 import { headers } from "next/headers";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -10,11 +12,10 @@ import { attributionFromCookieHeader } from "@/lib/activity";
 import { logBrowseSearch } from "@/lib/searchLog";
 import { getSiteContent } from "@/lib/siteContentStore";
 import { WaitlistBox } from "@/components/WaitlistBox";
-import { BEST_FOR, FILTER_GROUPS, FORMATS, MENTOR_QUICK_LINKS as QUICK, SCHOOL_TYPES, labelFor, mentorStageTag, money, quickLinkHref } from "@/lib/options";
-import { hoursLabel } from "@/lib/pricing";
+import { ALL_FILTER_GROUPS, MENTOR_QUICK_LINKS as QUICK, mentorRank, mentorStageTag, money, quickLinkHref } from "@/lib/options";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Find Your Mentor", description: "Browse vetted medical school admissions mentors by service, school and price: personal statements, secondaries, MMI and interview prep, MCAT and more." };
+export const metadata = { title: "Find Your Mentor", description: "Browse vetted medical school admissions mentors by specialty, who they help most and price: personal statements, secondaries, MMI and interview prep, MCAT and more." };
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -41,13 +42,13 @@ function toParams(sp: SP) {
 
 export default async function BrowsePage({ searchParams }: { searchParams: SP }) {
   const filters = parseBrowseFilters(searchParams);
-  const [mentors, c] = await Promise.all([searchMentors(filters), getSiteContent("mentors")]);
+  const [mentors, c, logos] = await Promise.all([searchMentors(filters), getSiteContent("mentors"), getSchoolLogos()]);
   await logSearch(filters, mentors.length);
   const params = toParams(searchParams);
 
   // Active filter pills, each linking to the same URL minus that value.
   const pills: { label: string; href: string }[] = [];
-  for (const g of FILTER_GROUPS) {
+  for (const g of ALL_FILTER_GROUPS) {
     for (const v of params.getAll(g.key)) {
       const label = g.options.find((o) => o.value === v)?.label;
       if (!label) continue;
@@ -161,9 +162,11 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
               </div>
             )}
 
+            {/* Leland-style cards (Nov 2026): photo, name, rating and rate;
+                the one-line credential; rank and school with its logo;
+                specialties; "Successful clients at" logos. */}
             {mentors.map((m) => {
-              const tags = [mentorStageTag(m.mentorStage), labelFor(SCHOOL_TYPES, m.schoolType)].filter(Boolean);
-              const bestFor = m.bestFor.map((b) => labelFor(BEST_FOR, b));
+              const rank = mentorRank(m.mentorStage) || mentorStageTag(m.mentorStage);
               return (
                 <article key={m.id} className="mentor-card">
                   <Link href={`/mentors/${m.id}`} aria-hidden="true" tabIndex={-1}>
@@ -174,47 +177,43 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
                       <span className="avatar" style={{ background: tintFor(m.id) }}>{initialsOf(m.name)}</span>
                     )}
                   </Link>
-                  <div className="stack" style={{ gap: 10, minWidth: 0 }}>
-                    <div className="row-wrap">
-                      <Link href={`/mentors/${m.id}`} className="display" style={{ fontSize: 26 }}>{m.name}</Link>
-                      <Vetted />
-                      {m.avgRating !== null && m.avgRating >= 4.8 && m.reviewCount >= 5 && <span className="badge badge-pink">Top rated</span>}
-                      <span style={{ marginLeft: "auto" }}><Rating avg={m.avgRating} count={m.reviewCount} /></span>
-                    </div>
-                    {(m.credential || m.medicalSchool) && <span className="text-secondary">{[m.credential, m.medicalSchool].filter(Boolean).join(" · ")}</span>}
-                    {m.bio && (
-                      <p style={{ fontSize: 16, lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                        {m.bio}
-                      </p>
-                    )}
-                    {(tags.length > 0 || bestFor.length > 0) && (
-                      <div className="row-wrap" style={{ gap: 6 }}>
-                        {tags.map((t) => <span key={t} className="badge">{t}</span>)}
-                        {bestFor.slice(0, 4).map((t) => <span key={t} className="badge badge-brand">{t}</span>)}
-                      </div>
-                    )}
-                    <div className="between" style={{ marginTop: 4, gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-                      <div className="stack-sm" style={{ gap: 2, minWidth: 0 }}>
-                        {m.totalPackages > 0 ? (
-                          <>
-                            <span className="text-muted" style={{ fontWeight: 600 }}>
-                              {m.totalPackages} {m.totalPackages === 1 ? "package" : "packages"}
-                            </span>
-                            {m.packages.slice(0, 3).map((p) => (
-                              <Link key={p.id} href={`/mentors/${m.id}?package=${p.id}`} className="text-secondary" style={{ fontSize: 15 }}>
-                                {p.title}
-                                <span className="text-muted">{[p.minutes ? ` · about ${hoursLabel(p.minutes)}` : "", p.format ? ` · ${labelFor(FORMATS, p.format)}` : ""].join("")}</span>
-                              </Link>
-                            ))}
-                          </>
-                        ) : (
-                          <span className="text-muted">Hourly help · free 15-min intro call</span>
-                        )}
+                  <div className="stack" style={{ gap: 12, minWidth: 0 }}>
+                    <div className="between" style={{ alignItems: "flex-start", gap: 12 }}>
+                      <div className="stack-sm" style={{ gap: 4, minWidth: 0 }}>
+                        <div className="row-wrap">
+                          <Link href={`/mentors/${m.id}`} className="display" style={{ fontSize: 26 }}>{m.name}</Link>
+                          {m.avgRating !== null && m.avgRating >= 4.8 && m.reviewCount >= 5 && <span className="badge badge-pink">Top rated</span>}
+                        </div>
+                        <Rating avg={m.avgRating} count={m.reviewCount} />
                       </div>
                       {m.fromRateCents && (
-                        <Link href={`/mentors/${m.id}`} className="nowrap" style={{ fontSize: 15 }}>
-                          from <b className="display" style={{ fontSize: 26 }}>{money(m.fromRateCents)}</b>/hr
+                        <Link href={`/mentors/${m.id}`} className="rate-chip nowrap">
+                          {m.fromRateCents !== m.hourlyRateCents && <span className="text-muted small">from </span>}
+                          <b>{money(m.fromRateCents)}</b>/hr
                         </Link>
+                      )}
+                    </div>
+                    {m.credential && <span style={{ fontSize: 18, lineHeight: 1.4 }}>{m.credential}</span>}
+                    {(m.medicalSchool || rank) && (
+                      <span className="school-line text-secondary">
+                        {m.medicalSchool && <SchoolLogo name={m.medicalSchool} logos={logos} size={28} title={false} />}
+                        <span>{[rank, m.medicalSchool].filter(Boolean).join(" · ")}</span>
+                      </span>
+                    )}
+                    {m.specialties.length > 0 && (
+                      <div className="row-wrap" style={{ gap: 6 }}>
+                        <span className="text-muted small" style={{ fontWeight: 600 }}>Specialties</span>
+                        {m.specialties.slice(0, 5).map((t) => <span key={t} className="badge badge-brand">{t}</span>)}
+                      </div>
+                    )}
+                    <ClientSchools schools={m.clientSchools} logos={logos} size={30} max={8} />
+                    <div className="row-wrap" style={{ marginTop: 4, gap: 10 }}>
+                      <Link href={`/mentors/${m.id}`} className="btn btn-primary">Free intro call</Link>
+                      <Link href={`/mentors/${m.id}`} className="btn">View profile</Link>
+                      {m.totalPackages > 0 && (
+                        <span className="text-muted small">
+                          {m.totalPackages} {m.totalPackages === 1 ? "package" : "packages"} · hour bundles
+                        </span>
                       )}
                     </div>
                   </div>

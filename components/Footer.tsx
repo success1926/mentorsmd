@@ -3,7 +3,6 @@ import { LogoMark } from "./TopNav";
 import { FooterAccountLink } from "./RoleCta";
 import { getSiteContent } from "@/lib/siteContentStore";
 import { isSafeHref } from "@/lib/siteContent";
-import { hasReviewWall } from "@/lib/reviewWall";
 
 // Same layout as the AdmitMD footer: a big logo centred on the left, link
 // columns on the right, then a bottom row with social icons and contact
@@ -21,29 +20,30 @@ const InstagramIcon = () => (
     <circle className="fg" cx="23.3" cy="12.7" r="1.3" />
   </svg>
 );
-const TikTokIcon = () => (
-  <svg viewBox="0 0 36 36" width="36" height="36" aria-hidden="true">
-    <rect className="bg" width="36" height="36" rx="7" />
-    <path className="fg" d="M20.2 8h3.3c.3 2.6 1.9 4.3 4.5 4.6v3.4c-1.7 0-3.2-.5-4.5-1.4v6.9c0 3.9-2.8 6.5-6.4 6.5-3.5 0-6.1-2.6-6.1-5.9 0-3.6 3-6.3 6.9-5.8v3.5c-1.7-.4-3.4.6-3.4 2.3 0 1.4 1.1 2.4 2.6 2.4 1.7 0 3.1-1.1 3.1-3.3z" />
-  </svg>
-);
 const LinkedInIcon = () => (
   <svg viewBox="0 0 36 36" width="36" height="36" aria-hidden="true">
     <rect className="bg" width="36" height="36" rx="7" />
     <path className="fg" d="M10.2 14.4h3.4v11h-3.4zM11.9 9a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM15.7 14.4h3.3v1.5c.5-.9 1.6-1.8 3.3-1.8 3.5 0 4.1 2.3 4.1 5.3v6h-3.4v-5.3c0-1.3 0-2.9-1.8-2.9s-2.1 1.4-2.1 2.8v5.4h-3.4z" />
   </svg>
 );
-const XIcon = () => (
+
+// Trustpilot and Reddit (Nov 2026): simple marks in the same style as the
+// others (a rounded square with the shape on top).
+const TrustpilotIcon = () => (
   <svg viewBox="0 0 36 36" width="36" height="36" aria-hidden="true">
     <rect className="bg" width="36" height="36" rx="7" />
-    <path className="fg" d="M9.5 9h5.4l4.4 6.1L24.7 9h2.6l-6.8 7.9L27.5 27h-5.4l-4.8-6.6L11.5 27H8.9l7.3-8.4zm3.6 1.8 10 14.4h1.9l-10-14.4z" />
+    <path className="fg" d="M18 8.5l2.6 6.9 7.4.3-5.8 4.6 2 7.1L18 23.3l-6.2 4.1 2-7.1-5.8-4.6 7.4-.3z" />
   </svg>
 );
-const YouTubeIcon = () => (
+const RedditIcon = () => (
   <svg viewBox="0 0 36 36" width="36" height="36" aria-hidden="true">
-    <rect className="bg" width="36" height="36" rx="7" />
-    <rect className="fg" x="7" y="10.5" width="22" height="15" rx="4.5" />
-    <path className="bg" d="M16 14.3v7.4l6.2-3.7z" />
+    <rect className="bg" width="36" height="36" rx="9" />
+    <ellipse className="fg" cx="18" cy="20.5" rx="9" ry="6.3" />
+    <circle className="fg" cx="25.2" cy="10.6" r="1.9" />
+    <path className="fg-line" d="M18 14.3l1.5-4.6 5.7 1" fill="none" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    <circle className="bg" cx="14.6" cy="19.6" r="1.5" />
+    <circle className="bg" cx="21.4" cy="19.6" r="1.5" />
+    <path className="bg-line" d="M14.8 23.1c1.9 1.3 4.5 1.3 6.4 0" fill="none" strokeWidth="1.4" strokeLinecap="round" />
   </svg>
 );
 
@@ -56,16 +56,18 @@ const HELP_LINKS = [
   { label: "Reapplying", href: "/mentors?best=REAPPLICANT" },
 ];
 
+// Nov 2026: Trustpilot, Reddit, LinkedIn and Instagram (owner's pick; the
+// TikTok, X and YouTube addresses are still kept in Admin -> Website).
 const SOCIALS = [
-  { key: "instagram", label: "Instagram", Icon: InstagramIcon },
-  { key: "tiktok", label: "TikTok", Icon: TikTokIcon },
+  { key: "trustpilot", label: "Trustpilot", Icon: TrustpilotIcon },
+  { key: "reddit", label: "Reddit", Icon: RedditIcon },
   { key: "linkedin", label: "LinkedIn", Icon: LinkedInIcon },
-  { key: "x", label: "X", Icon: XIcon },
-  { key: "youtube", label: "YouTube", Icon: YouTubeIcon },
+  { key: "instagram", label: "Instagram", Icon: InstagramIcon },
 ] as const;
 
+
 export async function Footer() {
-  const [c, contact, settings, showReviews] = await Promise.all([getSiteContent("footer"), getSiteContent("contact"), getSiteContent("siteSettings"), hasReviewWall()]);
+  const [c, contact, settings] = await Promise.all([getSiteContent("footer"), getSiteContent("contact"), getSiteContent("siteSettings")]);
   const phoneHref = contact.phone ? `tel:${contact.phone.replace(/[^\d+]/g, "")}` : "";
   return (
     <footer className="site-footer">
@@ -83,7 +85,7 @@ export async function Footer() {
               <div className="footer-col-title">For Students</div>
               <Link href="/mentors">Browse Mentors</Link>
               <Link href="/how-it-works">How It Works</Link>
-              {showReviews && <Link href="/reviews">Reviews</Link>}
+              <Link href="/reviews">Reviews</Link>
               <Link href="/gift">Gift MentorsMD</Link>
               <FooterAccountLink kind="student" />
             </div>

@@ -130,12 +130,12 @@ export default function MyProfilePage() {
             openId={openId}
             setOpenId={setOpenId}
             firstNum={2}
-            nextAfterLast={{ id: "rate", label: "10 Hourly rate" }}
+            nextAfterLast={{ id: "rate", label: "11 Hourly rate" }}
             onDraftChange={setDraft}
           />
           <ProfileStep
             id="rate"
-            num={10}
+            num={11}
             title="Hourly rate"
             status={statusOf("rate")}
             doneLabel={rateCents ? `${money(rateCents)}/hr` : undefined}

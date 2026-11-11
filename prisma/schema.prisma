@@ -141,6 +141,10 @@ model User {
   // [{ name, level: NATIVE | FLUENT | CONVERSATIONAL, canAdvise }]
   languages           Json?
   funFact             String?
+  // "Successful clients at" (Nov 2026): schools this mentor's students got
+  // into, best first. Optional; shown as logos on cards and the profile.
+  // Mentors add them in My profile; admins can edit them in People.
+  clientSchools       String[]  @default([])
   // One hourly rate per mentor, in cents (min $50, whole dollars). Every
   // offer's price is hours x rate (lib/pricing.ts).
   hourlyRateCents     Int?

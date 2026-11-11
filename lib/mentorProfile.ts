@@ -47,6 +47,7 @@ async function loadProfile(id: string, onlyBookable: boolean) {
       knownFor: true,
       languages: true,
       funFact: true,
+      clientSchools: true,
       hourlyRateCents: true,
     },
   });
@@ -68,7 +69,7 @@ async function loadProfile(id: string, onlyBookable: boolean) {
 }
 
 // What students and visitors see, shared for up to a minute (lib/publicCache.ts).
-export const cachedPublicProfile = publicCache("mentor-profile-v1", (id: string) => loadProfile(id, true));
+export const cachedPublicProfile = publicCache("mentor-profile-v2", (id: string) => loadProfile(id, true));
 
 type Viewer = { id?: string | null; role?: string | null };
 
