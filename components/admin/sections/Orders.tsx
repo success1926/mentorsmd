@@ -162,7 +162,7 @@ export function Orders() {
         {msg && <div role="status" className={`alert ${msg.ok ? "alert-success" : "alert-danger"}`}>{msg.text}</div>}
         {run && (
           <div className="alert alert-blue stack-sm">
-            <b>{periodLabel(run.period)} payouts: {run.paid.length} paid, {run.failed.length} failed, {run.skipped.length} skipped{run.alreadyDone ? `, ${run.alreadyDone} already paid this month` : ""}.</b>
+            <b>{periodLabel(run.period)} payouts: {run.paid.length} paid, {run.failed.length} failed, {run.skipped.length} skipped{run.alreadyDone ? `, ${run.alreadyDone} already paid this month` : ""}.{!run.paid.length && !run.failed.length && !run.skipped.length ? " Nobody had anything new to be paid." : ""}</b>
             {run.paid.map((p: any) => <span key={p.payoutId} className="small">Paid {p.name}: {money(p.amountCents)}</span>)}
             {run.failed.map((p: any) => <span key={p.payoutId} className="small">Failed {p.name}: {p.error}</span>)}
             {run.skipped.map((p: any) => <span key={p.mentorId} className="small">Skipped {p.name}: {p.reason}</span>)}

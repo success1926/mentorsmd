@@ -2,7 +2,7 @@
 // links in the top bar's menu (components/TopNav.tsx), in one place.
 // Pure data, safe to import from both server and client code.
 
-export type MentorNavKey = "home" | "students" | "messages" | "calendar" | "profile" | "rates" | "payouts" | "settings";
+export type MentorNavKey = "home" | "students" | "messages" | "calendar" | "profile" | "rates" | "payouts" | "handbook" | "settings";
 
 export type MentorNavItem = {
   key: MentorNavKey;
@@ -21,6 +21,7 @@ export const MENTOR_NAV: MentorNavItem[] = [
   { key: "profile", label: "My profile", href: "/dashboard/profile" },
   { key: "rates", label: "Rates & packages", href: "/dashboard/packages" },
   { key: "payouts", label: "Payouts", href: "/dashboard/payouts" },
+  { key: "handbook", label: "Mentor handbook", href: "/dashboard/handbook" },
   { key: "settings", label: "Settings", href: "/dashboard/settings" },
 ];
 

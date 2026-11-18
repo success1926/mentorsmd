@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { adminEmailsWith } from "@/lib/adminRecipients";
 import { logAdminAction } from "@/lib/adminLog";
 import {
   SITE_URL,
@@ -80,10 +81,9 @@ export async function createFlag(f: NewFlag) {
   }
 }
 
-async function adminEmails() {
-  const admins = await prisma.user.findMany({ where: { role: "ADMIN", removedByAdmin: false, adminDisabledAt: null }, select: { email: true } });
-  return admins.map((a) => a.email);
-}
+// Safety emails go only to admins who can open the Flags queue.
+export const flagAdminEmails = () => adminEmailsWith("flags");
+const adminEmails = flagAdminEmails;
 
 // Instant email for a high-severity flag (once per flag).
 export async function emailAdminsAboutFlag(flagId: string) {

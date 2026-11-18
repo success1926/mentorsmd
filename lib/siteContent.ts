@@ -23,6 +23,7 @@
 import { MENTOR_SCHOOLS, PHOTOS, SENIOR_TEAM, TESTIMONIALS } from "@/lib/content";
 import { parseFocus, stripFocus, withFocus } from "@/lib/imageFocus";
 import { GUIDE_DEFAULTS } from "@/lib/offerGuideContent";
+import { HANDBOOK_DEFAULTS } from "@/lib/handbookContent";
 import { FORMATS } from "@/lib/options";
 import { ADDON_ID, ADDON_TYPES, MAX_ADDONS, SPACES, defaultLayout, isAddonType, sectionsFor, videoEmbedUrl, type LayoutItem } from "@/lib/pageLayout";
 
@@ -596,6 +597,36 @@ export const SITE_PAGES = {
           GUIDE_DEFAULTS.noteGroups,
           { maxItems: 12 },
         ),
+      }),
+    },
+  },
+  // The Mentor Handbook (/dashboard/handbook): freelancing tips, pricing
+  // and taxes. Not a public page: only logged-in mentors (and admins) see it.
+  mentorHandbook: {
+    label: "Mentor handbook",
+    path: "/dashboard/handbook",
+    about: "A page in the mentor area only logged-in mentors can open: pricing without haggling, payouts, taxes and working tips.",
+    fields: {
+      ...section("Top of the page", {
+        title: text("Heading", HANDBOOK_DEFAULTS.title, { max: 80, required: true }),
+        intro: long("Intro", HANDBOOK_DEFAULTS.intro, { max: 600 }),
+      }),
+      ...section("Sections", {
+        sections: list(
+          "Sections",
+          "Section",
+          {
+            title: text("Heading", "", { max: 100, required: true }),
+            intro: long("Intro (optional)", "", { max: 800 }),
+            points: lines("Points", [], { max: 700, maxItems: 15, help: "One point per line. Start a point with **bold words** to show them in bold." }),
+          },
+          HANDBOOK_DEFAULTS.sections,
+          { maxItems: 12, help: "Each section gets a link at the top of the page. The pay and tax points describe the site's rules (70%, the 24th, 48 hours), so change them only if a rule changed." },
+        ),
+      }),
+      ...section("Box at the bottom", {
+        helpTitle: text("Heading", HANDBOOK_DEFAULTS.helpTitle, { max: 80 }),
+        helpText: long("Text", HANDBOOK_DEFAULTS.helpText, { max: 600, help: "Links to Contact, the Community Guidelines, the Mentor Agreement and the Offer Guide show under this text." }),
       }),
     },
   },

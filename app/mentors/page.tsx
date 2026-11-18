@@ -1,8 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { BrowseFilters, SortSelect } from "@/components/BrowseFilters";
-import { Icon, ICONS, Rating, tintFor, initialsOf } from "@/components/ui";
-import { SchoolLogo, ClientSchools } from "@/components/SchoolLogo";
+import { Icon, ICONS } from "@/components/ui";
 import { getSchoolLogos } from "@/lib/schoolLogos";
 import { headers } from "next/headers";
 import { getServerSession } from "next-auth";
@@ -12,7 +10,9 @@ import { attributionFromCookieHeader } from "@/lib/activity";
 import { logBrowseSearch } from "@/lib/searchLog";
 import { getSiteContent } from "@/lib/siteContentStore";
 import { WaitlistBox } from "@/components/WaitlistBox";
-import { ALL_FILTER_GROUPS, MENTOR_QUICK_LINKS as QUICK, mentorRank, mentorStageTag, money, quickLinkHref } from "@/lib/options";
+import { GuidedBrowse, type BrowseMentor } from "@/components/GuidedBrowse";
+import { matchMentor } from "@/lib/guidedMatch";
+import { MENTOR_QUICK_LINKS as QUICK, quickLinkHref } from "@/lib/options";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Find Your Mentor", description: "Browse vetted medical school admissions mentors by specialty, who they help most and price: personal statements, secondaries, MMI and interview prep, MCAT and more." };
@@ -42,41 +42,51 @@ function toParams(sp: SP) {
 
 export default async function BrowsePage({ searchParams }: { searchParams: SP }) {
   const filters = parseBrowseFilters(searchParams);
-  const [mentors, c, logos] = await Promise.all([searchMentors(filters), getSiteContent("mentors"), getSchoolLogos()]);
-  await logSearch(filters, mentors.length);
+  // Guided match (Nov 2026, components/GuidedBrowse.tsx): Best for,
+  // Specialties and Price are ranked in the browser, so they aren't used to
+  // narrow the list here. The search box and link-only filters (format,
+  // stage, school type, rating) still narrow it on the server.
+  const [mentors, c, logos] = await Promise.all([searchMentors({ ...filters, best: [], service: [], price: [] }), getSiteContent("mentors"), getSchoolLogos()]);
+  const picks = { best: filters.best, service: filters.service, price: filters.price };
+  const fullMatches = mentors.filter((m) => matchMentor(m, picks).full).length;
+  await logSearch(filters, fullMatches);
   const params = toParams(searchParams);
-
-  // Active filter pills, each linking to the same URL minus that value.
-  const pills: { label: string; href: string }[] = [];
-  for (const g of ALL_FILTER_GROUPS) {
-    for (const v of params.getAll(g.key)) {
-      const label = g.options.find((o) => o.value === v)?.label;
-      if (!label) continue;
-      const next = new URLSearchParams(params.toString());
-      const rest = next.getAll(g.key).filter((x) => x !== v);
-      next.delete(g.key);
-      rest.forEach((x) => next.append(g.key, x));
-      pills.push({ label, href: `/mentors${next.toString() ? `?${next}` : ""}` });
-    }
-  }
-  if (filters.q) {
-    const next = new URLSearchParams(params.toString());
-    next.delete("q");
-    pills.unshift({ label: `"${filters.q}"`, href: `/mentors${next.toString() ? `?${next}` : ""}` });
-  }
-  // Any filter, search or quick link (sorting alone doesn't count).
-  const anyFilter = [...params.keys()].some((k) => k !== "sort");
+  const browse: BrowseMentor[] = mentors.map((m) => ({
+    id: m.id,
+    name: m.name,
+    credential: m.credential,
+    medicalSchool: m.medicalSchool,
+    photoUrl: m.photoUrl,
+    mentorStage: m.mentorStage,
+    bestFor: m.bestFor,
+    strongestStages: m.strongestStages,
+    packageServices: m.packageServices,
+    offerPrices: m.offerPrices,
+    specialties: m.specialties,
+    clientSchools: m.clientSchools,
+    avgRating: m.avgRating,
+    reviewCount: m.reviewCount,
+    hourlyRateCents: m.hourlyRateCents,
+    fromRateCents: m.fromRateCents,
+    totalPackages: m.totalPackages,
+    createdAt: m.createdAt.getTime(),
+    knownFor: m.knownFor,
+    roleTitles: m.roleTitles,
+    languages: m.languages,
+  }));
+  const nothingListed = mentors.length === 0 && !filters.q && ![...params.keys()].some((k) => !["sort", "best", "service", "price"].includes(k));
   const activeQuick = QUICK.find((q) => (q.qs ? params.toString() === q.qs : params.toString() === "" || params.toString().startsWith("sort=")))?.label;
 
   return (
     <div>
-      <div style={{ borderBottom: "1px solid var(--line)" }}>
+      <div style={{ borderBottom: "1px solid var(--line)", background: "#fff" }}>
         <nav aria-label="Quick filters" className="wrap row" style={{ gap: 28, overflowX: "auto", height: 56, fontSize: 15 }}>
           {QUICK.map((q) => (
             <Link
               key={q.label}
               href={quickLinkHref(q)}
               className="nowrap"
+              scroll={false}
               style={{
                 padding: "16px 0",
                 borderBottom: `2px solid ${activeQuick === q.label ? "var(--primary)" : "transparent"}`,
@@ -89,15 +99,21 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
         </nav>
       </div>
 
-      <div className="page" style={{ paddingTop: 40 }}>
-        <section className="stack" style={{ gap: 14, marginBottom: 36 }}>
-          {c.eyebrow && <span className="eyebrow">{c.eyebrow}</span>}
-          <h1 className="page-title">{c.title}</h1>
-          {c.intro && <p className="lede">{c.intro}</p>}
-          <form action="/mentors" method="get" className="search-inline" role="search" style={{ maxWidth: 760 }}>
+      {/* Same gradient and blobs as the homepage hero. */}
+      <section className="browse-hero">
+        <div className="blob" style={{ left: -120, top: "52%", width: 520, height: 260, background: "rgba(228,238,255,0.9)", filter: "blur(50px)" }} />
+        <div className="blob" style={{ right: -80, top: "30%", width: 560, height: 300, background: "rgba(245,185,205,0.45)", filter: "blur(60px)" }} />
+        <div className="blob" style={{ left: "35%", top: 10, width: 520, height: 200, background: "rgba(207,196,255,0.45)", filter: "blur(60px)" }} />
+        <div className="browse-hero-in">
+          <div className="stack" style={{ gap: 14, minWidth: 0 }}>
+            {c.eyebrow && <span className="eyebrow">{c.eyebrow}</span>}
+            <h1 className="page-title browse-title">{c.title}</h1>
+            {c.intro && <p className="lede">{c.intro}</p>}
+          </div>
+          <form action="/mentors" method="get" className="search-inline" role="search">
             <Icon d={ICONS.search} size={20} />
             <input name="q" defaultValue={filters.q} aria-label="Search mentors" placeholder="Search by name, school or keyword" />
-            {/* keep the current filters when searching */}
+            {/* keep the current picks when searching */}
             {Array.from(params.entries())
               .filter(([k]) => k !== "q")
               .map(([k, v], i) => (
@@ -105,122 +121,33 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
               ))}
             <button type="submit" className="btn btn-primary">Search</button>
           </form>
-        </section>
+        </div>
+      </section>
 
-        <div className="browse">
-          <aside aria-label="Filters" className="filters">
-            <Suspense fallback={null}><BrowseFilters /></Suspense>
-          </aside>
-
-          <div className="stack" style={{ gap: 18 }}>
-            <details className="filters-mobile collapse">
-              <summary>Filters{pills.length ? ` (${pills.length})` : ""}</summary>
-              <div className="collapse-body">
-                <div className="filters">
-                  <Suspense fallback={null}><BrowseFilters /></Suspense>
-                </div>
-              </div>
-            </details>
-
-            <div className="between" style={{ flexWrap: "wrap" }}>
-              <b style={{ fontSize: 17 }}>
-                {mentors.length} {mentors.length === 1 ? "mentor" : "mentors"}
-              </b>
-              <Suspense fallback={null}><SortSelect value={filters.sort} /></Suspense>
+      <div className="browse-body">
+        <div className="page" style={{ paddingTop: 8 }}>
+          {filters.q && (
+            <div className="row-wrap" style={{ marginBottom: 16 }}>
+              <span className="text-secondary">Results for &ldquo;{filters.q}&rdquo;</span>
+              <Link href={(() => { const n = new URLSearchParams(params.toString()); n.delete("q"); return `/mentors${n.toString() ? `?${n}` : ""}`; })()} className="link small" scroll={false}>
+                Clear search
+              </Link>
             </div>
-
-            {pills.length > 0 && (
-              <div className="row-wrap">
-                {pills.map((p) => (
-                  <Link key={p.href + p.label} href={p.href} className="filter-pill" aria-label={`Remove filter ${p.label}`} scroll={false}>
-                    {p.label}
-                    <span aria-hidden="true">×</span>
-                  </Link>
-                ))}
-                <Link href={filters.sort !== "best" ? `/mentors?sort=${filters.sort}` : "/mentors"} className="link small" scroll={false}>
-                  Clear all
-                </Link>
+          )}
+          {nothingListed ? (
+            <div className="empty stack" style={{ alignItems: "center" }}>
+              <b style={{ color: "var(--ink)", fontSize: 18 }}>{c.emptyTitle}</b>
+              {c.emptyText && <span>{c.emptyText}</span>}
+              <div style={{ width: "100%", display: "flex", justifyContent: "center", margin: "8px 0" }}>
+                <WaitlistBox title={c.waitlistTitle} text={c.waitlistText} button={c.waitlistButton} success={c.waitlistSuccess} />
               </div>
-            )}
-
-            {mentors.length === 0 && anyFilter && (
-              <div className="empty stack" style={{ alignItems: "center" }}>
-                <b style={{ color: "var(--ink)", fontSize: 18 }}>No mentors match those filters yet.</b>
-                <span>Try removing a filter, or browse everyone.</span>
-                <Link href="/mentors" className="btn btn-primary">Show all mentors</Link>
-              </div>
-            )}
-
-            {mentors.length === 0 && !anyFilter && (
-              <div className="empty stack" style={{ alignItems: "center" }}>
-                <b style={{ color: "var(--ink)", fontSize: 18 }}>{c.emptyTitle}</b>
-                {c.emptyText && <span>{c.emptyText}</span>}
-                <div style={{ width: "100%", display: "flex", justifyContent: "center", margin: "8px 0" }}>
-                  <WaitlistBox title={c.waitlistTitle} text={c.waitlistText} button={c.waitlistButton} success={c.waitlistSuccess} />
-                </div>
-                {c.emptyLink && <Link href="/become-a-mentor" className="link small">{c.emptyLink}</Link>}
-              </div>
-            )}
-
-            {/* Leland-style cards (Nov 2026): photo, name, rating and rate;
-                the one-line credential; rank and school with its logo;
-                specialties; "Successful clients at" logos. */}
-            {mentors.map((m) => {
-              const rank = mentorRank(m.mentorStage) || mentorStageTag(m.mentorStage);
-              return (
-                <article key={m.id} className="mentor-card">
-                  <Link href={`/mentors/${m.id}`} aria-hidden="true" tabIndex={-1}>
-                    {m.photoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={m.photoUrl} alt="" className="avatar" style={{ objectFit: "cover" }} loading="lazy" />
-                    ) : (
-                      <span className="avatar" style={{ background: tintFor(m.id) }}>{initialsOf(m.name)}</span>
-                    )}
-                  </Link>
-                  <div className="stack" style={{ gap: 12, minWidth: 0 }}>
-                    <div className="between" style={{ alignItems: "flex-start", gap: 12 }}>
-                      <div className="stack-sm" style={{ gap: 4, minWidth: 0 }}>
-                        <div className="row-wrap">
-                          <Link href={`/mentors/${m.id}`} className="display" style={{ fontSize: 26 }}>{m.name}</Link>
-                          {m.avgRating !== null && m.avgRating >= 4.8 && m.reviewCount >= 5 && <span className="badge badge-pink">Top rated</span>}
-                        </div>
-                        <Rating avg={m.avgRating} count={m.reviewCount} />
-                      </div>
-                      {m.fromRateCents && (
-                        <Link href={`/mentors/${m.id}`} className="rate-chip nowrap">
-                          {m.fromRateCents !== m.hourlyRateCents && <span className="text-muted small">from </span>}
-                          <b>{money(m.fromRateCents)}</b>/hr
-                        </Link>
-                      )}
-                    </div>
-                    {m.credential && <span style={{ fontSize: 18, lineHeight: 1.4 }}>{m.credential}</span>}
-                    {(m.medicalSchool || rank) && (
-                      <span className="school-line text-secondary">
-                        {m.medicalSchool && <SchoolLogo name={m.medicalSchool} logos={logos} size={28} title={false} />}
-                        <span>{[rank, m.medicalSchool].filter(Boolean).join(" · ")}</span>
-                      </span>
-                    )}
-                    {m.specialties.length > 0 && (
-                      <div className="row-wrap" style={{ gap: 6 }}>
-                        <span className="text-muted small" style={{ fontWeight: 600 }}>Specialties</span>
-                        {m.specialties.slice(0, 5).map((t) => <span key={t} className="badge badge-brand">{t}</span>)}
-                      </div>
-                    )}
-                    <ClientSchools schools={m.clientSchools} logos={logos} size={30} max={8} />
-                    <div className="row-wrap" style={{ marginTop: 4, gap: 10 }}>
-                      <Link href={`/mentors/${m.id}`} className="btn btn-primary">Free intro call</Link>
-                      <Link href={`/mentors/${m.id}`} className="btn">View profile</Link>
-                      {m.totalPackages > 0 && (
-                        <span className="text-muted small">
-                          {m.totalPackages} {m.totalPackages === 1 ? "package" : "packages"} · hour bundles
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+              {c.emptyLink && <Link href="/become-a-mentor" className="link small">{c.emptyLink}</Link>}
+            </div>
+          ) : (
+            <Suspense fallback={null}>
+              <GuidedBrowse mentors={browse} logos={logos} />
+            </Suspense>
+          )}
         </div>
       </div>
     </div>

@@ -14,6 +14,7 @@ import { LateReasonField, useMoveCall } from "@/components/Calls";
 import { notifyPackagesChanged } from "@/components/StudentShell";
 import { CANCEL_CUTOFF_HOURS, JOIN_OPENS_MINUTES_BEFORE, RECORDING_NOTICE, canChangeOnline, fmtDateTime, isLateChange, joinState } from "@/lib/calls";
 import { browserTimeZone } from "@/lib/tz";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 
 const fmtTime = (d: string | Date, zone = false) => new Date(d).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", ...(zone ? { timeZoneName: "short" } : {}) });
 const minutesOf = (c: any) => Math.round((new Date(c.endTime).getTime() - new Date(c.startTime).getTime()) / 60_000);
@@ -51,9 +52,17 @@ function UpcomingCall({ c, now, onChanged }: { c: any; now: Date; onChanged: () 
   const changeUntil = new Date(start.getTime() - CANCEL_CUTOFF_HOURS * 3600_000);
   const mins = minutesOf(c);
   const first = (c.withName || "your mentor").split(" ")[0];
+  const { confirm, dialog } = useAdminDialog();
 
   async function cancel() {
-    if (!confirm(intro ? `Cancel your intro call with ${first}? You can book a new time from their profile.` : `Cancel this call with ${first}? You'll both get an email, and the hours go back to your package.`)) return;
+    const ok = await confirm({
+      title: intro ? `Cancel your intro call with ${first}?` : `Cancel this call with ${first}?`,
+      body: intro ? "You can book a new time from their profile." : "You'll both get an email, and the hours go back to your package.",
+      confirmLabel: "Cancel the call",
+      cancelLabel: "Keep it",
+      danger: true,
+    });
+    if (!ok) return;
     setBusy(true);
     setErr("");
     const res = intro
@@ -73,6 +82,7 @@ function UpcomingCall({ c, now, onChanged }: { c: any; now: Date; onChanged: () 
 
   return (
     <div className="cal-item">
+      {dialog}
       <DateBadge d={start} />
       <div className="stack-sm grow" style={{ gap: 2, minWidth: 200 }}>
         <span className="row-wrap" style={{ gap: 8 }}>

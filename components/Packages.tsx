@@ -17,6 +17,7 @@ import { finishPhase, hoursToRespond, packageStatus, studentActions } from "@/li
 import { hoursLabel, priceFor } from "@/lib/pricing";
 import { money } from "@/lib/options";
 import { uploadFile } from "@/lib/upload";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 
 export const fmtWhen = (d: string | Date) => new Date(d).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 export const fmtDay = (d: string | Date) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -339,6 +340,7 @@ export function DecisionBanner({ order, isBuyer, onChanged }: { order: any; isBu
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const { confirm, dialog } = useAdminDialog();
   const left = hoursToRespond(order);
   if (left === null) return null;
   const can = studentActions(order);
@@ -368,6 +370,7 @@ export function DecisionBanner({ order, isBuyer, onChanged }: { order: any; isBu
 
   return (
     <div className="card stack decision-banner">
+      {dialog}
       <div className="stack-sm">
         <b style={{ fontSize: 18 }}>{mentor} marked this package complete</b>
         <span className="text-secondary">
@@ -396,7 +399,7 @@ export function DecisionBanner({ order, isBuyer, onChanged }: { order: any; isBu
         </div>
       ) : (
         <div className="row-wrap">
-          <button className="btn btn-primary" disabled={busy} onClick={() => confirm(`Approve ${order.title || order.packageTitle}? ${mentor} is paid for the hours, including any unused ones.`) && send("APPROVE")}>Approve</button>
+          <button className="btn btn-primary" disabled={busy} onClick={async () => (await confirm({ title: `Approve ${order.title || order.packageTitle}?`, body: `${mentor} is paid for the hours, including any unused ones.`, confirmLabel: "Approve" })) && send("APPROVE")}>Approve</button>
           {can.lastCall && <button className="btn" onClick={() => setMode("LAST_CALL")}>Request one last call</button>}
           {can.lastRevision && <button className="btn" onClick={() => setMode("LAST_REVISION")}>Request one last revision</button>}
           <button className="btn btn-ghost" style={{ color: "var(--muted)" }} onClick={() => setMode("DISPUTE")}>Open a dispute</button>

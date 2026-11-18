@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon, ICONS } from "@/components/ui";
 import { Booker } from "@/components/Booker";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 import {
   BookingLike,
   CANCEL_CUTOFF_HOURS,
@@ -185,9 +186,11 @@ export function CallRow({
     setMoving(false);
     onChanged?.();
   });
+  // In-page pop-up instead of the browser's confirm box.
+  const { confirm, dialog } = useAdminDialog();
 
   async function cancel() {
-    if (!confirm("Cancel this call? You'll both get an email, and the call goes back to unbooked.")) return;
+    if (!(await confirm({ title: "Cancel this call?", body: "You'll both get an email, and the call goes back to unbooked.", confirmLabel: "Cancel the call", cancelLabel: "Keep it", danger: true }))) return;
     setBusy(true);
     setErr("");
     const e = await callApi(order.id, "DELETE", { bookingId: booking.id });
@@ -200,6 +203,7 @@ export function CallRow({
 
   return (
     <div className="stack-sm">
+      {dialog}
       <div className="call-row">
         <Icon d={ICONS.video} />
         <div className="stack-sm grow" style={{ gap: 2 }}>

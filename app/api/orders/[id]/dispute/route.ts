@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendDisputeOpenedEmail, SITE_URL } from "@/lib/email";
 import { createFlag } from "@/lib/flags";
+import { adminEmailsWith } from "@/lib/adminRecipients";
 import { getSession } from "@/lib/session";
 
 // Disputes are buyer-raised, admin-resolved - opening one does NOT
@@ -70,7 +71,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   });
 
   try {
-    const admins = await prisma.user.findMany({ where: { role: "ADMIN", removedByAdmin: false, adminDisabledAt: null }, select: { email: true } });
+    const admins = (await adminEmailsWith("disputes")).map((email) => ({ email })); // only admins who can open Disputes
     await Promise.all(
       admins.map((admin) =>
         sendDisputeOpenedEmail(admin.email, order.packageTitle || order.gig.title, reason, `${SITE_URL}/orders/${order.id}`)

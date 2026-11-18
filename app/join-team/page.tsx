@@ -83,7 +83,7 @@ function JoinTeam() {
   }
 
   return (
-    <AuthShell title="Welcome to the team." body="You've been invited to help run MentorsMD. Set your password, then set up 2-step verification.">
+    <AuthShell title="Welcome to the Team" body="You've been invited to help run MentorsMD. Set your password, then set up 2-step verification.">
       <div className="stack" style={{ gap: 14 }}>
         <div className="stack-sm">
           <h1 className="page-title" style={{ fontSize: 38 }}>Join the MentorsMD team</h1>

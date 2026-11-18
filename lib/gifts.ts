@@ -139,7 +139,7 @@ async function giftableOffer(gigId: string, student: StudentRow | null, under18:
   const rateCents = offerRate(gig, mentor.hourlyRateCents);
   const minutes = offerMinutes(gig);
   if (!rateCents || !minutes) throw new GiftError("This package isn't available to buy right now.");
-  const title = gig.kind === "HOURLY" ? `Hourly: 1 hour with ${first(mentor.name)}` : gig.title;
+  const title = gig.kind === "HOURLY" ? `Hourly package with ${first(mentor.name)}` : gig.title;
   return { gig, mentor, rateCents, minutes, title, priceCents: priceFor(minutes, rateCents) };
 }
 

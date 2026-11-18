@@ -52,6 +52,12 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="M2.5 10h19M6 15h4" />
     </>
   ),
+  handbook: (
+    <>
+      <path d="M4 19.5V5a2 2 0 0 1 2-2h14v15H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h14" />
+      <path d="M9 7h7M9 11h5" />
+    </>
+  ),
   mentors: (
     <>
       <circle cx="11" cy="11" r="7" />

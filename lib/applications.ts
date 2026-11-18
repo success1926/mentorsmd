@@ -44,9 +44,9 @@ export async function applicationLimitError(ipHash: string | null, email?: strin
 // is set only for applicants not at a medical school (BS/MD, gap year, other),
 // and stage says which.
 export async function applicationSchoolsForInvite(inviteId: string, email: string) {
-  const select = { medicalSchool: true, undergradSchool: true, trainingStage: true };
+  const select = { name: true, medicalSchool: true, undergradSchool: true, trainingStage: true };
   const app =
     (await prisma.mentorApplication.findFirst({ where: { inviteId }, select })) ||
     (await prisma.mentorApplication.findFirst({ where: { email: { equals: email, mode: "insensitive" } }, orderBy: { createdAt: "desc" }, select }));
-  return { medicalSchool: guessMedicalSchool(app?.medicalSchool), undergradSchool: app?.undergradSchool || null, stage: app ? applicantStage(app) : null };
+  return { name: app?.name?.trim() || null, medicalSchool: guessMedicalSchool(app?.medicalSchool), undergradSchool: app?.undergradSchool || null, stage: app ? applicantStage(app) : null };
 }

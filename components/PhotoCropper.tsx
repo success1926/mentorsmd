@@ -23,19 +23,30 @@ export function PhotoCropper({ file, onCancel, onDone, busy }: { file: File; onC
   const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
 
   useEffect(() => {
+    // `live` stops an image from an earlier run (React runs effects twice in
+    // development, and again if the file changes) from setting state after
+    // its URL was revoked: that used to show "couldn't be read".
+    let live = true;
     const url = URL.createObjectURL(file);
     setSrc(url);
+    setError("");
     const img = new Image();
     img.onload = () => {
+      if (!live) return;
       const n = { w: img.naturalWidth, h: img.naturalHeight };
       setNat(n);
       const s = FRAME / Math.min(n.w, n.h);
       setZoom(1);
       setOff({ x: (FRAME - n.w * s) / 2, y: (FRAME - n.h * s) / 2 });
     };
-    img.onerror = () => setError("That file couldn't be read as an image.");
+    img.onerror = () => {
+      if (live) setError("That file couldn't be read as an image.");
+    };
     img.src = url;
-    return () => URL.revokeObjectURL(url);
+    return () => {
+      live = false;
+      URL.revokeObjectURL(url);
+    };
   }, [file]);
 
   const scale = nat ? (FRAME / Math.min(nat.w, nat.h)) * zoom : 1;

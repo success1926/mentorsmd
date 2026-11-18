@@ -40,7 +40,7 @@ export default async function GiftPage({ searchParams }: { searchParams: { offer
     <div className="page-narrow stack-lg">
       <div className="stack-sm">
         <span className="eyebrow">Gift MentorsMD</span>
-        <h1 className="page-title" style={{ textAlign: "left" }}>{offer ? "Buy this package for your student" : "Give your student MentorsMD credit"}</h1>
+        <h1 className="page-title" style={{ textAlign: "left" }}>{offer ? "Buy This Package for Your Student" : "Give Your Student MentorsMD Credit"}</h1>
         <p className="lede">
           {offer
             ? "Pay as a guest: no account needed. The package goes straight to your student's account, exactly as if they'd bought it."

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { createFlag, emailAdminsAboutFlag } from "@/lib/flags";
+import { createFlag, emailAdminsAboutFlag, flagAdminEmails } from "@/lib/flags";
 import { mentorMetrics, perfIssues } from "@/lib/health";
 import { cleanupRateLimits } from "@/lib/rateLimit";
 import { SITE_URL, sendSafetyDigestEmail, type DigestSummary } from "@/lib/email";
@@ -167,7 +167,7 @@ export async function sendWeeklyDigest(now = new Date(), force = false) {
       select: { reason: true, severity: true, subject: { select: { name: true } } },
     }),
     prisma.adminAction.findMany({ where: { action: "USER_AUTO_PAUSE", createdAt: { gte: week } }, select: { targetUser: { select: { name: true } } } }),
-    prisma.user.findMany({ where: { role: "ADMIN", removedByAdmin: false, adminDisabledAt: null }, select: { email: true } }),
+    flagAdminEmails().then((emails) => emails.map((email) => ({ email }))),
   ]);
   const summary: DigestSummary = {
     open,

@@ -18,7 +18,7 @@ import { getSiteContent } from "@/lib/siteContentStore";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
 import { PageSections } from "@/components/website/PageSections";
 import { SchoolMarquee } from "@/components/SchoolMarquee";
-import { mentorRank, mentorStageTag, money } from "@/lib/options";
+import { credentialLine, mentorRank, mentorStageTag, money } from "@/lib/options";
 
 export const dynamic = "force-dynamic"; // mentor cards and review counts read live data
 
@@ -164,7 +164,7 @@ export default async function HomePage() {
                       <b className="mentor-tile-name">{m.name}</b>
                       <Rating avg={m.avgRating} count={m.reviewCount} />
                     </div>
-                    {m.credential && <span style={{ lineHeight: 1.4 }}>{m.credential}</span>}
+                    {credentialLine(m.credential, m.mentorStage) && <span style={{ lineHeight: 1.4 }}>{credentialLine(m.credential, m.mentorStage)}</span>}
                     {(m.medicalSchool || mentorRank(m.mentorStage)) && (
                       <span className="school-line text-secondary small">
                         {m.medicalSchool && <SchoolLogo name={m.medicalSchool} logos={logos} size={24} title={false} />}
