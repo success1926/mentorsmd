@@ -200,6 +200,8 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 20px; overflow-x: auto; }
 .tab { padding: 12px 16px; border: none; background: none; font: 600 15px var(--font-body); color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
 .tab[aria-selected="true"], .tab[aria-current="page"] { color: var(--primary-deep); border-bottom-color: var(--primary); }
+/* Phones: tighter tabs so three of them (with counts) fit without swiping. */
+@media (max-width: 480px) { .tabs { gap: 0; } .tab { padding: 10px 6px; font-size: 13px; } .tab-count { margin-left: 3px; min-width: 16px; padding: 1px 4px; font-size: 11px; } }
 .tab-count { display: inline-block; margin-left: 6px; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--tint); color: var(--primary-deep); font-size: 12px; }
 
 details.collapse { border: 1px solid var(--line); border-radius: var(--radius-lg); background: #fff; }

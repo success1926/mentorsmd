@@ -76,7 +76,7 @@ function LoginForm() {
   }
 
   return (
-    <AuthShell title="Welcome back." body="Pick up where you left off: messages, orders and calls are all in one place.">
+    <AuthShell title="Welcome Back" body="Pick up where you left off: messages, orders and calls are all in one place.">
       <div className="stack" style={{ gap: 14 }}>
         <h1 className="page-title" style={{ fontSize: 40 }}>Log in</h1>
         {reason === "idle" && (

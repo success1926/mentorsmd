@@ -21,6 +21,7 @@ import {
   INTRO_CALL_MINUTES,
   LANGUAGE_LEVELS,
   SCHOOL_TYPES,
+  credentialLine,
   mentorRank,
   mentorSchoolName,
   mentorStageTag,
@@ -34,6 +35,7 @@ import { hoursLabel, priceMath } from "@/lib/pricing";
 import { splitCredit } from "@/lib/hours";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
 import type { AdmissionsRole, Language } from "@/lib/profileCompleteness";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 
 // A mentor's public profile (docs/redesign-2026-10.md sections 1 and 2,
 // laid out Leland-style in Nov 2026). Left: photo, name, credential, school
@@ -126,7 +128,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
 
   const [unlock, setUnlock] = useState<Unlock | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
-  const [pickedHours, setPickedHours] = useState<string | null>(offers.bundles[0]?.id || offers.hourly?.id || null);
+  const [pickedHours, setPickedHours] = useState<string | null>(offers.hourly?.id || offers.bundles[0]?.id || null); // the first option shown (1 hour)
   const [reportOpen, setReportOpen] = useState(false);
   const [blocked, setBlockedState] = useState<{ iBlocked: boolean; theyBlocked: boolean } | null>(null);
 
@@ -268,7 +270,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
               )}
               <div className="stack grow" style={{ gap: 10, minWidth: 220 }}>
                 <h1 className="page-title" style={{ fontSize: "clamp(34px, 4vw, 48px)" }}>{seller.name}</h1>
-                {seller.credential && <span style={{ fontSize: 19, lineHeight: 1.4 }}>{seller.credential}</span>}
+                {credentialLine(seller.credential, seller.mentorStage) && <span style={{ fontSize: 19, lineHeight: 1.4 }}>{credentialLine(seller.credential, seller.mentorStage)}</span>}
                 {(school || rank) && (
                   <span className="school-line" style={{ fontSize: 16 }}>
                     {school && <SchoolLogo name={school} logos={logos} size={36} title={false} />}
@@ -817,6 +819,7 @@ function IntroCallPanel({ seller, first, unlock, onChanged, onMessage }: { selle
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState("");
   const intro = unlock?.introCall;
+  const { confirm: confirmBox, dialog } = useAdminDialog();
 
   async function confirm(startIso: string): Promise<string | null> {
     const res = await fetch("/api/intro-calls", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mentorId: seller.id, startTime: startIso }) });
@@ -828,7 +831,7 @@ function IntroCallPanel({ seller, first, unlock, onChanged, onMessage }: { selle
   }
 
   async function cancel() {
-    if (!intro || !window.confirm("Cancel your intro call? You can book a new time afterwards.")) return;
+    if (!intro || !(await confirmBox({ title: "Cancel your intro call?", body: "You can book a new time afterwards.", confirmLabel: "Cancel the call", cancelLabel: "Keep it", danger: true }))) return;
     setCancelling(true);
     setError("");
     const res = await fetch(`/api/intro-calls/${intro.id}`, { method: "DELETE" });
@@ -875,6 +878,7 @@ function IntroCallPanel({ seller, first, unlock, onChanged, onMessage }: { selle
     const upcoming = intro.status === "BOOKED" && new Date(intro.endTime).getTime() > Date.now();
     return (
       <div className="stack">
+        {dialog}
         {header}
         {upcoming ? (
           <div className="alert alert-blue stack-sm">

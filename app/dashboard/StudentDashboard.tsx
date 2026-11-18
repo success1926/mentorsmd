@@ -17,6 +17,7 @@ import { finishPhase, hoursToRespond, studentActions } from "@/lib/finishing";
 import { hoursSummary, shortHours, TOP_UP_HOURS } from "@/lib/hours";
 import { JOIN_OPENS_MINUTES_BEFORE, joinState } from "@/lib/calls";
 import { money } from "@/lib/options";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 
 const DAY = 24 * 3600_000;
 const first = (n?: string | null) => (n || "").split(" ")[0];
@@ -59,6 +60,7 @@ export function StudentDashboard({ name }: { name: string; viewerId: string }) {
   const [adding, setAdding] = useState<{ order: any; hours?: number } | null>(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  const { confirm, dialog } = useAdminDialog();
 
   function load() {
     fetch("/api/packages").then((r) => r.json()).then((d) => setPackages(d.packages || [])).catch(() => setPackages([]));
@@ -67,7 +69,7 @@ export function StudentDashboard({ name }: { name: string; viewerId: string }) {
   useEffect(load, []);
 
   async function approve(p: any) {
-    if (!confirm(`Approve ${p.title}? ${first(p.seller?.name) || "Your mentor"} is paid for the hours, including any unused ones.`)) return;
+    if (!(await confirm({ title: `Approve ${p.title}?`, body: `${first(p.seller?.name) || "Your mentor"} is paid for the hours, including any unused ones.`, confirmLabel: "Approve" }))) return;
     setBusy(p.id);
     setError("");
     const r = await postJson(`/api/orders/${p.id}/finish`, { action: "APPROVE", note: "" });
@@ -168,6 +170,7 @@ export function StudentDashboard({ name }: { name: string; viewerId: string }) {
 
   return (
     <div className="page stack-lg" style={{ gap: 20, maxWidth: 1180 }}>
+      {dialog}
       <div className="between" style={{ flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
         <div className="stack-sm">
           <h1 className="page-title">Hi{firstName ? `, ${firstName}` : ""}</h1>

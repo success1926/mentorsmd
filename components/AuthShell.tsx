@@ -1,13 +1,10 @@
-import { Vetted } from "@/components/ui";
-
 // Split layout for login / signup / password pages: brand panel on the
 // left (hidden on phones), form on the right.
 export function AuthShell({ children, title, body }: { children: React.ReactNode; title?: string; body?: string }) {
   return (
     <div className="auth-wrap">
       <div className="auth-art">
-        <Vetted />
-        <h2>{title || "Your white coat starts here."}</h2>
+        <h2>{title || "Your White Coat Starts Here"}</h2>
         <p style={{ fontSize: 19, lineHeight: 1.55, color: "rgba(255,255,255,0.9)", maxWidth: 460 }}>
           {body || "One-on-one help from med students, residents, gap-year students and more, every one vetted by our senior team. Book a free intro call, then pay by the hour."}
         </p>

@@ -129,7 +129,7 @@ function OnboardCoachForm() {
   }
 
   return (
-    <AuthShell title="Welcome to MentorsMD." body="Our senior team vetted you before sending this invite. Set up your profile, then add a photo, your packages and payouts.">
+    <AuthShell title="Welcome to MentorsMD" body="Our senior team vetted you before sending this invite. Set up your profile, then add a photo, your packages and payouts.">
       <div className="stack" style={{ gap: 14 }}>
         <div className="stack-sm">
           <h1 className="page-title" style={{ fontSize: 38 }}>Set up your mentor profile</h1>

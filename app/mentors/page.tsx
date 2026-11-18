@@ -12,7 +12,7 @@ import { attributionFromCookieHeader } from "@/lib/activity";
 import { logBrowseSearch } from "@/lib/searchLog";
 import { getSiteContent } from "@/lib/siteContentStore";
 import { WaitlistBox } from "@/components/WaitlistBox";
-import { ALL_FILTER_GROUPS, MENTOR_QUICK_LINKS as QUICK, mentorRank, mentorStageTag, money, quickLinkHref } from "@/lib/options";
+import { ALL_FILTER_GROUPS, MENTOR_QUICK_LINKS as QUICK, credentialLine, mentorRank, mentorStageTag, money, quickLinkHref } from "@/lib/options";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Find Your Mentor", description: "Browse vetted medical school admissions mentors by specialty, who they help most and price: personal statements, secondaries, MMI and interview prep, MCAT and more." };
@@ -193,7 +193,7 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
                         </Link>
                       )}
                     </div>
-                    {m.credential && <span style={{ fontSize: 18, lineHeight: 1.4 }}>{m.credential}</span>}
+                    {credentialLine(m.credential, m.mentorStage) && <span style={{ fontSize: 18, lineHeight: 1.4 }}>{credentialLine(m.credential, m.mentorStage)}</span>}
                     {(m.medicalSchool || rank) && (
                       <span className="school-line text-secondary">
                         {m.medicalSchool && <SchoolLogo name={m.medicalSchool} logos={logos} size={28} title={false} />}

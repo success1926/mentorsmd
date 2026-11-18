@@ -292,7 +292,8 @@ async function offerOrder(student: Buyer, gigId: string): Promise<NewOrder> {
   const rateCents = offerRate(gig, mentor.hourlyRateCents);
   const minutes = offerMinutes(gig);
   if (!rateCents || !minutes) throw new CheckoutError("This isn't available to buy right now");
-  const title = gig.kind === "HOURLY" ? "Hourly: 1 hour" : gig.title;
+  // Not "1 hour": students add hours to it later, and emails reuse the name.
+  const title = gig.kind === "HOURLY" ? "Hourly package" : gig.title;
   return {
     student,
     mentor,

@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Icon, ICONS } from "@/components/ui";
 import { StudentCard } from "@/components/StudentCard";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 import { JOIN_CLOSES_MINUTES_AFTER, JOIN_OPENS_MINUTES_BEFORE, RECORDING_NOTICE, canChangeOnline, joinState } from "@/lib/calls";
 
 // The pre-join screen: what the call is, who it's with, the recording
@@ -19,6 +20,7 @@ export default function CallPage() {
   const [joinError, setJoinError] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  const { confirm, dialog } = useAdminDialog();
 
   useEffect(() => {
     fetch(`/api/calls/${id}`)
@@ -56,7 +58,7 @@ export default function CallPage() {
 
   // Free intro calls: either person can cancel until 24 hours before.
   async function cancelIntro() {
-    if (!confirm(`Cancel this intro call with ${call.otherName}? You'll both get an email.`)) return;
+    if (!(await confirm({ title: `Cancel this intro call with ${call.otherName}?`, body: "You'll both get an email.", confirmLabel: "Cancel the call", cancelLabel: "Keep it", danger: true }))) return;
     setCancelling(true);
     setJoinError("");
     const res = await fetch(`/api/intro-calls/${id}`, { method: "DELETE" });
@@ -68,6 +70,7 @@ export default function CallPage() {
 
   return (
     <div className="page-narrow">
+      {dialog}
       <Link href={call.backHref || `/orders/${call.orderId}`} className="link small" style={{ display: "inline-block", marginBottom: 20 }}>{call.backLabel || "← Back to the order"}</Link>
       <div className="card-narrow stack" style={{ maxWidth: 560 }}>
         <span className="eyebrow">Video call</span>
