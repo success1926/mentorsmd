@@ -29,8 +29,9 @@ import { ADMIN_IDLE_MS } from "@/lib/sessionRules";
 // it sends with its next sign-in.
 //
 // Off on the live site until APP_SIGN_IN=1 is set there (previews and local
-// development always have it), so nothing is reachable before the app's
-// own bot check (Apple App Attest / Google Play Integrity) is in.
+// development always have it). The bot check is Apple App Attest
+// (lib/appAttest.ts, Nov 2026): on the live site iPhones must pass it and
+// Android is refused until Google Play Integrity is added.
 
 export const ACCESS_TOKEN_SECONDS = 15 * 60;
 export const APP_IDLE_DAYS = 30;

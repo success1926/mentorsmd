@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { checkPassword } from "@/lib/auth";
+import { checkLoginAttest } from "@/lib/appAttest";
 import { appSignInEnabled, cleanDeviceName, cleanPlatform, makeChallenge, startAppSession } from "@/lib/appAuth";
 import { isTrustedDevice, needsTwoStep } from "@/lib/mfa";
 import { maskEmail } from "@/lib/twoStep";
@@ -9,7 +10,11 @@ import { ipKey } from "@/lib/request";
 export const dynamic = "force-dynamic";
 
 // The phone app's email-and-password sign-in (lib/appAuth.ts).
-//   { email, password, platform: "IOS" | "ANDROID", deviceName?, trustToken? }
+//   { email, password, platform: "IOS" | "ANDROID", deviceName?, trustToken?,
+//     attest?: { keyId, assertion, clientData } }
+// attest is Apple App Attest (lib/appAttest.ts): required for iPhones on
+// the live site, checked before the password so scripts can't guess
+// passwords here. Refusals answer { error, code } with code ATTEST_*.
 // Answers one of:
 //   { status: "signed-in", accessToken, refreshToken, expiresIn, user }
 //   { status: "needs-code", challenge, method, canUseApp, email }
@@ -27,6 +32,9 @@ export async function POST(req: Request) {
   const ip = ipKey(req);
   const perIp = await rateLimit(RATE_LIMITS.loginPerIp, ip);
   if (!perIp.ok) return tooMany(perIp.retryAfterSec, "Too many sign-in attempts. Please wait a bit and try again.");
+
+  const attest = await checkLoginAttest(platform, email, body.attest);
+  if ("code" in attest) return NextResponse.json({ error: attest.error, code: attest.code }, { status: attest.status });
 
   const user = await checkPassword(email, password, ip);
   if (!user) return NextResponse.json({ error: "That email and password don't match an account." }, { status: 401 });

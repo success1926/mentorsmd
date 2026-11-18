@@ -1188,6 +1188,21 @@ model AppSession {
   @@index([userId, revokedAt])
 }
 
+// Apple App Attest keys for the phone app's sign-in (lib/appAttest.ts,
+// Nov 2026). One per app install; only the key's public half is kept.
+// signCount goes up with every signed sign-in, so a captured one can't be
+// replayed. Not tied to an account: one iPhone can sign in as anyone.
+model AppAttestKey {
+  id          String    @id @default(cuid())
+  keyId       String    @unique
+  publicKey   String
+  signCount   Int       @default(0)
+  environment String // production or development (Xcode builds)
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+}
+
 // Admin 2-step verification: emailed codes (EMAIL_CODE) and the one-time
 // ticket that upgrades a login once the code is right (SESSION).
 model AdminMfaToken {
