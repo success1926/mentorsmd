@@ -142,9 +142,9 @@ export function OfferGuideBody({ values, rateCents, tab, onTab }: { values: Guid
 }
 
 // A tab switcher around the body, for the admin preview page.
-export function OfferGuideStatic({ values }: { values: GuideValues }) {
+export function OfferGuideStatic({ values, rateCents }: { values: GuideValues; rateCents?: number | null }) {
   const [tab, setTab] = useState<GuideTab>("packages");
-  return <OfferGuideBody values={values} tab={tab} onTab={setTab} />;
+  return <OfferGuideBody values={values} rateCents={rateCents} tab={tab} onTab={setTab} />;
 }
 
 // The button (or link) that opens the pop-up. `tab` picks where it opens.
