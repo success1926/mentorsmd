@@ -6,7 +6,7 @@ import { SeniorTeamCards } from "@/components/SeniorTeamCards";
 import { PageSections } from "@/components/website/PageSections";
 import { SchoolMarquee } from "@/components/SchoolMarquee";
 
-export const metadata = { title: "Our Senior Team", description: "Meet the MentorsMD senior team, who interview every mentor before they are invited to work with students." };
+export const metadata = { alternates: { canonical: "/senior-team" }, title: "Our Senior Team", description: "Meet the MentorsMD senior team, who interview every mentor before they are invited to work with students." };
 
 // The people who interview every mentor before they're invited. Names,
 // photos and bios are edited in Admin -> Website (defaults: SENIOR_TEAM in
@@ -40,7 +40,7 @@ export default async function SeniorTeamPage() {
       <div className="card card-tint stack" style={{ gap: 12, alignItems: "flex-start" }}>
         <h2 style={{ fontSize: 24 }}>{c.ctaTitle}</h2>
         {c.ctaText && <p className="text-secondary">{c.ctaText}</p>}
-        <Link href="/become-a-mentor#apply" className="btn btn-primary">{c.ctaButton}</Link>
+        <Link href="/become-a-mentor#apply" className="btn btn-primary btn-lg">{c.ctaButton}</Link>
       </div>
     ),
   };

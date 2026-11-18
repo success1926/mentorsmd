@@ -4,8 +4,8 @@ import { hoursLabel, offerMinutes, offerRate, priceFor } from "@/lib/pricing";
 import { GiftForm, type GiftOffer } from "./GiftForm";
 
 export const dynamic = "force-dynamic";
-export const metadata = {
-  title: { absolute: "Gift MentorsMD" },
+export const metadata = { alternates: { canonical: "/gift" },
+  title: "Gift Credit",
   description: "Buy MentorsMD credit or a mentor's package for your student. No account needed.",
 };
 
@@ -37,10 +37,10 @@ export default async function GiftPage({ searchParams }: { searchParams: { offer
   }
 
   return (
-    <div className="page-narrow stack-lg">
+    <div className="page-wide stack-lg">
       <div className="stack-sm">
         <span className="eyebrow">Gift MentorsMD</span>
-        <h1 className="page-title" style={{ textAlign: "left" }}>{offer ? "Buy This Package for Your Student" : "Give Your Student MentorsMD Credit"}</h1>
+        <h1 className="page-title" style={{ textAlign: "left" }}>{offer ? "Buy This Package for Your Student" : "Give MentorsMD Credit"}</h1>
         <p className="lede">
           {offer
             ? "Pay as a guest: no account needed. The package goes straight to your student's account, exactly as if they'd bought it."
@@ -49,9 +49,19 @@ export default async function GiftPage({ searchParams }: { searchParams: { offer
       </div>
       {searchParams.cancelled && <div role="status" className="alert">Checkout was closed, so nothing was charged. You can try again below.</div>}
       {offerGone && <div role="status" className="alert">That package isn&apos;t available any more. You can give MentorsMD credit instead.</div>}
-      <GiftForm offer={offer} />
+      {/* Desktop: the form on the left; what the student receives and how it
+          works on the right. Phones: one column. */}
+      <div className="gift-grid">
+        <GiftForm offer={offer} />
+        <aside className="stack" style={{ gap: 20 }}>
+          <div className="gift-preview" aria-hidden="true">
+            <span className="gift-preview-eyebrow">MentorsMD</span>
+            <span className="gift-preview-title">{offer ? "A package from someone in your corner" : "You've been given MentorsMD credit"}</span>
+            <span className="gift-preview-body">{offer ? "Your package is ready in your account. Book your first call or send your first draft whenever you're ready." : "Use it with any vetted mentor, for calls or written feedback. It never expires."}</span>
+            <span className="gift-preview-note">Your note to them shows here.</span>
+          </div>
       <section className="card stack-sm">
-        <h2 style={{ fontSize: 22 }}>How it works</h2>
+        <h2 style={{ fontSize: 22 }}>How It Works</h2>
         <ol className="stack-sm" style={{ paddingLeft: 20, margin: 0 }}>
           <li>You pay by card on Stripe. Stripe emails you a receipt, and we email you a private page to see what you bought.</li>
           <li>We email your student. If they don&apos;t have a MentorsMD account yet, the email has a link to set one up.</li>
@@ -63,6 +73,8 @@ export default async function GiftPage({ searchParams }: { searchParams: { offer
           <li>Students under 18 also need a parent or guardian&apos;s consent before they can use MentorsMD. We email that separately once they set up their account.</li>
         </ol>
       </section>
+        </aside>
+      </div>
     </div>
   );
 }

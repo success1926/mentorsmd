@@ -5,7 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { browserTimeZone } from "@/lib/tz";
-import { useRecaptcha } from "@/components/FormGuards";
+import { useRecaptcha, RecaptchaNotice } from "@/components/FormGuards";
 import { ADULT_AGE, MIN_AGE, UNDER_13_MESSAGE, ageOn, parseDob } from "@/lib/legalKinds";
 import { AgreementCheckbox, ParentFields, parentComplete } from "@/components/SignupFields";
 
@@ -86,6 +86,7 @@ export function ClaimForm({ token, email, name: startName, parentName, parentEma
       <span className="text-muted small" style={{ textAlign: "center" }}>
         Already set up? <Link href="/login" className="link">Log in</Link>
       </span>
+      <RecaptchaNotice />
     </form>
   );
 }

@@ -260,7 +260,7 @@ function ClientSchoolsEditor({ userId, initial }: { userId: string; initial: str
         <label className="field" style={{ marginBottom: 0 }}>
           <span className="field-label">One school per line, best first</span>
           <textarea className="input" style={{ minHeight: 110 }} value={text} onChange={(e) => setText(e.target.value)} placeholder={"Harvard Medical School\nStanford University School of Medicine"} />
-          <span className="field-help">Shown as logos under &ldquo;Successful clients at&rdquo;. Upload logos in Website → Site settings → School logos (a school without one shows its initials).</span>
+          <span className="field-help">Shown as logos on their card (&ldquo;Successful clients at&rdquo;) and profile (&ldquo;[Name]&rsquo;s students got into&rdquo;). Upload logos in Website → Site settings → School logos (a school without one shows its initials).</span>
         </label>
         <div className="row-wrap">
           <button type="button" className="btn btn-primary btn-sm" disabled={saving} onClick={save}>{saving ? "Saving…" : "Save schools"}</button>

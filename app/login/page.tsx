@@ -5,7 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AuthShell, GoogleButton } from "@/components/AuthShell";
-import { Honeypot, useRecaptcha } from "@/components/FormGuards";
+import { Honeypot, useRecaptcha, RecaptchaNotice } from "@/components/FormGuards";
 import { homeForRole, isPending2faRole, verifyPathFor } from "@/lib/sessionRules";
 
 // Only allow redirects back into this site.
@@ -78,7 +78,7 @@ function LoginForm() {
   return (
     <AuthShell title="Welcome Back" body="Pick up where you left off: messages, orders and calls are all in one place.">
       <div className="stack" style={{ gap: 14 }}>
-        <h1 className="page-title" style={{ fontSize: 40 }}>Log in</h1>
+        <h1 className="page-title" style={{ fontSize: 40 }}>Log In</h1>
         {reason === "idle" && (
           <div role="status" className="alert alert-warning">
             You were logged out due to inactivity. Log in to pick up where you left off.
@@ -114,6 +114,7 @@ function LoginForm() {
           <button className="btn btn-primary btn-lg btn-block" disabled={loading || !email || !password}>
             {loading ? "Logging in…" : "Log in"}
           </button>
+          <RecaptchaNotice />
         </form>
         <span className="text-secondary" style={{ textAlign: "center" }}>
           New here? <Link href="/signup" className="link">Create a free student account</Link>

@@ -9,8 +9,9 @@ import { isSafeHref } from "@/lib/siteContent";
 // details on the left and trust badges plus Privacy / Terms / copyright on
 // the right. Links are in Title Case, as on AdmitMD. The
 // tagline and social links are edited in Admin -> Website -> Footer, and
-// the email and phone in Admin -> Website -> Contact. A social icon whose
-// address is still blank shows greyed out as "coming soon".
+// the email and phone in Admin -> Website -> Contact. Only social icons with
+// an address are shown (Nov 18 2026: no more greyed-out "coming soon" icons);
+// with none filled in, the icon row is left out.
 
 const InstagramIcon = () => (
   <svg viewBox="0 0 36 36" width="36" height="36" aria-hidden="true">
@@ -66,8 +67,9 @@ const SOCIALS = [
 ] as const;
 
 
-export async function Footer() {
+export async function Footer({ showReviews = false }: { showReviews?: boolean }) {
   const [c, contact, settings] = await Promise.all([getSiteContent("footer"), getSiteContent("contact"), getSiteContent("siteSettings")]);
+  const liveSocials = SOCIALS.filter(({ key }) => c[key] && isSafeHref(c[key]));
   const phoneHref = contact.phone ? `tel:${contact.phone.replace(/[^\d+]/g, "")}` : "";
   return (
     <footer className="site-footer">
@@ -85,7 +87,7 @@ export async function Footer() {
               <div className="footer-col-title">For Students</div>
               <Link href="/mentors">Browse Mentors</Link>
               <Link href="/how-it-works">How It Works</Link>
-              <Link href="/reviews">Reviews</Link>
+              {showReviews && <Link href="/reviews">Reviews</Link>}
               <Link href="/gift">Gift MentorsMD</Link>
               <FooterAccountLink kind="student" />
             </div>
@@ -113,19 +115,15 @@ export async function Footer() {
         </div>
         <div className="footer-bottom">
           <div className="footer-start">
-            <div className="footer-socials" aria-label="MentorsMD on social media">
-              {SOCIALS.map(({ key, label, Icon }) =>
-                c[key] && isSafeHref(c[key]) ? (
+            {liveSocials.length > 0 && (
+              <div className="footer-socials" aria-label="MentorsMD on social media">
+                {liveSocials.map(({ key, label, Icon }) => (
                   <a key={key} href={c[key]} target="_blank" rel="noopener noreferrer" className="footer-social" aria-label={`MentorsMD on ${label} (opens in a new tab)`}>
                     <Icon />
                   </a>
-                ) : (
-                  <span key={key} className="footer-social is-soon" role="img" aria-label={`MentorsMD on ${label}, coming soon`} title={`${label}: coming soon`}>
-                    <Icon />
-                  </span>
-                )
-              )}
-            </div>
+                ))}
+              </div>
+            )}
             {(contact.email || contact.phone) && (
               <div className="footer-contact">
                 {contact.phone && <a href={phoneHref}>{contact.phone}</a>}

@@ -132,6 +132,8 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
   const [pickedHours, setPickedHours] = useState<string | null>(offers.hourly?.id || offers.bundles[0]?.id || null); // the first option shown (1 hour)
   const [reportOpen, setReportOpen] = useState(false);
   const [blocked, setBlockedState] = useState<{ iBlocked: boolean; theyBlocked: boolean } | null>(null);
+  // Either side blocked the other: no booking or buying (the server refuses too).
+  const blockedNote = blocked?.iBlocked ? `You blocked ${first}. Unblock them to book or buy.` : blocked?.theyBlocked ? `You can't book with ${first}.` : "";
 
   const allOffers = [...(offers.hourly ? [offers.hourly] : []), ...offers.bundles, ...offers.packages];
   const canTakeStudents = seller.listed && !seller.adultsOnlyForViewer;
@@ -247,7 +249,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
       </div>
     ) : isBuyer ? (
       <div className={stack ? "stack-sm" : "row-wrap"}>
-        <button className={`btn btn-primary ${stack ? "btn-block" : ""}`} disabled={!canTakeStudents} onClick={() => setDialog({ t: "intro" })} aria-haspopup="dialog">
+        <button className={`btn btn-primary ${stack ? "btn-block" : ""}`} disabled={!canTakeStudents || !!blockedNote} onClick={() => setDialog({ t: "intro" })} aria-haspopup="dialog">
           <Icon d={ICONS.video} size={18} /> Book free {INTRO_CALL_MINUTES}-min intro call
         </button>
         <button className={`btn ${stack ? "btn-block" : ""}`} disabled={!seller.available || seller.adultsOnlyForViewer} onClick={() => setDialog({ t: "message" })} aria-haspopup="dialog">
@@ -378,7 +380,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
                       <button className="btn btn-block" disabled>Buy hours</button>
                     </PreviewOnly>
                   ) : (
-                    <button className="btn btn-block" disabled={!pickedHours} onClick={() => pickedHours && setDialog({ t: "details", offerId: pickedHours })} aria-haspopup="dialog">
+                    <button className="btn btn-block" disabled={!pickedHours || !!blockedNote} onClick={() => pickedHours && setDialog({ t: "details", offerId: pickedHours })} aria-haspopup="dialog">
                       Buy {pickedHours ? hoursLabel(hourOptions.find((o) => o.id === pickedHours)?.minutes || 60) : "hours"}
                     </button>
                   )}
@@ -388,7 +390,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
               <div className="pf-actions">
                 {!seller.listed && !isSelf && seller.available && <span className="text-muted small">{first} isn&apos;t taking new students right now.</span>}
                 {actions(true)}
-                {isBuyer && unlock && <UnlockNote unlock={unlock} first={first} />}
+                {isBuyer && blockedNote ? <span className="text-muted small">{blockedNote}</span> : isBuyer && unlock && <UnlockNote unlock={unlock} first={first} />}
                 {!preview && <div style={{ display: "flex", justifyContent: "center" }}><CompareToggle mentor={compareMe} label="Add to compare" /></div>}
               </div>
 
@@ -614,6 +616,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
             loginHref={loginHref}
             unlock={unlock}
             canBuy={canTakeStudents}
+            blockedNote={blockedNote}
             preview={preview}
             onIntro={() => setDialog({ t: "intro" })}
             onMessage={() => setDialog({ t: "message" })}
@@ -819,6 +822,7 @@ function OfferDetails({
   loginHref,
   unlock,
   canBuy,
+  blockedNote,
   preview,
   onIntro,
   onMessage,
@@ -832,6 +836,7 @@ function OfferDetails({
   loginHref: string;
   unlock: Unlock | null;
   canBuy: boolean;
+  blockedNote?: string;
   preview: boolean;
   onIntro: () => void;
   onMessage: () => void;
@@ -907,7 +912,9 @@ function OfferDetails({
           <span className="text-muted small">{STUDENTS_SEE}. They can buy once you reply to their message or after an intro call.</span>
         </div>
       ) : isBuyer ? (
-        !canBuy ? (
+        blockedNote ? (
+          <span className="text-muted">{blockedNote}</span>
+        ) : !canBuy ? (
           <span className="text-muted">{first} isn&apos;t taking new orders right now.</span>
         ) : unlocked ? (
           <button className="btn btn-primary btn-lg" style={{ alignSelf: "flex-start" }} disabled={buying} onClick={buy}>

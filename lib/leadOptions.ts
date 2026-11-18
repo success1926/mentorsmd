@@ -30,11 +30,11 @@ export const APPLICATION_STATUS_LABEL: Record<string, string> = { PENDING: "Pend
 
 // Contact form
 export const CONTACT_TOPICS = [
-  { value: "STUDENT", label: "Student question" },
-  { value: "MENTOR", label: "Mentor question" },
-  { value: "PARENT", label: "Parent" },
-  { value: "PRESS", label: "Press" },
-  { value: "OTHER", label: "Other" },
+  { value: "STUDENT", label: "Student question", formLabel: "I'm a student" },
+  { value: "MENTOR", label: "Mentor question", formLabel: "I'm a mentor or want to be one" },
+  { value: "PARENT", label: "Parent", formLabel: "I'm a parent or guardian" },
+  { value: "PRESS", label: "Press", formLabel: "Press" },
+  { value: "OTHER", label: "Other", formLabel: "Something else" },
 ] as const;
 export const contactTopicLabel = (v: string | null | undefined) => CONTACT_TOPICS.find((t) => t.value === v)?.label ?? "Other";
 export const CONTACT_LIMITS = { name: 100, email: 200, messageMin: 10, message: 3000 };
