@@ -54,6 +54,7 @@ function OnboardCoachForm() {
     fetch(`/api/invites/prefill?${new URLSearchParams({ code, email: emailFromLink })}`)
       .then((r) => r.json())
       .then((d) => {
+        if (d.name) setName((cur) => cur || d.name);
         if (d.medicalSchool) setMedicalSchool((cur) => cur || d.medicalSchool);
         if (d.undergradSchool) {
           setUndergrad(true);
