@@ -49,7 +49,7 @@ export function PkgCard({ id }: { id: string }) {
         <StatusChip status={p.status} />
       </RowV>
       <Bar pct={(p.used / p.hours) * 100} />
-      <SS>{p.hours - p.used} of {p.hours} hours left · {p.calls} calls held · due {p.due}</SS>
+      <SS>{p.hours - p.used} of {p.hours} hours left · {p.calls} calls held</SS>
     </Card>
   );
 }
@@ -72,7 +72,7 @@ function PaySheet({ m, what, price }: { m: Mentor; what: string; price: number }
       const h = parseFloat(what) || Math.max(1, Math.round(price / m.rate));
       change((n) => {
         n.credit -= credit;
-        n.pk[key] = { id: key, mentor: m.id, title: isNaN(parseFloat(what)) ? what : `${m.specialties[0] || "Hours"} · ${what}`, hours: h, used: 0, calls: 0, status: "IN_ESCROW", due: "Dec 31", log: [] };
+        n.pk[key] = { id: key, mentor: m.id, title: isNaN(parseFloat(what)) ? what : `${m.specialties[0] || "Hours"} · ${what}`, hours: h, used: 0, calls: 0, status: "IN_ESCROW", log: [] };
       });
       router.push(`/student/package/${key}`);
       toast(`Paid ${money(price - credit)}. Your hours are ready.`);
@@ -89,7 +89,7 @@ function PaySheet({ m, what, price }: { m: Mentor; what: string; price: number }
       </Card>
       <Btn kind="black" label=" Pay with Apple Pay" onPress={paid} />
       <Btn kind="line" label="Pay with card •••• 4242" onPress={paid} />
-      <Small>You pay MentorsMD, not the mentor. We hold your payment until you approve the work. Preview only: nothing is charged.</Small>
+      <Small>You pay MentorsMD, not the mentor, and every hour used is logged on your package page. Preview only: nothing is charged.</Small>
     </>
   );
 }

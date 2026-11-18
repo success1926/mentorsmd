@@ -27,10 +27,10 @@ export default function Dispute() {
   return (
     <Screen>
       <Hdr title="Open a Dispute" sub={p.title} />
-      <Note>A MentorsMD admin steps in, looks at what happened, and can refund your payment. Your mentor won’t be paid while it’s open.</Note>
+      <Note>A MentorsMD admin steps in, looks at what happened, and decides whether to refund it as MentorsMD credit you can use with any mentor. Your mentor won’t be paid while it’s open.</Note>
       <Select label="What went wrong?" options={REASONS} value={reason} onChange={setReason} />
       <Field label="Tell us more" value={text} onChange={setText} multiline />
-      <Small>Two mentor no-shows: the policy is a full refund.</Small>
+      <Small>Two mentor no-shows: the policy is a full refund as MentorsMD credit.</Small>
       <Btn kind="red" label="Open dispute" onPress={() => { change((n) => { n.pk[id].status = "DISPUTE"; n.pk[id].disputeText = `${reason}. ${text}`; }); toast("Dispute opened. An admin will reply soon."); }} />
     </Screen>
   );

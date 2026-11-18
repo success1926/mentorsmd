@@ -19,10 +19,7 @@ export default function MentorPackage() {
     p.status === "IN_ESCROW" ? (
       <>
         <Btn kind="dark" label="Log work" onPress={() => openSheet(() => <LogWork id={id} />)} />
-        <Btns2>
-          <Half><Btn kind="line" label="Message student" onPress={() => router.push(`/mentor/chat/${id}`)} /></Half>
-          <Half><Btn kind="line" label="Change due date" onPress={() => openSheet(() => <DueSheet id={id} />)} /></Half>
-        </Btns2>
+        <Btn kind="line" label="Message student" onPress={() => router.push(`/mentor/chat/${id}`)} />
         <Btn label="Mark complete" onPress={() => { change((n) => { n.mPk[id].status = "COMPLETED"; }); toast(`${sf} has 48 hours to approve`); }} />
         <Small>When you mark it complete, {sf} has 48 hours to approve it or ask for one last call or revision.</Small>
       </>
@@ -72,18 +69,3 @@ function LogWork({ id }: { id: string }) {
   );
 }
 
-function DueSheet({ id }: { id: string }) {
-  const { s } = useDemo();
-  const { closeSheet, toast } = useOverlay();
-  const [d, setD] = useState("Nov 27, 2026");
-  const [r, setR] = useState("Waiting on two more secondaries");
-  const sf = first(s.mPk[id].student);
-  return (
-    <>
-      <H>Change Due Date</H>
-      <Field label="New due date" value={d} onChange={setD} />
-      <Field label="Reason (shown to the student)" value={r} onChange={setR} />
-      <Btn kind="dark" label={`Ask ${sf} to agree`} onPress={() => { closeSheet(); toast(`Due date change sent to ${sf}`); }} />
-    </>
-  );
-}

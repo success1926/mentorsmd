@@ -17,7 +17,7 @@ export default function Students() {
             <StatusChip status={p.status} />
           </RowV>
           <Bar pct={(p.used / p.hours) * 100} />
-          <SS>{p.hours - p.used} of {p.hours} hours left · due {p.due}</SS>
+          <SS>{p.hours - p.used} of {p.hours} hours left</SS>
         </Card>
       ))}
     </Screen>

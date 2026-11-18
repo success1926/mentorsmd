@@ -12,7 +12,7 @@ export default function Packages() {
       <T>My Packages</T>
       {active.length ? <Sec><Eyebrow>Active</Eyebrow>{active.map((p) => <PkgCard key={p.id} id={p.id} />)}</Sec> : null}
       {done.length ? <Sec><Eyebrow>Finished</Eyebrow>{done.map((p) => <PkgCard key={p.id} id={p.id} />)}</Sec> : null}
-      <Small>You pay MentorsMD, not the mentor. Your payment is held until you approve the work.</Small>
+      <Small>You pay MentorsMD, not the mentor. Every hour used is logged on your package page.</Small>
     </Screen>
   );
 }

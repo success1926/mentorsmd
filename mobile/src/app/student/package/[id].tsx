@@ -62,7 +62,7 @@ export default function Package() {
       <Card>
         <SecH><TT>Hours</TT><SS>{p.used} of {p.hours} used</SS></SecH>
         <Bar pct={(p.used / p.hours) * 100} />
-        <RowV gap={8}><Stat3 value={String(left)} label="Hours left" /><Stat3 value={String(p.calls)} label="Calls held" /><Stat3 value={p.due} label="Due date" /></RowV>
+        <RowV gap={8}><Stat3 value={String(left)} label="Hours left" /><Stat3 value={String(p.calls)} label="Calls held" /><Stat3 value={String(p.used)} label="Hours used" /></RowV>
         {p.status === "IN_ESCROW" ? <Link label="Add more hours" onPress={() => pay(m, "2 more hours", m.rate * 2)} /> : null}
       </Card>
       <Sec>

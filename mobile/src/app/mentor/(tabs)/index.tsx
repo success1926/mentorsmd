@@ -24,7 +24,7 @@ export default function MentorHome() {
         <Eyebrow>Needs your attention</Eyebrow>
         <View>
           <Row left={dot} tt="Reply to Sofia Alvarez" ss="New student message · 3 hours ago" onPress={() => router.push("/mentor/chat/jordan")} />
-          <Row left={dot} tt={`Maya Lin has ${s.mPk.maya.hours - s.mPk.maya.used} hour${s.mPk.maya.hours - s.mPk.maya.used === 1 ? "" : "s"} left`} ss="Secondaries · due Nov 20" onPress={() => router.push("/mentor/package/maya")} />
+          <Row left={dot} tt={`Maya Lin has ${s.mPk.maya.hours - s.mPk.maya.used} hour${s.mPk.maya.hours - s.mPk.maya.used === 1 ? "" : "s"} left`} ss="Secondaries · 10-hour package" onPress={() => router.push("/mentor/package/maya")} />
           <Row left={dot} tt="Finish your profile" ss="85% · add a fun fact and your clients’ schools" onPress={() => router.push("/mentor/profile")} last />
         </View>
       </Sec>

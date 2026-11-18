@@ -1,6 +1,7 @@
 // Invented people, packages and messages for the preview. Same names and
 // numbers as the MentorsMD App Clickthrough (Nov 11, 2026). Nothing here is
 // real; the live mentors come from mentorsmd.com (src/lib/live.ts).
+import { BEST_CODE } from "./match";
 
 export type Mentor = {
   id: string;
@@ -27,6 +28,22 @@ export type Mentor = {
   highlights?: string[];
   knownFor?: string[];
   live?: boolean;
+  // Guided match + compare (src/lib/match.ts), in the website's codes.
+  match: {
+    best: string[]; // BEST_FOR codes
+    stages: string[]; // strongest stages
+    packageServices: string[];
+    prices: number[]; // every offer's price, in cents
+    roleTypes: string[];
+    languages: string[];
+    packageCount: number;
+    fromRate: number; // lowest dollars an hour
+  };
+  // Profile extras from the website (live mentors).
+  credential?: string;
+  specialtyInterest?: string;
+  research?: string;
+  stagesLabel?: string;
 };
 
 export const SERVICES: Record<string, string> = {
@@ -54,7 +71,7 @@ const specs = (svc: string[]) => [...new Set(svc.map((s) => SPEC[s]))];
 export const BEST_FOR = ["Traditional MD", "DO", "MD-PhD", "Nontraditional / career changers", "Reapplicants", "Low GPA / upward trend", "International", "BS/MD"];
 export const ACCEPTED = ["Georgetown", "Mount Sinai", "Ohio State", "PCOM", "Emory", "Tufts", "Baylor", "UCLA", "Duke", "Johns Hopkins"];
 
-type Raw = Omit<Mentor, "specialties">;
+type Raw = Omit<Mentor, "specialties" | "match">;
 const raw: Raw[] = [
   { id: "leah", name: "Jordan Ellis", init: "JE", stage: "Medical Student – Year 4", school: "Johns Hopkins School of Medicine", rate: 150, rating: 4.9, reviews: 23, svc: ["PERSONAL_STATEMENT", "SECONDARIES", "MMI"], best: ["Reapplicants", "Low GPA / upward trend"], bg: ["Reapplicant", "First-generation"], roles: ["Interviewer"], langs: "English (Native), Korean (Fluent)", fun: "Ran a half marathon the week of their MMI.", reply: "Usually replies within 4 hours", clients: ["Georgetown", "Johns Hopkins", "Tufts", "Emory"],
     bio: "I applied twice. The second time I rewrote my personal statement from scratch and got four interviews in a month. I now sit on student interview panels at Hopkins and help applicants find the story only they can tell.",
@@ -75,12 +92,29 @@ const raw: Raw[] = [
     bio: "MD/PhD essays are their own genre. I sat on the MSTP student committee and help applicants explain their research clearly.",
     bundles: [[3, 420], [6, 840]], pkgs: [["MD/PhD Essays Review", "Significance of research + MD/PhD essay · 4 hours", 560]] },
 ];
-export const MENTORS: Mentor[] = raw.map((m) => ({ ...m, specialties: specs(m.svc) }));
+// Sample mentors in the website's codes, so guided match works the same.
+const STAGE_OF: Record<string, string> = { PERSONAL_STATEMENT: "PERSONAL_STATEMENT", SECONDARIES: "SECONDARIES", ACTIVITIES: "ACTIVITIES", SCHOOL_LIST: "SCHOOL_LIST", MMI: "INTERVIEW_PREP", TRADITIONAL_INTERVIEW: "INTERVIEW_PREP" };
+const ROLE_OF: Record<string, string> = { Interviewer: "INTERVIEWER", "Admissions committee": "COMMITTEE", "Application screener": "SCREENER" };
+const sampleMatch = (m: Raw): Mentor["match"] => {
+  const prices = [m.rate, ...m.bundles.map((b) => b[1]), ...m.pkgs.map((p) => p[2])].map((d) => d * 100);
+  const perHour = [m.rate, ...m.bundles.map(([h, p]) => p / h)];
+  return {
+    best: m.best.map((b) => BEST_CODE[b]).filter(Boolean),
+    stages: [...new Set(m.svc.map((s) => STAGE_OF[s]).filter(Boolean))],
+    packageServices: m.svc.filter((s) => !STAGE_OF[s]),
+    prices,
+    roleTypes: m.roles.map((r) => ROLE_OF[r]).filter(Boolean),
+    languages: m.langs.split(",").map((l) => l.replace(/\(.*\)/, "").trim()).filter(Boolean),
+    packageCount: m.pkgs.length,
+    fromRate: Math.round(Math.min(...perHour)),
+  };
+};
+export const MENTORS: Mentor[] = raw.map((m) => ({ ...m, specialties: specs(m.svc), match: sampleMatch(m) }));
 export const sampleMentor = (id: string) => MENTORS.find((m) => m.id === id);
 
 export type Status = "PENDING_PAYMENT" | "IN_ESCROW" | "COMPLETED" | "RELEASED" | "REFUNDED" | "DISPUTE" | "REVISION";
-export type Pkg = { id: string; mentor: string; title: string; hours: number; used: number; calls: number; status: Status; due: string; left?: number; reviewed?: boolean; revKind?: string; disputeText?: string; log: [string, string, string][] };
-export type MPkg = { student: string; title: string; hours: number; used: number; status: Status; due: string; minor?: boolean };
+export type Pkg = { id: string; mentor: string; title: string; hours: number; used: number; calls: number; status: Status; left?: number; reviewed?: boolean; revKind?: string; disputeText?: string; log: [string, string, string][] };
+export type MPkg = { student: string; title: string; hours: number; used: number; status: Status; minor?: boolean };
 export type Msg = ["me" | "them" | "sys", string];
 
 export function initialState() {
@@ -94,11 +128,11 @@ export function initialState() {
       { n: "iPad · MentorsMD app", w: "Last used Oct 28" },
     ],
     pk: {
-      p1: { id: "p1", mentor: "leah", title: "Personal statement · 6 hours", hours: 6, used: 5.5, calls: 3, status: "COMPLETED", due: "Nov 14", left: 47,
+      p1: { id: "p1", mentor: "leah", title: "Personal statement · 6 hours", hours: 6, used: 5.5, calls: 3, status: "COMPLETED", left: 47,
         log: [["Written feedback, draft 3", "1 h", "Nov 9"], ["Call: story and structure", "1 h", "Nov 4"], ["Written feedback, draft 2", "30 min", "Oct 31"], ["Call: first draft review", "1 h", "Oct 27"], ["Written feedback, draft 1", "1 h", "Oct 24"], ["Kickoff call", "1 h", "Oct 21"]] },
-      p2: { id: "p2", mentor: "ben", title: "Interview prep · 6 hours", hours: 6, used: 2.5, calls: 2, status: "IN_ESCROW", due: "Dec 15",
+      p2: { id: "p2", mentor: "ben", title: "Interview prep · 6 hours", hours: 6, used: 2.5, calls: 2, status: "IN_ESCROW",
         log: [["MMI mock: 4 stations", "1.5 h", "Nov 7"], ["Kickoff call", "1 h", "Oct 30"]] },
-      p3: { id: "p3", mentor: "sofia", title: "School list & strategy · 3 hours", hours: 3, used: 3, calls: 2, status: "RELEASED", due: "Oct 1", reviewed: true,
+      p3: { id: "p3", mentor: "sofia", title: "School list & strategy · 3 hours", hours: 3, used: 3, calls: 2, status: "RELEASED", reviewed: true,
         log: [["Final school list (28 schools)", "1 h", "Sep 26"], ["Call: MD vs DO balance", "1 h", "Sep 19"], ["Call: kickoff", "1 h", "Sep 12"]] },
     } as Record<string, Pkg>,
     threads: {
@@ -113,10 +147,10 @@ export function initialState() {
       sam: [["sys", "Free intro call booked: Today · 5:30 PM ET · 15 min"]],
     } as Record<string, Msg[]>,
     mPk: {
-      priya: { student: "Priya Shah", title: "Personal statement · 6 hours", hours: 6, used: 5.5, status: "COMPLETED", due: "Nov 14" },
-      maya: { student: "Maya Lin", title: "Secondaries · 10 hours", hours: 10, used: 9, status: "IN_ESCROW", due: "Nov 20" },
-      alex: { student: "Alex Kim", title: "BS/MD interview prep · 3 hours", hours: 3, used: 1, status: "IN_ESCROW", due: "Dec 2", minor: true },
-      dev: { student: "Dev Mehta", title: "MMI Mock Day", hours: 2, used: 2, status: "RELEASED", due: "Oct 18" },
+      priya: { student: "Priya Shah", title: "Personal statement · 6 hours", hours: 6, used: 5.5, status: "COMPLETED" },
+      maya: { student: "Maya Lin", title: "Secondaries · 10 hours", hours: 10, used: 9, status: "IN_ESCROW" },
+      alex: { student: "Alex Kim", title: "BS/MD interview prep · 3 hours", hours: 3, used: 1, status: "IN_ESCROW", minor: true },
+      dev: { student: "Dev Mehta", title: "MMI Mock Day", hours: 2, used: 2, status: "RELEASED" },
     } as Record<string, MPkg>,
     paused: false,
     minorsOk: true,

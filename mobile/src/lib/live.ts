@@ -28,6 +28,9 @@ type Card = {
   id: string; name: string; credential: string | null; medicalSchool: string | null; bio: string | null; photoUrl: string | null;
   mentorStage: string | null; bestFor: string[]; specialties: string[]; clientSchools: string[]; avgRating: number | null; reviewCount: number;
   hourlyRateCents: number | null; fromRateCents: number | null;
+  // Since the Browse redesign (Nov 2026): what guided match and compare need.
+  strongestStages?: string[]; packageServices?: string[]; offerPrices?: number[]; knownFor?: string | null;
+  roleTitles?: string[]; languages?: string[]; totalPackages?: number;
 };
 
 function fromCard(c: Card): Mentor {
@@ -38,7 +41,12 @@ function fromCard(c: Card): Mentor {
     rate: dollars(c.fromRateCents ?? c.hourlyRateCents),
     rating: c.avgRating, reviews: c.reviewCount,
     specialties: c.specialties || [], svc: [], best: (c.bestFor || []).map((b) => BEST[b] || b), bg: [], roles: [],
-    langs: "", fun: "", reply: "", clients: c.clientSchools || [], bio: c.bio || "", bundles: [], pkgs: [],
+    langs: (c.languages || []).join(", "), fun: "", reply: "", clients: c.clientSchools || [], bio: c.bio || "", bundles: [], pkgs: [],
+    knownFor: c.knownFor ? [c.knownFor] : [], credential: c.credential || undefined,
+    match: {
+      best: c.bestFor || [], stages: c.strongestStages || [], packageServices: c.packageServices || [], prices: c.offerPrices || [],
+      roleTypes: c.roleTitles || [], languages: c.languages || [], packageCount: c.totalPackages || 0, fromRate: dollars(c.fromRateCents ?? c.hourlyRateCents),
+    },
   };
 }
 
@@ -51,13 +59,19 @@ async function getJson(path: string) {
   return r.json();
 }
 
+// The guided picks (best, service, price) are ranked in the app
+// (src/lib/match.ts), like the website, so only the search box goes to the
+// server.
 export async function searchLive(params: Record<string, string | null>): Promise<LiveSearch> {
   const qs = Object.entries(params).filter(([, v]) => v).map(([k, v]) => `${k}=${encodeURIComponent(v as string)}`).join("&");
   const d = await getJson("/api/mentors" + (qs ? "?" + qs : ""));
   return { mentors: (d.mentors || []).map(fromCard), filters: d.filters || [], quickLinks: d.quickLinks || [] };
 }
 
-type Offer = { id: string; kind: string; title: string; description: string | null; minutes: number | null; price: number };
+type Offer = { id: string; kind: string; title: string; description: string | null; minutes: number | null; price: number; rateCents?: number; service?: string | null; hiddenFromStudents?: boolean };
+const STAGE: Record<string, string> = { SCHOOL_LIST: "School list", PERSONAL_STATEMENT: "Personal statement", ACTIVITIES: "Activities", SECONDARIES: "Secondaries", INTERVIEW_PREP: "Interview prep", WAITLIST_LETTERS: "Waitlist / update letters" };
+const SPEC: Record<string, string> = { SCHOOL_LIST: "School List & Strategy", PERSONAL_STATEMENT: "Personal Statement", ACTIVITIES: "Activities & Experiences", SECONDARIES: "Secondaries", INTERVIEW_PREP: "Interview Prep", WAITLIST_LETTERS: "Waitlist & Update Letters" };
+const SVC_SPEC: Record<string, string> = { PERSONAL_STATEMENT: "Personal Statement", SECONDARIES: "Secondaries", ACTIVITIES: "Activities & Experiences", MMI: "Interview Prep", TRADITIONAL_INTERVIEW: "Interview Prep", SCHOOL_LIST: "School List & Strategy", MCAT: "MCAT", REAPPLICANT: "Reapplicants" };
 export type LiveReview = { id: string; rating: number; comment: string | null; createdAt: string; author: string; bought: string };
 
 export async function liveProfile(id: string): Promise<{ mentor: Mentor; reviews: LiveReview[] }> {
@@ -65,19 +79,30 @@ export async function liveProfile(id: string): Promise<{ mentor: Mentor; reviews
   const s = d.seller;
   const offers = d.offers || {};
   const hours = (o: Offer) => Math.max(1, Math.round((o.minutes || 60) / 60));
+  const all: Offer[] = [...(offers.hourly ? [offers.hourly] : []), ...(offers.bundles || []), ...(offers.packages || [])].filter((o: Offer) => !o.hiddenFromStudents);
+  const pkgServices: string[] = [...new Set<string>((offers.packages || []).map((o: Offer) => o.service).filter(Boolean))];
+  const stages: string[] = s.strongestStages || [];
+  const specialties = [...new Set([...stages.map((x) => SPEC[x]), ...pkgServices.map((x) => SVC_SPEC[x])].filter(Boolean))];
   const mentor: Mentor = {
     id: s.id, name: s.name, init: initials(s.name), photo: s.photoUrl, live: true,
     stage: (s.mentorStage && RANKS[s.mentorStage]) || s.credential || "",
     school: (["UNDERGRAD", "GAP_YEAR", "OTHER"].includes(s.mentorStage) ? s.undergradSchool : s.medicalSchool) || s.medicalSchool || "",
-    rate: dollars(s.hourlyRateCents),
+    rate: dollars(offers.hourly?.rateCents ?? s.hourlyRateCents),
     rating: null, reviews: (d.reviews || []).length,
-    specialties: [], svc: [], best: (s.bestFor || []).map((b: string) => BEST[b] || b), bg: [],
-    roles: (s.admissionsRoles || []).map((r: any) => [ROLE[r.type] || r.type, r.place].filter(Boolean).join(" · ")),
+    specialties, svc: [], best: (s.bestFor || []).map((b: string) => BEST[b] || b), bg: [],
+    roles: (s.admissionsRoles || []).map((r: any) => [`${ROLE[r.type] || r.type}${r.former ? " (former)" : ""}`, r.place, r.years].filter(Boolean).join(" · ")),
     langs: (s.languages || []).map((l: any) => `${l.name}${l.level ? ` (${LEVEL[l.level] || l.level})` : ""}`).join(", "),
     fun: s.funFact || "", reply: "", clients: s.clientSchools || [], bio: s.bio || "",
     bundles: (offers.bundles || []).map((o: Offer) => [hours(o), dollars(o.price)] as [number, number]),
     pkgs: (offers.packages || []).map((o: Offer) => [o.title, o.description || `${hours(o)} hours`, dollars(o.price)] as [string, string, number]),
     highlights: s.highlights || [], knownFor: s.knownFor || [],
+    credential: s.credential || undefined, specialtyInterest: s.specialtyInterest || undefined, research: s.researchSummary || undefined,
+    stagesLabel: stages.map((x) => STAGE[x]).filter(Boolean).join(", ") || undefined,
+    match: {
+      best: s.bestFor || [], stages, packageServices: pkgServices, prices: all.map((o) => o.price).filter((p) => p > 0),
+      roleTypes: (s.admissionsRoles || []).map((r: any) => r.type), languages: (s.languages || []).map((l: any) => l.name),
+      packageCount: (offers.packages || []).length, fromRate: dollars(all.length ? Math.min(...all.map((o) => o.rateCents || s.hourlyRateCents || 0)) : s.hourlyRateCents),
+    },
   };
   const reviews: LiveReview[] = d.reviews || [];
   if (reviews.length) mentor.rating = reviews.reduce((a, r) => a + r.rating, 0) / reviews.length;
