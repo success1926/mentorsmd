@@ -9,14 +9,36 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.mentorsmd.app"
+      "bundleIdentifier": "com.mentorsmd.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "MentorsMD uses your camera for video calls with your mentor or student.",
+        "NSMicrophoneUsageDescription": "MentorsMD uses your microphone for video calls with your mentor or student.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
+          }
+        ]
+      }
     },
     "android": {
       "package": "com.mentorsmd.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#FFFFFF"
-      }
+      },
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -35,7 +57,16 @@
         }
       ],
       "expo-secure-store",
-      "@stripe/stripe-react-native"
-    ]
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.mentorsmd.app",
+          "enableGooglePay": true
+        }
+      ]
+    ],
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
   }
 }
