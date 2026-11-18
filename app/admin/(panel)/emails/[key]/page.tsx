@@ -191,7 +191,7 @@ export default function EditEmailPage({ params }: { params: { key: string } }) {
 
       {def.required?.length ? (
         <div className="alert alert-blue">
-          This is a security email. You can change the wording, but it must keep {def.required.map((r) => `{{${r}}}`).join(", ")}, or it won&apos;t work.
+          {def.required.includes("stopLink") ? "This email must keep its unsubscribe link." : "This is a security email."} You can change the wording, but it must keep {def.required.map((r) => `{{${r}}}`).join(", ")}, or it won&apos;t work.
         </div>
       ) : null}
       {notice && <div role="status" className={`alert ${notice.ok ? "alert-success" : "alert-danger"}`}>{notice.text}</div>}

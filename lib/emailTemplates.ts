@@ -183,7 +183,7 @@ const LIST: EmailDef[] = [
     subject: "Your MentorsMD account is paused for review",
     body: [
       "Hi {{firstName}},",
-      "Your account has been paused while our team reviews some recent reports. You can't send new messages for now. Your current orders are not affected, and payments already held stay protected.",
+      "Your account has been paused while our team reviews some recent reports. You can't send new messages for now. Your current orders are not affected.",
       "We'll be in touch. Reply to this email if you'd like to share anything with us.",
     ].join("\n\n"),
     vars: [V.firstName],
@@ -376,7 +376,7 @@ const LIST: EmailDef[] = [
     subject: "Your MentorsMD account is paused for review",
     body: [
       "Hi {{firstName}},",
-      "Your account has been paused while our team reviews some recent reports. Your profile is hidden from search for now. Your current orders are not affected, and payments already held stay protected.",
+      "Your account has been paused while our team reviews some recent reports. Your profile is hidden from search for now. Your current orders are not affected.",
       "We'll be in touch. Reply to this email if you'd like to share anything with us.",
     ].join("\n\n"),
     vars: [V.firstName],

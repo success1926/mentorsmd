@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { sendLive } from "@/lib/realtime";
 import { sendDisputeMessageEmail, SITE_URL } from "@/lib/email";
 import { LIMITS } from "@/lib/validate";
+import { adminEmailsWith } from "@/lib/adminRecipients";
 import { getSession } from "@/lib/session";
 
 async function getAuthorizedOrder(orderId: string, userId: string, role: string) {
@@ -78,7 +79,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         sendDisputeMessageEmail(order.seller.email, senderName, order.gig.title, body, `${SITE_URL}/orders/${order.id}`),
       ]);
     } else {
-      const admins = await prisma.user.findMany({ where: { role: "ADMIN", removedByAdmin: false, adminDisabledAt: null }, select: { email: true } });
+      const admins = (await adminEmailsWith("disputes")).map((email) => ({ email })); // only admins who can open Disputes
       await Promise.all(
         admins.map((admin) =>
           sendDisputeMessageEmail(admin.email, senderName, order.gig.title, body, `${SITE_URL}/orders/${order.id}`)

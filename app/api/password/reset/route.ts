@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/prisma";
+import { RATE_LIMITS, clearRateLimit } from "@/lib/rateLimit";
+import { ipKey } from "@/lib/request";
 import { isValidNewPassword, PASSWORD_RULE } from "@/lib/validate";
 
 // Second half of "forgot password": the link from the email lands on
@@ -41,6 +43,12 @@ export async function POST(req: Request) {
     // Any other outstanding reset links for this account stop working.
     prisma.passwordResetToken.deleteMany({ where: { userId: record.userId, usedAt: null } }),
   ]);
+
+  // The login page promises a reset unlocks the account right away, so
+  // also clear the 15-minute "too many wrong passwords from this
+  // connection" block (lib/auth.ts), which would otherwise keep refusing
+  // the new password from the device that just reset it.
+  await clearRateLimit(RATE_LIMITS.loginFailPerAccountIp, `${record.userId}:${ipKey(req)}`);
 
   return NextResponse.json({ ok: true });
 }
