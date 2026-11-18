@@ -4,6 +4,7 @@ import { publicCache, toDate } from "@/lib/publicCache";
 import { searchableGigWhere, visibleMentorWhere } from "@/lib/mentor";
 import { completeProfileWhere } from "@/lib/profileCompleteness";
 import { BEST_FOR, FORMATS, PRICE_BANDS, SCHOOL_TYPES, SERVICES, SERVICE_TO_STAGE, STAGES, isValue, mentorSchoolName, specialtiesOf } from "@/lib/options";
+import { languagesOf, rolesOf } from "@/lib/profileCompleteness";
 
 export type BrowseFilters = {
   q: string;
@@ -62,6 +63,13 @@ export type MentorCardData = {
   totalPackages: number; // specialized packages
   packages: { id: string; title: string; minutes: number | null; format: string | null }[];
   createdAt: Date;
+  // Guided match and compare on Browse (Nov 2026, lib/guidedMatch.ts).
+  strongestStages: string[];
+  packageServices: string[];
+  offerPrices: number[]; // every bookable offer's price, in cents
+  knownFor: string | null; // the first "Known for" line
+  roleTitles: string[]; // admissions roles, e.g. "Interviewer"
+  languages: string[];
 };
 
 type RatingInfo = { avg: number | null; count: number };
@@ -94,7 +102,7 @@ const gigSelect = {
 // mentor's strongest stages, so hourly-only mentors can be found too.
 // Shared by all visitors for up to a minute (lib/publicCache.ts), one cached
 // result per set of filters.
-const cachedSearch = publicCache("browse-mentors-v2", (f: BrowseFilters) => searchMentorsFresh(f));
+const cachedSearch = publicCache("browse-mentors-v3", (f: BrowseFilters) => searchMentorsFresh(f));
 
 export async function searchMentors(f: BrowseFilters): Promise<MentorCardData[]> {
   const cards = await cachedSearch(f);
@@ -173,6 +181,10 @@ async function searchMentorsFresh(f: BrowseFilters): Promise<MentorCardData[]> {
       clientSchools: true,
       hourlyRateCents: true,
       createdAt: true,
+      knownFor: true,
+      hasAdmissionsRoles: true,
+      admissionsRoles: true,
+      languages: true,
       gigs: { where: searchableGigWhere, select: gigSelect, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
     },
     take: 200,
@@ -203,6 +215,12 @@ async function searchMentorsFresh(f: BrowseFilters): Promise<MentorCardData[]> {
       totalPackages: specialized.length,
       packages: specialized.map((g) => ({ id: g.id, title: g.title, minutes: g.minutes, format: g.format })),
       createdAt: m.createdAt,
+      strongestStages: m.strongestStages,
+      packageServices: Array.from(new Set(specialized.map((g) => g.service).filter((s): s is string => !!s))),
+      offerPrices: m.gigs.map((g) => g.price).filter((p) => p > 0),
+      knownFor: m.knownFor?.[0] || null,
+      roleTitles: m.hasAdmissionsRoles === false ? [] : rolesOf(m.admissionsRoles).map((r) => r.type),
+      languages: languagesOf(m.languages).map((l) => l.name),
     };
   });
 

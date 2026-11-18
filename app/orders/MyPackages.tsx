@@ -259,7 +259,7 @@ function PackageSummary({ p, viewerId, onBack, onBook, onAdd, onChanged }: { p: 
 
       <section className="mentor-box" style={{ gap: 8 }}>
         <div className="mentor-box-head"><h2>Shared files</h2></div>
-        {full ? <SharedFiles files={full.files || []} viewerId={viewerId} /> : <span className="text-muted small">{p.filesCount ? "Loading…" : "No files shared yet."}</span>}
+        {full ? <SharedFiles files={full.files || []} viewerId={viewerId} workEntries={full.hourEntries || entries} /> : <span className="text-muted small">{p.filesCount || entries.some((e: any) => e.fileUrl) ? "Loading…" : "No files shared yet."}</span>}
       </section>
 
       <details className="collapse">

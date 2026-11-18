@@ -111,7 +111,7 @@ export const SITE_PAGES = {
             { label: "Secondaries", href: "/mentors?service=SECONDARIES" },
             { label: "Interviews", href: "/mentors?service=MMI&service=TRADITIONAL_INTERVIEW" },
             { label: "MCAT", href: "/mentors?service=MCAT" },
-            { label: "Reapplying", href: "/mentors?service=REAPPLICANT&bg=REAPPLICANT" },
+            { label: "Reapplying", href: "/mentors?best=REAPPLICANT" },
           ],
           { maxItems: 8, help: "Shown as links under the search box, after “Popular:”." },
         ),
