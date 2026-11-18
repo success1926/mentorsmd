@@ -1302,6 +1302,7 @@ body.has-compare { padding-bottom: 96px; }
 @media (max-width: 720px) {
   .pf-two, .pf-creds { grid-template-columns: minmax(0, 1fr); }
   .pf-sec h2 { font-size: 28px; }
+}
 
 /* reCAPTCHA: the floating badge is hidden; each protected form shows
    <RecaptchaNotice /> instead (Google's rule for hiding it). */
