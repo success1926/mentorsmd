@@ -6,6 +6,7 @@ import { signIn, useSession } from "next-auth/react";
 import { logOut } from "@/components/TopNav";
 import Link from "next/link";
 import { AuthShell } from "@/components/AuthShell";
+import { MentorWelcome } from "@/components/Moments";
 import { browserTimeZone } from "@/lib/tz";
 import { Honeypot, useRecaptcha } from "@/components/FormGuards";
 import { MentorAgreement } from "@/components/MentorAgreement";
@@ -132,6 +133,7 @@ function OnboardCoachForm() {
   return (
     <AuthShell title="Welcome to MentorsMD" body="Our senior team vetted you before sending this invite. Set up your profile, then add a photo, your packages and payouts.">
       <div className="stack" style={{ gap: 14 }}>
+        <MentorWelcome />
         <div className="stack-sm">
           <h1 className="page-title" style={{ fontSize: 38 }}>Set up your mentor profile</h1>
           <span className="badge badge-brand" style={{ alignSelf: "flex-start" }}>Invite for {email}</span>

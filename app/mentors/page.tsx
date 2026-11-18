@@ -12,6 +12,7 @@ import { attributionFromCookieHeader } from "@/lib/activity";
 import { logBrowseSearch } from "@/lib/searchLog";
 import { getSiteContent } from "@/lib/siteContentStore";
 import { WaitlistBox } from "@/components/WaitlistBox";
+import { MentorCardsMotion } from "@/components/Moments";
 import { ALL_FILTER_GROUPS, MENTOR_QUICK_LINKS as QUICK, credentialLine, mentorRank, mentorStageTag, money, quickLinkHref } from "@/lib/options";
 
 export const dynamic = "force-dynamic";
@@ -165,10 +166,11 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
             {/* Leland-style cards (Nov 2026): photo, name, rating and rate;
                 the one-line credential; rank and school with its logo;
                 specialties; "Successful clients at" logos. */}
+            <MentorCardsMotion>
             {mentors.map((m) => {
               const rank = mentorRank(m.mentorStage) || mentorStageTag(m.mentorStage);
               return (
-                <article key={m.id} className="mentor-card">
+                <article key={m.id} className="mentor-card" data-flip-id={m.id}>
                   <Link href={`/mentors/${m.id}`} aria-hidden="true" tabIndex={-1}>
                     {m.photoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -220,6 +222,7 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
                 </article>
               );
             })}
+            </MentorCardsMotion>
           </div>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { initialsOf } from "@/components/ui";
 import { Rail } from "@/components/Rail";
+import { RevealWall } from "@/components/RevealWall";
 import { paragraphs } from "@/lib/siteContent";
 import type { WallItem } from "@/lib/reviewWall";
 
@@ -9,10 +10,10 @@ import type { WallItem } from "@/lib/reviewWall";
 // of one very long column; /reviews keeps the full wall for reading.
 export function ReviewWall({ items, rail = false }: { items: WallItem[]; rail?: boolean }) {
   const cards = items.map((t, i) => <ReviewCard key={t.key} t={t} i={i} />);
-  if (!rail) return <div className="wall-grid">{cards}</div>;
+  if (!rail) return <RevealWall>{cards}</RevealWall>;
   return (
     <>
-      <div className="wall-grid hide-mobile">{cards}</div>
+      <div className="hide-mobile"><RevealWall>{cards}</RevealWall></div>
       <div className="only-mobile">
         <Rail className="wall-rail" label="Reviews">
           {items.map((t, i) => (

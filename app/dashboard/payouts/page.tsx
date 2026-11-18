@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Icon, ICONS } from "@/components/ui";
 import { money } from "@/lib/options";
+import { PaidTotal } from "@/components/Moments";
 import { PLATFORM_FEE_PERCENT } from "@/lib/fee";
 import { shortHours } from "@/lib/hours";
 import { PAYOUT_STATUS_LABEL, payoutDayLabel, periodLabel } from "@/lib/payoutRules";
@@ -116,7 +117,7 @@ export default function PayoutsPage() {
         </div>
         <div className="stat-card">
           <span className="text-secondary">Paid to you</span>
-          <span className="stat-num">{money(paidTotal)}</span>
+          {earnings ? <PaidTotal cents={paidTotal} paidIds={past.filter((p) => p.status === "PAID").map((p) => String(p.id))} /> : <span className="stat-num">…</span>}
           <span className="text-muted">{past.filter((p) => p.status === "PAID").length} monthly payout{past.filter((p) => p.status === "PAID").length === 1 ? "" : "s"}, after the {PLATFORM_FEE_PERCENT}% fee</span>
         </div>
       </div>

@@ -12,6 +12,7 @@ import { OrderCalls } from "@/components/Calls";
 import { Icon, ICONS, MinorBadge, StaffBadge, statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { ConfirmEmailNotice, IntegrityBanner, MessageText, ReportDialog, SendWarnings, setBlocked, type SendWarning } from "@/components/Safety";
 import { money } from "@/lib/options";
+import { MOMENTS } from "@/lib/moments";
 import { BookCallModal, HoursBar, LowHoursBadge, PackageBadge, SharedFiles } from "@/components/Packages";
 import { hoursSummary, shortHours } from "@/lib/hours";
 
@@ -179,6 +180,28 @@ function Thread({ conversationId }: { conversationId: string }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const { messages, sendMessage } = useConversation(conversationId);
+  // Moment 10 (lib/moments.ts): messages that arrive after the thread has loaded slide up; yours gets a "Sent" tick.
+  const knownIds = useRef<Set<string>>(new Set());
+  const [liveAfter, setLiveAfter] = useState(false);
+  const [sentTick, setSentTick] = useState(0);
+  useEffect(() => {
+    knownIds.current = new Set();
+    setLiveAfter(false);
+    const t = setTimeout(() => setLiveAfter(true), 1500);
+    return () => clearTimeout(t);
+  }, [conversationId]);
+  useEffect(() => {
+    if (!liveAfter) messages.forEach((m: any) => knownIds.current.add(m.id));
+    else {
+      const t = setTimeout(() => messages.forEach((m: any) => knownIds.current.add(m.id)), 400);
+      return () => clearTimeout(t);
+    }
+  }, [messages, liveAfter]);
+  useEffect(() => {
+    if (!sentTick) return;
+    const t = setTimeout(() => setSentTick(0), 2600);
+    return () => clearTimeout(t);
+  }, [sentTick]);
 
   const loadCtx = useCallback(() => {
     fetch(`/api/conversations/${conversationId}`)
@@ -225,6 +248,7 @@ function Thread({ conversationId }: { conversationId: string }) {
       setDraft("");
       setPendingFile(null);
       setWarnings(null);
+      if (MOMENTS.messages) setSentTick(Date.now());
     } catch (err) {
       // Keep the draft. Inline problems are shown above the box; anything
       // else the hook already showed.
@@ -320,7 +344,7 @@ function Thread({ conversationId }: { conversationId: string }) {
             </div>
           )}
           {messages.map((m: any) => (
-            <div key={m.id} className={`msg-bubble ${m.senderId === userId ? "msg-mine" : "msg-theirs"}`}>
+            <div key={m.id} className={`msg-bubble ${m.senderId === userId ? "msg-mine" : "msg-theirs"}${MOMENTS.messages && liveAfter && !knownIds.current.has(m.id) ? " mm-new" : ""}`}>
               {m.sender?.role === "ADMIN" && (
                 <div style={{ marginBottom: 4 }}><StaffBadge /></div>
               )}
@@ -339,6 +363,7 @@ function Thread({ conversationId }: { conversationId: string }) {
               )}
             </div>
           ))}
+          {sentTick > 0 && <span key={sentTick} className="mm-sent text-muted small" style={{ alignSelf: "flex-end" }} aria-hidden="true">Sent ✓</span>}
         </div>
 
         {pendingFile && (

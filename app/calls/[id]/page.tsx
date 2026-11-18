@@ -1,5 +1,7 @@
 "use client";
 
+import { JoinCountdown } from "@/components/Moments";
+import { MOMENTS } from "@/lib/moments";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -103,7 +105,8 @@ export default function CallPage() {
               <span>{RECORDING_NOTICE}</span>
             </div>
             {joinError && <div role="alert" className="alert alert-danger">{joinError}</div>}
-            <button className="btn btn-primary btn-lg btn-block" disabled={state !== "open" || joining} onClick={join}>
+            <JoinCountdown opensAt={new Date(start.getTime() - JOIN_OPENS_MINUTES_BEFORE * 60_000)} now={now} />
+            <button className={`btn btn-primary btn-lg btn-block${MOMENTS.joinCountdown && state === "open" && !joining ? " mm-join-live" : ""}`} disabled={state !== "open" || joining} onClick={join}>
               <Icon d={ICONS.video} size={18} /> {joining ? "Opening…" : state === "open" ? "Join call" : `Join opens ${JOIN_OPENS_MINUTES_BEFORE} minutes before the start`}
             </button>
             <span className="text-muted" style={{ textAlign: "center" }}>By joining, you accept the recording notice above.</span>

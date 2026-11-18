@@ -2,6 +2,7 @@ import Link from "next/link";
 import { giftByClaimToken, giftLine } from "@/lib/gifts";
 import { AuthShell } from "@/components/AuthShell";
 import { ClaimForm } from "./ClaimForm";
+import { GiftOpen } from "@/components/Moments";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Set up your account", robots: { index: false } };
@@ -32,6 +33,7 @@ export default async function ClaimGiftPage({ searchParams }: { searchParams: { 
   const { gift, user } = found;
   return (
     <AuthShell title={`A gift from ${gift.parentName.split(" ")[0]}`} body={`${gift.parentName} sent you ${giftLine(gift)}. Set up your account to use it.`}>
+      <GiftOpen label={giftLine(gift)} />
       <ClaimForm token={searchParams.token!} email={user.email} name={user.name} parentName={gift.parentName} parentEmail={gift.parentEmail} />
     </AuthShell>
   );

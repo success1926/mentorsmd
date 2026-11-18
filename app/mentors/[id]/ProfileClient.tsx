@@ -5,6 +5,8 @@ import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Icon, ICONS, Rating, tintFor, initialsOf } from "@/components/ui";
+import { StarsFill } from "@/components/Moments";
+import { MOMENTS } from "@/lib/moments";
 import { SchoolLogo, ClientSchools } from "@/components/SchoolLogo";
 import type { LogoMap } from "@/lib/schoolLogoKey";
 import { Modal } from "@/components/Modal";
@@ -212,7 +214,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
       </div>
     ) : isBuyer ? (
       <div className={stack ? "stack-sm" : "row-wrap"}>
-        <button className={`btn btn-primary ${stack ? "btn-block" : ""}`} disabled={!canTakeStudents} onClick={() => setDialog({ t: "intro" })} aria-haspopup="dialog">
+        <button className={`btn btn-primary ${stack ? "btn-block" : ""}${MOMENTS.profileStars ? " mm-glow-once" : ""}`} disabled={!canTakeStudents} onClick={() => setDialog({ t: "intro" })} aria-haspopup="dialog">
           <Icon d={ICONS.video} size={18} /> Book free {INTRO_CALL_MINUTES}-min intro call
         </button>
         <button className={`btn ${stack ? "btn-block" : ""}`} disabled={!seller.available || seller.adultsOnlyForViewer} onClick={() => setDialog({ t: "message" })} aria-haspopup="dialog">
@@ -221,7 +223,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
       </div>
     ) : status !== "loading" && !session ? (
       <div className={stack ? "stack-sm" : "row-wrap"}>
-        <Link href={loginHref} className={`btn btn-primary ${stack ? "btn-block" : ""}`}>Book free {INTRO_CALL_MINUTES}-min intro call</Link>
+        <Link href={loginHref} className={`btn btn-primary ${stack ? "btn-block" : ""}${MOMENTS.profileStars ? " mm-glow-once" : ""}`}>Book free {INTRO_CALL_MINUTES}-min intro call</Link>
         <Link href="/signup" className={`btn ${stack ? "btn-block" : ""}`}>Create a free account to message</Link>
       </div>
     ) : (
@@ -280,7 +282,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
                     </span>
                   </span>
                 )}
-                <Rating avg={avg} count={reviews.length} />
+                {MOMENTS.profileStars && avg !== null && reviews.length > 0 ? <StarsFill avg={avg} count={reviews.length} /> : <Rating avg={avg} count={reviews.length} />}
               </div>
             </div>
 
