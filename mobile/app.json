@@ -7,13 +7,35 @@
     "icon": "./assets/icon.png",
     "scheme": "mentorsmd",
     "userInterfaceStyle": "automatic",
-    "ios": { "supportsTablet": false, "bundleIdentifier": "com.mentorsmd.app" },
-    "android": { "package": "com.mentorsmd.app", "adaptiveIcon": { "foregroundImage": "./assets/icon.png", "backgroundColor": "#FFFFFF" } },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.mentorsmd.app"
+    },
+    "android": {
+      "package": "com.mentorsmd.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#FFFFFF"
+      }
+    },
     "plugins": [
       "expo-router",
       "expo-font",
       "expo-web-browser",
-      ["expo-splash-screen", { "image": "./assets/icon.png", "imageWidth": 160, "backgroundColor": "#FFFFFF", "dark": { "image": "./assets/icon.png", "backgroundColor": "#110E22" } }]
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon.png",
+          "imageWidth": 160,
+          "backgroundColor": "#FFFFFF",
+          "dark": {
+            "image": "./assets/icon.png",
+            "backgroundColor": "#110E22"
+          }
+        }
+      ],
+      "expo-secure-store",
+      "@stripe/stripe-react-native"
     ]
   }
 }

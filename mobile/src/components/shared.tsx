@@ -3,8 +3,14 @@ import { Text, View } from "react-native";
 import { useDemo, useOverlay } from "../lib/demo";
 import { first, money, sampleMentor, type Mentor } from "../lib/sample";
 import { fonts, useColors } from "../lib/theme";
+import { Loading } from "./ui";
 import { Av, Bar, Btn, Card, Chip, Chips, Eyebrow, Field, Grow, H, Hdr, Link, Note, Price, Row, RowV, SchoolLogo, Sec, Small, SS, Stars, StatusChip, Toggle, TT } from "./ui";
 import { useState } from "react";
+import Constants from "expo-constants";
+import * as WebBrowser from "expo-web-browser";
+import { api, dollars, errorText, SITE, useApi } from "../lib/api";
+import { useAuth } from "../lib/auth";
+import { initials } from "../lib/sample";
 
 // A mentor in a list: photo, rank, school, specialties, "Successful clients at" logos, price and rating.
 export function MentorCard({ m }: { m: Mentor }) {
@@ -124,79 +130,117 @@ export function MoveSheet() {
   );
 }
 
-function DeleteSheet({ role }: { role: "student" | "mentor" }) {
-  const { s, setRole, reset } = useDemo();
-  const { closeSheet, toast } = useOverlay();
-  const router = useRouter();
-  const [v, setV] = useState("");
+function DeleteSheet() {
   const c = useColors();
-  if (role === "mentor")
-    return (
-      <>
-        <H style={{ color: c.danger }}>Delete My Account</H>
-        <Card tone="warn"><TT style={{ color: c.warnFg }}>You have {money(s.pay.pending)} not yet paid</TT><Note style={{ color: c.warnFg }}>You can delete your account after your last payout on {s.pay.next}. Until then, you can pause your profile.</Note></Card>
-        <Btn kind="line" label="OK" onPress={closeSheet} />
-      </>
-    );
+  const { closeSheet, toast } = useOverlay();
+  const { forget } = useAuth();
+  const router = useRouter();
+  const check = useApi<{ allowed: boolean; blockers: string[]; creditCents: number; hasPassword: boolean }>("/api/me/delete-account");
+  const [v, setV] = useState("");
+  const [pw, setPw] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const d = check.data;
+  const go = async () => {
+    if (v.trim().toUpperCase() !== "DELETE") return setError("Type DELETE to confirm.");
+    setBusy(true);
+    setError(null);
+    try {
+      await api("/api/me/delete-account", { body: { confirm: "DELETE", password: d?.hasPassword ? pw : undefined } });
+      closeSheet();
+      await forget();
+      router.replace("/");
+      toast("Your account was deleted");
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <>
       <H style={{ color: c.danger }}>Delete My Account</H>
-      <Note>This happens right away and can’t be undone.</Note>
-      <Card tone="warn"><Note style={{ color: c.warnFg }}>Your {money(s.credit)} MentorsMD credit will be lost. Messages you sent will show as “Deleted user”. Receipts are kept for tax records.</Note></Card>
-      <Field label="Type DELETE to confirm" value={v} onChange={setV} placeholder="DELETE" />
-      <Btn kind="red" label="Delete my account" onPress={() => {
-        if (v.trim() !== "DELETE") return toast("Type DELETE to confirm");
-        closeSheet(); reset(); setRole(null); router.replace("/"); toast("Your account was deleted (example)");
-      }} />
-      <Btn kind="line" label="Keep my account" onPress={closeSheet} />
+      {check.loading && !d ? <Loading /> : check.error ? <Note>{check.error}</Note> : d && !d.allowed ? (
+        <>
+          <Card tone="warn">{d.blockers.map((b) => <Note key={b} style={{ color: c.warnFg }}>{b}</Note>)}</Card>
+          <Btn kind="line" label="OK" onPress={closeSheet} />
+        </>
+      ) : d ? (
+        <>
+          <Note>This happens right away and can’t be undone.</Note>
+          <Card tone="warn"><Note style={{ color: c.warnFg }}>{d.creditCents ? `Your ${dollars(d.creditCents)} MentorsMD credit will be lost. ` : ""}Messages you sent will show as “Deleted user”. Receipts are kept for tax records.</Note></Card>
+          {d.hasPassword ? <Field label="Your password" value={pw} onChange={setPw} secure /> : null}
+          <Field label="Type DELETE to confirm" value={v} onChange={setV} placeholder="DELETE" />
+          {error ? <Small style={{ color: c.danger }}>{error}</Small> : null}
+          <Btn kind="red" label={busy ? "Deleting…" : "Delete my account"} disabled={busy} onPress={go} />
+          <Btn kind="line" label="Keep my account" onPress={closeSheet} />
+        </>
+      ) : null}
     </>
   );
 }
 
-// Settings for everyone: notifications, 2-step, Face ID, trusted devices, sign out, delete.
-export function SettingsBody({ role }: { role: "student" | "mentor" | "admin" }) {
-  const { s, change, setRole, reset } = useDemo();
+type AppSessionRow = { id: string; platform: string; deviceName: string | null; lastUsedAt: string; current: boolean };
+const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+// Settings for students and mentors: who's signed in, phones signed in,
+// password and 2-step (on the website), sign out, delete the account.
+export function SettingsBody({ role }: { role: "student" | "mentor" }) {
+  const { user, signOut } = useAuth();
   const { toast, openSheet } = useOverlay();
   const router = useRouter();
-  const name = role === "mentor" ? "Jordan Ellis" : role === "admin" ? "Taylor Reed" : "Priya Shah";
-  const signOut = () => { reset(); setRole(null); router.replace("/"); toast("Signed out"); };
+  const phones = useApi<{ sessions: AppSessionRow[] }>("/api/app/sessions");
+  const endPhone = async (id: string) => {
+    try {
+      await api("/api/app/sessions", { body: { action: "sign-out", id } });
+      phones.reload();
+      toast("That phone is signed out");
+    } catch (e) {
+      toast(errorText(e));
+    }
+  };
+  const settingsUrl = SITE + (role === "mentor" ? "/dashboard/settings" : "/account");
+  const out = async () => {
+    await signOut();
+    router.replace("/");
+    toast("Signed out");
+  };
+  const name = user?.name || "";
+  const rows = phones.data?.sessions || [];
   return (
     <>
-      <Card row><Av init={name[0]} /><Grow><TT>{name}</TT><SS>{first(name).toLowerCase()}@example.com</SS></Grow></Card>
-      <Sec>
-        <Eyebrow>Notifications</Eyebrow>
-        <View>
-          <Toggle tt="New messages" />
-          <Toggle tt="Call reminders" ss="1 hour and 10 minutes before" last={role !== "admin"} />
-          {role === "admin" ? <Toggle tt="Urgent admin alerts" ss="New disputes, flags, minors" last /> : null}
-        </View>
-      </Sec>
+      <Card row><Av init={initials(name)} /><Grow><TT>{name}</TT><SS>{user?.email}</SS></Grow></Card>
       <Sec>
         <Eyebrow>Sign-in and security</Eyebrow>
         <View>
-          <Toggle tt="2-step sign-in" ss="A code by email on new devices" value={s.twostep} onChange={(v) => { change((n) => { n.twostep = v; }); toast(v ? "2-step sign-in is on" : "2-step sign-in is off"); }} />
-          <Toggle tt="Face ID" ss={role === "admin" ? "Required before refunds, disputes and suspensions" : "Unlock the app with Face ID"} />
-          <Row tt="Change password" onPress={() => toast("Change password (example)")} last />
+          <Row tt="Change password" ss="Opens mentorsmd.com" onPress={() => WebBrowser.openBrowserAsync(settingsUrl)} />
+          <Row tt="2-step sign-in" ss="Set it up or change it on mentorsmd.com" onPress={() => WebBrowser.openBrowserAsync(settingsUrl)} last />
         </View>
       </Sec>
       <Sec>
-        <Eyebrow>Trusted devices</Eyebrow>
-        <View>
-          {s.devices.map((d, i) => (
-            <Row key={d.n} tt={d.n} ss={d.w} last={i === s.devices.length - 1}
-              rr={i ? <Link red label="Remove" onPress={() => { change((n) => { n.devices.splice(i, 1); }); toast("Device removed. It will need a code next time."); }} /> : undefined} />
-          ))}
-        </View>
-        <Link label="Sign out of all other devices" onPress={() => { change((n) => { n.devices = n.devices.slice(0, 1); }); toast("Signed out of all other devices"); }} />
+        <Eyebrow>Phones signed in</Eyebrow>
+        {phones.loading && !phones.data ? <Loading /> : (
+          <View>
+            {rows.map((d, i) => (
+              <Row key={d.id} tt={d.deviceName || (d.platform === "ANDROID" ? "Android phone" : "iPhone")} ss={d.current ? "This phone" : `Last used ${shortDate(d.lastUsedAt)}`} chevron={false} last={i === rows.length - 1}
+                rr={!d.current ? <Link red label="Sign out" onPress={() => endPhone(d.id)} /> : undefined} />
+            ))}
+          </View>
+        )}
       </Sec>
-      <Btn kind="line" label="Sign out" onPress={signOut} />
-      {role !== "admin" ? <Link red style={{ alignSelf: "center" }} label="Delete my account" onPress={() => openSheet(() => <DeleteSheet role={role} />)} /> : null}
-      <Small style={{ textAlign: "center" }}>MentorsMD app · preview 1.0 · sample data · Terms · Privacy</Small>
+      <Btn kind="line" label="Sign out" onPress={out} />
+      <Link red style={{ alignSelf: "center" }} label="Delete my account" onPress={() => openSheet(() => <DeleteSheet />)} />
+      <RowV style={{ justifyContent: "center", gap: 16 }}>
+        <Link label="Terms" onPress={() => WebBrowser.openBrowserAsync(SITE + "/terms")} />
+        <Link label="Privacy" onPress={() => WebBrowser.openBrowserAsync(SITE + "/privacy")} />
+        <Link label="Help" onPress={() => WebBrowser.openBrowserAsync(SITE + "/contact")} />
+      </RowV>
+      <Small style={{ textAlign: "center" }}>MentorsMD app {Constants.expoConfig?.version || ""} · {role === "mentor" ? "Mentor" : "Student"} account</Small>
     </>
   );
 }
 
-export function SettingsScreenBody({ role }: { role: "student" | "mentor" | "admin" }) {
+export function SettingsScreenBody({ role }: { role: "student" | "mentor" }) {
   return (
     <>
       <Hdr title="Settings" />

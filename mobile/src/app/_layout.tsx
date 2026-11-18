@@ -7,6 +7,7 @@ import { StatusBar } from "expo-status-bar";
 import { View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Overlays } from "../components/ui";
+import { AuthProvider } from "../lib/auth";
 import { DemoProvider, OverlayProvider } from "../lib/demo";
 import { useColors } from "../lib/theme";
 
@@ -20,6 +21,7 @@ export default function RootLayout() {
   if (!loaded) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
   return (
     <SafeAreaProvider>
+      <AuthProvider>
       <DemoProvider>
         <OverlayProvider>
           <StatusBar style="auto" />
@@ -29,6 +31,7 @@ export default function RootLayout() {
           <Overlays />
         </OverlayProvider>
       </DemoProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

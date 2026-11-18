@@ -129,8 +129,7 @@ function Guided({ mentors, q, setQ, onSubmit, live, loading, error, reload }: {
       {hidden ? <GroupLabel text={`${hidden} ${hidden === 1 ? "mentor" : "mentors"} hidden · no match`} /> : null}
 
       <View style={{ gap: 6 }}>
-        {live ? <Small>These are the real mentors, read live from {SITE.replace("https://", "")}. Buying and messaging them happens on the website for now.</Small> : null}
-        <Link label="Reviews" onPress={() => router.push("/reviews")} />
+        {live ? <Small>These are the real mentors, read live from {SITE.replace("https://", "")}.</Small> : null}
       </View>
     </>
   );

@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { Redirect, Stack, Tabs } from "expo-router";
-import { useDemo, type Role } from "../lib/demo";
+import { areaFor, useAuth } from "../lib/auth";
 import { fonts, useColors } from "../lib/theme";
 import type { IconName } from "./ui";
 
@@ -25,10 +25,12 @@ export function AreaTabs({ tabs }: { tabs: { name: string; title: string; icon: 
   );
 }
 
-// An area's screens. Sends you back to sign-in if you haven't picked who you are.
-export function AreaStack({ role }: { role: Role }) {
+// An area's screens. Sends you back to sign-in unless you're signed in
+// with an account for this area (students: BUYER, mentors: SELLER).
+export function AreaStack({ role }: { role: "student" | "mentor" }) {
   const c = useColors();
-  const { role: current } = useDemo();
-  if (current !== role) return <Redirect href="/" />;
+  const { user, ready } = useAuth();
+  if (!ready) return null;
+  if (!user || areaFor(user.role) !== `/${role}`) return <Redirect href="/" />;
   return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg } }} />;
 }
