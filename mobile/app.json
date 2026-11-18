@@ -63,6 +63,14 @@
           "merchantIdentifier": "merchant.com.mentorsmd.app",
           "enableGooglePay": true
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "dynamic"
+          }
+        }
       ]
     ],
     "runtimeVersion": {
