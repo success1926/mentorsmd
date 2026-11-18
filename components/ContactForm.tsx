@@ -66,10 +66,10 @@ export function ContactForm({ title, intro, success, defaultTopic = "STUDENT" }:
         </label>
       </div>
       <label className="field">
-        <span className="field-label">Topic</span>
+        <span className="field-label">About you</span>
         <select className="input" value={form.topic} onChange={set("topic")}>
           {CONTACT_TOPICS.map((t) => (
-            <option key={t.value} value={t.value}>{t.label}</option>
+            <option key={t.value} value={t.value}>{t.formLabel}</option>
           ))}
         </select>
       </label>
@@ -79,7 +79,7 @@ export function ContactForm({ title, intro, success, defaultTopic = "STUDENT" }:
       </label>
       <Honeypot value={honeypot} onChange={setHoneypot} />
       {error && <div role="alert" className="alert alert-danger" style={{ marginBottom: 14 }}>{error}</div>}
-      <button className="btn btn-primary" disabled={busy} style={{ alignSelf: "flex-start" }}>
+      <button className="btn btn-primary btn-lg" disabled={busy} style={{ alignSelf: "flex-start" }}>
         {busy ? "Sending…" : "Send message"}
       </button>
       <RecaptchaNotice />

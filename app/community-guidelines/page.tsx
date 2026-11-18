@@ -7,7 +7,7 @@ export const metadata = { alternates: { canonical: "/community-guidelines" }, ti
 
 const SECTIONS: { title: string; points: string[] }[] = [
   {
-    title: "Your work stays your own",
+    title: "Your Work Stays Your Own",
     points: [
       "Mentors give feedback, ideas, edits and guidance. They never write essays, personal statements, secondaries or activity descriptions for a student.",
       "Students never ask a mentor to write their application or take a test (MCAT, CASPer, PREview) for them.",
@@ -15,7 +15,7 @@ const SECTIONS: { title: string; points: string[] }[] = [
     ],
   },
   {
-    title: "Keep everything on MentorsMD",
+    title: "Keep Everything on MentorsMD",
     points: [
       "Pay only through MentorsMD. Every hour is logged on the site, and if something goes wrong our team can step in, which is what protects you.",
       "Don't move to Venmo, Zelle, PayPal, Cash App, cash or any other payment, and don't offer or accept discounts for paying outside.",
@@ -24,14 +24,14 @@ const SECTIONS: { title: string; points: string[] }[] = [
     ],
   },
   {
-    title: "Protect your accounts",
+    title: "Protect Your Accounts",
     points: [
       "Never share a password or login, and never ask for one: AMCAS, AACOMAS, TMDSAS, email or anything else. Nobody at MentorsMD will ever ask for it.",
       "MentorsMD staff are marked with a \"MentorsMD staff\" badge. Names like Admin or Support are reserved, so be careful with anyone who claims to be staff without the badge.",
     ],
   },
   {
-    title: "Be respectful",
+    title: "Be Respectful",
     points: [
       "No harassment, threats, slurs or hateful language. Messages with slurs or threats are not delivered.",
       "No sexual or otherwise inappropriate messages.",
@@ -39,7 +39,7 @@ const SECTIONS: { title: string; points: string[] }[] = [
     ],
   },
   {
-    title: "Be reliable",
+    title: "Be Reliable",
     points: [
       "Mentors reply within 24 hours, deliver what their package describes in a reasonable time and show up to booked calls.",
       "Students give mentors what they need (drafts, deadlines, context) and show up to booked calls.",
@@ -56,7 +56,7 @@ export default async function CommunityGuidelinesPage() {
   if (doc) {
     return (
       <div className="page-narrow">
-        <LegalHeader title={doc.title} version={doc.version} publishedAt={doc.publishedAt} />
+        <LegalHeader eyebrow="Trust & Safety" title={doc.title} version={doc.version} publishedAt={doc.publishedAt} />
         <LegalBody body={doc.body} />
       </div>
     );
@@ -68,6 +68,7 @@ function BuiltInCommunityGuidelinesPage() {
   return (
     <div className="page-narrow stack-lg">
       <div className="stack-sm">
+        <span className="eyebrow">Trust &amp; Safety</span>
         <h1 className="page-title">Community Guidelines</h1>
         <p className="lede">MentorsMD works because students can trust their mentors and mentors can trust their students. These rules apply to everyone.</p>
       </div>
@@ -80,14 +81,14 @@ function BuiltInCommunityGuidelinesPage() {
         </section>
       ))}
       <section className="card card-tint stack-sm">
-        <h2 style={{ fontSize: 22 }}>The mentor agreement</h2>
+        <h2 style={{ fontSize: 22 }}>The Mentor Agreement</h2>
         <p className="text-secondary">Every mentor accepts this when they join and each time they publish a package:</p>
         <ul className="stack-sm text-secondary" style={{ paddingLeft: 20, lineHeight: 1.6 }}>
           {MENTOR_AGREEMENT_POINTS.map((p) => <li key={p}>{p}</li>)}
         </ul>
       </section>
       <section className="stack-sm">
-        <h2 style={{ fontSize: 26 }}>How we keep MentorsMD safe</h2>
+        <h2 style={{ fontSize: 26 }}>How We Keep MentorsMD Safe</h2>
         <p className="text-secondary" style={{ lineHeight: 1.6 }}>
           Messages, files and delivery notes are checked automatically for things like slurs, threats, off-site payment, ghostwriting
           requests and requests for passwords, and our team may review conversations when something is flagged or reported. Breaking these

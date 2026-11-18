@@ -38,25 +38,17 @@ export default async function ContactPage({ searchParams }: { searchParams: { to
         {mentor && <p className="text-secondary">Questions before you apply? Get in touch:</p>}
       </>
     ),
+    // A single line instead of a big card for one address (Nov 2026).
     details: (
-      <div className="stack">
-        <a href={`mailto:${EMAIL}?subject=${encodeURIComponent(subject)}`} className="card row" style={{ gap: 16 }}>
-          <span className="icon-dot"><Icon d={ICONS.chat} /></span>
-          <span className="stack-sm" style={{ gap: 2 }}>
-            <span className="text-secondary">Email us</span>
-            <b>{EMAIL}</b>
-          </span>
-        </a>
+      <p className="text-secondary" style={{ fontSize: 17 }}>
+        Prefer email? Write to <a href={`mailto:${EMAIL}?subject=${encodeURIComponent(subject)}`} className="link">{EMAIL}</a>
         {PHONE && (
-          <a href={`tel:${PHONE.replace(/[^\d+]/g, "")}`} className="card row" style={{ gap: 16 }}>
-            <span className="icon-dot"><Icon d={ICONS.clock} /></span>
-            <span className="stack-sm" style={{ gap: 2 }}>
-              <span className="text-secondary">Call us</span>
-              <b>{PHONE}</b>
-            </span>
-          </a>
+          <>
+            {" "}or call <a href={`tel:${PHONE.replace(/[^\d+]/g, "")}`} className="link">{PHONE}</a>
+          </>
         )}
-      </div>
+        .
+      </p>
     ),
     form: <ContactForm title={c.formTitle} intro={c.formIntro} success={c.formSuccess} defaultTopic={mentor ? "MENTOR" : "STUDENT"} />,
     orderBox: !mentor && (

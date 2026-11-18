@@ -189,8 +189,8 @@ export const SITE_PAGES = {
             { title: "Work 1-on-1 With a Vetted Mentor", body: "Message any mentor for free, then book help with one specific task, on your timeline.", cta: "Browse Mentors", href: "/mentors", photo: "", tag: "MESSAGING", screen: "Message a mentor, ask questions, and book once they reply." },
             { title: "Get Your Essays Reviewed", body: "Personal statements, activities and secondaries, with line edits and written feedback from someone who wrote winning ones.", cta: "Find an Essay Mentor", href: "/mentors?service=PERSONAL_STATEMENT&service=SECONDARIES&service=ACTIVITIES", photo: "", tag: "ESSAY REVIEW", screen: "Line edits and written feedback, logged against your hours." },
             { title: "Practice Your Interviews", body: "MMI and traditional mock interviews over video, with written feedback after every session. Book the call on your mentor's calendar once you've paid.", cta: "Book a Mock Interview", href: "/mentors?service=MMI&service=TRADITIONAL_INTERVIEW", photo: "", tag: "MOCK MMI", screen: "Pick a time on your mentor's calendar and join from your order." },
-            { title: "Pay for Hours, See Every One", body: "You pay MentorsMD for hours, not the mentor. Every call and block of written work is logged on your package page, and when the work is marked complete you have 48 hours to approve it or ask for one last call or revision.", cta: "Get Started", href: "/signup", photo: "", tag: "SECURE PAYMENT", screen: "Hours bought → Hours logged → Marked complete → Approved" },
-            { title: "Ask for One Last Revision", body: "When your mentor marks the work complete, you have 48 hours to approve it, or ask for one last call or one last revision.", cta: "Browse Mentors", href: "/mentors", photo: "", tag: "REVISIONS", screen: "Marked complete → 48 hours to approve or ask for one more" },
+            { title: "Pay for Hours, See Every One", body: "You pay MentorsMD for hours, not the mentor. Every call and block of written work is logged on your package page, so you always know how many hours are left.", cta: "Get Started", href: "/signup", photo: "", tag: "SECURE PAYMENT", screen: "Hours bought → Hours logged → Marked complete → Approved" },
+            { title: "Ask for One Last Revision", body: "When your mentor marks the work complete, you have 48 hours to approve it, or ask for one last call or one last revision.", cta: "See How It Works", href: "/how-it-works", photo: "", tag: "REVISIONS", screen: "Marked complete → 48 hours to approve or ask for one more" },
             { title: "Help If Something Goes Wrong", body: "Open a dispute from your order and a MentorsMD admin steps in. They look at what happened and decide whether to refund it as MentorsMD credit you can use with any mentor.", cta: "Read Our Safety Tips", href: "/safety", photo: "", tag: "DISPUTES", screen: "Dispute opened → MentorsMD admin reviews → Credit if needed" },
           ],
           { maxItems: 10, help: "Rows that open one at a time, with a picture on the right (the open row's photo, or its label card)." },
@@ -289,7 +289,7 @@ export const SITE_PAGES = {
           { title: text("Title", "", { max: 60, required: true }), body: long("Text", "", { max: 400 }) },
           [
             { title: "Set Your Own Rate", body: "Choose your hourly rate, hour bundles and specialized packages. Take on only as many students as you want, and pause any time." },
-            { title: "Get Paid Reliably", body: "Students pay MentorsMD up front, so you never chase an invoice. You're paid every month, on the 24th, for the hours you've worked, and for unused hours once a package is approved." },
+            { title: "Get Paid Reliably", body: "You keep 70% of every sale. Students pay MentorsMD up front, so you never chase an invoice. You're paid every month, on the 24th, for the hours you've worked, and for unused hours once a package is approved." },
             { title: "Calls on Your Calendar", body: "Set your weekly hours once. Students book calls in your open times, only after they've paid, and calls happen in a private MentorsMD video room." },
           ],
           { maxItems: 6, help: "Icons follow the order: pen, lock, calendar." },
@@ -334,7 +334,7 @@ export const SITE_PAGES = {
           [
             { title: "Find a Mentor", body: "Browse vetted mentors by what you need help with: personal statement, secondaries, interviews, MCAT and more." },
             { title: "Message or Book a Free Intro Call", body: "Ask questions or book a free 15-minute intro call. Buying unlocks once the mentor replies or your intro call happens." },
-            { title: "Book and Pay Securely", body: "You pay MentorsMD for hours at your mentor's rate, not the mentor directly. Every call and block of written work is logged, and if something goes wrong a MentorsMD admin reviews it and decides whether to refund it as MentorsMD credit." },
+            { title: "Book and Pay Securely", body: "You pay MentorsMD for hours at your mentor's rate, not the mentor directly. Every call and block of written work is logged on your package page." },
             { title: "Get Your Feedback or Have Your Call", body: "Book 30- or 60-minute calls on your mentor's calendar and join a private MentorsMD video room, or send work for written feedback. Every hour is logged on your package page." },
           ],
           { maxItems: 6, help: "Shown as numbered cards. The vetting panel and the questions below them are edited on the Homepage." },
@@ -349,13 +349,12 @@ export const SITE_PAGES = {
           "Point",
           { title: text("Title", "", { max: 80, required: true }), body: long("Text", "", { max: 400 }) },
           [
-            { title: "Secure Payments Through MentorsMD", body: "You pay MentorsMD, not the mentor. Your hours are logged as they're used, and when the work is marked complete you have 48 hours to approve it, ask for one last call or revision, or open a dispute." },
-            { title: "One Last Call or Revision, and Disputes", body: "When your mentor marks the work complete, you can ask for one last call or one last revision. If something goes wrong, open a dispute: a MentorsMD admin reviews it and decides whether to refund it as MentorsMD credit, which never expires and works with any mentor." },
+            { title: "Secure Payments Through MentorsMD", body: "You pay MentorsMD, not the mentor, and every hour used is logged where you can see it. Packages are priced on an estimate of the hours; if you finish early, the unused hours aren't refunded, so mentors aren't penalized for working efficiently." },
+            { title: "48 Hours to Approve, Revise or Dispute", body: "When your mentor marks the work complete, you have 48 hours to approve it, ask for one last call or revision, or open a dispute. A MentorsMD admin reviews every dispute and decides whether to refund it as MentorsMD credit, which never expires and works with any mentor." },
             { title: "Private Video Calls", body: "Calls happen in a private MentorsMD video room that you join from your order, so there's no need to share your phone number or personal accounts." },
             { title: "Parental Consent Under 18", body: "Students aged 13 to 17 need a parent or guardian's consent before they can message or book. Parents get a receipt for every order." },
-            { title: "Finishing Early", body: "Packages are priced on an estimate of the hours. If you and your mentor finish early, the unused hours aren't refunded: mentors aren't penalized for working efficiently." },
           ],
-          { maxItems: 6, help: "Icons follow the order: lock, arrows, video camera, shield, clock. Links to Safety tips and Community Guidelines are added below automatically." },
+          { maxItems: 6, help: "Icons follow the order: lock, arrows, video camera, shield, clock. Four points fill the grid evenly. Links to Safety tips and Community Guidelines are added below automatically." },
         ),
       }),
       ...section("Final call to action", {
@@ -373,7 +372,7 @@ export const SITE_PAGES = {
       ...section("Intro", {
         eyebrow: text("Small label", "Reviews", { max: 40 }),
         title: text("Heading", "What Students Say", { max: 80, required: true }),
-        intro: long("Intro", "Reviews from students who worked with a MentorsMD mentor. Reviews from completed orders are added automatically.", { max: 400, help: "The reviews themselves come from completed orders, plus the hand-picked testimonials in Homepage → Testimonials." }),
+        intro: long("Intro", "What students say after working one-on-one with a MentorsMD mentor. Every review comes from a completed package.", { max: 400, help: "The reviews themselves come from completed orders, plus the hand-picked testimonials in Homepage → Testimonials." }),
       }),
       ...section("When there are no reviews yet", {
         emptyTitle: text("Heading", "Reviews Are on Their Way", { max: 80 }),

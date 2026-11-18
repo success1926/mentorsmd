@@ -94,21 +94,13 @@ export default function StudentSignupPage() {
     <AuthShell>
       <div className="stack" style={{ gap: 14 }}>
         <div className="stack-sm">
-          <h1 className="page-title" style={{ fontSize: 40 }}>Create your account</h1>
+          <h1 className="page-title" style={{ fontSize: 40 }}>Create Your Account</h1>
           <span className="text-secondary">Free for students. Message any vetted mentor before you book.</span>
         </div>
 
-        <label className="field" style={{ marginBottom: 0 }}>
-          <span className="field-label">Date of birth</span>
-          <input className="input" type="date" autoComplete="bday" value={dob} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setDob(e.target.value)} />
-          <span className="field-help">You need to be at least 13. Students under 18 need a parent or guardian&apos;s consent.</span>
-        </label>
-        {tooYoung && <div role="alert" className="alert alert-danger">{UNDER_13_MESSAGE}</div>}
-        {minor && <ParentFields value={parent} onChange={setParent} />}
-        <AgreementCheckbox checked={agreed} onChange={setAgreed} />
-
-        <GoogleButton onClick={() => !loading && google()} label="Sign up with Google" />
-        <div className="or-line">or</div>
+        {/* Nov 2026 order: name, email and password first, then date of birth
+            and the agreement, then Create account. Google sign-up sits below
+            and uses the same date of birth and agreement. */}
         <form onSubmit={handleSubmit} className="stack" style={{ gap: 0 }}>
           <label className="field">
             <span className="field-label">Full name</span>
@@ -123,6 +115,14 @@ export default function StudentSignupPage() {
             <input className="input" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
             <span className="field-help">At least 8 characters.</span>
           </label>
+          <label className="field">
+            <span className="field-label">Date of birth</span>
+            <input className="input" type="date" autoComplete="bday" value={dob} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setDob(e.target.value)} />
+            <span className="field-help">You need to be at least 13. Students under 18 need a parent or guardian&apos;s consent.</span>
+          </label>
+          {tooYoung && <div role="alert" className="alert alert-danger" style={{ marginBottom: 14 }}>{UNDER_13_MESSAGE}</div>}
+          {minor && <div style={{ marginBottom: 14 }}><ParentFields value={parent} onChange={setParent} /></div>}
+          <div style={{ marginBottom: 14 }}><AgreementCheckbox checked={agreed} onChange={setAgreed} /></div>
           <Honeypot value={trap} onChange={setTrap} />
           {error && <div role="alert" className="alert alert-danger" style={{ marginBottom: 14 }}>{error}</div>}
           <button className="btn btn-primary btn-lg btn-block" disabled={loading || !name || !email || password.length < 8 || tooYoung}>
@@ -130,6 +130,9 @@ export default function StudentSignupPage() {
           </button>
           <RecaptchaNotice />
         </form>
+        <div className="or-line">or</div>
+        <GoogleButton onClick={() => !loading && google()} label="Sign up with Google" />
+        <span className="text-muted small" style={{ textAlign: "center" }}>Google sign-up uses the date of birth and agreement above.</span>
         {minor && (
           <span className="text-muted small">
             After you sign up we email your parent or guardian a link. You can browse mentors right away; messaging and booking open once they consent.

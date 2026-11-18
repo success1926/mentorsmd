@@ -50,8 +50,8 @@ export default async function ReviewsPage() {
           </div>
         )}
         <div className="row-wrap" style={{ justifyContent: "center", gap: 12 }}>
-          <Link href="/mentors" className="btn btn-primary">Find Your Mentor</Link>
-          <Link href="/how-it-works" className="btn">How It Works</Link>
+          <Link href="/mentors" className="btn btn-primary btn-lg">Find Your Mentor</Link>
+          <Link href="/how-it-works" className="btn btn-lg">How It Works</Link>
         </div>
       </div>
     ),

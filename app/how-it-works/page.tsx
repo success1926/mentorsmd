@@ -70,7 +70,8 @@ export default async function HowItWorksPage() {
             <h2 className="section-head">{c.protectTitle}</h2>
             {c.protectText && <p className="lede" style={{ maxWidth: 760, marginTop: 4 }}>{c.protectText}</p>}
           </div>
-          <div className="feature-grid">
+          {/* Two columns for 2 or 4 points, three otherwise, so no row is left half empty. */}
+          <div className={`feature-grid${c.protectItems.length % 3 !== 0 && c.protectItems.length % 2 === 0 ? " feature-grid-2" : ""}`}>
             {c.protectItems.map((p, i) => (
               <div key={i}>
                 <span className="icon-dot" style={{ width: 44, height: 44 }}><Icon d={PROTECT_ICONS[i % PROTECT_ICONS.length]} size={20} /></span>

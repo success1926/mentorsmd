@@ -40,7 +40,7 @@ export default async function SeniorTeamPage() {
       <div className="card card-tint stack" style={{ gap: 12, alignItems: "flex-start" }}>
         <h2 style={{ fontSize: 24 }}>{c.ctaTitle}</h2>
         {c.ctaText && <p className="text-secondary">{c.ctaText}</p>}
-        <Link href="/become-a-mentor#apply" className="btn btn-primary">{c.ctaButton}</Link>
+        <Link href="/become-a-mentor#apply" className="btn btn-primary btn-lg">{c.ctaButton}</Link>
       </div>
     ),
   };

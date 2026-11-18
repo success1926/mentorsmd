@@ -16,7 +16,7 @@ export default function SafetyPage() {
   return (
     <div className="page-narrow stack-lg">
       <div className="stack-sm">
-        <span className="eyebrow">Safety</span>
+        <span className="eyebrow">Trust &amp; Safety</span>
         <h1 className="page-title">Safety Tips</h1>
         <p className="lede">A few habits that keep your application, your money and your accounts safe.</p>
       </div>

@@ -135,7 +135,7 @@ export function GiftForm({ offer }: { offer: GiftOffer | null }) {
         {busy ? "Opening checkout…" : amountCents ? `Continue to payment: ${money(amountCents)}` : "Continue to payment"}
       </button>
       <span className="text-muted small">
-        Paid securely by card through Stripe. MentorsMD refunds are given as MentorsMD credit to your student, as for every package (<Link href="/terms" className="link">Terms</Link>).
+        Paid securely by card through Stripe. Refunds go to your student as MentorsMD credit (see the <Link href="/terms" className="link">Terms</Link>).
       </span>
       <RecaptchaNotice />
     </form>

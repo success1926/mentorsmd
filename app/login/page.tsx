@@ -78,7 +78,7 @@ function LoginForm() {
   return (
     <AuthShell title="Welcome Back" body="Pick up where you left off: messages, orders and calls are all in one place.">
       <div className="stack" style={{ gap: 14 }}>
-        <h1 className="page-title" style={{ fontSize: 40 }}>Log in</h1>
+        <h1 className="page-title" style={{ fontSize: 40 }}>Log In</h1>
         {reason === "idle" && (
           <div role="status" className="alert alert-warning">
             You were logged out due to inactivity. Log in to pick up where you left off.

@@ -165,12 +165,13 @@ export default async function HomePage() {
                   <div className="stack-sm" style={{ gap: 6 }}>
                     <div className="between" style={{ alignItems: "baseline" }}>
                       <b className="mentor-tile-name">{m.name}</b>
-                      <Rating avg={m.avgRating} count={m.reviewCount} />
+                      {/* No "New mentor" tag on the homepage: stars only once there are reviews. */}
+                      {m.reviewCount > 0 && <Rating avg={m.avgRating} count={m.reviewCount} />}
                     </div>
                     {credentialLine(m.credential, m.mentorStage) && <span style={{ lineHeight: 1.4 }}>{credentialLine(m.credential, m.mentorStage)}</span>}
                     {(m.medicalSchool || mentorRank(m.mentorStage)) && (
                       <span className="school-line text-secondary small">
-                        {m.medicalSchool && <SchoolLogo name={m.medicalSchool} logos={logos} size={24} title={false} />}
+                        {m.medicalSchool && <SchoolLogo name={m.medicalSchool} logos={logos} size={24} title={false} fallback={false} />}
                         <span>{[mentorRank(m.mentorStage) || mentorStageTag(m.mentorStage), m.medicalSchool].filter(Boolean).join(" · ")}</span>
                       </span>
                     )}

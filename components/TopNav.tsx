@@ -229,12 +229,17 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
             </Link>
           )}
 
-          {status !== "loading" && !session && (
+          {/* Logged out (or still checking): the buttons keep their place while
+              the sign-in check runs, so the bar doesn't jump when they appear. */}
+          {!session && (
             <>
-              <Link href="/login" className="btn hide-tablet" style={{ padding: "13px 22px", fontSize: 16 }}>Log In</Link>
-              <Link href="/signup" className="btn btn-primary hide-tablet" style={{ padding: "14px 26px", fontSize: 16 }}>
+              <Link href="/login" className="btn hide-tablet" aria-hidden={status === "loading" || undefined} tabIndex={status === "loading" ? -1 : undefined} style={{ padding: "13px 22px", fontSize: 16, visibility: status === "loading" ? "hidden" : undefined }}>Log In</Link>
+              <Link href="/signup" className="btn btn-primary hide-tablet" aria-hidden={status === "loading" || undefined} tabIndex={status === "loading" ? -1 : undefined} style={{ padding: "14px 26px", fontSize: 16, visibility: status === "loading" ? "hidden" : undefined }}>
                 Get Started
               </Link>
+              {status !== "loading" && pathname !== "/signup" && (
+                <Link href="/signup" className="btn btn-primary nav-cta-phone">Get Started</Link>
+              )}
             </>
           )}
 
@@ -262,7 +267,7 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
             </div>
           )}
 
-          <button className="nav-burger" aria-label="Open menu" aria-expanded={drawerOpen} onClick={() => setDrawerOpen(true)}>
+          <button className="nav-burger" aria-label={drawerOpen ? "Close menu" : "Open menu"} aria-expanded={drawerOpen} onClick={() => setDrawerOpen(true)}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
               <path d="M4 7h16M4 12h16M4 17h16" />
             </svg>

@@ -48,10 +48,8 @@ export default async function BecomeMentorPage() {
             ))}
           </ol>
         )}
-        <div className="row-wrap">
-          <a href="#apply" className="btn btn-primary btn-lg">{c.applyButton} <span className="cue-arrow" aria-hidden="true">↓</span></a>
-          {c.inviteNote && <span className="text-secondary">{c.inviteNote}</span>}
-        </div>
+        {/* One "Apply to Mentor" button (in the intro); the form follows right after this box. */}
+        {c.inviteNote && <span className="text-secondary">{c.inviteNote}</span>}
       </div>
     ),
     apply: (
