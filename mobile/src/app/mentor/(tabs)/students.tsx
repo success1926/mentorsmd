@@ -1,25 +1,82 @@
 import { useRouter } from "expo-router";
-import { Av, Bar, Card, Chip, Grow, RowV, Screen, SS, StatusChip, T, TT } from "../../../components/ui";
-import { useDemo } from "../../../lib/demo";
-import { initials } from "../../../lib/sample";
+import { useCallback, useState } from "react";
+import { Av, Bar, Card, Chip, Eyebrow, FChip, FChipRow, Grow, Loading, Note, RowV, Screen, Sec, SS, T, TT } from "../../../components/ui";
+import { ErrorBox, PackageChip, finishPhase, fmtDay, hoursSummary, initialsOf, isLowOnHours, shortHours, useReloadOnFocus } from "../../../components/mentorSheets";
+import { useApi } from "../../../lib/api";
 
+type Filter = "active" | "waiting" | "done";
+const FILTERS: [Filter, string][] = [["active", "Active"], ["waiting", "Waiting on student"], ["done", "Completed"]];
+
+function inFilter(p: any, f: Filter) {
+  const phase = finishPhase(p);
+  if (f === "waiting") return phase === "AWAITING_STUDENT";
+  if (f === "active") return phase === "WORKING" || phase === "AWAITING_STUDENT" || phase === "DISPUTED";
+  return phase === "APPROVED" || phase === "CLOSED";
+}
+
+// Students & packages: every hours package students bought from the mentor
+// (/api/packages), plus any open orders from before hourly pricing
+// (/api/orders, no kind), which still have due dates.
 export default function Students() {
   const router = useRouter();
-  const { s } = useDemo();
+  const pk = useApi<{ packages: any[] }>("/api/packages");
+  const orders = useApi<{ orders: any[] }>("/api/orders");
+  const [filter, setFilter] = useState<Filter>("active");
+  const reload = useCallback(() => { pk.reload(); orders.reload(); }, [pk.reload, orders.reload]); // eslint-disable-line react-hooks/exhaustive-deps
+  useReloadOnFocus(reload);
+
+  const list = pk.data?.packages || [];
+  const shown = list.filter((p) => inFilter(p, filter));
+  const older = (orders.data?.orders || []).filter((o) => !o.kind && ["IN_ESCROW", "COMPLETED"].includes(o.status));
+  const count = (f: Filter) => list.filter((p) => inFilter(p, f)).length;
+
   return (
     <Screen>
       <T>Students & Packages</T>
-      {Object.entries(s.mPk).map(([k, p]) => (
-        <Card key={k} onPress={() => router.push(`/mentor/package/${k}`)}>
-          <RowV>
-            <Av init={initials(p.student)} size={36} />
-            <Grow><RowV gap={6}><TT>{p.student}</TT>{p.minor ? <Chip label="Under 18" tone="gray" /> : null}</RowV><SS>{p.title}</SS></Grow>
-            <StatusChip status={p.status} />
-          </RowV>
-          <Bar pct={(p.used / p.hours) * 100} />
-          <SS>{p.hours - p.used} of {p.hours} hours left</SS>
-        </Card>
-      ))}
+      <Note>Every package students have bought from you, with the hours used and left.</Note>
+      {pk.loading && !pk.data ? <Loading /> : pk.error && !pk.data ? <ErrorBox error={pk.error} onRetry={reload} /> : (
+        <>
+          <FChipRow>{FILTERS.map(([k, l]) => <FChip key={k} label={`${l} ${count(k)}`} on={filter === k} onPress={() => setFilter(k)} />)}</FChipRow>
+          {!shown.length ? (
+            <Note>{filter === "active" ? "No active packages right now. When a student buys hours or a package from you, it shows up here." : filter === "waiting" ? "Nothing is waiting on a student." : "No completed packages yet."}</Note>
+          ) : shown.map((p) => {
+            const h = hoursSummary(p);
+            return (
+              <Card key={p.id} onPress={() => router.push(`/mentor/package/${p.id}`)}>
+                <RowV>
+                  <Av init={initialsOf(p.buyer?.name)} photo={p.buyer?.photoUrl} size={36} />
+                  <Grow>
+                    <RowV gap={6}><TT>{p.buyer?.name}</TT>{p.buyer?.minorStatus ? <Chip label="Under 18" tone="gray" /> : null}</RowV>
+                    <SS numberOfLines={1}>{p.title}</SS>
+                  </Grow>
+                  {isLowOnHours(p) ? <Chip label="Running low" tone="warn" /> : <PackageChip order={p} />}
+                </RowV>
+                <Bar pct={h.purchased ? ((h.used + h.reserved) / h.purchased) * 100 : 0} />
+                <SS>
+                  {shortHours(h.used)} used · {shortHours(h.left)} left of {shortHours(h.purchased)} · {h.callsHeld} call{h.callsHeld === 1 ? "" : "s"} held
+                  {p.newMessages > 0 ? ` · ${p.newMessages} new message${p.newMessages === 1 ? "" : "s"}` : ""}
+                </SS>
+              </Card>
+            );
+          })}
+          {older.length ? (
+            <Sec>
+              <Eyebrow>Orders from before hourly pricing</Eyebrow>
+              {older.map((o) => (
+                <Card key={o.id} onPress={() => router.push(`/mentor/package/${o.id}`)}>
+                  <RowV>
+                    <Av init={initialsOf(o.buyer?.name)} photo={o.buyer?.photoUrl} size={36} />
+                    <Grow><TT>{o.buyer?.name}</TT><SS numberOfLines={1}>{o.gig?.title}</SS></Grow>
+                    <PackageChip order={o} />
+                  </RowV>
+                  {o.dueDate ? <SS>Due {fmtDay(o.dueDate)}</SS> : null}
+                </Card>
+              ))}
+            </Sec>
+          ) : null}
+          {orders.error ? <ErrorBox error={orders.error} onRetry={orders.reload} /> : null}
+        </>
+      )}
     </Screen>
   );
 }
