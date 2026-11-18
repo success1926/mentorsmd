@@ -43,9 +43,10 @@ export function LegalBody({ body }: { body: string }) {
   );
 }
 
-export function LegalHeader({ title, version, publishedAt }: { title: string; version: number; publishedAt: Date | string | null }) {
+export function LegalHeader({ title, version, publishedAt, eyebrow = "Legal" }: { title: string; version: number; publishedAt: Date | string | null; eyebrow?: string }) {
   return (
     <div className="stack-sm" style={{ marginBottom: 24 }}>
+      <span className="eyebrow">{eyebrow}</span>
       <h1 className="page-title" style={{ textAlign: "left" }}>{title}</h1>
       {version > 0 && (
         <span className="text-muted">

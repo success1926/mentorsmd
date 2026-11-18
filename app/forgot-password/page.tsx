@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Honeypot, useRecaptcha } from "@/components/FormGuards";
+import { AuthShell } from "@/components/AuthShell";
+import { Honeypot, useRecaptcha, RecaptchaNotice } from "@/components/FormGuards";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -30,8 +31,9 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="page-narrow"><div className="card-narrow stack">
-      <h1 style={{ fontSize: 28, margin: "0 0 6px" }}>Reset your password</h1>
+    <AuthShell title="Locked Out?" body="It happens. We'll email you a link to choose a new password, and you'll be back to your messages, packages and calls.">
+      <div className="stack">
+      <h1 className="page-title" style={{ fontSize: 40, textAlign: "left" }}>Reset Your Password</h1>
       {sent ? (
         <>
           <p className="text-secondary" style={{ fontSize: 15, lineHeight: 1.6 }}>
@@ -48,19 +50,23 @@ export default function ForgotPasswordPage() {
             Enter the email you signed up with and we'll send you a reset link.
           </p>
           <form onSubmit={handleSubmit}>
-            <label htmlFor="email" className="sr-only">Email</label>
-            <input id="email" className="input" placeholder="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <label className="field">
+              <span className="field-label">Email</span>
+              <input id="email" className="input" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </label>
             <Honeypot value={trap} onChange={setTrap} />
             {error && <div role="alert" style={{ color: "var(--danger)", fontSize: 14, marginBottom: 12 }}>{error}</div>}
             <button className="btn btn-primary btn-lg btn-block" disabled={loading || !email}>
               {loading ? "Sending..." : "Send reset link"}
             </button>
+            <RecaptchaNotice />
           </form>
           <p className="text-secondary" style={{ textAlign: "center", marginTop: 16 }}>
             <Link href="/login" style={{ color: "var(--primary-deep)", fontWeight: 600 }}>Back to log in</Link>
           </p>
         </>
       )}
-    </div></div>
+      </div>
+    </AuthShell>
   );
 }

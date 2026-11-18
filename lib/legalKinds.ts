@@ -9,7 +9,7 @@ export const LEGAL_INFO: Record<LegalKind, { label: string; path: string; who: s
   PRIVACY: { label: "Privacy Policy", path: "/privacy", who: "Students and mentors" },
   COMMUNITY_GUIDELINES: { label: "Community Guidelines", path: "/community-guidelines", who: "Students and mentors" },
   MENTOR_AGREEMENT: { label: "Mentor Agreement", path: "/mentor-agreement", who: "Mentors" },
-  PARENTAL_CONSENT: { label: "Parental Consent form", path: "/parental-consent", who: "Parents of students aged 13-17" },
+  PARENTAL_CONSENT: { label: "Parental Consent Form", path: "/parental-consent", who: "Parents of students aged 13-17" },
 };
 
 export function isLegalKind(v: unknown): v is LegalKind {

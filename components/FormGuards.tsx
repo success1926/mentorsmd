@@ -62,4 +62,18 @@ export function Honeypot({ value, onChange }: { value: string; onChange: (v: str
   );
 }
 
+// Google lets us hide the floating reCAPTCHA badge (it covered form fields
+// on phones and the footer on desktop; hidden in globals.css) as long as
+// each protected form shows this line instead. Nothing shows without a key.
+export function RecaptchaNotice() {
+  if (!SITE_KEY) return null;
+  return (
+    <p className="recaptcha-notice">
+      Protected by reCAPTCHA. Google's{" "}
+      <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and{" "}
+      <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a> apply.
+    </p>
+  );
+}
+
 export { HONEYPOT_FIELD };

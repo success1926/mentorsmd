@@ -42,7 +42,7 @@ export const SENIOR_TEAM: TeamMember[] = [
     photo: "/images/team/stephen.jpg",
     photoPosition: "50% 0%",
     bio: [
-      "Stephen C. Frederico is a fourth-year medical student at the University of Pittsburgh School of Medicine, where he is applying into neurological surgery. He spent four years as a full voting member of his medical school’s admissions committee, interviewing and evaluating applicants for both traditional MD and combined BS/MD programs.",
+      "Stephen is a fourth-year medical student at the University of Pittsburgh School of Medicine, where he is applying into neurological surgery. He spent four years as a full voting member of his medical school’s admissions committee, interviewing and evaluating applicants for both traditional MD and combined BS/MD programs.",
       "He has advised applicants on application strategy, school selection, personal statements and secondary essays, and interview preparation, and he believes a strong application narrative is essential for success. He has also seen how volume-driven, formulaic advising can fail applicants, which is why he cares about individualized, transparent guidance grounded in real admissions committee insight.",
       "At MentorsMD, Stephen interviews every prospective mentor, looking for the same things an admissions committee would: real experience and outstanding results.",
       "Alongside advising, Stephen has an extensive background in academic medicine and translational neuro-oncology research, focused on brain tumor immunotherapy and treatment resistance, particularly in diffuse midline glioma. He has conducted research at multiple academic institutions, including Harvard Medical School, and has received competitive research funding from the American Society for Clinical Investigation (ASCI), the American Brain Tumor Association (ABTA) and the Henry L. Hillman Foundation. He is also a professional speaker with the Folds of Honor Foundation, supporting military families and educational access.",
@@ -66,6 +66,7 @@ export const SENIOR_TEAM: TeamMember[] = [
   {
     name: "Rachel Rozelle",
     title: "Director of Operations & Client Experience",
+    creds: "More than five years in higher education administration and admissions consulting",
     photo: "/images/team/rachel.jpg",
     photoPosition: "50% 15%",
     bio: [

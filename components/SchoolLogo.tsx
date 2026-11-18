@@ -13,7 +13,9 @@ function crestColor(name: string) {
   return CREST[h % CREST.length];
 }
 
-export function SchoolLogo({ name, logos, size = 32, title = true }: { name: string; logos?: LogoMap | null; size?: number; title?: boolean }) {
+// fallback={false}: show nothing (instead of the school's initials) when no
+// logo has been added yet, e.g. on the homepage cards.
+export function SchoolLogo({ name, logos, size = 32, title = true, fallback = true }: { name: string; logos?: LogoMap | null; size?: number; title?: boolean; fallback?: boolean }) {
   const logo = logoFor(logos, name);
   const style = { width: size, height: size, borderRadius: Math.round(size / 5) };
   if (logo) {
@@ -22,6 +24,7 @@ export function SchoolLogo({ name, logos, size = 32, title = true }: { name: str
       <img src={logo} alt={title ? name : ""} title={title ? name : undefined} className="school-logo" style={style} loading="lazy" />
     );
   }
+  if (!fallback) return null;
   return (
     <span
       className="school-logo school-logo-letters"
