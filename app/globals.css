@@ -1324,3 +1324,20 @@ body.has-compare { padding-bottom: 96px; }
   .gift-grid > aside { position: static; }
   .page-wide { padding: 32px 16px 64px; }
 }
+
+/* ---------- Page color wash ----------
+   The home hero's colors (white into lavender, with soft blue, pink and
+   purple glows) laid behind the top of every other page, so inner pages
+   aren't plain white. Fades back to white before the content runs long.
+   Pages that already have their own colored hero skip it. */
+.site-main { position: relative; isolation: isolate; }
+.site-main::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 640px; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(520px 260px at 8% 72%, rgba(228, 238, 255, 0.95), transparent 70%),
+    radial-gradient(560px 300px at 94% 52%, rgba(245, 185, 205, 0.38), transparent 70%),
+    radial-gradient(620px 220px at 45% 6%, rgba(207, 196, 255, 0.42), transparent 70%),
+    linear-gradient(180deg, #FFFFFF 0%, #F6F2FF 30%, #EFE9FF 62%, rgba(255, 255, 255, 0) 100%);
+}
+.site-main:has(.home-hero, .browse-hero, .pf-hero)::before { display: none; }
+@media (max-width: 720px) { .site-main::before { height: 520px; } }
