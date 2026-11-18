@@ -1329,7 +1329,8 @@ body.has-compare { padding-bottom: 96px; }
    The home hero's colors (white into lavender, with soft blue, pink and
    purple glows) laid behind the top of every other page, so inner pages
    aren't plain white. Fades back to white before the content runs long.
-   Pages that already have their own colored hero skip it. */
+   Pages that already have their own colored hero (home, browse, profiles)
+   skip it. */
 .site-main { position: relative; isolation: isolate; }
 .site-main::before {
   content: ""; position: absolute; left: 0; right: 0; top: 0; height: 640px; z-index: -1; pointer-events: none;
