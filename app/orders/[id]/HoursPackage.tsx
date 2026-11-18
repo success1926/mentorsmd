@@ -395,7 +395,7 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
           {(isBuyer || isSeller) && (
             <div className="card stack-sm">
               <b>Shared files</b>
-              <SharedFiles files={order.files} viewerId={viewer.id} />
+              <SharedFiles files={order.files} viewerId={viewer.id} workEntries={order.hourEntries} />
             </div>
           )}
 

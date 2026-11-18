@@ -426,7 +426,7 @@ export function MentorProfileEditor({
 
       <ProfileStep
         {...sectionProps("client-schools")}
-        help={`Medical schools (or programs) your students were accepted to, best first. They show as logos under "Successful clients at" on your card and profile. Only list acceptances you personally helped with. Up to ${CLIENT_SCHOOLS_MAX}.`}
+        help={`Medical schools (or programs) your students were accepted to, best first. They show as logos on your card and profile. Only list acceptances you personally helped with. Up to ${CLIENT_SCHOOLS_MAX}.`}
       >
         <div className="stack-sm">
           {s.clientSchools.map((name, i) => (

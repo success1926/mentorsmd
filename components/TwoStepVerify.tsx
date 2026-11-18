@@ -134,7 +134,7 @@ export function TwoStepVerify({ next }: { next: string }) {
           <h1 className="page-title" style={{ fontSize: 34 }}>2-step verification</h1>
           <p className="text-secondary">
             {info?.role === "ADMIN"
-              ? "Admin accounts need a second step at every login."
+              ? "Admin accounts need a second step when logging in, to keep students' details and payments safe."
               : info?.role === "SELLER"
                 ? "Mentor accounts need a second step when logging in, to keep your students and payouts safe."
                 : "You turned on 2-step verification, so we need a code to finish logging in."}
