@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Honeypot, useRecaptcha } from "@/components/FormGuards";
+import { Honeypot, useRecaptcha, RecaptchaNotice } from "@/components/FormGuards";
 import { CONTACT_LIMITS as L, CONTACT_TOPICS } from "@/lib/leadOptions";
 
 // The message form on /contact. Messages land in Admin -> Leads ->
@@ -82,6 +82,7 @@ export function ContactForm({ title, intro, success, defaultTopic = "STUDENT" }:
       <button className="btn btn-primary" disabled={busy} style={{ alignSelf: "flex-start" }}>
         {busy ? "Sending…" : "Send message"}
       </button>
+      <RecaptchaNotice />
     </form>
   );
 }

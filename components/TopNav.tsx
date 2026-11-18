@@ -40,7 +40,7 @@ type NavLink = { label: string; href: string };
 type MainLink = NavLink & { midHide?: boolean; reviews?: boolean };
 
 // The general pages, in order (as on AdmitMD: a row of real pages).
-// "Reviews" is always shown (Nov 2026); showReviews stays for flexibility.
+// "Reviews" shows only when showReviews is on (root layout: once the review wall has enough to show).
 const LOGGED_OUT_LINKS: MainLink[] = [
   { label: "Home", href: "/", midHide: true },
   { label: "Browse Mentors", href: "/mentors" },
@@ -178,7 +178,7 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
   const isHome = pathname === "/";
   const marketing = !session || role === "BUYER";
   // Quick links only on the pages where students are looking for a mentor.
-  const showQuick = scrolled && marketing && (isHome || pathname.startsWith("/mentors") || pathname === "/senior-team");
+  const showQuick = scrolled && marketing && (isHome || pathname.startsWith("/mentors"));
   const userId: string | undefined = (session?.user as any)?.id;
   const right = role ? RIGHT_LINKS[role] || [] : [];
   // Mentors: a simple bar (logo, View my public profile, account menu).

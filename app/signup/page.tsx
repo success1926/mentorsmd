@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AuthShell, GoogleButton } from "@/components/AuthShell";
 import { browserTimeZone } from "@/lib/tz";
-import { Honeypot, useRecaptcha } from "@/components/FormGuards";
+import { Honeypot, useRecaptcha, RecaptchaNotice } from "@/components/FormGuards";
 import { ADULT_AGE, MIN_AGE, UNDER_13_MESSAGE, ageOn, parseDob } from "@/lib/legalKinds";
 import { AgreementCheckbox, EMPTY_PARENT, ParentFields, parentComplete } from "@/components/SignupFields";
 
@@ -128,6 +128,7 @@ export default function StudentSignupPage() {
           <button className="btn btn-primary btn-lg btn-block" disabled={loading || !name || !email || password.length < 8 || tooYoung}>
             {loading ? "Creating account…" : "Create account"}
           </button>
+          <RecaptchaNotice />
         </form>
         {minor && (
           <span className="text-muted small">
@@ -141,7 +142,7 @@ export default function StudentSignupPage() {
           Already have an account? <Link href="/login" className="link">Log in</Link>
         </span>
         <span className="text-muted" style={{ textAlign: "center" }}>
-          Want to mentor? <Link href="/become-a-mentor" className="link">Mentoring is invite-only</Link>.
+          Want to mentor? <Link href="/become-a-mentor" className="link">Apply to mentor</Link>.
         </span>
       </div>
     </AuthShell>

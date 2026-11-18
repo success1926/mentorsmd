@@ -5,7 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AuthShell, GoogleButton } from "@/components/AuthShell";
-import { Honeypot, useRecaptcha } from "@/components/FormGuards";
+import { Honeypot, useRecaptcha, RecaptchaNotice } from "@/components/FormGuards";
 import { homeForRole, isPending2faRole, verifyPathFor } from "@/lib/sessionRules";
 
 // Only allow redirects back into this site.
@@ -114,6 +114,7 @@ function LoginForm() {
           <button className="btn btn-primary btn-lg btn-block" disabled={loading || !email || !password}>
             {loading ? "Logging in…" : "Log in"}
           </button>
+          <RecaptchaNotice />
         </form>
         <span className="text-secondary" style={{ textAlign: "center" }}>
           New here? <Link href="/signup" className="link">Create a free student account</Link>

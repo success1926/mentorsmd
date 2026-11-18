@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export const metadata = {
+export const metadata = { alternates: { canonical: "/delete-account" },
   title: "Delete Your Account",
   description: "How to delete your MentorsMD account, and what is deleted and what is kept.",
 };
@@ -9,12 +9,18 @@ export const metadata = {
 // every app for a web page like this; its address goes in the Play Console.
 // The deletion itself is in Settings and in the phone app
 // (components/DeleteAccount.tsx, lib/accountDeletion.ts).
+//
+// The "In the MentorsMD app" step shows only once the app is in the stores:
+// set NEXT_PUBLIC_APP_LIVE=1 in Vercel (Production) when it is, before
+// submitting to Google Play (their reviewers read this page).
+const APP_LIVE = process.env.NEXT_PUBLIC_APP_LIVE === "1";
+
 export default function DeleteAccountPage({ searchParams }: { searchParams: { deleted?: string } }) {
   const done = searchParams.deleted === "1";
   return (
     <div className="page-narrow stack-lg" style={{ gap: 24 }}>
       <div className="stack-sm">
-        <span className="eyebrow">MentorsMD</span>
+        <span className="eyebrow">Your Account</span>
         <h1 className="page-title" style={{ textAlign: "left" }}>Delete Your Account</h1>
       </div>
 
@@ -28,7 +34,7 @@ export default function DeleteAccountPage({ searchParams }: { searchParams: { de
         <h2 style={{ fontSize: 22 }}>How to delete it</h2>
         <ol className="text-secondary" style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 6 }}>
           <li><b>On the website:</b> log in, open Settings (students: <Link href="/account" className="link">Your account</Link>; mentors: <Link href="/dashboard/settings" className="link">Settings</Link>) and choose <b>Delete my account</b>.</li>
-          <li><b>In the MentorsMD app:</b> More → Settings → <b>Delete my account</b>.</li>
+          {APP_LIVE && <li><b>In the MentorsMD app:</b> More → Settings → <b>Delete my account</b>.</li>}
           <li><b>Can&apos;t log in?</b> Send us a request from the <Link href="/contact" className="link">contact page</Link> using the email on your account, and we&apos;ll delete it for you.</li>
         </ol>
         <span className="text-secondary">

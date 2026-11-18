@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Honeypot, useRecaptcha } from "@/components/FormGuards";
+import { Honeypot, useRecaptcha, RecaptchaNotice } from "@/components/FormGuards";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -55,6 +55,7 @@ export default function ForgotPasswordPage() {
             <button className="btn btn-primary btn-lg btn-block" disabled={loading || !email}>
               {loading ? "Sending..." : "Send reset link"}
             </button>
+            <RecaptchaNotice />
           </form>
           <p className="text-secondary" style={{ textAlign: "center", marginTop: 16 }}>
             <Link href="/login" style={{ color: "var(--primary-deep)", fontWeight: 600 }}>Back to log in</Link>

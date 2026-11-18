@@ -14,7 +14,7 @@ import {
   countWords,
   resumeExtension,
 } from "@/lib/applicationRules";
-import { useRecaptcha } from "@/components/FormGuards";
+import { useRecaptcha, RecaptchaNotice } from "@/components/FormGuards";
 import { MedicalSchoolPicker } from "@/components/MedicalSchoolPicker";
 
 // The public "Apply to mentor" form. The resume goes straight to private
@@ -182,6 +182,7 @@ export function MentorApplicationForm() {
       <button className="btn btn-primary btn-lg btn-block" disabled={!ready || busy}>
         {status === "uploading" ? "Uploading resume…" : status === "sending" ? "Sending…" : "Submit application"}
       </button>
+      <RecaptchaNotice />
     </form>
   );
 }

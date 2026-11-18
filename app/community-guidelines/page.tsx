@@ -3,7 +3,7 @@ import { LegalBody, LegalHeader } from "@/components/LegalBody";
 import Link from "next/link";
 import { MENTOR_AGREEMENT_POINTS } from "@/lib/agreement";
 
-export const metadata = { title: "Community Guidelines", description: "The rules every MentorsMD student and mentor follows, including that mentors never write essays for students." };
+export const metadata = { alternates: { canonical: "/community-guidelines" }, title: "Community Guidelines", description: "The rules every MentorsMD student and mentor follows, including that mentors never write essays for students." };
 
 const SECTIONS: { title: string; points: string[] }[] = [
   {
@@ -41,7 +41,7 @@ const SECTIONS: { title: string; points: string[] }[] = [
   {
     title: "Be reliable",
     points: [
-      "Mentors reply within 24 hours, deliver by the due date and show up to booked calls.",
+      "Mentors reply within 24 hours, deliver what their package describes in a reasonable time and show up to booked calls.",
       "Students give mentors what they need (drafts, deadlines, context) and show up to booked calls.",
     ],
   },

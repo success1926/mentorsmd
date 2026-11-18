@@ -7,7 +7,7 @@ import { paragraphs } from "@/lib/siteContent";
 import { getSiteContent } from "@/lib/siteContentStore";
 import { PageSections } from "@/components/website/PageSections";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = { alternates: { canonical: "/how-it-works" },
   title: "How It Works",
   description: "Find a vetted mentor, message them or book a free 15-minute intro call, then buy hours at their rate. Every hour is logged.",
 };

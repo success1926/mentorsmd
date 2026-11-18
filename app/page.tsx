@@ -20,6 +20,9 @@ import { PageSections } from "@/components/website/PageSections";
 import { SchoolMarquee } from "@/components/SchoolMarquee";
 import { credentialLine, mentorRank, mentorStageTag, money } from "@/lib/options";
 
+// The homepage keeps the site-wide title and description (app/layout.tsx).
+export const metadata = { alternates: { canonical: "/" } };
+
 export const dynamic = "force-dynamic"; // mentor cards and review counts read live data
 
 // Card colors follow each item's position (shown when a path card has no

@@ -7,7 +7,7 @@ import { logOut } from "@/components/TopNav";
 import Link from "next/link";
 import { AuthShell } from "@/components/AuthShell";
 import { browserTimeZone } from "@/lib/tz";
-import { Honeypot, useRecaptcha } from "@/components/FormGuards";
+import { Honeypot, useRecaptcha, RecaptchaNotice } from "@/components/FormGuards";
 import { MentorAgreement } from "@/components/MentorAgreement";
 import { MedicalSchoolPicker } from "@/components/MedicalSchoolPicker";
 import { UNDERGRAD_SCHOOL_MAX, ownSchoolLabel } from "@/lib/options";
@@ -161,6 +161,7 @@ function OnboardCoachForm() {
           <button className="btn btn-primary btn-lg btn-block" disabled={loading || !name || !credential || !(undergrad ? undergradSchool : medicalSchool).trim() || password.length < 8 || !agreed}>
             {loading ? "Setting up…" : "Create my profile"}
           </button>
+          <RecaptchaNotice />
         </form>
       </div>
     </AuthShell>

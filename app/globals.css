@@ -302,7 +302,6 @@ a.footer-social:hover { border-color: var(--tint-2); }
 .footer-social .bg-line { stroke: var(--tint); }
 a.footer-social:hover .bg-line { stroke: var(--tint-2); }
 a.footer-social:hover .bg { fill: var(--tint-2); }
-.footer-social.is-soon { opacity: 0.55; cursor: default; }
 .footer-col { display: flex; flex-direction: column; gap: 12px; font-size: 16px; }
 
 /* ---------- Homepage ---------- */
@@ -1091,3 +1090,9 @@ a.press-card:hover { border-color: var(--tint-2); box-shadow: var(--shadow-sm); 
 }
 .review-summary { display: inline-flex; align-items: center; gap: 16px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 14px 22px; box-shadow: var(--shadow-sm); }
 .review-summary-avg { font-family: var(--font-display); font-size: 48px; line-height: 1; color: var(--ink); }
+
+/* reCAPTCHA: the floating badge is hidden; each protected form shows
+   <RecaptchaNotice /> instead (Google's rule for hiding it). */
+.grecaptcha-badge { visibility: hidden !important; }
+.recaptcha-notice { margin: 0; font-size: 12px; line-height: 1.5; color: var(--faint); }
+.recaptcha-notice a { color: inherit; text-decoration: underline; }
