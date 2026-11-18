@@ -44,7 +44,17 @@ const ACTION_LABEL: Record<string, string> = {
   AUTO_PAUSE: "Paused automatically",
 };
 
-const roleWord = (r?: string) => (r === "SELLER" ? "mentor" : r === "BUYER" ? "student" : r === "ADMIN" ? "admin" : "");
+// Plain words for the order line on a flag (same wording as Orders & Payouts).
+const FLAG_ORDER_STATUS: Record<string, string> = {
+  PENDING_PAYMENT: "not paid yet",
+  IN_ESCROW: "active",
+  COMPLETED: "approved, waiting for payout",
+  RELEASED: "paid to mentor",
+  REFUNDED: "refunded as credit",
+  CANCELLED: "cancelled",
+};
+
+const roleWord =(r?: string) => (r === "SELLER" ? "mentor" : r === "BUYER" ? "student" : r === "ADMIN" ? "admin" : "");
 
 function sourceLine(f: any) {
   if (f.source === "USER") return f.reporter ? `Reported by ${f.reporter.name} (${roleWord(f.reporter.role)})` : "Reported";
@@ -195,7 +205,7 @@ function FlagCard({ flag: f, onDone }: { flag: any; onDone: () => void }) {
       )}
       {f.order && (
         <span className="small">
-          Order: <b>{f.order.gig.title}</b> · {money(f.order.amount)} · {f.order.status.toLowerCase().replace(/_/g, " ")}{f.order.disputed ? " · disputed" : ""} ·{" "}
+          Order: <b>{f.order.gig.title}</b> · {money(f.order.amount)} · {FLAG_ORDER_STATUS[f.order.status] || f.order.status.toLowerCase().replace(/_/g, " ")}{f.order.disputed ? " · disputed" : ""} ·{" "}
           <Link href={`/orders/${f.order.id}`} className="link">Open order</Link>
           {f.kind === "DISPUTE" && open && <> · refund or release it under <a href="#disputes" className="link">Disputes</a></>}
         </span>

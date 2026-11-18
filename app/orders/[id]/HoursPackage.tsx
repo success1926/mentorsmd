@@ -22,6 +22,7 @@ import { FORMATS, labelFor, money } from "@/lib/options";
 import { PLATFORM_FEE_PERCENT } from "@/lib/fee";
 import { RECORDING_NOTICE, joinState } from "@/lib/calls";
 import { PAYOUT_STATUS_LABEL, nextPayoutDay, payoutDayLabel, periodLabel } from "@/lib/payoutRules";
+import { useAdminDialog } from "@/components/admin/AdminDialog";
 
 const first = (n?: string | null) => (n || "").split(" ")[0];
 const ADMIN_PHASE: Record<string, string> = {
@@ -48,6 +49,7 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
   const title = order.packageTitle || order.gig?.title;
 
   const [flash, setFlash] = useState<"" | "paid" | "hours" | "topup-cancelled">("");
+  const { confirm, dialog } = useAdminDialog();
   const [booking, setBooking] = useState(false);
   const [adding, setAdding] = useState(false);
   const [addPreset, setAddPreset] = useState<number | undefined>(undefined);
@@ -115,7 +117,8 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
   const takenSlot = order.kind === "PAY_PER_CALL" && order.requestedCallStart && !(order.callBookings || []).some((b: any) => b.status === "BOOKED");
 
   async function markComplete() {
-    if (!confirm(`Mark ${title} complete? ${first(order.buyer?.name) || "The student"} then has 48 hours to approve it or ask for one last call or revision.`)) return;
+    const ok = await confirm({ title: `Mark ${title} complete?`, body: `${first(order.buyer?.name) || "The student"} then has 48 hours to approve it or ask for one last call or revision.`, confirmLabel: "Mark complete" });
+    if (!ok) return;
     setBusy(true);
     setError("");
     const r = await postJson(`/api/orders/${order.id}/finish`, { action: "MARK_COMPLETE" });
@@ -134,6 +137,7 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
 
   return (
     <div className="page">
+      {dialog}
       <Link href={isSeller ? "/dashboard" : isAdmin ? "/admin" : "/orders"} className="link small" style={{ display: "inline-block", marginBottom: 20 }}>
         ← {isSeller ? "Dashboard" : isAdmin ? "Admin" : "My packages"}
       </Link>
@@ -156,7 +160,7 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
         <div className="stack-lg" style={{ gap: 20 }}>
           {flash === "paid" && order.status === "IN_ESCROW" && (
             <div className="alert alert-success">
-              {order.creditAppliedCents > 0 && order.creditAppliedCents >= order.amount ? "Paid with your MentorsMD credit." : "Payment received."} Your hours are ready: book a call or send your mentor something to review.
+              {order.creditAppliedCents > 0 && order.creditAppliedCents >= order.amount ? "Paid with your MentorsMD credit." : "Payment received."} {order.kind === "PAY_PER_CALL" ? "Your call is booked: see it below and on your calendar." : "Your hours are ready: book a call or send your mentor something to review."}
             </div>
           )}
           {order.status === "PENDING_PAYMENT" && (

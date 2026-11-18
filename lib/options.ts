@@ -89,6 +89,18 @@ const RANKS: Record<string, string> = {
 };
 export const mentorRank = (stage: string | null | undefined) => (stage && RANKS[stage]) || "";
 
+// The one-line credential, unless it only repeats the stage the rank line
+// already spells out ("MS3" above "Medical Student – Year 3"). Anything
+// more ("MS3, MD-PhD", "PGY-2 IM") is still shown.
+export function credentialLine(credential: string | null | undefined, stage: string | null | undefined): string | null {
+  if (!credential) return null;
+  const c = credential.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (stage && c === stage.toLowerCase().replace(/[^a-z0-9]/g, "")) return null;
+  const rank = mentorRank(stage);
+  if (rank && c === rank.toLowerCase().replace(/[^a-z0-9]/g, "")) return null;
+  return credential;
+}
+
 // The school shown on a mentor's card and profile: their own school for
 // undergrads, gap years and others, otherwise their medical school.
 export function mentorSchoolName(m: { mentorStage?: string | null; medicalSchool?: string | null; undergradSchool?: string | null }) {

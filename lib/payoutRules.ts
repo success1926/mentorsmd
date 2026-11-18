@@ -165,11 +165,14 @@ export function nextPayoutDay(now: Date = new Date()) {
   return m === 12 ? `${periodOf(y + 1, 1)}-${PAYOUT_DAY}` : `${periodOf(y, m + 1)}-${PAYOUT_DAY}`;
 }
 
-// "October 2026" for "2026-10".
+// "October 24, 2026" for "2026-10": a payout is named by its payout day,
+// not just the month, so a late "Run payouts now" (say on Nov 18, which
+// catches up the Oct 24 payout and includes work up to that moment) isn't
+// read as "pay for October's work".
 export function periodLabel(period: string) {
   const [y, m] = period.split("-").map(Number);
   if (!y || !m) return period;
-  return new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+  return new Date(Date.UTC(y, m - 1, PAYOUT_DAY, 12)).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
 
 // "Oct 24" for "2026-10-24".

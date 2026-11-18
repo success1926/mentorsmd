@@ -90,7 +90,7 @@ export default function MyProfilePage() {
       <div className="between" style={{ flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
         <div className="stack-sm">
           <h1 className="page-title">My profile</h1>
-          <p className="lede">Ten short steps. Each one saves on its own.</p>
+          <p className="lede">Ten short steps, plus your hourly rate. Each one saves on its own.</p>
         </div>
         <PreviewProfileButton mentorId={profile.id} />
       </div>
