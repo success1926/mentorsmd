@@ -2,12 +2,12 @@ import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { useOverlay } from "../lib/demo";
-import { searchLive, SITE, useLoad } from "../lib/live";
+import { searchLive, useLoad } from "../lib/live";
 import { GROUPS, SERVICE_OPTIONS, emptyPicks, labelOf, matchMentor, optionHit, pickCount, rank, type GuidedKey, type MatchResult, type Picks } from "../lib/match";
-import { MENTORS, money, type Mentor } from "../lib/sample";
+import { money, type Mentor } from "../lib/sample";
 import { fonts, useColors } from "../lib/theme";
 import { CompareTick, GlowBand, PickChip, PickedPill, Tag, WhyLine } from "./brand";
-import { Av, Btn, Btns2, Card, Chip, Eyebrow, FChip, FChipRow, H, Half, Link, Loading, Note, RowV, Search, Seg, Small, SS, Stars, T } from "./ui";
+import { Av, Btn, Btns2, Card, Chip, Eyebrow, FChip, FChipRow, H, Half, Loading, Note, RowV, Search, Seg, Small, SS, Stars, T } from "./ui";
 
 // Live mentors seen in a list, so a profile can show their card while the full profile loads.
 export const liveCache = new Map<string, Mentor>();
@@ -15,24 +15,10 @@ export const liveCache = new Map<string, Mentor>();
 // Find a Mentor (Nov 2026, same as the website's Browse page): tell us who
 // you are, what you need and your budget, and mentors are ranked by how
 // much they match. Full matches first, then "Also worth a look" with what
-// they're missing. Tick up to three to compare. Students in the preview can
-// switch between the invented mentors and the real ones on mentorsmd.com;
-// visitors see the real ones.
-export function FindBody({ allowSample }: { allowSample: boolean }) {
-  const [source, setSource] = useState<"sample" | "live">(allowSample ? "sample" : "live");
-  return (
-    <>
-      {source === "sample" ? <SampleFind /> : <LiveFind />}
-      {allowSample ? <Seg options={[["sample", "Sample mentors"], ["live", "Live on mentorsmd.com"]]} value={source} onChange={setSource} /> : null}
-    </>
-  );
-}
-
-function SampleFind() {
-  const [q, setQ] = useState("");
-  const ql = q.trim().toLowerCase();
-  const list = ql ? MENTORS.filter((m) => (m.name + m.school + m.specialties.join(" ") + m.best.join(" ")).toLowerCase().includes(ql)) : MENTORS;
-  return <Guided mentors={list} q={q} setQ={setQ} onSubmit={() => {}} />;
+// they're missing. Tick up to three to compare. Always the real mentors on
+// mentorsmd.com.
+export function FindBody() {
+  return <LiveFind />;
 }
 
 function LiveFind() {
@@ -42,7 +28,6 @@ function LiveFind() {
   data?.mentors.forEach((m) => liveCache.set(m.id, m));
   return (
     <Guided
-      live
       mentors={data?.mentors || []}
       q={q}
       setQ={(v) => { setQ(v); if (!v) setQuery(""); }}
@@ -61,8 +46,8 @@ const QUICK: [GuidedKey, string, string][] = [
 ];
 const SORTS: [string, string][] = [["best", "Best match"], ["low", "Lowest price"], ["rated", "Top rated"]];
 
-function Guided({ mentors, q, setQ, onSubmit, live, loading, error, reload }: {
-  mentors: Mentor[]; q: string; setQ: (v: string) => void; onSubmit: () => void; live?: boolean; loading?: boolean; error?: string | null; reload?: () => void;
+function Guided({ mentors, q, setQ, onSubmit, loading, error, reload }: {
+  mentors: Mentor[]; q: string; setQ: (v: string) => void; onSubmit: () => void; loading?: boolean; error?: string | null; reload?: () => void;
 }) {
   const c = useColors();
   const router = useRouter();
@@ -117,8 +102,8 @@ function Guided({ mentors, q, setQ, onSubmit, live, loading, error, reload }: {
       </View>
       <Seg options={SORTS} value={sort} onChange={setSort} />
 
-      {loading ? <Loading label="Loading mentors from mentorsmd.com" /> : null}
-      {error ? <Card tone="warn"><Text style={{ fontFamily: fonts.bodySemi, color: c.ink }}>Couldn’t load mentors</Text><Note>{error}. Check your connection and try again.</Note>{reload ? <Btn kind="line" label="Try again" onPress={reload} /> : null}</Card> : null}
+      {loading ? <Loading label="Loading mentors" /> : null}
+      {error ? <Card tone="warn"><Text style={{ fontFamily: fonts.bodySemi, color: c.ink }}>Couldn’t load mentors</Text><Note>{error}</Note>{reload ? <Btn kind="line" label="Try again" onPress={reload} /> : null}</Card> : null}
       {!loading && !error && !mentors.length ? (
         <Card><Text style={{ fontFamily: fonts.bodySemi, color: c.ink }}>No mentors match that search.</Text><Note>Try a school, a topic like “MMI”, or clear the search.</Note><Btn kind="line" label="Clear search" onPress={() => setQ("")} /></Card>
       ) : null}
@@ -127,10 +112,6 @@ function Guided({ mentors, q, setQ, onSubmit, live, loading, error, reload }: {
       {partial.length ? <GroupLabel text="Also worth a look" /> : null}
       {partial.map((x) => <MatchCard key={x.m.id} m={x.m} r={x.r} picks={picks} />)}
       {hidden ? <GroupLabel text={`${hidden} ${hidden === 1 ? "mentor" : "mentors"} hidden · no match`} /> : null}
-
-      <View style={{ gap: 6 }}>
-        {live ? <Small>These are the real mentors, read live from {SITE.replace("https://", "")}.</Small> : null}
-      </View>
     </>
   );
 }

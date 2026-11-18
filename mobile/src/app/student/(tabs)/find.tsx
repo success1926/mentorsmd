@@ -6,7 +6,7 @@ export default function Find() {
   const footer = useCompareFooter();
   return (
     <Screen footer={footer}>
-      <FindBody allowSample />
+      <FindBody />
     </Screen>
   );
 }

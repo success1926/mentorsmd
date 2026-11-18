@@ -7,57 +7,112 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { CompareTick, HeroGlow, useCompareFooter } from "../../components/brand";
 import { liveCache } from "../../components/find";
 import { usePaySheet } from "../../components/shared";
-import { Btn, Card, Chip, Chips, Eyebrow, Hdr, Icon, Loading, Note, SchoolList, SchoolLogo, Screen, Small, SS, Stars, TT } from "../../components/ui";
-import { useDemo, useOverlay } from "../../lib/demo";
-import { liveProfile, SITE, useLoad, type LiveReview } from "../../lib/live";
+import { useSafetySheet } from "../../components/safety";
+import { Btn, Card, Chip, Chips, Eyebrow, Hdr, Icon, Link, Loading, Note, SchoolList, SchoolLogo, Screen, Small, SS, Stars, TT } from "../../components/ui";
+import { api, dollars, errorText, useApi } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
+import { useOverlay } from "../../lib/demo";
+import { liveProfile, SITE, useLoad, type LiveOffer, type LiveReview } from "../../lib/live";
 import { useCompare } from "../../lib/match";
-import { first, money, sampleMentor, type Mentor } from "../../lib/sample";
+import { fmtWhen } from "../../lib/orders";
+import { first, money, type Mentor } from "../../lib/sample";
 import { fonts, useColors } from "../../lib/theme";
 
 // A mentor's profile (Nov 2026, the website's sticky-sidebar profile as it
 // looks on a phone): the card with photo, school, who they're best for,
 // rate and the two main buttons on top, then section tabs that stay at the
-// top while you scroll, then the sections. Sample mentors come from the
-// preview data; real ones load from mentorsmd.com.
+// top while you scroll, then the sections. Loaded from mentorsmd.com.
+// Signed-in students message, book the free intro call and buy right here
+// (buying unlocks once the mentor replies or after the intro call, as on
+// the website); visitors are sent to sign in.
 export default function Profile() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const sample = sampleMentor(id);
-  if (sample) return <ProfileView m={sample} />;
   return <LiveProfile id={id} />;
 }
+
+type Loaded = Awaited<ReturnType<typeof liveProfile>>;
 
 function LiveProfile({ id }: { id: string }) {
   const { data, error, loading, reload } = useLoad(() => liveProfile(id), [id]);
   const card = liveCache.get(id);
-  if (data) return <ProfileView m={{ ...data.mentor, specialties: data.mentor.specialties.length ? data.mentor.specialties : card?.specialties || [], rating: card?.rating ?? data.mentor.rating }} liveReviews={data.reviews} />;
+  if (data)
+    return (
+      <ProfileView
+        m={{ ...data.mentor, specialties: data.mentor.specialties.length ? data.mentor.specialties : card?.specialties || [], rating: card?.rating ?? data.mentor.rating }}
+        liveReviews={data.reviews}
+        offers={data.offers}
+        seller={data.seller}
+      />
+    );
   return (
     <Screen>
       <Hdr title={card?.name || "Mentor"} sub={card?.stage} />
-      {loading ? <Loading label="Loading the profile from mentorsmd.com" /> : null}
+      {loading ? <Loading label="Loading the profile" /> : null}
       {error ? <Card tone="warn"><TT>Couldn’t load this profile</TT><Note>{error}</Note><Btn kind="line" label="Try again" onPress={reload} /></Card> : null}
     </Screen>
   );
 }
 
 type Sec = { id: string; label: string; body: ReactNode };
+type Unlock = { unlocked: boolean; messaged: boolean; conversationId: string | null; introCall: { id: string; startTime: string; status: string } | null; canBookIntro: boolean; introBlockedReason: string | null };
 
-function ProfileView({ m, liveReviews }: { m: Mentor; liveReviews?: LiveReview[] }) {
+function ProfileView({ m, liveReviews, offers, seller }: { m: Mentor; liveReviews: LiveReview[]; offers: Loaded["offers"]; seller: Loaded["seller"] }) {
   const c = useColors();
   const router = useRouter();
-  const { role } = useDemo();
+  const { user } = useAuth();
   const { toast } = useOverlay();
   const pay = usePaySheet();
+  const safety = useSafetySheet();
   const footer = useCompareFooter();
   const cmp = useCompare();
   const name1 = first(m.name);
   const onSite = () => WebBrowser.openBrowserAsync(`${SITE}/mentors/${m.id}`);
-  const asStudent = role === "student";
-  // Sample mentors work inside the preview for students; real mentors open
-  // their page on the website.
-  const message = () => (m.live ? onSite() : asStudent ? router.push(`/student/chat/${m.id}`) : toast("Sign in as a student to message mentors"));
-  const intro = () => (m.live ? WebBrowser.openBrowserAsync(`${SITE}/mentors/${m.id}?intro=1`) : asStudent ? router.push(`/student/book?m=${m.id}&kind=intro`) : toast("Sign in as a student to book a call"));
-  const buy = (what: string, price: number) => (m.live ? onSite() : asStudent ? pay(m, what, price) : toast("Sign in as a student to buy hours"));
-  const hours: [number, number][] = [[1, m.rate], ...m.bundles];
+  const isStudent = user?.role === "BUYER";
+  const isMe = !!user && user.id === m.id;
+  const unlock = useApi<Unlock>(isStudent ? `/api/mentors/${encodeURIComponent(m.id)}/unlock` : null);
+  const blocks = useApi<{ iBlocked: boolean; theyBlocked: boolean }>(isStudent ? `/api/blocks?userId=${encodeURIComponent(m.id)}` : null);
+  const [busy, setBusy] = useState(false);
+  const blockedNote = blocks.data?.iBlocked ? `You blocked ${name1}. Unblock them to book or buy.` : blocks.data?.theyBlocked ? `You can’t book with ${name1}.` : "";
+  const canTake = seller.listed && !seller.adultsOnlyForViewer;
+  const unlocked = !!unlock.data?.unlocked;
+  const notStudent = () => {
+    if (!user) {
+      toast("Sign in with a student account first");
+      router.push("/");
+    } else toast(isMe ? "This is how students see your profile" : "Only student accounts can message, book or buy");
+  };
+  const message = async () => {
+    if (!isStudent) return notStudent();
+    if (blockedNote) return toast(blockedNote);
+    setBusy(true);
+    try {
+      const r = await api<{ conversation: { id: string } }>("/api/conversations", { body: { sellerId: m.id } });
+      router.push(`/student/chat/${r.conversation.id}`);
+    } catch (e) {
+      toast(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const intro = () => {
+    if (!isStudent) return notStudent();
+    if (blockedNote) return toast(blockedNote);
+    const booked = unlock.data?.introCall;
+    if (booked && booked.status === "BOOKED") return router.push("/student/calendar");
+    if (unlock.data && !unlock.data.canBookIntro) return toast(unlock.data.introBlockedReason || `You’ve already had your intro call with ${name1}.`);
+    router.push(`/student/book?m=${encodeURIComponent(m.id)}&kind=intro&name=${encodeURIComponent(m.name)}`);
+  };
+  const buy = (o: LiveOffer, title: string) => {
+    if (!isStudent) return notStudent();
+    if (blockedNote) return toast(blockedNote);
+    if (!canTake) return toast(seller.adultsOnlyForViewer ? `${name1} works with students 18 and over.` : `${name1} isn’t taking new orders right now.`);
+    if (unlock.loading && !unlock.data) return;
+    if (!unlocked) return toast(`Buying unlocks once ${name1} replies to your message, or after your free intro call.`);
+    pay({ what: { type: "offer", gigId: o.id }, title, mentorName: m.name, priceCents: o.price });
+  };
+  const hourOffers = [...(offers.hourly ? [offers.hourly] : []), ...offers.bundles].sort((x, y) => x.minutes - y.minutes);
+  const hrs = (o: LiveOffer) => Math.round((o.minutes / 60) * 10) / 10;
+  const hoursTitle = (o: LiveOffer) => `${hrs(o)} hour${hrs(o) === 1 ? "" : "s"} with ${name1}`;
   const [picked, setPicked] = useState(0);
   useEffect(() => cmp.refresh(m), [m.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -162,40 +217,35 @@ function ProfileView({ m, liveReviews }: { m: Mentor; liveReviews?: LiveReview[]
       </>
     ) });
   }
-  if (m.pkgs.length) {
+  if (offers.packages.length) {
     secs.push({ id: "packages", label: "Packages", body: (
       <>
-        <SecTitle a={`Packages (${m.pkgs.length})`} />
-        {m.pkgs.map(([t, s, p]) => (
-          <Card key={t} onPress={() => buy(t, p)}>
+        <SecTitle a={`Packages (${offers.packages.length})`} />
+        {offers.packages.map((o) => (
+          <Card key={o.id}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 10 }}>
-              <TT style={{ flex: 1 }}>{t}</TT>
-              <Text style={{ fontFamily: fonts.displayRegular, fontSize: 22, color: c.ink }}>{money(p)}</Text>
+              <TT style={{ flex: 1 }}>{o.title}</TT>
+              <Text style={{ fontFamily: fonts.displayRegular, fontSize: 22, color: c.ink }}>{dollars(o.price)}</Text>
             </View>
-            <SS numberOfLines={3}>{s}</SS>
-            <Text style={{ fontFamily: fonts.bodySemi, fontSize: 14, color: c.link }}>Details →</Text>
+            <Small>About {hrs(o)} hour{hrs(o) === 1 ? "" : "s"}{o.rateCents ? ` · ${dollars(o.rateCents)}/hr` : ""}</Small>
+            {o.description ? <ReadMore text={o.description} /> : null}
+            {!isMe ? <Btn kind="line" sm label={isStudent && unlocked ? `Buy for ${dollars(o.price)}` : "Buy this package"} onPress={() => buy(o, o.title)} /> : null}
           </Card>
         ))}
+        <Small>The hours are an estimate: if it takes longer, you add hours at the same rate. Unused hours aren’t refunded if you finish early.</Small>
       </>
     ) });
   }
   secs.push({ id: "reviews", label: "Reviews", body: (
     <>
       <SecTitle a="Reviews" />
-      {liveReviews ? (
-        liveReviews.length ? liveReviews.slice(0, 5).map((r) => (
-          <Card key={r.id}><Stars>{"★".repeat(r.rating)}</Stars>{r.comment ? <Note ink>“{r.comment}”</Note> : null}<Small>{r.author} · {r.bought}</Small></Card>
-        )) : (
-          <View style={{ borderWidth: 1, borderStyle: "dashed", borderColor: c.avatar, borderRadius: 18, padding: 18, gap: 2 }}>
-            <Text style={{ fontFamily: fonts.displayRegular, fontSize: 21, color: c.ink }}>No reviews yet</Text>
-            <Note>{name1} is new to MentorsMD.</Note>
-          </View>
-        )
-      ) : (
-        <>
-          <Card><Stars>★★★★★</Stars><Note ink>“Clear, kind and fast. My statement finally sounded like me.”</Note><Small>Accepted to Emory · Oct 2026</Small></Card>
-          <Card><Stars>★★★★★</Stars><Note ink>“The mock MMI was harder than the real one. That was the point.”</Note><Small>Verified order · Sep 2026</Small></Card>
-        </>
+      {liveReviews.length ? liveReviews.slice(0, 5).map((r) => (
+        <Card key={r.id}><Stars>{"★".repeat(r.rating)}</Stars>{r.comment ? <Note ink>“{r.comment}”</Note> : null}<Small>{r.author} · {r.bought}</Small></Card>
+      )) : (
+        <View style={{ borderWidth: 1, borderStyle: "dashed", borderColor: c.avatar, borderRadius: 18, padding: 18, gap: 2 }}>
+          <Text style={{ fontFamily: fonts.displayRegular, fontSize: 21, color: c.ink }}>No reviews yet</Text>
+          <Note>{name1} is new to MentorsMD.</Note>
+        </View>
       )}
       {m.live ? <Btn kind="line" label="Open on mentorsmd.com" onPress={onSite} /> : null}
     </>
@@ -219,7 +269,7 @@ function ProfileView({ m, liveReviews }: { m: Mentor; liveReviews?: LiveReview[]
         <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16, gap: 14, overflow: "hidden" }}>
           <HeroGlow id={`pf${m.id}`} />
           <Hdr title={m.name} sub={m.stage} />
-          {role === "mentor" && !m.live ? <Card tone="tint"><Note>This is how students see your profile.</Note></Card> : null}
+          {isMe ? <Card tone="tint"><Note>This is how students see your profile.</Note></Card> : null}
           <View style={{ backgroundColor: c.surface, borderRadius: 24, overflow: "hidden", borderWidth: 1, borderColor: c.line }}>
             {m.photo ? (
               <Image source={{ uri: m.photo }} style={{ width: "100%", aspectRatio: 1.15, backgroundColor: c.avatar }} contentFit="cover" accessibilityLabel={m.name} />
@@ -249,27 +299,36 @@ function ProfileView({ m, liveReviews }: { m: Mentor; liveReviews?: LiveReview[]
               <View style={{ borderTopWidth: 1, borderColor: c.line, paddingTop: 12, gap: 10, marginTop: 2 }}>
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
                   <Text style={{ fontFamily: fonts.displayRegular, fontSize: 28, color: c.ink }}>{money(m.rate)}<Text style={{ fontFamily: fonts.body, fontSize: 14, color: c.muted }}>/hr</Text></Text>
-                  <Small>{hours.length > 1 ? "Save with bundles" : "Calls and written work"}</Small>
+                  <Small>{hourOffers.length > 1 ? "Save with bundles" : "Calls and written work"}</Small>
                 </View>
-                {hours.length > 1 ? (
+                {hourOffers.length > 1 ? (
                   <View style={{ flexDirection: "row", gap: 6 }} accessibilityRole="radiogroup">
-                    {hours.map(([h, p], i) => (
-                      <Pressable key={h} accessibilityRole="radio" accessibilityState={{ selected: picked === i }} onPress={() => setPicked(i)}
+                    {hourOffers.map((o, i) => (
+                      <Pressable key={o.id} accessibilityRole="radio" accessibilityState={{ selected: picked === i }} onPress={() => setPicked(i)}
                         style={{ flex: 1, borderWidth: 1.5, borderColor: picked === i ? c.primary : c.line, backgroundColor: picked === i ? c.tintSoft : c.surface, borderRadius: 12, paddingVertical: 8, alignItems: "center", gap: 1 }}>
-                        <Text style={{ fontFamily: fonts.bodySemi, fontSize: 13.5, color: c.ink }}>{h} hr{h === 1 ? "" : "s"}</Text>
-                        <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: c.ink }}>{money(p)}</Text>
-                        <Text style={{ fontFamily: fonts.body, fontSize: 11, color: c.muted }}>{money(p / h)}/hr</Text>
+                        <Text style={{ fontFamily: fonts.bodySemi, fontSize: 13.5, color: c.ink }}>{hrs(o)} hr{hrs(o) === 1 ? "" : "s"}</Text>
+                        <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: c.ink }}>{dollars(o.price)}</Text>
+                        <Text style={{ fontFamily: fonts.body, fontSize: 11, color: c.muted }}>{dollars(Math.round(o.price / hrs(o)))}/hr</Text>
                       </Pressable>
                     ))}
                   </View>
                 ) : null}
-                <Btn kind="line" label={`Buy ${hours[picked][0]} hour${hours[picked][0] === 1 ? "" : "s"} · ${money(hours[picked][1])}`} onPress={() => buy(`${hours[picked][0]} hour${hours[picked][0] === 1 ? "" : "s"}`, hours[picked][1])} />
+                {hourOffers.length && !isMe ? (
+                  <Btn kind="line" label={`Buy ${hrs(hourOffers[Math.min(picked, hourOffers.length - 1)])} hour${hrs(hourOffers[Math.min(picked, hourOffers.length - 1)]) === 1 ? "" : "s"} · ${dollars(hourOffers[Math.min(picked, hourOffers.length - 1)].price)}`}
+                    onPress={() => { const o = hourOffers[Math.min(picked, hourOffers.length - 1)]; buy(o, hoursTitle(o)); }} />
+                ) : null}
               </View>
 
-              <Btn kind="dark" icon="video" label="Book free 15-min intro call" onPress={intro} />
-              <Btn kind="line" label={`Message ${name1}`} onPress={message} />
+              {!isMe ? (
+                <>
+                  <Btn kind="dark" icon="video" label={unlock.data?.introCall?.status === "BOOKED" ? "Intro call booked · see calendar" : "Book free 15-min intro call"} disabled={!canTake && isStudent} onPress={intro} />
+                  <Btn kind="line" label={busy ? "Opening…" : `Message ${name1}`} disabled={busy || (isStudent && (!seller.available || seller.adultsOnlyForViewer))} onPress={message} />
+                </>
+              ) : null}
               <View style={{ alignItems: "center" }}><CompareTick m={m} label="Add to compare" /></View>
-              {m.live ? <Small style={{ textAlign: "center" }}>Booking and messaging open the website for now.</Small> : null}
+              {isStudent ? <UnlockNote unlock={unlock.data} first={name1} blockedNote={blockedNote} adultsOnly={seller.adultsOnlyForViewer} /> : null}
+              {!user ? <Small style={{ textAlign: "center" }}>Sign in with a student account to message, book or buy.</Small> : null}
+              {isStudent ? <Link label={`Report or block ${name1}`} style={{ alignSelf: "center" }} onPress={() => safety({ userId: m.id, name: m.name }, () => blocks.reload())} /> : null}
             </View>
             <View style={{ flexDirection: "row", gap: 10, padding: 14, backgroundColor: c.tintSoft, borderTopWidth: 1, borderColor: c.line }}>
               <Icon name="lock" size={16} color={c.primary} />
@@ -328,5 +387,22 @@ function ReadMore({ text }: { text: string }) {
       <Text numberOfLines={open || !long ? undefined : 6} style={{ fontFamily: fonts.body, fontSize: 15, lineHeight: 23, color: c.muted }}>{text}</Text>
       {long ? <Pressable accessibilityRole="button" onPress={() => setOpen((o) => !o)} hitSlop={8}><Text style={{ fontFamily: fonts.bodySemi, fontSize: 14, color: c.link }}>{open ? "Show less" : "Read more"}</Text></Pressable> : null}
     </View>
+  );
+}
+
+function UnlockNote({ unlock, first, blockedNote, adultsOnly }: { unlock: Unlock | null; first: string; blockedNote: string; adultsOnly: boolean }) {
+  if (blockedNote) return <Small style={{ textAlign: "center" }}>{blockedNote}</Small>;
+  if (adultsOnly) return <Small style={{ textAlign: "center" }}>{first} works with students 18 and over. Please choose another mentor.</Small>;
+  if (!unlock) return null;
+  if (unlock.unlocked) return <Small style={{ textAlign: "center" }}>Unlocked. You can buy hours and packages from {first}.</Small>;
+  const intro = unlock.introCall;
+  return (
+    <Small style={{ textAlign: "center" }}>
+      {intro && intro.status === "BOOKED"
+        ? `Intro call booked for ${fmtWhen(intro.startTime)}. Buying unlocks once it’s held, or when ${first} replies to a message.`
+        : unlock.messaged
+          ? `Waiting for ${first} to reply. Buying unlocks once they do, or after an intro call.`
+          : `Buying unlocks once ${first} replies to a message, or after your intro call.`}
+    </Small>
   );
 }

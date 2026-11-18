@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
+import { api, SITE } from "./api";
 import { initials, type Mentor } from "./sample";
 
-// The real mentors on mentorsmd.com, read from the public JSON routes the
-// website already has (app/api/mentors, app/api/mentors/[id]). Reading only:
-// nothing in the app writes to the live site.
-export const SITE = (process.env.EXPO_PUBLIC_SITE_URL || "https://www.mentorsmd.com").replace(/\/$/, "");
+// The real mentors on mentorsmd.com, read from the website's JSON routes
+// (app/api/mentors, app/api/mentors/[id]). Signed-in people send their
+// token, so a profile answers for them (e.g. mentors who only work with
+// students 18 and over); visitors read the same public data.
+export { SITE };
 
 const RANKS: Record<string, string> = {
   UNDERGRAD: "Undergraduate Student",
@@ -54,9 +56,11 @@ export type FilterGroup = { key: string; title: string; multi?: boolean; options
 export type LiveSearch = { mentors: Mentor[]; filters: FilterGroup[]; quickLinks: { label: string; qs: string }[] };
 
 async function getJson(path: string) {
-  const r = await fetch(SITE + path, { headers: { Accept: "application/json" } });
-  if (!r.ok) throw new Error(r.status === 404 ? "Not found" : `mentorsmd.com answered ${r.status}`);
-  return r.json();
+  try {
+    return await api<any>(path);
+  } catch (e: any) {
+    throw new Error(e?.status === 404 ? "This mentor isn’t on MentorsMD right now." : e?.message || "Couldn’t reach mentorsmd.com");
+  }
 }
 
 // The guided picks (best, service, price) are ranked in the app
@@ -69,12 +73,15 @@ export async function searchLive(params: Record<string, string | null>): Promise
 }
 
 type Offer = { id: string; kind: string; title: string; description: string | null; minutes: number | null; price: number; rateCents?: number; service?: string | null; hiddenFromStudents?: boolean };
+// An offer a student can buy (the website's PublicOffer): price in cents.
+export type LiveOffer = { id: string; kind: "HOURLY" | "BUNDLE" | "SPECIALIZED" | string; title: string; description: string | null; minutes: number; price: number; rateCents: number };
+export type LiveSeller = { available: boolean; listed: boolean; adultsOnlyForViewer: boolean };
 const STAGE: Record<string, string> = { SCHOOL_LIST: "School list", PERSONAL_STATEMENT: "Personal statement", ACTIVITIES: "Activities", SECONDARIES: "Secondaries", INTERVIEW_PREP: "Interview prep", WAITLIST_LETTERS: "Waitlist / update letters" };
 const SPEC: Record<string, string> = { SCHOOL_LIST: "School List & Strategy", PERSONAL_STATEMENT: "Personal Statement", ACTIVITIES: "Activities & Experiences", SECONDARIES: "Secondaries", INTERVIEW_PREP: "Interview Prep", WAITLIST_LETTERS: "Waitlist & Update Letters" };
 const SVC_SPEC: Record<string, string> = { PERSONAL_STATEMENT: "Personal Statement", SECONDARIES: "Secondaries", ACTIVITIES: "Activities & Experiences", MMI: "Interview Prep", TRADITIONAL_INTERVIEW: "Interview Prep", SCHOOL_LIST: "School List & Strategy", MCAT: "MCAT", REAPPLICANT: "Reapplicants" };
 export type LiveReview = { id: string; rating: number; comment: string | null; createdAt: string; author: string; bought: string };
 
-export async function liveProfile(id: string): Promise<{ mentor: Mentor; reviews: LiveReview[] }> {
+export async function liveProfile(id: string): Promise<{ mentor: Mentor; reviews: LiveReview[]; offers: { hourly: LiveOffer | null; bundles: LiveOffer[]; packages: LiveOffer[] }; seller: LiveSeller }> {
   const d = await getJson("/api/mentors/" + encodeURIComponent(id));
   const s = d.seller;
   const offers = d.offers || {};
@@ -106,7 +113,15 @@ export async function liveProfile(id: string): Promise<{ mentor: Mentor; reviews
   };
   const reviews: LiveReview[] = d.reviews || [];
   if (reviews.length) mentor.rating = reviews.reduce((a, r) => a + r.rating, 0) / reviews.length;
-  return { mentor, reviews };
+  const buyable = (o: Offer): LiveOffer | null =>
+    o && !o.hiddenFromStudents && o.price > 0 ? { id: o.id, kind: o.kind, title: o.title, description: o.description, minutes: o.minutes || 60, price: o.price, rateCents: o.rateCents || 0 } : null;
+  const list = (xs: Offer[] | undefined) => (xs || []).map(buyable).filter(Boolean) as LiveOffer[];
+  return {
+    mentor,
+    reviews,
+    offers: { hourly: offers.hourly ? buyable(offers.hourly) : null, bundles: list(offers.bundles), packages: list(offers.packages) },
+    seller: { available: s.available !== false, listed: s.listed !== false, adultsOnlyForViewer: !!s.adultsOnlyForViewer },
+  };
 }
 
 // Loads something once (and again on refresh), with loading and error states.

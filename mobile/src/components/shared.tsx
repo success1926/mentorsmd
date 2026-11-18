@@ -1,16 +1,18 @@
-import { useRouter } from "expo-router";
-import { Text, View } from "react-native";
-import { useDemo, useOverlay } from "../lib/demo";
-import { first, money, sampleMentor, type Mentor } from "../lib/sample";
+import { useFocusEffect, useRouter } from "expo-router";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import { initPaymentSheet, initStripe, presentPaymentSheet } from "@stripe/stripe-react-native";
+import { useOverlay } from "../lib/demo";
+import { money, type Mentor } from "../lib/sample";
 import { fonts, useColors } from "../lib/theme";
 import { Loading } from "./ui";
-import { Av, Bar, Btn, Card, Chip, Chips, Eyebrow, Field, Grow, H, Hdr, Link, Note, Price, Row, RowV, SchoolLogo, Sec, Small, SS, Stars, StatusChip, Toggle, TT } from "./ui";
-import { useState } from "react";
+import { Av, Bar, Btn, Card, Chip, Chips, DateBox, Eyebrow, Field, Grow, H, Hdr, Link, Note, Price, Row, RowV, SchoolLogo, Sec, Small, SS, Stars, TT } from "./ui";
+import { useCallback, useRef, useState } from "react";
 import Constants from "expo-constants";
 import * as WebBrowser from "expo-web-browser";
 import { api, dollars, errorText, SITE, useApi } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { initials } from "../lib/sample";
+import { callMinutes, canChangeOnline, dayNum, dow, fmtTime, fmtWhen, hoursSummary, JOIN_OPENS_MINUTES_BEFORE, joinState, packageStatus, pkgTitle, shortHours, splitCredit, type Pkg } from "../lib/orders";
 
 // A mentor in a list: photo, rank, school, specialties, "Successful clients at" logos, price and rating.
 export function MentorCard({ m }: { m: Mentor }) {
@@ -34,68 +36,269 @@ export function MentorCard({ m }: { m: Mentor }) {
       <View style={{ alignItems: "flex-end", gap: 4 }}>
         <Small>From</Small>
         <Price>{money(m.rate)}/hr</Price>
-        {m.rating != null ? <Stars>★ {m.rating.toFixed(1)}</Stars> : <Small>New</Small>}
+        {m.rating != null && m.reviews ? <Stars>★ {m.rating.toFixed(1)}</Stars> : <Small>New</Small>}
         {m.reviews ? <Small>{m.reviews} reviews</Small> : null}
       </View>
     </Card>
   );
 }
 
-// One of the student's packages, with hours used.
-export function PkgCard({ id }: { id: string }) {
-  const { s } = useDemo();
+// One of the student's packages (from /api/packages), with hours left.
+export function PkgCard({ p }: { p: Pkg }) {
   const router = useRouter();
-  const p = s.pk[id];
-  const m = sampleMentor(p.mentor)!;
+  const h = hoursSummary(p);
+  const st = packageStatus(p);
   return (
-    <Card onPress={() => router.push(`/student/package/${id}`)}>
+    <Card onPress={() => router.push(`/student/package/${p.id}`)}>
       <RowV>
-        <Av init={m.init} size={36} />
-        <Grow><TT>{p.title}</TT><SS>{m.name}</SS></Grow>
-        <StatusChip status={p.status} />
+        <Av init={initials(p.seller?.name || "")} photo={p.seller?.photoUrl} size={36} />
+        <Grow><TT numberOfLines={2}>{pkgTitle(p)}</TT><SS>{p.seller?.name}</SS></Grow>
+        <Chip label={st.label} tone={st.tone} />
       </RowV>
-      <Bar pct={(p.used / p.hours) * 100} />
-      <SS>{p.hours - p.used} of {p.hours} hours left · {p.calls} calls held</SS>
+      <Bar pct={h.purchased ? ((h.purchased - h.left) / h.purchased) * 100 : 0} />
+      <SS>
+        {shortHours(h.left)} left of {shortHours(h.purchased)} · {h.callsHeld} {h.callsHeld === 1 ? "call" : "calls"} held
+        {p.newMessages ? ` · ${p.newMessages} new message${p.newMessages === 1 ? "" : "s"}` : ""}
+      </SS>
     </Card>
   );
 }
 
-// ---------- sheets ----------
-// Paying for hours or a package: MentorsMD credit first, then Apple Pay or card.
+// ---------- paying ----------
+// What can be bought in the app (/api/app/checkout on the website).
+export type CheckoutWhat =
+  | { type: "offer"; gigId: string }
+  | { type: "call"; mentorId: string; start: string; minutes: 30 | 60 }
+  | { type: "hours"; orderId: string; hours: number };
+type CheckoutStart = {
+  paid: boolean; orderId: string; topUpId?: string;
+  clientSecret?: string; paymentIntentId?: string; chargeCents?: number; creditCents?: number; publishableKey?: string | null;
+};
+export type CheckoutResult = { status: "paid" | "pending" | "cancelled"; orderId: string };
+
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Pays through Stripe's payment sheet (card, Apple Pay, Google Pay), after
+// MentorsMD credit. Credit that covers everything needs no sheet. Closing
+// the sheet cancels the payment and gives any credit back.
+export async function runCheckout(what: CheckoutWhat): Promise<CheckoutResult> {
+  const r = await api<CheckoutStart>("/api/app/checkout", { body: what });
+  if (r.paid) return { status: "paid", orderId: r.orderId };
+  const target = r.topUpId ? { topUpId: r.topUpId } : { orderId: r.orderId };
+  const cancel = async () => {
+    try {
+      return (await api<{ status: string }>("/api/app/checkout/cancel", { body: target })).status;
+    } catch {
+      return "cancelled";
+    }
+  };
+  if (!r.clientSecret || !r.publishableKey) {
+    await cancel();
+    throw new Error("Card payments aren't available right now. Please try again later.");
+  }
+  await initStripe({ publishableKey: r.publishableKey, merchantIdentifier: "merchant.com.mentorsmd.app", urlScheme: "mentorsmd" });
+  const init = await initPaymentSheet({
+    paymentIntentClientSecret: r.clientSecret,
+    merchantDisplayName: "MentorsMD",
+    applePay: { merchantCountryCode: "US" },
+    googlePay: { merchantCountryCode: "US", currencyCode: "USD", testEnv: r.publishableKey.startsWith("pk_test") },
+    returnURL: "mentorsmd://stripe-redirect",
+    style: "automatic",
+  });
+  if (init.error) {
+    await cancel();
+    throw new Error(init.error.message || "Couldn't open the payment. Please try again.");
+  }
+  const res = await presentPaymentSheet();
+  if (res.error) {
+    // Closed without paying (or it failed): cancel it, unless it went through after all.
+    const s = await cancel();
+    if (s === "paid") return { status: "paid", orderId: r.orderId };
+    if (String(res.error.code) === "Canceled") return { status: "cancelled", orderId: r.orderId };
+    throw new Error(res.error.message || "The payment didn't go through. Nothing was charged.");
+  }
+  const done = await api<{ status: string }>("/api/app/checkout/confirm", { body: target }).catch(() => ({ status: "pending" }));
+  return { status: done.status === "paid" ? "paid" : "pending", orderId: r.orderId };
+}
+
+export type PayItem = {
+  what: CheckoutWhat;
+  title: string; // what's being bought, e.g. "3 hours with Jordan"
+  mentorName: string;
+  priceCents: number;
+  // After paying (or "still confirming"). Defaults to opening the package.
+  onPaid?: (r: CheckoutResult) => void;
+};
+
+// Paying for an offer, a single call or more hours: what it costs, the
+// MentorsMD credit applied first, then Stripe's payment sheet.
 export function usePaySheet() {
   const { openSheet } = useOverlay();
-  return (m: Mentor, what: string, price: number) => openSheet(() => <PaySheet m={m} what={what} price={price} />);
+  return (item: PayItem) => openSheet(() => <PaySheet item={item} />);
 }
-function PaySheet({ m, what, price }: { m: Mentor; what: string; price: number }) {
-  const { s, change } = useDemo();
-  const { closeSheet, faceId, toast } = useOverlay();
+function PaySheet({ item }: { item: PayItem }) {
+  const c = useColors();
+  const { closeSheet, toast } = useOverlay();
   const router = useRouter();
-  const credit = s.useCredit ? Math.min(s.credit, price) : 0;
-  const paid = () => {
-    closeSheet();
-    faceId(() => {
-      const key = "p" + (Object.keys(s.pk).length + 1);
-      const h = parseFloat(what) || Math.max(1, Math.round(price / m.rate));
-      change((n) => {
-        n.credit -= credit;
-        n.pk[key] = { id: key, mentor: m.id, title: isNaN(parseFloat(what)) ? what : `${m.specialties[0] || "Hours"} · ${what}`, hours: h, used: 0, calls: 0, status: "IN_ESCROW", log: [] };
-      });
-      router.push(`/student/package/${key}`);
-      toast(`Paid ${money(price - credit)}. Your hours are ready.`);
-    });
+  const credit = useApi<{ balanceCents: number }>("/api/me/credit");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const balance = credit.data?.balanceCents || 0;
+  const split = splitCredit(item.priceCents, balance);
+  const pay = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      // Stripe's sheet can't open over this one.
+      closeSheet();
+      if (split.chargeCents > 0) await wait(450);
+      const r = await runCheckout(item.what);
+      if (r.status === "cancelled") return toast("Payment cancelled. Nothing was charged.");
+      toast(r.status === "paid" ? (split.chargeCents ? "Payment received." : "Paid with your MentorsMD credit.") : "Confirming your payment with Stripe… it shows up in a few seconds.");
+      if (item.onPaid) item.onPaid(r);
+      else router.push(`/student/package/${r.orderId}`);
+    } catch (e) {
+      toast(errorText(e));
+    } finally {
+      setBusy(false);
+    }
   };
   return (
     <>
       <RowV style={{ justifyContent: "space-between" }}><H>Pay MentorsMD</H><Small>Secured by Stripe</Small></RowV>
       <Card>
-        <RowV style={{ justifyContent: "space-between" }}><Note ink style={{ flex: 1 }}>{what} · {m.name}</Note><Price>{money(price)}</Price></RowV>
-        {s.credit ? <Toggle tt="Use MentorsMD credit" ss={`${money(s.credit)} available`} value={s.useCredit} onChange={(v) => change((n) => { n.useCredit = v; })} last /> : null}
-        {credit ? <RowV style={{ justifyContent: "space-between" }}><SS>Credit</SS><TT>−{money(credit)}</TT></RowV> : null}
-        <RowV style={{ justifyContent: "space-between", borderTopWidth: 1, borderColor: useColors().line, paddingTop: 10 }}><TT style={{ fontSize: 16 }}>Total</TT><Price style={{ fontSize: 16 }}>{money(price - credit)}</Price></RowV>
+        <RowV style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+          <View style={{ flex: 1 }}><Note ink>{item.title}</Note><Small>with {item.mentorName}</Small></View>
+          <Price>{dollars(item.priceCents)}</Price>
+        </RowV>
+        {credit.loading && !credit.data ? <Small>Checking your MentorsMD credit…</Small> : null}
+        {split.creditCents ? <RowV style={{ justifyContent: "space-between" }}><SS>MentorsMD credit</SS><TT>−{dollars(split.creditCents)}</TT></RowV> : null}
+        <RowV style={{ justifyContent: "space-between", borderTopWidth: 1, borderColor: c.line, paddingTop: 10 }}>
+          <TT style={{ fontSize: 16 }}>{split.chargeCents ? "You pay" : "Nothing to pay by card"}</TT>
+          <Price style={{ fontSize: 16 }}>{dollars(split.chargeCents)}</Price>
+        </RowV>
       </Card>
-      <Btn kind="black" label=" Pay with Apple Pay" onPress={paid} />
-      <Btn kind="line" label="Pay with card •••• 4242" onPress={paid} />
-      <Small>You pay MentorsMD, not the mentor, and every hour used is logged on your package page. Preview only: nothing is charged.</Small>
+      {error ? <Small style={{ color: c.danger }}>{error}</Small> : null}
+      <Btn kind="dark" label={busy ? "Opening…" : split.chargeCents ? `Pay ${dollars(split.chargeCents)}` : "Pay with credit"} disabled={busy || (credit.loading && !credit.data)} onPress={pay} />
+      <Btn kind="line" label="Cancel" onPress={closeSheet} />
+      <Small>You pay MentorsMD, not the mentor. MentorsMD credit is used first. Unused hours aren’t refunded if you finish early; every hour used is logged on your package page.</Small>
+    </>
+  );
+}
+
+// ---------- picking a time ----------
+const dayKey = (iso: string) => new Date(iso).toDateString();
+// Open times grouped by day (in the phone's time zone): day chips, then times.
+export function SlotPicker({ slots, value, onChange }: { slots: string[]; value: string | null; onChange: (iso: string) => void }) {
+  const c = useColors();
+  const days = Array.from(new Set(slots.map(dayKey)));
+  const [day, setDay] = useState(days[0] || "");
+  const cur = days.includes(day) ? day : days[0];
+  const times = slots.filter((s) => dayKey(s) === cur);
+  const pick = (on: boolean) => ({ borderWidth: 1, borderColor: on ? c.primary : c.line, backgroundColor: on ? c.primary : c.surface });
+  if (!slots.length) return null;
+  return (
+    <>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20, flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}>
+        {days.map((d) => {
+          const dt = new Date(d);
+          const on = d === cur;
+          return (
+            <Pressable key={d} accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={dt.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })} onPress={() => setDay(d)}
+              style={[{ width: 56, borderRadius: 12, paddingVertical: 8, alignItems: "center" }, pick(on)]}>
+              <Text style={{ fontFamily: fonts.mono, fontSize: 10.5, color: on ? c.onPrimary : c.muted }}>{dt.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase()}</Text>
+              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 18, color: on ? c.onPrimary : c.ink }}>{dt.getDate()}</Text>
+              <Text style={{ fontFamily: fonts.body, fontSize: 10.5, color: on ? c.onPrimary : c.muted }}>{dt.toLocaleDateString("en-US", { month: "short" })}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        {times.map((t) => {
+          const on = value === t;
+          return (
+            <Pressable key={t} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => onChange(t)}
+              style={[{ width: "31.5%", borderRadius: 10, paddingVertical: 10, alignItems: "center" }, pick(on)]}>
+              <Text style={{ fontFamily: fonts.bodySemi, fontSize: 14, color: on ? c.onPrimary : c.ink }}>{new Date(t).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </>
+  );
+}
+
+// ---------- moving or cancelling a call ----------
+// A call from /api/me/calendar (or a package's calls).
+export type MoveCall = { id: string; startTime: string; endTime: string; orderId: string | null; kind?: string | null; withName?: string };
+
+// Move or cancel a booked call, for the student or the mentor. Package calls
+// move to another open time (inside 24 hours a reason is needed, and it's
+// sent as a message); free intro calls can only be cancelled.
+export function MoveSheet({ call, onChanged }: { call?: MoveCall; onChanged?: () => void } = {}) {
+  const c = useColors();
+  const { closeSheet, toast } = useOverlay();
+  const intro = call?.kind === "INTRO" || !call?.orderId;
+  const slots = useApi<{ slots: string[] }>(call && !intro ? `/api/orders/${call.orderId}/slots?exclude=${encodeURIComponent(call.id)}` : null);
+  const [pick, setPick] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!call) {
+    return (
+      <>
+        <H>Move This Call</H>
+        <Note>Open a call from your calendar to move or cancel it.</Note>
+        <Btn kind="line" label="Close" onPress={closeSheet} />
+      </>
+    );
+  }
+  const early = canChangeOnline(call);
+  const run = async (fn: () => Promise<unknown>, done: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await fn();
+      closeSheet();
+      onChanged?.();
+      toast(done);
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const move = () => {
+    if (!pick) return setError("Pick a new time.");
+    if (!early && reason.trim().length < 20) return setError("Please say why you need to move it (at least 20 characters).");
+    run(() => api(`/api/orders/${call.orderId}/calls`, { method: "PATCH", body: { bookingId: call.id, startTime: pick, reason: early ? undefined : reason.trim() } }), `Call moved to ${fmtWhen(pick)}. You both got an email.`);
+  };
+  const cancel = () =>
+    run(
+      () => (intro ? api(`/api/intro-calls/${encodeURIComponent(call.id)}`, { method: "DELETE" }) : api(`/api/orders/${call.orderId}/calls`, { method: "DELETE", body: { bookingId: call.id } })),
+      intro ? "Intro call cancelled. You can book a new time." : "Call cancelled. Its hours are back on the package."
+    );
+  return (
+    <>
+      <H>{intro ? "Your Intro Call" : "Move This Call"}</H>
+      <Note>{fmtWhen(call.startTime)}{call.withName ? ` · with ${call.withName}` : ""}</Note>
+      {intro ? (
+        early ? <Note>Intro calls can’t be moved. Cancel it and book a new time instead.</Note> : <Note>It’s less than 24 hours away, so it can’t be cancelled in the app. Message the other person, or contact us.</Note>
+      ) : (
+        <>
+          <Note>{early ? "It’s more than 24 hours away, so no reason is needed." : "It’s less than 24 hours away: say why you need to move it. Your reason is sent as a message."}</Note>
+          {slots.loading && !slots.data ? <Loading label="Loading open times" /> : slots.error ? (
+            <Card tone="warn"><Note>{slots.error}</Note><Btn kind="line" sm label="Try again" onPress={slots.reload} /></Card>
+          ) : slots.data && !slots.data.slots.length ? <Note>No open times right now. Message the other person to find one.</Note> : slots.data ? (
+            <SlotPicker slots={slots.data.slots} value={pick} onChange={setPick} />
+          ) : null}
+          {!early ? <Field label="Why do you need to move it?" value={reason} onChange={setReason} multiline /> : null}
+          <Btn kind="dark" label={busy ? "Saving…" : pick ? `Move to ${fmtWhen(pick)}` : "Pick a new time"} disabled={busy || !pick} onPress={move} />
+        </>
+      )}
+      {error ? <Small style={{ color: c.danger }}>{error}</Small> : null}
+      {early ? <Link red label={intro ? "Cancel the intro call" : "Cancel the call"} onPress={busy ? undefined : cancel} /> : !intro ? <Small>Calls can’t be cancelled in the app within 24 hours of the start.</Small> : null}
+      <Btn kind="line" label="Close" onPress={closeSheet} />
     </>
   );
 }
@@ -110,22 +313,6 @@ export function GuideSheet() {
       <Sec><Eyebrow>Example packages</Eyebrow><Note>“Personal Statement, Start to Finish” · about 5 hours · 2 calls + 3 rounds of edits</Note><Note>“MMI Mock Day” · 3 stations + written feedback · 2 hours</Note></Sec>
       <Sec><Eyebrow>Freelancing notes</Eyebrow><Note>You’re an independent mentor. Payouts come from MentorsMD through Stripe; keep records for taxes.</Note></Sec>
       <Btn kind="line" label="Close" onPress={closeSheet} />
-    </>
-  );
-}
-
-export function MoveSheet() {
-  const { closeSheet, toast } = useOverlay();
-  return (
-    <>
-      <H>Move This Call</H>
-      <Note>It’s more than 24 hours away, so no reason is needed. Inside 24 hours you’ll be asked for one, and it’s shared in your messages.</Note>
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        {["Fri 4:00 PM", "Fri 6:00 PM", "Sat 11:00 AM"].map((t) => (
-          <View key={t} style={{ flex: 1 }}><Btn kind="line" sm label={t} style={{ alignSelf: "stretch", paddingHorizontal: 4 }} onPress={() => { closeSheet(); toast(`Call moved to ${t}. Both of you got an email.`); }} /></View>
-        ))}
-      </View>
-      <Link red label="Cancel the call" onPress={() => { closeSheet(); toast("Call cancelled. Hours returned (example)"); }} />
     </>
   );
 }
@@ -247,4 +434,58 @@ export function SettingsScreenBody({ role }: { role: "student" | "mentor" }) {
       <SettingsBody role={role} />
     </>
   );
+}
+
+// A screen's "couldn't load" card with Try again.
+export function LoadError({ error, onRetry, title = "Couldn’t load this" }: { error: string; onRetry: () => void; title?: string }) {
+  return (
+    <Card tone="warn">
+      <TT>{title}</TT>
+      <Note>{error}</Note>
+      <Btn kind="line" sm label="Try again" onPress={onRetry} />
+    </Card>
+  );
+}
+
+// Reloads a screen's data each time it comes back into view, and every
+// `everyMs` while it's on screen (e.g. the unread count, an open chat).
+export function useRefresh(reload: () => void, everyMs?: number) {
+  const focused = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (focused.current) reload();
+      focused.current = true;
+      if (!everyMs) return;
+      const t = setInterval(reload, everyMs);
+      return () => clearInterval(t);
+    }, [reload, everyMs])
+  );
+}
+
+// A call from /api/me/calendar.
+export type CalCall = MoveCall & { title: string; withName: string; withId: string; withRole: string; withPhotoUrl?: string | null; disputed?: boolean };
+
+// An upcoming call: the date, who and what, and Join once the room is open
+// (10 minutes before the start until 30 minutes after the end).
+export function CallCard({ call, onMove }: { call: CalCall; onMove?: () => void }) {
+  const router = useRouter();
+  const open = joinState(call) === "open";
+  const mins = callMinutes(call);
+  const intro = call.kind === "INTRO";
+  return (
+    <Card row>
+      <DateBox dow={dow(call.startTime)} day={dayNum(call.startTime)} />
+      <Grow>
+        <TT numberOfLines={2}>{call.withName} · {intro ? "Free intro call" : call.title}</TT>
+        <SS>{fmtTime(call.startTime)} · {mins} min{open ? "" : ` · Join opens ${JOIN_OPENS_MINUTES_BEFORE} min before`}</SS>
+      </Grow>
+      {open ? <Btn kind="dark" sm label="Join" onPress={() => router.push(`/call/${call.id}`)} /> : onMove ? <Link label={intro ? "Change" : "Move"} onPress={onMove} /> : null}
+    </Card>
+  );
+}
+
+// One stable function that runs several reloads (for useRefresh).
+export function useCallbackAll(...fns: (() => void)[]) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useCallback(() => fns.forEach((f) => f()), fns);
 }

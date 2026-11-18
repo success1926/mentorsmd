@@ -1,28 +1,53 @@
-import { useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { View } from "react-native";
-import { MoveSheet } from "../../components/shared";
-import { Btn, Card, Chip, DateBox, Eyebrow, Grow, Hdr, Link, Row, Screen, Sec, SS, TT } from "../../components/ui";
+import { CallCard, LoadError, MoveSheet, useRefresh, type CalCall } from "../../components/shared";
+import { Card, Chip, Eyebrow, Grow, Hdr, Link, Loading, Note, Row, Screen, Sec, SS, TT } from "../../components/ui";
+import { SITE, useApi } from "../../lib/api";
 import { useOverlay } from "../../lib/demo";
+import { callMinutes, fmtDay, fmtTime } from "../../lib/orders";
 
+type Cal = { upcoming: CalCall[]; past: CalCall[]; feedConnected: boolean };
+
+// Calendar (/api/me/calendar): upcoming calls (Join when open, move or
+// cancel), and calls from the last 60 days.
 export default function Calendar() {
-  const router = useRouter();
-  const { toast, openSheet } = useOverlay();
+  const { openSheet } = useOverlay();
+  const q = useApi<Cal>("/api/me/calendar");
+  useRefresh(q.reload, 60_000);
+  const d = q.data;
   return (
     <Screen>
       <Hdr title="Calendar" />
-      <Sec>
-        <Eyebrow>Upcoming</Eyebrow>
-        <Card row><DateBox dow="TUE" day="17" /><Grow><TT>Ben Okafor · Interview prep</TT><SS>7:00 PM ET · 1 hour</SS></Grow><Btn kind="dark" sm label="Join" onPress={() => router.push("/call/ben")} /></Card>
-        <Card row><DateBox dow="THU" day="19" /><Grow><TT>James Whitfield · Free intro call</TT><SS>6:00 PM ET · 15 min</SS></Grow><Link label="Move" onPress={() => openSheet(MoveSheet)} /></Card>
-      </Sec>
-      <Sec>
-        <Eyebrow>Past calls</Eyebrow>
-        <View>
-          <Row tt="Jordan Ellis · Story and structure" ss="Nov 4 · 1 hour · recording kept 30 days" rr="Watch" onPress={() => toast("Plays the recording (example)")} />
-          <Row tt="Ben Okafor · MMI mock" ss="Nov 7 · 1.5 hours" rr="Watch" onPress={() => toast("Plays the recording (example)")} last />
-        </View>
-      </Sec>
-      <Card tone="tint" row><Grow><TT>Calendar sync</TT><SS>Your MentorsMD calls show in Apple Calendar</SS></Grow><Chip label="On" tone="ok" /></Card>
+      {q.loading && !d ? <Loading /> : null}
+      {q.error && !d ? <LoadError error={q.error} onRetry={q.reload} title="Couldn’t load your calendar" /> : null}
+      {d ? (
+        <>
+          <Sec>
+            <Eyebrow>Upcoming</Eyebrow>
+            {d.upcoming.length ? d.upcoming.map((x) => (
+              <CallCard key={x.id} call={x} onMove={x.disputed ? undefined : () => openSheet(() => <MoveSheet call={x} onChanged={q.reload} />)} />
+            )) : <Note>No calls booked. Book one from a package, or a free intro call from a mentor’s profile.</Note>}
+          </Sec>
+          <Sec>
+            <Eyebrow>Past calls</Eyebrow>
+            {d.past.length ? (
+              <View>
+                {d.past.map((x, i) => (
+                  <Row key={x.id} tt={`${x.withName} · ${x.kind === "INTRO" ? "Free intro call" : x.title}`} ss={`${fmtDay(x.startTime)} · ${fmtTime(x.startTime)} · ${callMinutes(x)} min`} chevron={false} last={i === d.past.length - 1} />
+                ))}
+              </View>
+            ) : <Note>No calls in the last 60 days.</Note>}
+          </Sec>
+          <Card tone="tint" row>
+            <Grow>
+              <TT>Calendar sync</TT>
+              <SS>{d.feedConnected ? "Your MentorsMD calls show in your own calendar." : "Add your MentorsMD calls to Apple or Google Calendar."}</SS>
+              {!d.feedConnected ? <Link label="Set it up on mentorsmd.com" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/account`)} /> : null}
+            </Grow>
+            {d.feedConnected ? <Chip label="On" tone="ok" /> : null}
+          </Card>
+        </>
+      ) : null}
     </Screen>
   );
 }

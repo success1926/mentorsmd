@@ -1,33 +1,59 @@
 import { useRouter } from "expo-router";
 import { View } from "react-native";
-import { Av, Row, Screen, Small, SS, T } from "../../../components/ui";
-import { useDemo } from "../../../lib/demo";
-import { sampleMentor } from "../../../lib/sample";
+import { LoadError, useRefresh } from "../../../components/shared";
+import { Av, Btn, Card, Loading, Note, Row, Screen, Small, SS, T, TT } from "../../../components/ui";
+import { useApi } from "../../../lib/api";
+import { useAuth } from "../../../lib/auth";
+import { ago, fmtWhen, initials, shortHours } from "../../../lib/orders";
 import { useColors } from "../../../lib/theme";
 
-const WHEN: Record<string, [string, boolean]> = { leah: ["2h", true], ben: ["Yesterday", false], sofia: ["Oct 2", false] };
+type Convo = {
+  id: string;
+  buyerUnread: number;
+  createdAt: string;
+  seller: { id: string; name: string; photoUrl: string | null; credential: string | null };
+  messages: { body: string; senderId: string; attachmentName: string | null; createdAt: string }[];
+  context: { package: { id: string; title: string; minutesLeft: number } | null; introCallAt: string | null };
+};
 
+// Messages (/api/conversations): one conversation per mentor, newest first.
+// Checked again every 15 seconds while this tab is open.
 export default function Messages() {
   const router = useRouter();
   const c = useColors();
-  const { s } = useDemo();
-  const ids = Object.keys(s.threads).filter((k) => s.threads[k].length);
+  const { user } = useAuth();
+  const list = useApi<{ conversations: Convo[] }>("/api/conversations");
+  useRefresh(list.reload, 15_000);
+  const rows = list.data?.conversations || [];
   return (
     <Screen>
       <T>Messages</T>
-      <View>
-        {ids.map((id, i) => {
-          const m = sampleMentor(id)!;
-          const t = s.threads[id];
-          const last = t[t.length - 1];
-          const [when, unread] = WHEN[id] || ["Now", false];
-          return (
-            <Row key={id} left={<Av init={m.init} size={36} />} tt={m.name} ss={<SS numberOfLines={1}>{last[0] === "me" ? "You: " : ""}{last[1]}</SS>}
-              rr={<View style={{ alignItems: "flex-end", gap: 4 }}><SS>{when}</SS>{unread ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.primary }} /> : null}</View>}
-              chevron={false} last={i === ids.length - 1} onPress={() => router.push(`/student/chat/${id}`)} />
-          );
-        })}
-      </View>
+      {list.loading && !list.data ? <Loading /> : null}
+      {list.error && !list.data ? <LoadError error={list.error} onRetry={list.reload} title="Couldn’t load your messages" /> : null}
+      {list.data && !rows.length ? (
+        <Card>
+          <TT>No messages yet</TT>
+          <Note>Messaging is free. Ask a mentor anything before you buy.</Note>
+          <Btn kind="line" sm label="Find a mentor" onPress={() => router.push("/student/find")} />
+        </Card>
+      ) : null}
+      {rows.length ? (
+        <View>
+          {rows.map((cv, i) => {
+            const last = cv.messages[0];
+            const unread = cv.buyerUnread > 0;
+            const preview = last ? `${last.senderId === user?.id ? "You: " : ""}${last.body || (last.attachmentName ? `File: ${last.attachmentName}` : "")}` : "No messages yet";
+            const ctx = cv.context.package ? `${cv.context.package.title} · ${shortHours(cv.context.package.minutesLeft)} left` : cv.context.introCallAt ? `Intro call ${fmtWhen(cv.context.introCallAt)}` : "";
+            return (
+              <Row key={cv.id} left={<Av init={initials(cv.seller.name)} photo={cv.seller.photoUrl} size={40} />}
+                tt={<TT numberOfLines={1}>{cv.seller.name}</TT>}
+                ss={<View style={{ gap: 1 }}><SS numberOfLines={1} style={unread ? { color: c.ink } : undefined}>{preview}</SS>{ctx ? <Small>{ctx}</Small> : null}</View>}
+                rr={<View style={{ alignItems: "flex-end", gap: 4 }}><SS>{ago(last?.createdAt || cv.createdAt)}</SS>{unread ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.primary }} /> : null}</View>}
+                chevron={false} last={i === rows.length - 1} onPress={() => router.push(`/student/chat/${cv.id}`)} />
+            );
+          })}
+        </View>
+      ) : null}
       <Small>Keep payments and contact details on MentorsMD. Messages are checked for safety.</Small>
     </Screen>
   );

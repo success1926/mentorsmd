@@ -7,8 +7,8 @@ export default function Browse() {
   const footer = useCompareFooter();
   return (
     <Screen footer={footer}>
-      <Hdr title="Browse mentors" sub="Live from mentorsmd.com" />
-      <FindBody allowSample={false} />
+      <Hdr title="Browse Mentors" />
+      <FindBody />
     </Screen>
   );
 }

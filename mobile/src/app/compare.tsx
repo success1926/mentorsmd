@@ -18,7 +18,7 @@ export default function Compare() {
   if (ms.length < 2) {
     return (
       <Screen>
-        <Hdr title="Compare mentors" />
+        <Hdr title="Compare Mentors" />
         <Card tone="tint"><Note ink>Tick “Compare” on two or three mentors in Find a Mentor to see them side by side.</Note><Btn kind="line" label="Back to Find a Mentor" onPress={() => router.back()} /></Card>
       </Screen>
     );
@@ -41,7 +41,7 @@ export default function Compare() {
   const no = <Text style={{ fontFamily: fonts.body, fontSize: 16, color: c.faint }}>—</Text>;
   return (
     <Screen>
-      <Hdr title="Compare mentors" sub={`${ms.length} side by side`} />
+      <Hdr title="Compare Mentors" sub={`${ms.length} side by side`} />
       <View style={{ marginHorizontal: -20, paddingHorizontal: 20, paddingVertical: 16, overflow: "hidden", flexDirection: "row", gap: 10 }}>
         <HeroGlow id="cmp" />
         {ms.map((m) => (
