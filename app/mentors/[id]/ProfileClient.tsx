@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { CompareToggle, CompareTray, compareSnapshot, useCompare } from "@/components/Compare";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -198,8 +199,42 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
   // "Buy hours": 1 hour, then each bundle.
   const hourOptions = [...(offers.hourly ? [offers.hourly] : []), ...offers.bundles];
 
-  // The two main actions, used in the side box and on phones under the
-  // header.
+  // Compare (Nov 2026): this mentor as the compare tray shows them.
+  const bookable = allOffers.filter((o) => !o.hiddenFromStudents);
+  const compareMe = compareSnapshot({
+    id: seller.id,
+    name: seller.name,
+    photoUrl: seller.photoUrl,
+    mentorStage: seller.mentorStage,
+    school,
+    hourlyRateCents: offers.hourly?.rateCents ?? seller.hourlyRateCents ?? null,
+    fromRateCents: bookable.length ? Math.min(...bookable.map((o) => o.rateCents)) : null,
+    packageCount: offers.packages.filter((p) => !p.hiddenFromStudents).length,
+    bestFor: seller.bestFor || [],
+    strongestStages: seller.strongestStages || [],
+    packageServices: offers.packages.map((p) => p.service).filter((s): s is string => !!s),
+    offerPrices: bookable.map((o) => o.price),
+    roleTypes: roles.map((r) => r.type),
+    knownFor: (seller.knownFor || [])[0] || null,
+    languages: (seller.languages || []).map((l: Language) => l.name),
+    avgRating: avg,
+    reviewCount: reviews.length,
+  });
+  const compare = useCompare();
+  useEffect(() => {
+    if (!preview) compare.refresh(compareMe);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seller.id]);
+
+  // "Free intro call" on Browse and in the compare tray link to ?intro=1.
+  useEffect(() => {
+    if (searchParams?.get("intro") !== "1" || status === "loading") return;
+    if (isBuyer && !preview) setDialog({ t: "intro" });
+    else if (!session) router.replace(loginHref);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
+  // The two main actions, used in the side box.
   const actions = (stack = true) =>
     preview ? (
       <div className={stack ? "stack-sm" : "row-wrap"}>
@@ -230,254 +265,303 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
       <span className="text-muted">{isSelf ? "This is how students see your profile." : "Only student accounts can book or message mentors."}</span>
     );
 
+  // Sections, in page order, for the menu at the top of the right column.
+  const highlights: string[] = seller.highlights || [];
+  const knownFor: string[] = seller.knownFor || [];
+  const languages: Language[] = seller.languages || [];
+  const sections: { id: string; label: string }[] = [
+    ...(seller.bio || facts.length || clientSchools.length ? [{ id: "about", label: "About" }] : []),
+    ...(knownFor.length ? [{ id: "known", label: "Known for" }] : []),
+    ...(specialties.length || bestFor.length ? [{ id: "specialties", label: "Specialties" }] : []),
+    ...(roles.length || (seller.strongestStages || []).length || typeof seller.yearsAdvising === "number" || typeof seller.applicantsSupported === "number" ? [{ id: "experience", label: "Experience" }] : []),
+    ...(highlights.length ? [{ id: "credentials", label: "Credentials" }] : []),
+    ...(seller.specialtyInterest || seller.researchSummary ? [{ id: "research", label: "Research" }] : []),
+    ...(languages.length || seller.funFact ? [{ id: "more", label: languages.length && seller.funFact ? "Languages & fun fact" : languages.length ? "Languages" : "Fun fact" }] : []),
+    ...(offers.packages.length ? [{ id: "packages", label: "Packages" }] : []),
+    { id: "reviews", label: "Reviews" },
+  ];
+
   return (
-    <div className="page">
-      {preview && previewState && (
-        <div className="preview-banner" role="note">
-          <b>Preview</b>
-          <span>— this is how students see your profile.</span>
-          <span className={`badge ${previewState === "LIVE" ? "badge-success" : "badge-warning"}`}>{PREVIEW_STATE_TEXT[previewState]}</span>
-          <span aria-hidden="true">·</span>
-          <Link href="/dashboard/profile" className="link">Back to editing</Link>
+    <div className="pf">
+      <section className="pf-hero">
+        <div className="blob" style={{ left: -120, top: 10, width: 520, height: 260, background: "rgba(228,238,255,0.9)", filter: "blur(50px)" }} />
+        <div className="blob" style={{ right: -80, top: -60, width: 560, height: 300, background: "rgba(245,185,205,0.45)", filter: "blur(60px)" }} />
+        <div className="blob" style={{ left: "35%", top: -80, width: 520, height: 200, background: "rgba(207,196,255,0.45)", filter: "blur(60px)" }} />
+        <div className="pf-wrap stack" style={{ gap: 16 }}>
+          {preview && previewState ? (
+            <div className="preview-banner" role="note">
+              <b>Preview</b>
+              <span>— this is how students see your profile.</span>
+              <span className={`badge ${previewState === "LIVE" ? "badge-success" : "badge-warning"}`}>{PREVIEW_STATE_TEXT[previewState]}</span>
+              <span aria-hidden="true">·</span>
+              <Link href="/dashboard/profile" className="link">Back to editing</Link>
+            </div>
+          ) : (
+            <nav aria-label="Breadcrumb" className="pf-crumb">
+              <Link href="/mentors" className="link">← All mentors</Link>
+              <span aria-hidden="true">/</span>
+              <span>{seller.name}</span>
+            </nav>
+          )}
+          {searchParams?.get("checkout") === "cancelled" && (
+            <div className="alert">Checkout cancelled. Nothing was charged, and any MentorsMD credit is back in your balance.</div>
+          )}
+          {preview && previewState === "INCOMPLETE" && (
+            <div className="alert alert-warning">
+              <b>Your profile isn&apos;t listed yet.</b> Students can&apos;t find or buy from you until every step is filled in. <Link href="/dashboard/profile" className="link">Finish your profile</Link>
+            </div>
+          )}
         </div>
-      )}
-      {!preview && (
-        <Link href="/mentors" className="link small" style={{ display: "inline-block", marginBottom: 24 }}>
-          ← All mentors
-        </Link>
-      )}
+      </section>
 
-      {searchParams?.get("checkout") === "cancelled" && (
-        <div className="alert" style={{ marginBottom: 24 }}>Checkout cancelled. Nothing was charged, and any MentorsMD credit is back in your balance.</div>
-      )}
-
-      {preview && previewState === "INCOMPLETE" && (
-        <div className="alert alert-warning" style={{ marginBottom: 24 }}>
-          <b>Your profile isn&apos;t listed yet.</b> Students can&apos;t find or buy from you until every step is filled in. <Link href="/dashboard/profile" className="link">Finish your profile</Link>
-        </div>
-      )}
-
-      <div className="profile-grid">
-        <div className="stack-lg" style={{ gap: 40, minWidth: 0 }}>
-          {/* ---------- About (Leland-style, Nov 2026) ----------
-              Everything on the page itself, in labelled sections: no
-              scrolling box and no "Read full bio" button. */}
-          <section className="stack" style={{ gap: 22 }}>
-            <div className="row" style={{ gap: 24, alignItems: "flex-start", flexWrap: "wrap" }}>
-              {seller.photoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={seller.photoUrl} alt={seller.name} className="avatar profile-photo" style={{ objectFit: "cover" }} />
-              ) : (
-                <span className="avatar profile-photo" style={{ background: tintFor(seller.id) }}>{initialsOf(seller.name)}</span>
-              )}
-              <div className="stack grow" style={{ gap: 10, minWidth: 220 }}>
-                <h1 className="page-title" style={{ fontSize: "clamp(34px, 4vw, 48px)" }}>{seller.name}</h1>
-                {credentialLine(seller.credential, seller.mentorStage) && <span style={{ fontSize: 19, lineHeight: 1.4 }}>{credentialLine(seller.credential, seller.mentorStage)}</span>}
+      <div className="pf-body">
+        <div className="pf-wrap pf-grid">
+          {/* ---------- Sticky sidebar (Nov 2026) ----------
+              Photo, name, school, who they're best for, rate and hours,
+              and the two main actions; stays on screen while the profile
+              scrolls on the right. */}
+          <aside className="pf-side">
+            <div className="pf-card">
+              <div className="pf-photo">
+                {seller.photoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={seller.photoUrl} alt={seller.name} />
+                ) : (
+                  <span className="avatar" style={{ background: tintFor(seller.id) }}>{initialsOf(seller.name)}</span>
+                )}
+              </div>
+              <div className="pf-info">
+                <div className="between" style={{ alignItems: "flex-start", gap: 10 }}>
+                  <h1 className="pf-name">{seller.name}</h1>
+                  {reviews.length === 0 && <span className="badge badge-brand" style={{ marginTop: 6 }}>New</span>}
+                </div>
+                {credentialLine(seller.credential, seller.mentorStage) && <span className="pf-cred">{credentialLine(seller.credential, seller.mentorStage)}</span>}
                 {(school || rank) && (
-                  <span className="school-line" style={{ fontSize: 16 }}>
-                    {school && <SchoolLogo name={school} logos={logos} size={36} title={false} />}
+                  <span className="school-line small">
+                    {school && <SchoolLogo name={school} logos={logos} size={30} title={false} />}
                     <span className="stack-sm" style={{ gap: 0 }}>
                       {school && <b>{school}</b>}
                       <span className="text-secondary">{[rank, labelFor(SCHOOL_TYPES, seller.schoolType)].filter(Boolean).join(" · ")}</span>
                     </span>
                   </span>
                 )}
-                {MOMENTS.profileStars && avg !== null && reviews.length > 0 ? <StarsFill avg={avg} count={reviews.length} /> : <Rating avg={avg} count={reviews.length} />}
+                {reviews.length > 0 && (MOMENTS.profileStars && avg !== null ? <StarsFill avg={avg} count={reviews.length} /> : <Rating avg={avg} count={reviews.length} />)}
+                {bestFor.length > 0 && (
+                  <div className="stack-sm" style={{ gap: 6 }}>
+                    <span className="pf-label">Best for</span>
+                    <div className="row-wrap" style={{ gap: 6 }}>
+                      {bestFor.map((t) => <span key={t} className="badge">{t}</span>)}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {hourOptions.length > 0 && (
+                <div className="pf-rate">
+                  <div className="between" style={{ alignItems: "baseline" }}>
+                    <span className="pf-rate-big">{offers.hourly ? money(offers.hourly.rateCents) : money(hourOptions[0].rateCents)}<small>/hr</small></span>
+                    <span className="text-muted small">{hourOptions.length > 1 ? "Save with bundles" : "Calls and written work"}</span>
+                  </div>
+                  {hourOptions.length > 1 && (
+                    <div className="pf-hours" role="radiogroup" aria-label="How many hours">
+                      {hourOptions.map((o) => (
+                        <label key={o.id} className={`pf-hour${pickedHours === o.id ? " is-on" : ""}`}>
+                          <input type="radio" name="hours" value={o.id} checked={pickedHours === o.id} onChange={() => setPickedHours(o.id)} />
+                          <b>{hoursLabel(o.minutes)}</b>
+                          <span>{money(o.price)}</span>
+                          <small>{money(o.rateCents)}/hr</small>
+                          {o.hiddenFromStudents && <NotVisibleTag />}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {preview ? (
+                    <PreviewOnly block>
+                      <button className="btn btn-block" disabled>Buy hours</button>
+                    </PreviewOnly>
+                  ) : (
+                    <button className="btn btn-block" disabled={!pickedHours} onClick={() => pickedHours && setDialog({ t: "details", offerId: pickedHours })} aria-haspopup="dialog">
+                      Buy {pickedHours ? hoursLabel(hourOptions.find((o) => o.id === pickedHours)?.minutes || 60) : "hours"}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              <div className="pf-actions">
+                {!seller.listed && !isSelf && seller.available && <span className="text-muted small">{first} isn&apos;t taking new students right now.</span>}
+                {actions(true)}
+                {isBuyer && unlock && <UnlockNote unlock={unlock} first={first} />}
+                {!preview && <div style={{ display: "flex", justifyContent: "center" }}><CompareToggle mentor={compareMe} label="Add to compare" /></div>}
+              </div>
+
+              <div className="pf-fine">
+                <Icon d={ICONS.lock} size={18} />
+                <span>
+                  <b>Secure payment, every hour logged.</b> When {first} marks work complete, you have 48 hours to approve it or ask for one last call or revision.
+                </span>
               </div>
             </div>
 
+            {session && (role === "BUYER" || role === "SELLER") && !isSelf && (
+              <div className="row-wrap small" style={{ justifyContent: "center" }}>
+                <button type="button" className="link-btn" onClick={() => setReportOpen(true)}>Report {first}</button>
+                <span className="text-muted">·</span>
+                {blocked?.iBlocked ? (
+                  <button type="button" className="link-btn" onClick={() => toggleBlock(false)}>Unblock</button>
+                ) : (
+                  <button type="button" className="link-btn" onClick={() => toggleBlock(true)}>Block</button>
+                )}
+                <span className="text-muted">·</span>
+                <Link href="/safety" className="link">Safety tips</Link>
+              </div>
+            )}
+            <ReportDialog
+              open={reportOpen}
+              onClose={() => setReportOpen(false)}
+              subject={{ id: seller.id, name: seller.name }}
+              onDone={(b) => b && setBlockedState({ iBlocked: true, theyBlocked: blocked?.theyBlocked || false })}
+            />
+          </aside>
+
+          <div className="pf-main">
             {!seller.available && (
-              <div className="alert alert-warning">
+              <div className="alert alert-warning" style={{ marginBottom: 16 }}>
                 <b>{first} is away{seller.pausedUntil ? ` until ${new Date(seller.pausedUntil).toLocaleDateString(undefined, { month: "long", day: "numeric" })}` : ""}.</b>{" "}
                 {seller.status === "REMOVED" ? "This profile has been removed." : seller.awayNote || "New orders are paused for now."}
               </div>
             )}
             {seller.adultsOnlyForViewer && (
-              <div className="alert alert-warning">
+              <div className="alert alert-warning" style={{ marginBottom: 16 }}>
                 <b>{first} works with students 18 and over.</b> You can still read their profile, but you can&apos;t message or book them. Browse other mentors who work with students under 18.
               </div>
             )}
 
-            {clientSchools.length > 0 && (
-              <div className="profile-panel">
-                <ClientSchools schools={clientSchools} logos={logos} size={44} label={`${first}'s students got into:`} />
-              </div>
-            )}
+            <SectionNav sections={sections} />
 
-            {facts.length > 0 && (
-              <ul className="profile-facts">
-                {facts.map((f) => (
-                  <li key={f.label}>
-                    <b>{f.value}</b>
-                    <span>{f.label}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <div className="profile-actions-mobile">{actions(false)}</div>
-          </section>
-
-          {seller.bio && (
-            <section className="profile-section" aria-labelledby="about-title">
-              <h2 id="about-title">About {first}</h2>
-              <p style={{ fontSize: 17, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{seller.bio}</p>
-            </section>
-          )}
-
-          {(specialties.length > 0 || bestFor.length > 0) && (
-            <section className="profile-section" aria-labelledby="specialties-title">
-              <h2 id="specialties-title">Specialties</h2>
-              {specialties.length > 0 && (
-                <div className="row-wrap" style={{ gap: 8 }}>
-                  {specialties.map((t) => <span key={t} className="badge badge-brand badge-lg">{t}</span>)}
-                </div>
-              )}
-              {bestFor.length > 0 && (
-                <div className="stack-sm" style={{ marginTop: 8 }}>
-                  <span className="text-muted small" style={{ fontWeight: 600 }}>Best for</span>
-                  <div className="row-wrap" style={{ gap: 6 }}>
-                    {bestFor.map((t) => <span key={t} className="badge">{t}</span>)}
+            {sections.some((s) => s.id === "about") && (
+              <section id="pf-about" className="pf-sec" aria-labelledby="about-title">
+                <span className="eyebrow">About {first}</span>
+                {knownFor[0] && <h2 id="about-title" className="pf-lead-title">{knownFor[0]}<span style={{ color: "var(--primary)" }}>.</span></h2>}
+                {!knownFor[0] && <h2 id="about-title" className="sr-only">About {first}</h2>}
+                {seller.bio && <p className="pf-bio">{seller.bio}</p>}
+                {facts.length > 0 && (
+                  <ul className="profile-facts">
+                    {facts.map((f) => (
+                      <li key={f.label}>
+                        <b>{f.value}</b>
+                        <span>{f.label}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {clientSchools.length > 0 && (
+                  <div className="profile-panel">
+                    <ClientSchools schools={clientSchools} logos={logos} size={44} label={`${first}'s students got into:`} />
                   </div>
-                </div>
-              )}
-            </section>
-          )}
+                )}
+              </section>
+            )}
 
-          <ProfileSections seller={seller} first={first} />
-
-          {/* ---------- Packages ---------- */}
-          {offers.packages.length > 0 && (
-            <section className="stack" aria-labelledby="packages-title">
-              <h2 id="packages-title" style={{ fontSize: 30 }}>
-                <button type="button" className="link-btn" style={{ textDecoration: "none" }} onClick={() => setDialog({ t: "all" })} aria-haspopup="dialog">
-                  Packages ({offers.packages.length}) <span aria-hidden="true" style={{ color: "var(--primary)" }}>→</span>
-                </button>
-              </h2>
-              <Rail className="pkg-row" label="Specialized packages">
-                {offers.packages.map((p) => (
-                  <article key={p.id} className="pkg-tile" role="listitem">
-                    <div className={`pkg-tile-cover ${p.coverUrl ? "has-photo" : ""}`}>
-                      {p.coverUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={stripFocus(p.coverUrl)} alt="" loading="lazy" style={{ objectPosition: focusPosition(p.coverUrl) }} />
-                      )}
-                      <b>{p.title}</b>
+            {knownFor.length > 0 && (
+              <section id="pf-known" className="pf-sec" aria-labelledby="known-title">
+                <h2 id="known-title">What {first} is <em>known for</em></h2>
+                <div className="pf-known">
+                  {knownFor.map((t, i) => (
+                    <div key={i}>
+                      <span aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
+                      {t}
                     </div>
-                    <div className="pkg-tile-body">
-                      {p.hiddenFromStudents && <NotVisibleTag />}
-                      <span className="text-muted small">About {hoursLabel(p.minutes)} · {labelFor(FORMATS, p.format)}</span>
-                      <span className="display" style={{ fontSize: 26 }}>{money(p.price)}</span>
-                      <button className="btn btn-sm btn-soft" style={{ marginTop: "auto", alignSelf: "flex-start" }} onClick={() => setDialog({ t: "details", offerId: p.id })} aria-haspopup="dialog">
-                        Details
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </Rail>
-            </section>
-          )}
-
-          {/* ---------- Buy hours (Nov 2026) ----------
-              One card: pick 1 hour or any hour bundle, then "Buy hours"
-              opens that option's details. */}
-          {hourOptions.length > 0 && (
-            <section className="stack" aria-labelledby="hours-title">
-              <h2 id="hours-title" style={{ fontSize: 30 }}>Buy Hours</h2>
-              <div className="pkg-card">
-                <span className="text-secondary">
-                  Use your hours for {offers.hourly?.format === "LIVE" ? "calls" : offers.hourly?.format === "WRITTEN" ? "written feedback" : "calls, written feedback or both"}, and add more any time.
-                  {offers.hourly && <> {first}&apos;s rate is <b style={{ color: "var(--ink)" }}>{money(offers.hourly.rateCents)}/hr</b>.</>}
-                </span>
-                <div className="hour-options" role="radiogroup" aria-label="How many hours">
-                  {hourOptions.map((o) => (
-                    <label key={o.id} className={`hour-option${pickedHours === o.id ? " is-on" : ""}`}>
-                      <input type="radio" name="hours" value={o.id} checked={pickedHours === o.id} onChange={() => setPickedHours(o.id)} />
-                      <b>{hoursLabel(o.minutes)}</b>
-                      <span className="display" style={{ fontSize: 22 }}>{money(o.price)}</span>
-                      <span className="text-muted small">{money(o.rateCents)}/hr</span>
-                      {o.hiddenFromStudents && <NotVisibleTag />}
-                    </label>
                   ))}
                 </div>
-                {preview ? (
-                  <PreviewOnly>
-                    <button className="btn btn-primary" disabled>Buy hours</button>
-                  </PreviewOnly>
-                ) : (
-                  <button className="btn btn-primary" style={{ alignSelf: "flex-start" }} disabled={!pickedHours} onClick={() => pickedHours && setDialog({ t: "details", offerId: pickedHours })} aria-haspopup="dialog">
-                    Buy hours
-                  </button>
-                )}
-              </div>
-            </section>
-          )}
+              </section>
+            )}
 
-          {allOffers.length === 0 && (
-            <div className="empty">
-              {first} hasn&apos;t set up their hours yet. You can still message them.
-              {preview && <> <Link href="/dashboard/packages" className="link">Set your rate</Link></>}
-            </div>
-          )}
-
-          {/* ---------- Reviews ---------- */}
-          <section className="stack" aria-labelledby="reviews-title">
-            <div className="row-wrap" style={{ alignItems: "baseline" }}>
-              <h2 id="reviews-title" style={{ fontSize: 30 }}>Reviews</h2>
-              {avg !== null && <ReviewSummary avg={avg} count={reviews.length} />}
-            </div>
-            {reviews.length === 0 && <div className="empty">No reviews yet. {first} is new to MentorsMD.</div>}
-            {reviews.map((r) => (
-              <div key={r.id} className="card stack-sm">
-                <div className="between">
-                  <b>{r.author}</b>
-                  <span className="text-muted">{new Date(r.createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })}</span>
+            {(specialties.length > 0 || bestFor.length > 0) && (
+              <section id="pf-specialties" className="pf-sec" aria-labelledby="specialties-title">
+                <h2 id="specialties-title">Specialties</h2>
+                <div className="pf-two">
+                  {specialties.length > 0 && (
+                    <div className="stack-sm">
+                      <span className="pf-label">What {first} helps with</span>
+                      <div className="row-wrap" style={{ gap: 8 }}>
+                        {specialties.map((t) => <span key={t} className="badge badge-brand badge-lg">{t}</span>)}
+                      </div>
+                    </div>
+                  )}
+                  {bestFor.length > 0 && (
+                    <div className="stack-sm">
+                      <span className="pf-label">Best for</span>
+                      <div className="row-wrap" style={{ gap: 6 }}>
+                        {bestFor.map((t) => <span key={t} className="badge badge-lg">{t}</span>)}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <span className="stars" aria-label={`${r.rating} out of 5 stars`}>{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
-                {r.bought && <span className="text-muted small">Bought: {r.bought}</span>}
-                {r.comment && <p style={{ lineHeight: 1.6 }}>{r.comment}</p>}
+              </section>
+            )}
+
+            <ProfileSections seller={seller} first={first} />
+
+            {/* ---------- Packages ---------- */}
+            {offers.packages.length > 0 && (
+              <section id="pf-packages" className="pf-sec" aria-labelledby="packages-title">
+                <h2 id="packages-title">
+                  <button type="button" className="link-btn" style={{ textDecoration: "none", font: "inherit", color: "inherit" }} onClick={() => setDialog({ t: "all" })} aria-haspopup="dialog">
+                    Packages ({offers.packages.length}) <span aria-hidden="true" style={{ color: "var(--primary)" }}>→</span>
+                  </button>
+                </h2>
+                <Rail className="pkg-row" label="Specialized packages">
+                  {offers.packages.map((p) => (
+                    <article key={p.id} className="pkg-tile" role="listitem">
+                      <div className={`pkg-tile-cover ${p.coverUrl ? "has-photo" : ""}`}>
+                        {p.coverUrl && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={stripFocus(p.coverUrl)} alt="" loading="lazy" style={{ objectPosition: focusPosition(p.coverUrl) }} />
+                        )}
+                        <b>{p.title}</b>
+                      </div>
+                      <div className="pkg-tile-body">
+                        {p.hiddenFromStudents && <NotVisibleTag />}
+                        <span className="text-muted small">About {hoursLabel(p.minutes)} · {labelFor(FORMATS, p.format)}</span>
+                        <span className="display" style={{ fontSize: 26 }}>{money(p.price)}</span>
+                        <button className="btn btn-sm btn-soft" style={{ marginTop: "auto", alignSelf: "flex-start" }} onClick={() => setDialog({ t: "details", offerId: p.id })} aria-haspopup="dialog">
+                          Details
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </Rail>
+              </section>
+            )}
+
+            {allOffers.length === 0 && (
+              <div className="empty" style={{ marginTop: 24 }}>
+                {first} hasn&apos;t set up their hours yet. You can still message them.
+                {preview && <> <Link href="/dashboard/packages" className="link">Set your rate</Link></>}
               </div>
-            ))}
-          </section>
+            )}
+
+            {/* ---------- Reviews ---------- */}
+            <section id="pf-reviews" className="pf-sec" aria-labelledby="reviews-title">
+              <div className="row-wrap" style={{ alignItems: "baseline" }}>
+                <h2 id="reviews-title">Reviews</h2>
+                {avg !== null && <ReviewSummary avg={avg} count={reviews.length} />}
+              </div>
+              {reviews.length === 0 && <div className="pf-noreviews"><b>No reviews yet</b><span>{first} is new to MentorsMD.</span></div>}
+              {reviews.map((r) => (
+                <div key={r.id} className="card stack-sm">
+                  <div className="between">
+                    <b>{r.author}</b>
+                    <span className="text-muted">{new Date(r.createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })}</span>
+                  </div>
+                  <span className="stars" aria-label={`${r.rating} out of 5 stars`}>{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
+                  {r.bought && <span className="text-muted small">Bought: {r.bought}</span>}
+                  {r.comment && <p style={{ lineHeight: 1.6 }}>{r.comment}</p>}
+                </div>
+              ))}
+            </section>
+          </div>
         </div>
-
-        {/* ---------- Side box ---------- */}
-        <aside className="sticky-side">
-          <div className="card stack" style={{ boxShadow: "var(--shadow)" }}>
-            <b style={{ fontSize: 19 }}>Get to know {first}</b>
-            <span className="text-secondary">Book a free {INTRO_CALL_MINUTES}-minute intro call, or send a message. Both are free.</span>
-            {!seller.listed && !isSelf && seller.available && <span className="text-muted small">{first} isn&apos;t taking new students right now.</span>}
-            {actions(true)}
-            {isBuyer && unlock && <UnlockNote unlock={unlock} first={first} />}
-          </div>
-
-          {session && (role === "BUYER" || role === "SELLER") && !isSelf && (
-            <div className="row-wrap small" style={{ justifyContent: "center" }}>
-              <button type="button" className="link-btn" onClick={() => setReportOpen(true)}>Report {first}</button>
-              <span className="text-muted">·</span>
-              {blocked?.iBlocked ? (
-                <button type="button" className="link-btn" onClick={() => toggleBlock(false)}>Unblock</button>
-              ) : (
-                <button type="button" className="link-btn" onClick={() => toggleBlock(true)}>Block</button>
-              )}
-              <span className="text-muted">·</span>
-              <Link href="/safety" className="link">Safety tips</Link>
-            </div>
-          )}
-          <ReportDialog
-            open={reportOpen}
-            onClose={() => setReportOpen(false)}
-            subject={{ id: seller.id, name: seller.name }}
-            onDone={(b) => b && setBlockedState({ iBlocked: true, theyBlocked: blocked?.theyBlocked || false })}
-          />
-
-          <div className="card card-tint stack-sm">
-            <span className="row strong"><Icon d={ICONS.lock} size={18} /> Secure payment, every hour logged</span>
-            <span className="text-secondary" style={{ fontSize: 14 }}>
-              You buy hours and use them for calls and written work. When {first} marks the work complete, you have 48 hours to approve it or ask for one last call or revision.
-            </span>
-          </div>
-        </aside>
       </div>
 
       {/* ---------- Pop-ups ---------- */}
@@ -544,6 +628,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
           <MessagePanel sellerId={seller.id} first={first} unlock={unlock} blocked={blocked} onSent={loadUnlock} onOpenThread={(id) => router.push(`/messages/${id}`)} />
         )}
       </Modal>
+      {!preview && <CompareTray />}
     </div>
   );
 }
@@ -561,12 +646,11 @@ function ProfileSections({ seller, first }: { seller: any; first: string }) {
     ...(typeof seller.applicantsSupported === "number" ? [{ title: `About ${seller.applicantsSupported} applicants supported`, sub: "" }] : []),
   ];
   const highlights: string[] = seller.highlights || [];
-  const knownFor: string[] = seller.knownFor || [];
   return (
     <>
       {(experience.length > 0 || stages.length > 0) && (
-        <section className="profile-section" aria-labelledby="experience-title">
-          <h2 id="experience-title">Admissions Experience</h2>
+        <section id="pf-experience" className="pf-sec" aria-labelledby="experience-title">
+          <h2 id="experience-title">Admissions experience</h2>
           {experience.length > 0 && (
             <ul className="profile-timeline">
               {experience.map((e, i) => (
@@ -585,27 +669,12 @@ function ProfileSections({ seller, first }: { seller: any; first: string }) {
         </section>
       )}
 
-      {knownFor.length > 0 && (
-        <section className="profile-section" aria-labelledby="known-title">
-          <h2 id="known-title">What {first} Is Known For</h2>
-          <div className="known-grid">
-            {knownFor.map((t, i) => (
-              <div key={i} className="known-card">
-                <span className="known-num" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
-                <span>{t}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
       {highlights.length > 0 && (
-        <section className="profile-section" aria-labelledby="highlights-title">
-          <h2 id="highlights-title">Credentials &amp; Highlights</h2>
-          <ul className="check-list">
+        <section id="pf-credentials" className="pf-sec" aria-labelledby="highlights-title">
+          <h2 id="highlights-title">Credentials &amp; <em>highlights</em></h2>
+          <ul className="pf-creds">
             {highlights.map((t, i) => (
               <li key={i}>
-                <Icon d={ICONS.check} size={18} stroke={2.4} />
                 <span style={{ whiteSpace: "pre-wrap" }}>{t}</span>
               </li>
             ))}
@@ -614,40 +683,97 @@ function ProfileSections({ seller, first }: { seller: any; first: string }) {
       )}
 
       {(seller.specialtyInterest || seller.researchSummary) && (
-        <section className="profile-section" aria-labelledby="clinical-title">
-          <h2 id="clinical-title">Clinical &amp; Research</h2>
-          {seller.specialtyInterest && (
-            <p>
-              <b>Specialty interest:</b> {seller.specialtyInterest}
-            </p>
-          )}
-          {seller.researchSummary && <p className="text-secondary" style={{ lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{seller.researchSummary}</p>}
+        <section id="pf-research" className="pf-sec" aria-labelledby="clinical-title">
+          <h2 id="clinical-title">Clinical &amp; research</h2>
+          {seller.specialtyInterest && <span className="pf-interest">Specialty interest: {seller.specialtyInterest}</span>}
+          {seller.researchSummary && <ReadMore text={seller.researchSummary} />}
         </section>
       )}
 
       {(languages.length > 0 || seller.funFact) && (
-        <div className="profile-duo">
-          {languages.length > 0 && (
-            <section className="profile-section" aria-labelledby="languages-title">
-              <h2 id="languages-title">Languages</h2>
-              <ul className="plain-list">
-                {languages.map((l) => (
-                  <li key={l.name}>
-                    <b>{l.name}</b> <span className="text-secondary">· {labelFor(LANGUAGE_LEVELS, l.level)}{l.canAdvise ? " · can advise in it" : ""}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-          {seller.funFact && (
-            <section className="profile-section" aria-labelledby="fun-title">
-              <h2 id="fun-title">Fun Fact</h2>
-              <p style={{ lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{seller.funFact}</p>
-            </section>
-          )}
-        </div>
+        <section id="pf-more" className="pf-sec" aria-label={languages.length && seller.funFact ? "Languages and fun fact" : languages.length ? "Languages" : "Fun fact"}>
+          <div className="pf-two">
+            {languages.length > 0 && (
+              <div className="stack" style={{ gap: 12 }}>
+                <h2>Languages</h2>
+                <div className="row-wrap" style={{ gap: 10 }}>
+                  {languages.map((l) => (
+                    <span key={l.name} className="pf-lang">
+                      <b>{l.name}</b>
+                      <small>{labelFor(LANGUAGE_LEVELS, l.level)}{l.canAdvise ? " · can advise in it" : ""}</small>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {seller.funFact && (
+              <div className="stack" style={{ gap: 12 }}>
+                <h2>Fun fact</h2>
+                <p className="pf-fun">{seller.funFact}</p>
+              </div>
+            )}
+          </div>
+        </section>
       )}
     </>
+  );
+}
+
+// Long text: the first paragraph, with "Read more" for the rest.
+function ReadMore({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const paras = text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  const long = paras.length > 1 || text.length > 700;
+  const shown = open || !long ? text : paras.length > 1 ? paras[0] : `${text.slice(0, 600).trimEnd()}…`;
+  return (
+    <div className="stack-sm">
+      <p className="text-secondary" style={{ lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{shown}</p>
+      {long && (
+        <button type="button" className="link-btn" style={{ alignSelf: "flex-start" }} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          {open ? "Show less" : "Read more"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// The section menu at the top of the right column; the section on screen is
+// underlined as you scroll.
+function SectionNav({ sections }: { sections: { id: string; label: string }[] }) {
+  const [on, setOn] = useState(sections[0]?.id);
+  const ids = sections.map((s) => s.id).join(",");
+  useEffect(() => {
+    const els = sections.map((s) => document.getElementById(`pf-${s.id}`)).filter((x): x is HTMLElement => !!x);
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const en of entries) if (en.isIntersecting) setOn(en.target.id.slice(3));
+      },
+      { rootMargin: "-35% 0px -55% 0px" },
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ids]);
+  if (sections.length < 3) return null;
+  return (
+    <nav className="pf-secnav" aria-label="Profile sections">
+      {sections.map((s) => (
+        <a
+          key={s.id}
+          href={`#pf-${s.id}`}
+          aria-current={on === s.id ? "true" : undefined}
+          onClick={(e) => {
+            const el = document.getElementById(`pf-${s.id}`);
+            if (!el) return;
+            e.preventDefault();
+            el.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+            setOn(s.id);
+          }}
+        >
+          {s.label}
+        </a>
+      ))}
+    </nav>
   );
 }
 

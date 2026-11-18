@@ -72,10 +72,11 @@
   @keyframes mmDraw2 { from { stroke-dashoffset: 30; } to { stroke-dashoffset: 0; } }
 
   /* 6. Mentor cards: lift and photo zoom on hover. */
-  .mm-cards .mentor-card { transition: transform .25s, box-shadow .25s, border-color .25s; }
-  .mm-cards .mentor-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
-  .mm-cards .mentor-card .avatar { transition: transform .35s cubic-bezier(.2, .8, .2, 1); }
-  .mm-cards .mentor-card:hover .avatar { transform: scale(1.05); }
+  .mm-cards .gb-card { transition: transform .25s, box-shadow .25s, border-color .25s; }
+  .mm-cards .gb-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+  .mm-cards .gb-photo { overflow: hidden; }
+  .mm-cards .gb-photo > * { transition: transform .35s cubic-bezier(.2, .8, .2, 1); }
+  .mm-cards .gb-card:hover .gb-photo > * { transform: scale(1.05); }
 
   /* 7. Profile: stars fill one at a time; the Book button pulses once. */
   .mm-stars.mm-play .fg { animation: mmStarFill .35s both; animation-delay: calc(.25s + var(--i) * 150ms); }
