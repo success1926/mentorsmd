@@ -309,11 +309,14 @@ export function Search({ value, onChange, placeholder, onSubmit }: { value: stri
 
 export function Field({ label, value, onChange, multiline, placeholder, numeric, secure, big }: { label: string; value: string; onChange: (v: string) => void; multiline?: boolean; placeholder?: string; numeric?: boolean; secure?: boolean; big?: boolean }) {
   const c = useColors();
+  const isEmail = label.toLowerCase().includes("email");
   return (
     <View style={{ gap: 6 }}>
       <Text style={{ fontFamily: fonts.bodySemi, fontSize: 13, color: c.ink }}>{label}</Text>
       <TextInput value={value} onChangeText={onChange} multiline={multiline} placeholder={placeholder} placeholderTextColor={c.faint} accessibilityLabel={label}
-        keyboardType={numeric ? "number-pad" : "default"} secureTextEntry={secure} autoCapitalize={secure || label.toLowerCase().includes("email") ? "none" : "sentences"}
+        keyboardType={numeric ? "number-pad" : isEmail ? "email-address" : "default"} secureTextEntry={secure} autoCapitalize={secure || isEmail ? "none" : "sentences"}
+        autoCorrect={!(secure || isEmail || numeric)} spellCheck={!(secure || isEmail || numeric)}
+        textContentType={isEmail ? "username" : secure ? "password" : numeric ? "oneTimeCode" : "none"} autoComplete={isEmail ? "email" : secure ? "current-password" : numeric ? "one-time-code" : "off"}
         style={{ borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, borderRadius: 12, padding: 12, fontFamily: fonts.body, fontSize: big ? 24 : 15, letterSpacing: big ? 4 : 0, textAlign: big ? "center" : "left", color: c.ink, minHeight: multiline ? 96 : undefined, textAlignVertical: multiline ? "top" : "center" }} />
     </View>
   );

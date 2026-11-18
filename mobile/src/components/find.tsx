@@ -191,7 +191,7 @@ export function MatchCard({ m, r, picks, best }: { m: Mentor; r: MatchResult; pi
           </RowV>
           {m.stage ? <SS style={{ color: c.ink }}>{m.stage}</SS> : null}
           {m.school ? <SS numberOfLines={2}>{m.school}</SS> : null}
-          {m.rating != null ? <Stars>★ {m.rating.toFixed(1)} · {m.reviews} reviews</Stars> : null}
+          {m.rating != null ? <Stars>★ {m.rating.toFixed(1)} · {m.reviews} {m.reviews === 1 ? "review" : "reviews"}</Stars> : null}
         </View>
         <View style={{ alignItems: "flex-end" }}>
           {rate < m.rate ? <Small>from</Small> : null}

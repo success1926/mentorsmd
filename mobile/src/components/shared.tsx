@@ -37,7 +37,7 @@ export function MentorCard({ m }: { m: Mentor }) {
         <Small>From</Small>
         <Price>{money(m.rate)}/hr</Price>
         {m.rating != null && m.reviews ? <Stars>★ {m.rating.toFixed(1)}</Stars> : <Small>New</Small>}
-        {m.reviews ? <Small>{m.reviews} reviews</Small> : null}
+        {m.reviews ? <Small>{m.reviews} {m.reviews === 1 ? "review" : "reviews"}</Small> : null}
       </View>
     </Card>
   );
@@ -168,7 +168,7 @@ function PaySheet({ item }: { item: PayItem }) {
       <RowV style={{ justifyContent: "space-between" }}><H>Pay MentorsMD</H><Small>Secured by Stripe</Small></RowV>
       <Card>
         <RowV style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
-          <View style={{ flex: 1 }}><Note ink>{item.title}</Note><Small>with {item.mentorName}</Small></View>
+          <View style={{ flex: 1 }}><Note ink>{item.title}</Note>{item.title.includes(item.mentorName.split(" ")[0]) ? null : <Small>with {item.mentorName}</Small>}</View>
           <Price>{dollars(item.priceCents)}</Price>
         </RowV>
         {credit.loading && !credit.data ? <Small>Checking your MentorsMD credit…</Small> : null}

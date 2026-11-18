@@ -293,7 +293,7 @@ function ProfileView({ m, liveReviews, offers, seller }: { m: Mentor; liveReview
                   </View>
                 </View>
               ) : null}
-              {m.rating != null ? <Stars>★ {m.rating.toFixed(1)} · {m.reviews} reviews</Stars> : null}
+              {m.rating != null ? <Stars>★ {m.rating.toFixed(1)} · {m.reviews} {m.reviews === 1 ? "review" : "reviews"}</Stars> : null}
               {m.best.length ? <><Label>Best for</Label><Chips>{m.best.map((s) => <Chip key={s} label={s} tone="gray" />)}</Chips></> : null}
 
               <View style={{ borderTopWidth: 1, borderColor: c.line, paddingTop: 12, gap: 10, marginTop: 2 }}>
