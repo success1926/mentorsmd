@@ -487,14 +487,22 @@ export function PackageThread({ order, viewerId, height = 360 }: { order: any; v
   );
 }
 
-export function SharedFiles({ files, viewerId }: { files: any[]; viewerId: string }) {
-  if (!files?.length) return <span className="text-muted small">No files shared yet. Attach a PDF or Word file to a message on this package.</span>;
+export function SharedFiles({ files, viewerId, workEntries }: { files: any[]; viewerId: string; workEntries?: any[] }) {
+  // Message attachments, plus files the mentor attached to logged work
+  // (the hours log), newest first.
+  const rows = [
+    ...(files || []).map((f) => ({ key: `m-${f.id}`, href: `/api/files/message/${f.id}`, name: f.attachmentName || "File", mine: f.senderId === viewerId, at: f.createdAt })),
+    ...(workEntries || [])
+      .filter((e) => e.fileUrl && !e.voidedAt)
+      .map((e) => ({ key: `h-${e.id}`, href: `/api/files/hours/${e.id}`, name: e.fileName || "File", mine: e.loggedById === viewerId, at: e.createdAt })),
+  ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+  if (!rows.length) return <span className="text-muted small">No files shared yet. Attach a PDF or Word file to a message on this package.</span>;
   return (
     <div className="stack-sm">
-      {files.map((f) => (
-        <a key={f.id} href={`/api/files/message/${f.id}`} target="_blank" rel="noopener noreferrer" className="between small link-row">
-          <span className="row" style={{ gap: 8, minWidth: 0 }}><Icon d={ICONS.doc} size={16} /><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.attachmentName || "File"}</span></span>
-          <span className="text-muted nowrap">{f.senderId === viewerId ? "You" : "Them"} · {fmtDay(f.createdAt)}</span>
+      {rows.map((f) => (
+        <a key={f.key} href={f.href} target="_blank" rel="noopener noreferrer" className="between small link-row">
+          <span className="row" style={{ gap: 8, minWidth: 0 }}><Icon d={ICONS.doc} size={16} /><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span></span>
+          <span className="text-muted nowrap">{f.mine ? "You" : "Them"} · {fmtDay(f.at)}</span>
         </a>
       ))}
     </div>
