@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { celebrateBadge } from "@/components/Moments";
 import { MedicalSchoolPicker } from "@/components/MedicalSchoolPicker";
 import { RESULT_NOTE_MAX, RESULT_STATUSES, RESULT_STATUS_LABEL, cycleOptions } from "@/lib/cycleResults";
 
@@ -30,6 +31,8 @@ export function ResultsEditor() {
   const [form, setForm] = useState<typeof EMPTY | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Moment 3 (lib/moments.ts): the school that just became an acceptance, celebrated once the list reloads.
+  const [celebrate, setCelebrate] = useState<{ school: string; cycle: number } | null>(null);
 
   const load = useCallback(() => {
     fetch("/api/me/cycle-results")
@@ -41,6 +44,12 @@ export function ResultsEditor() {
       .catch(() => setRows([]));
   }, []);
   useEffect(load, [load]);
+  useEffect(() => {
+    if (!celebrate || !rows) return;
+    const hit = rows.find((r) => r.cycle === celebrate.cycle && r.school.trim().toLowerCase() === celebrate.school.toLowerCase());
+    if (hit) celebrateBadge(document.querySelector(`[data-result-badge="${CSS.escape(hit.id)}"]`) || null);
+    setCelebrate(null);
+  }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function edit(r: Row) {
     setError("");
@@ -56,6 +65,9 @@ export function ResultsEditor() {
     const d = await res.json().catch(() => ({}));
     setBusy(false);
     if (!res.ok) return setError(d.error || "Couldn't save");
+    const good = (s: string) => s === "ACCEPTED" || s === "MATRICULATING";
+    const before = form.id ? rows?.find((r) => r.id === form.id) : null;
+    if (good(form.status) && !(before && good(before.status))) setCelebrate({ school: form.school.trim(), cycle: form.cycle });
     setForm(null);
     load();
   }
@@ -146,7 +158,7 @@ export function ResultsEditor() {
                   </span>
                   {r.note && <span className="text-muted small">{r.note}</span>}
                 </div>
-                <span className={`badge ${r.status === "ACCEPTED" || r.status === "MATRICULATING" ? "badge-success" : r.status === "REJECTED" ? "badge-pink" : "badge-brand"}`}>{RESULT_STATUS_LABEL[r.status] || r.status}</span>
+                <span data-result-badge={r.id} className={`badge ${r.status === "ACCEPTED" || r.status === "MATRICULATING" ? "badge-success" : r.status === "REJECTED" ? "badge-pink" : "badge-brand"}`}>{RESULT_STATUS_LABEL[r.status] || r.status}</span>
                 <button className="btn btn-sm" onClick={() => edit(r)}>Update</button>
                 <button className="btn btn-sm" onClick={() => remove(r)}>Remove</button>
               </div>

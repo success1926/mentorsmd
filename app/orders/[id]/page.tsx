@@ -7,6 +7,7 @@ import { useConversation } from "@/lib/hooks/useConversation";
 import { useDisputeThread } from "@/lib/hooks/useDisputeThread";
 import { OrderCalls } from "@/components/Calls";
 import { HoursPackage } from "./HoursPackage";
+import { JustPaidMoment } from "@/components/Moments";
 import { DeliverWorkModal, DeliveryCard } from "@/components/Deliveries";
 import { Icon, ICONS, MinorBadge, StaffBadge, statusBadge, tintFor, initialsOf } from "@/components/ui";
 import { callSummary, CALL_HOLD_HOURS } from "@/lib/calls";
@@ -221,10 +222,12 @@ export default function OrderDetailPage() {
           <div className="card"><Tracker order={order} /></div>
 
           {justPaid && order.status === "IN_ESCROW" && (
-            <div className="alert alert-success">
-              Payment received. MentorsMD is holding it until you approve the work.
-              {calls.canBook ? " Next: book your call below." : ""}
-            </div>
+            <JustPaidMoment>
+              <div className="alert alert-success">
+                Payment received. MentorsMD is holding it until you approve the work.
+                {calls.canBook ? " Next: book your call below." : ""}
+              </div>
+            </JustPaidMoment>
           )}
           {justPaid && order.status === "PENDING_PAYMENT" && (
             <div className="alert">Confirming your payment with Stripe… refresh in a few seconds.</div>

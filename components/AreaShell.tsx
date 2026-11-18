@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { usePageFade } from "@/components/Moments";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { initialsOf } from "@/components/ui";
@@ -122,6 +123,8 @@ export function AreaShell<T extends AreaNavItem>({
   children: React.ReactNode;
 }) {
   const pathname = usePathname() || "/dashboard";
+  const mainRef = useRef<HTMLElement>(null);
+  usePageFade(mainRef, pathname); // moment 12 (lib/moments.ts)
   const [open, setOpen] = useState(false);
   useEffect(() => setOpen(false), [pathname]);
   const current = nav.find((n) => isActive(pathname, n));
@@ -160,7 +163,7 @@ export function AreaShell<T extends AreaNavItem>({
           <Link href="/contact" className="mentor-link mentor-link-quiet">Contact us</Link>
         </div>
       </nav>
-      <main className="mentor-main">{children}</main>
+      <main ref={mainRef} className="mentor-main">{children}</main>
     </div>
   );
 }

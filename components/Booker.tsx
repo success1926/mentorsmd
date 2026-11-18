@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { momentOn } from "@/lib/moments";
+import { burstFrom, SMALL } from "@/lib/confetti";
+import { flyChip } from "@/components/Moments";
 import { initialsOf, tintFor } from "@/components/ui";
 import { RECORDING_NOTICE } from "@/lib/calls";
 import { bookingWindowFor, bookingWindowLabel } from "@/lib/schedule";
@@ -76,6 +79,8 @@ export function Booker({
   const [focusDay, setFocusDay] = useState("");
   const [picked, setPicked] = useState("");
   const [saving, setSaving] = useState(false);
+  const [booked, setBooked] = useState(false); // moment 1 (lib/moments.ts): the Confirm button stamps into "Booked"
+  const confirmRef = useRef<HTMLButtonElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const timesRef = useRef<HTMLDivElement>(null);
   const first = firstName(mentor.name) || "your mentor";
@@ -188,7 +193,14 @@ export function Booker({
     if (!picked || saving) return;
     setSaving(true);
     setError("");
+    // Measured now: on success the page may close the pop-up before the confetti starts.
+    const at = confirmRef.current?.getBoundingClientRect() || null;
     const err = await onConfirm(picked);
+    if (!err && momentOn("booking")) {
+      setBooked(true);
+      burstFrom(at, SMALL);
+      flyChip(at, "Booked ✓");
+    }
     // On success the page moves on (or opens Stripe): Confirm stays off so
     // it can't be pressed twice meanwhile.
     if (err) {
@@ -352,8 +364,8 @@ export function Booker({
               picked === s ? (
                 <div key={s} className="booker-time-pair" role="listitem">
                   <button type="button" className="booker-time selected" aria-pressed="true" onClick={() => setPicked("")}>{fmtTime(s)}</button>
-                  <button type="button" className="booker-confirm" disabled={saving} onClick={confirm} autoFocus>
-                    {saving ? "Booking…" : confirmLabel}
+                  <button ref={confirmRef} type="button" className={`booker-confirm${booked ? " mm-booked" : ""}`} disabled={saving} onClick={confirm} autoFocus>
+                    {booked ? "Booked ✓" : saving ? "Booking…" : confirmLabel}
                   </button>
                 </div>
               ) : (

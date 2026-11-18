@@ -4,6 +4,8 @@ import { useId, useState } from "react";
 import Link from "next/link";
 import { safeHref } from "@/lib/siteContent";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
+import { useReveal } from "@/components/Moments";
+import { MOMENTS } from "@/lib/moments";
 
 // Homepage "How it works" (Nov 2026, modelled on Leland's "Everything you
 // need" block): rows on the left that open one at a time with + / −, and a
@@ -22,11 +24,12 @@ const PANEL_BGS = [
 export function HowItWorks({ items, footer }: { items: HowItem[]; footer?: React.ReactNode }) {
   const [open, setOpen] = useState(0);
   const base = useId();
+  const [listRef, reveal] = useReveal<HTMLDivElement>("howItWorks"); // moment 8 (lib/moments.ts)
   if (!items.length) return null;
   const current = items[Math.min(open, items.length - 1)];
   return (
     <div className="how-grid">
-      <div className="how-list">
+      <div ref={listRef} className={`how-list${MOMENTS.howItWorks ? " mm-how" : ""}${reveal === "in" ? " mm-in" : ""}`}>
         {items.map((it, i) => {
           const isOpen = i === open;
           const id = `${base}-${i}`;

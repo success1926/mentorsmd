@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Rating, tintFor, initialsOf } from "@/components/ui";
 import { SchoolLogo, ClientSchools } from "@/components/SchoolLogo";
+import { MentorCardsMotion } from "@/components/Moments";
 import { CompareToggle, CompareTray, compareSnapshot, useCompare } from "@/components/Compare";
 import type { LogoMap } from "@/lib/schoolLogoKey";
 import { BEST_FOR, SERVICES, credentialLine, labelFor, mentorRank, mentorStageTag, money } from "@/lib/options";
@@ -214,14 +215,14 @@ export function GuidedBrowse({ mentors, logos }: { mentors: BrowseMentor[]; logo
           <>
             {full.length > 0 && (
               <div className="stack" style={{ gap: 14 }}>
-                {full.map((x, i) => <Card key={x.m.id} m={x.m} r={x.r} best={n > 0 && i === 0} picks={picks} logos={logos} />)}
+                <MentorCardsMotion>{full.map((x, i) => <Card key={x.m.id} m={x.m} r={x.r} best={n > 0 && i === 0} picks={picks} logos={logos} />)}</MentorCardsMotion>
               </div>
             )}
             {partial.length > 0 && (
               <>
                 <div className="gb-label">Also worth a look</div>
                 <div className="stack" style={{ gap: 14 }}>
-                  {partial.map((x) => <Card key={x.m.id} m={x.m} r={x.r} best={false} picks={picks} logos={logos} />)}
+                  <MentorCardsMotion>{partial.map((x) => <Card key={x.m.id} m={x.m} r={x.r} best={false} picks={picks} logos={logos} />)}</MentorCardsMotion>
                 </div>
               </>
             )}
@@ -252,7 +253,7 @@ function Card({ m, r, best, picks, logos }: { m: BrowseMentor; r: MatchResult; b
   const missing = r.groups.filter((g) => !g.hit).map((g) => g.short);
 
   return (
-    <article className={`gb-card${best ? " is-best" : ""}`}>
+    <article className={`gb-card${best ? " is-best" : ""}`} data-flip-id={m.id}>
       <Link href={`/mentors/${m.id}`} className="gb-photo" aria-label={`${m.name}'s profile`}>
         {m.photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
