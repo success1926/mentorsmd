@@ -335,7 +335,9 @@ async function payPerCallOrder(student: Buyer, mentorId: string, start: Date, mi
     minutes,
     rateCents: mentor.hourlyRateCents,
     format: "LIVE",
-    title: `${label} with ${first(mentor.name)}`,
+    // Just "30-minute call": emails and pages already add "with <name>",
+    // and the Stripe page shows the description below.
+    title: label,
     description: `One ${label} on ${first(mentor.name)}'s calendar, at their hourly rate.`,
     requestedCallStart: start,
   };

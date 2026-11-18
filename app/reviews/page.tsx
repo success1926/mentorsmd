@@ -10,7 +10,7 @@ import { getReviewStats } from "@/lib/mentorQueries";
 
 export const dynamic = "force-dynamic"; // reads the latest reviews
 
-export const metadata: Metadata = {
+export const metadata: Metadata = { alternates: { canonical: "/reviews" },
   title: "Reviews",
   description: "What students say about working with a MentorsMD mentor.",
 };
@@ -24,7 +24,7 @@ const PAGE_REVIEWS = 60;
 // page (Nov 2026): heading, rating summary and buttons, the "where our
 // students have been accepted" ticker, then the wall. The heading, intro
 // and the "no reviews yet" text are edited in Admin -> Website -> Reviews.
-// The Reviews link is always in the top bar and footer (Nov 2026).
+// The Reviews link shows in the top bar and footer once hasReviewWall() is true.
 export default async function ReviewsPage() {
   const [c, home, settings, stats] = await Promise.all([getSiteContent("reviews"), getSiteContent("home"), getSiteContent("siteSettings"), getReviewStats().catch(() => ({ avg: null, count: 0 }))]);
   const wall = await getReviewWall(home.testimonials, PAGE_REVIEWS);
@@ -50,8 +50,8 @@ export default async function ReviewsPage() {
           </div>
         )}
         <div className="row-wrap" style={{ justifyContent: "center", gap: 12 }}>
-          <Link href="/mentors" className="btn btn-primary">Find Your Mentor</Link>
-          <Link href="/how-it-works" className="btn">How It Works</Link>
+          <Link href="/mentors" className="btn btn-primary btn-lg">Find Your Mentor</Link>
+          <Link href="/how-it-works" className="btn btn-lg">How It Works</Link>
         </div>
       </div>
     ),

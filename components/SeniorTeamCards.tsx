@@ -16,6 +16,18 @@ export type SeniorPerson = {
   focus: string[];
 };
 
+// The card shows whole sentences from the start of the bio (up to about
+// 220 characters), so the preview never stops mid-sentence.
+function teaser(text: string, max = 220): string {
+  const sentences = text.match(/[^.!?]+[.!?]+(\s|$)/g) || [text];
+  let out = "";
+  for (const s of sentences) {
+    if (out && (out + s).length > max) break;
+    out += s;
+  }
+  return out.trim();
+}
+
 export function SeniorTeamCards({ people }: { people: SeniorPerson[] }) {
   const [open, setOpen] = useState<number | null>(null);
   const p = open === null ? null : people[open];
@@ -30,14 +42,14 @@ export function SeniorTeamCards({ people }: { people: SeniorPerson[] }) {
             <span className="lead-photo" aria-hidden="true">
               {person.photo && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={person.photo} alt="" style={{ objectPosition: person.photoPosition }} />
+                <img src={person.photo} alt={`${person.name}, ${person.title || "MentorsMD senior team"}`} style={{ objectPosition: person.photoPosition }} />
               )}
             </span>
             <span className="lead-body">
               <span className="lead-name">{person.name}</span>
               {person.title && <span className="lead-title">{person.title}</span>}
               {person.creds && <span className="lead-creds">{person.creds}</span>}
-              {person.bio[0] && <span className="lead-intro">{person.bio[0]}</span>}
+              {person.bio[0] && <span className="lead-intro">{teaser(person.bio[0])}</span>}
               <span className="lead-more">
                 Read full bio <span className="lead-plus" aria-hidden="true">+</span>
               </span>

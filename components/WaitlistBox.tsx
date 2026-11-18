@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Honeypot, useRecaptcha } from "@/components/FormGuards";
+import { Honeypot, useRecaptcha, RecaptchaNotice } from "@/components/FormGuards";
 import { SERVICES } from "@/lib/options";
 import { applyYearOptions } from "@/lib/leadOptions";
 
@@ -99,6 +99,7 @@ export function WaitlistBox({
       <button className="btn btn-primary" disabled={busy} style={{ alignSelf: "flex-start" }}>
         {busy ? "Adding you…" : button}
       </button>
+      <RecaptchaNotice />
     </form>
   );
 }

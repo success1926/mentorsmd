@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Honeypot, useRecaptcha } from "@/components/FormGuards";
+import { Honeypot, useRecaptcha, RecaptchaNotice } from "@/components/FormGuards";
 import { money } from "@/lib/options";
 import { GIFT_MAX_CENTS, GIFT_MIN_CENTS, GIFT_NOTE_MAX, GIFT_PRESETS_CENTS, parseGiftDollars } from "@/lib/giftOptions";
 
@@ -135,8 +135,9 @@ export function GiftForm({ offer }: { offer: GiftOffer | null }) {
         {busy ? "Opening checkout…" : amountCents ? `Continue to payment: ${money(amountCents)}` : "Continue to payment"}
       </button>
       <span className="text-muted small">
-        Paid securely by card through Stripe. MentorsMD refunds are given as MentorsMD credit to your student, as for every package (<Link href="/terms" className="link">Terms</Link>).
+        Paid securely by card through Stripe. Refunds go to your student as MentorsMD credit (see the <Link href="/terms" className="link">Terms</Link>).
       </span>
+      <RecaptchaNotice />
     </form>
   );
 }

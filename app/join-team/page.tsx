@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import { AuthShell } from "@/components/AuthShell";
 import { logOut } from "@/components/TopNav";
-import { useRecaptcha } from "@/components/FormGuards";
+import { useRecaptcha, RecaptchaNotice } from "@/components/FormGuards";
 
 // Accepting an invite to the admin team (#114): choose a name and password,
 // then log in and set up 2-step verification.
@@ -106,6 +106,7 @@ function JoinTeam() {
             <button className="btn btn-primary btn-lg btn-block" disabled={loading || !name.trim() || password.length < 12}>
               {loading ? "Setting up…" : "Join the team"}
             </button>
+            <RecaptchaNotice />
           </form>
         )}
       </div>

@@ -1,13 +1,30 @@
 // Split layout for login / signup / password pages: brand panel on the
-// left (hidden on phones), form on the right.
+// left (hidden on phones), form on the right. The panel (Nov 2026) has the
+// homepage's soft colour blobs and the senior team's portraits, so it reads
+// as MentorsMD rather than a plain gradient. The panel heading is a styled
+// paragraph so each page's own H1 is its only top heading.
+const TEAM_PHOTOS = ["/images/team/stephen.jpg", "/images/team/shwetabh.jpg", "/images/team/rachel.jpg"];
+
 export function AuthShell({ children, title, body }: { children: React.ReactNode; title?: string; body?: string }) {
   return (
     <div className="auth-wrap">
       <div className="auth-art">
-        <h2>{title || "Your White Coat Starts Here"}</h2>
-        <p style={{ fontSize: 19, lineHeight: 1.55, color: "rgba(255,255,255,0.9)", maxWidth: 460 }}>
+        <div className="auth-blob" style={{ left: -80, top: 60, width: 360, height: 220, background: "rgba(245,185,205,0.55)" }} aria-hidden="true" />
+        <div className="auth-blob" style={{ right: -60, top: 220, width: 320, height: 240, background: "rgba(228,238,255,0.5)" }} aria-hidden="true" />
+        <span className="auth-eyebrow">MentorsMD</span>
+        <p className="auth-art-title">{title || "Your White Coat Starts Here"}</p>
+        <p className="auth-art-body">
           {body || "One-on-one help from med students, residents, gap-year students and more, every one vetted by our senior team. Book a free intro call, then pay by the hour."}
         </p>
+        <div className="auth-team">
+          <div className="auth-team-faces" aria-hidden="true">
+            {TEAM_PHOTOS.map((src) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={src} src={src} alt="" width={44} height={44} />
+            ))}
+          </div>
+          <span>Every mentor is interviewed by our senior team.</span>
+        </div>
       </div>
       <div className="auth-form">
         <div>{children}</div>

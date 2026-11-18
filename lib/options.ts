@@ -272,7 +272,9 @@ export function categoryForService(service: string) {
 }
 
 export function money(cents: number) {
-  return `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
+  // US format with thousands commas ($1,000, $1,250.50).
+  const whole = cents % 100 === 0;
+  return `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 })}`;
 }
 
 // The browse sidebar groups, in order. Lives here (not in the client
