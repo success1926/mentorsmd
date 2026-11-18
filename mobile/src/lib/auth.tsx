@@ -1,6 +1,7 @@
 import * as Device from "expo-device";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { api, clearTokens, currentRefreshToken, platform, saveTokens, saveTrustToken, savedUser, setSignedOutHandler, trustToken, type AppUser } from "./api";
+import { attestForLogin, forgetAttestKey } from "./attest";
+import { api, ApiError, clearTokens, currentRefreshToken, platform, saveTokens, saveTrustToken, savedUser, setSignedOutHandler, trustToken, type AppUser } from "./api";
 
 // Who is signed in. Restored from the phone's secure storage on launch;
 // cleared when the website says the session is over (signed out elsewhere,
@@ -36,7 +37,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string): Promise<SignInResult> => {
-    const r = await api("/api/app/auth/login", { auth: false, body: { email: email.trim(), password, platform, deviceName: deviceName(), trustToken: (await trustToken()) || undefined } });
+    const send = async () =>
+      api("/api/app/auth/login", { auth: false, body: { email: email.trim(), password, platform, deviceName: deviceName(), trustToken: (await trustToken()) || undefined, attest: await attestForLogin(email) } });
+    let r: any;
+    try {
+      r = await send();
+    } catch (e) {
+      // The website doesn't know this phone's key (database reset, or the
+      // key was removed): make a new one and try once more.
+      if (!(e instanceof ApiError && e.data?.code === "ATTEST_UNKNOWN_KEY")) throw e;
+      await forgetAttestKey();
+      r = await send();
+    }
     if (r.status === "needs-code") return { status: "needs-code", challenge: r.challenge, method: r.method, email: r.email };
     await saveTokens(r);
     setUser(r.user);

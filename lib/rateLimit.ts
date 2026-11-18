@@ -53,6 +53,9 @@ export const RATE_LIMITS = {
   giftPerIpDay: { name: "gift-ip-d", max: 20, windowSec: 86400 },
   giftPerEmailDay: { name: "gift-email-d", max: 10, windowSec: 86400 },
   giftClaimPerIpHour: { name: "gift-claim-ip", max: 20, windowSec: 3600 },
+  // Phone app App Attest (Nov 2026, lib/appAttest.ts)
+  attestChallengePerIp: { name: "attest-challenge-ip", max: 60, windowSec: 900 },
+  attestRegisterPerIp: { name: "attest-register-ip", max: 10, windowSec: 3600 },
 } satisfies Record<string, Limit>;
 
 function upstash() {
