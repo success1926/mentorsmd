@@ -367,6 +367,13 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
                 )}
               </div>
 
+              {/* Free intro call and message first, then buying hours */}
+              <div className="pf-actions pf-actions-top">
+                {!seller.listed && !isSelf && seller.available && <span className="text-muted small">{first} isn&apos;t taking new students right now.</span>}
+                {actions(true)}
+                {isBuyer && blockedNote ? <span className="text-muted small">{blockedNote}</span> : isBuyer && unlock && <UnlockNote unlock={unlock} first={first} />}
+              </div>
+
               {hourOptions.length > 0 && (
                 <div className="pf-rate">
                   <div className="between" style={{ alignItems: "baseline" }}>
@@ -398,12 +405,17 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
                 </div>
               )}
 
-              <div className="pf-actions">
-                {!seller.listed && !isSelf && seller.available && <span className="text-muted small">{first} isn&apos;t taking new students right now.</span>}
-                {actions(true)}
-                {isBuyer && blockedNote ? <span className="text-muted small">{blockedNote}</span> : isBuyer && unlock && <UnlockNote unlock={unlock} first={first} />}
-                {!preview && <div style={{ display: "flex", justifyContent: "center" }}><CompareToggle mentor={compareMe} label="Add to compare" /></div>}
-              </div>
+              {offers.packages.length > 0 && (
+                <button type="button" className="pf-pkg-link" onClick={() => setDialog({ t: "all" })} aria-haspopup="dialog">
+                  <span>
+                    <b>{hourOptions.length > 0 ? "Or pick a package" : "Packages"}</b>
+                    <small>{offers.packages.length} {offers.packages.length === 1 ? "package" : "packages"} · from {money(Math.min(...offers.packages.map((p) => p.price)))}</small>
+                  </span>
+                  <span aria-hidden="true">→</span>
+                </button>
+              )}
+
+              {!preview && <div className="pf-actions pf-actions-foot"><div style={{ display: "flex", justifyContent: "center" }}><CompareToggle mentor={compareMe} label="Add to compare" /></div></div>}
 
               <div className="pf-fine">
                 <Icon d={ICONS.lock} size={18} />
