@@ -3,8 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { appSignInEnabled, readChallenge, startAppSession } from "@/lib/appAuth";
 import { checkEmailCode, hasOpenEmailCode, needsTwoStep, sendEmailCode, trustCookieValue } from "@/lib/mfa";
 import { decryptSecret, verifyTotp } from "@/lib/totp";
-import { logAdminAction } from "@/lib/adminLog";
-import { sendTeamAccessChangedEmail } from "@/lib/email";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +26,8 @@ export async function POST(req: Request) {
     select: { id: true, name: true, email: true, role: true, removedByAdmin: true, adminDisabledAt: true, twoFactorMethod: true, totpSecret: true, totpLastStep: true },
   });
   if (!me || me.removedByAdmin || me.adminDisabledAt || !needsTwoStep(me)) return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
+  // The app has no admin area: no code, no session, no 2-step setup.
+  if (me.role === "ADMIN") return NextResponse.json({ error: "Team accounts use the website.", code: "TEAM_ACCOUNT" }, { status: 403 });
 
   if (body.action === "send-code") {
     if (body.auto === true && (await hasOpenEmailCode(me.id))) return NextResponse.json({ ok: true, sent: false, earlier: true });
@@ -62,25 +62,10 @@ export async function POST(req: Request) {
     }
     if (!ok) return NextResponse.json({ error: "That code isn't right (or has expired). Try again." }, { status: 400 });
 
-    // First time (an admin who hadn't set up 2-step yet): email codes are
-    // now their method, as on the website.
+    // First time (2-step was switched on for this account but no method was
+    // picked yet): email codes are now their method, as on the website.
     if (!me.twoFactorMethod) {
       await prisma.user.update({ where: { id: me.id }, data: { twoFactorMethod: "EMAIL", twoFactorEnabledAt: new Date(), totpSecret: null } });
-      if (me.role === "ADMIN") {
-        await logAdminAction({
-          adminId: me.id,
-          action: "TEAM_2FA_SETUP",
-          summary: `${me.name} set up 2-step verification (email codes) in the app`,
-          targetType: "USER",
-          targetId: me.id,
-          targetUserId: me.id,
-        });
-        await sendTeamAccessChangedEmail(
-          me.email,
-          me.name,
-          "2-step verification (email codes) was just set up on your MentorsMD admin account, from the phone app. If this wasn't you, tell the team Owner right away so they can reset it and disable the account."
-        ).catch(() => {});
-      }
     }
 
     const tokens = await startAppSession(me, challenge.platform, challenge.deviceName);

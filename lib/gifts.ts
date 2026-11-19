@@ -37,7 +37,7 @@ import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { siteUrl } from "@/lib/siteUrl";
 import { money } from "@/lib/options";
-import { hoursLabel, offerMinutes, offerRate, priceFor } from "@/lib/pricing";
+import { OFFER_KINDS, hoursLabel, offerMinutes, offerRate, priceFor } from "@/lib/pricing";
 import { isMentorListed } from "@/lib/mentor";
 import { payoutsReady } from "@/lib/stripeAccountStatus";
 import { blockBetween } from "@/lib/blocks";
@@ -57,7 +57,8 @@ import { GIFT_CLAIM_DAYS, GIFT_NOTE_MAX, parseGiftDollars } from "@/lib/giftOpti
 
 // Unpaid Stripe pages expire after 1 hour, like every other checkout.
 const SESSION_MINUTES = 60;
-const OFFER_KINDS = ["HOURLY", "BUNDLE", "SPECIALIZED"];
+// OFFER_KINDS (lib/pricing.ts) as plain strings, to test a Gig.kind.
+const OFFER_KIND_LIST: readonly string[] = OFFER_KINDS;
 
 export class GiftError extends Error {
   constructor(message: string, public status = 400) {
@@ -127,7 +128,7 @@ function studentProblem(u: StudentRow): string | null {
 // be bought for this student.
 async function giftableOffer(gigId: string, student: StudentRow | null, under18: boolean) {
   const gig = await prisma.gig.findUnique({ where: { id: gigId } });
-  if (!gig || !gig.active || !gig.kind || !OFFER_KINDS.includes(gig.kind)) throw new GiftError("That package isn't available any more.", 404);
+  if (!gig || !gig.active || !gig.kind || !OFFER_KIND_LIST.includes(gig.kind)) throw new GiftError("That package isn't available any more.", 404);
   const mentor = await prisma.user.findUnique({ where: { id: gig.sellerId } });
   if (!mentor || mentor.role !== "SELLER" || !isMentorListed(mentor)) throw new GiftError("This mentor isn't taking new orders right now.");
   if (!(await payoutsReady(mentor.stripeAccountId))) throw new GiftError("This mentor isn't taking new orders right now.");
@@ -273,7 +274,7 @@ export async function fulfilGift(giftId: string, session: Stripe.Checkout.Sessio
         // with mentors who accept them. Otherwise it becomes credit.
         const bookable =
           !!gig && !!mentor &&
-          gig.active && gig.sellerId === mentor.id && !!gig.kind && OFFER_KINDS.includes(gig.kind) &&
+          gig.active && gig.sellerId === mentor.id && !!gig.kind && OFFER_KIND_LIST.includes(gig.kind) &&
           mentor.role === "SELLER" && !mentor.removedAt && !mentor.safetyHoldAt && isMentorListed(mentor) && mentorPayoutsReady &&
           !blocks && (mentor.acceptsMinors || !student.minorStatus);
         if (gig && mentor && bookable) {

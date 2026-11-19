@@ -66,7 +66,8 @@ function Thread({ order }: { order: Pkg }) {
   const q = useApi<{ messages: DMsg[] }>(`/api/orders/${order.id}/dispute-messages`);
   useRefresh(q.reload, 10_000);
   const [error, setError] = useState<string | null>(null);
-  const open = order.status === "IN_ESCROW";
+  // The website takes replies while the dispute is open, whatever the order status.
+  const open = order.disputed;
   const send = async (body: string) => {
     setError(null);
     try {
@@ -80,7 +81,6 @@ function Thread({ order }: { order: Pkg }) {
     <Screen footer={open ? <>{error ? <Small style={{ color: c.danger }}>{error}</Small> : null}<Composer placeholder="Reply to the MentorsMD team" onSend={send} /></> : undefined}>
       <Hdr title="Dispute" sub={pkgTitle(order)} />
       <Bubble who="sys">An admin reviews it and decides. Reply here if they ask for more details. Your mentor isn’t paid while it’s open.</Bubble>
-      {order.disputeReason ? <Bubble who="me">{order.disputeReason}</Bubble> : null}
       {q.loading && !q.data ? <Loading /> : null}
       {q.error && !q.data ? <LoadError error={q.error} onRetry={q.reload} title="Couldn’t load the conversation" /> : null}
       <View style={{ gap: 8 }}>

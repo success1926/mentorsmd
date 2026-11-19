@@ -6,7 +6,7 @@ import { Icon, ICONS } from "@/components/ui";
 import { joinState } from "@/lib/calls";
 import { BUSY_KINDS } from "@/lib/schedule";
 import { labelFor } from "@/lib/options";
-import { fmtDayLabel } from "@/lib/tz";
+import { browserTimeZone, dayInZone, fmtDayLabel } from "@/lib/tz";
 import { StudentCalendar } from "./StudentCalendar";
 
 // "My calendar" for mentors (and admins): upcoming and recent calls, and
@@ -48,7 +48,8 @@ export default function MyCalendarPage() {
   if (data.role === "BUYER") return <StudentCalendar data={data} reload={load} />;
 
   const isMentor = data.role === "SELLER";
-  const today = new Date().toISOString().slice(0, 10);
+  // Today on this device (calls are shown in its zone too), not in UTC.
+  const today = dayInZone(new Date(), browserTimeZone() || data.timeZone || "UTC");
 
   // Upcoming calls and due dates, merged in date order.
   type Item = { key: string; when: Date; kind: "call" | "due"; node: React.ReactNode };

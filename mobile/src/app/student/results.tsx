@@ -10,7 +10,9 @@ import { useColors } from "../../lib/theme";
 const STATUSES: [string, string][] = [["APPLIED", "Applied"], ["SECONDARY", "Secondary received"], ["INTERVIEW_INVITE", "Interview invite"], ["INTERVIEWED", "Interviewed"], ["WAITLISTED", "Waitlisted"], ["ACCEPTED", "Accepted"], ["REJECTED", "Rejected"], ["WITHDRAWN", "Withdrawn"], ["MATRICULATING", "Matriculating"]];
 const statusLabel = (v: string) => STATUSES.find((s) => s[0] === v)?.[1] || v;
 const tone = (v: string) => (v === "ACCEPTED" || v === "MATRICULATING" ? "ok" : v === "REJECTED" || v === "WITHDRAWN" ? "gray" : v === "WAITLISTED" ? "warn" : "plain");
-type Result = { id: string; cycle: number; school: string; status: string; note: string | null; mentorIds: string[] };
+type Result = { id: string; cycle: number; school: string; status: string; note: string | null; mentorIds: string[]; appliedOn?: string | null; interviewOn?: string | null; decisionOn?: string | null };
+// Dates set on the website, sent back as they are (YYYY-MM-DD) so saving here doesn't clear them.
+const ymd = (v?: string | null) => (v ? v.slice(0, 10) : null);
 
 // Cycle results (/api/me/cycle-results): one row per school.
 export default function Results() {
@@ -65,7 +67,7 @@ function ResultSheet({ r, onSaved }: { r?: Result; onSaved: () => void }) {
       setBusy(false);
     }
   };
-  const save = () => run(() => api("/api/me/cycle-results", { body: { id: r?.id, cycle: Number(cycle), school: school.trim(), status, note: note.trim(), mentorIds: r?.mentorIds || [] } }), "Saved");
+  const save = () => run(() => api("/api/me/cycle-results", { body: { id: r?.id, cycle: Number(cycle), school: school.trim(), status, note: note.trim(), mentorIds: r?.mentorIds || [], appliedOn: ymd(r?.appliedOn), interviewOn: ymd(r?.interviewOn), decisionOn: ymd(r?.decisionOn) } }), "Saved");
   return (
     <>
       <H>{r ? "Edit School" : "Add a School"}</H>

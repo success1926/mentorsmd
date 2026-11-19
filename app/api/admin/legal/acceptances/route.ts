@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { currentAdmin } from "@/lib/adminTeam";
 import { isLegalKind } from "@/lib/legalKinds";
+import { csvBody } from "@/lib/csv";
 
 export const dynamic = "force-dynamic";
 
@@ -32,32 +33,22 @@ export async function GET(req: Request) {
 
   if (!csv) return NextResponse.json({ rows, hasMore: rows.length === take });
 
-  const cell = (v: unknown) => {
-    let s = v === null || v === undefined ? "" : String(v);
-    // Stop spreadsheet apps treating a value as a formula.
-    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
-    return `"${s.replace(/"/g, '""')}"`;
-  };
   const header = ["Accepted at (UTC)", "Document", "Version", "How", "Account name", "Account type", "Email", "Signed by", "IP address", "Browser", "Account id"];
-  const lines = rows.map((r) =>
-    [
-      r.createdAt.toISOString(),
-      r.kind,
-      r.version === 0 ? "0 (built-in text)" : r.version,
-      r.context,
-      r.user?.name ?? "",
-      r.user?.role === "SELLER" ? "mentor" : r.user?.role === "BUYER" ? "student" : r.user?.role ?? "",
-      r.email,
-      r.signerName ?? "",
-      r.ip ?? "",
-      r.userAgent ?? "",
-      r.userId ?? "",
-    ]
-      .map(cell)
-      .join(",")
-  );
-  const body = [header.map(cell).join(","), ...lines].join("\r\n");
-  return new Response(body, {
+  const lines = rows.map((r) => [
+    r.createdAt.toISOString(),
+    r.kind,
+    r.version === 0 ? "0 (built-in text)" : r.version,
+    r.context,
+    r.user?.name ?? "",
+    r.user?.role === "SELLER" ? "mentor" : r.user?.role === "BUYER" ? "student" : r.user?.role ?? "",
+    r.email,
+    r.signerName ?? "",
+    r.ip ?? "",
+    r.userAgent ?? "",
+    r.userId ?? "",
+  ]);
+  // No byte-order mark here (unlike csvResponse), so the file is unchanged.
+  return new Response(csvBody(header, lines), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="mentorsmd-acceptances-${new Date().toISOString().slice(0, 10)}.csv"`,

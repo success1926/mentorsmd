@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Icon, ICONS } from "@/components/ui";
 import { BOOKING_WINDOW_OPTIONS, BUFFER_OPTIONS, NOTICE_OPTIONS, WEEKDAY_NAMES, WeeklyHours, bookingWindowFor, bookingWindowLabel } from "@/lib/schedule";
 import { CANCEL_CUTOFF_HOURS } from "@/lib/calls";
-import { browserTimeZone, fmtDayLabel, timeZoneList } from "@/lib/tz";
+import { browserTimeZone, dayInZone, fmtDayLabel, timeZoneList } from "@/lib/tz";
 
 // The one-click "Connect Google Calendar" button stays hidden until Google
 // verifies the app (until then mentors would see Google's "unverified app"
@@ -80,7 +80,8 @@ export function CallHoursCard({ profile, onSaved }: { profile: any; onSaved?: ()
   const [newOff, setNewOff] = useState("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<Msg>(null);
-  const today = new Date().toISOString().slice(0, 10);
+  // Today in the schedule's zone (days off are days there), not in UTC.
+  const today = dayInZone(new Date(), tz);
 
   const setDay = (d: number, windows: [string, string][]) =>
     setHours((h) => {
@@ -226,7 +227,8 @@ export function BusyDatesCard() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<Msg>(null);
   const [clashes, setClashes] = useState<{ deadlines: any[]; calls: any[] } | null>(null);
-  const today = new Date().toISOString().slice(0, 10);
+  // Today on this device, not in UTC (only rendered in the browser).
+  const today = dayInZone(new Date(), browserTimeZone() || "UTC");
 
   useEffect(() => {
     fetch("/api/profile/busy-dates").then((r) => r.json()).then((d) => setList(d.busyDates || [])).catch(() => setList([]));

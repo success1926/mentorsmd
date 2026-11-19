@@ -1,5 +1,5 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useRef, useState } from "react";
 import { AppState, ScrollView, View, type ScrollViewInstance } from "react-native";
 import { useSafetySheet } from "../../../components/safety";
 import { Bubble, Card, Hdr, Link, Loading, Note, Row, RowV, Screen, Small } from "../../../components/ui";
@@ -44,21 +44,24 @@ export default function MentorChat() {
     }
   }, [id]);
 
-  useEffect(() => {
-    load();
-    let t: ReturnType<typeof setInterval> | null = setInterval(load, POLL_MS);
-    // Stop checking while the app is in the background.
-    const sub = AppState.addEventListener("change", (s) => {
-      if (s === "active") {
-        load();
-        if (!t) t = setInterval(load, POLL_MS);
-      } else if (t) {
-        clearInterval(t);
-        t = null;
-      }
-    });
-    return () => { if (t) clearInterval(t); sub.remove(); };
-  }, [load]);
+  // Checks only while this screen is in view (as the student chat does),
+  // and stops while the app is in the background.
+  useFocusEffect(
+    useCallback(() => {
+      load();
+      let t: ReturnType<typeof setInterval> | null = setInterval(load, POLL_MS);
+      const sub = AppState.addEventListener("change", (s) => {
+        if (s === "active") {
+          load();
+          if (!t) t = setInterval(load, POLL_MS);
+        } else if (t) {
+          clearInterval(t);
+          t = null;
+        }
+      });
+      return () => { if (t) clearInterval(t); sub.remove(); };
+    }, [load])
+  );
 
   const cv = head.data?.conversation;
   const student = cv?.buyer;

@@ -16,7 +16,6 @@ import { FREES_THE_CALL } from "@/lib/callOutcomes";
 
 type DateLike = string | Date;
 
-export const BLOCK_MINUTES = [30, 60] as const; // calls and written work are 30 or 60 minutes
 export const TOP_UP_HOURS = [1, 2, 3, 5];
 export const LOW_HOURS_MINUTES = 60; // "1 hour left" email
 

@@ -76,40 +76,6 @@ export function isValidBusyRange(startDay: unknown, endDay: unknown) {
 
 // ---------- Due dates ----------
 
-// Minimum time between ordering and the due date, by package turnaround.
-export const TURNAROUND_MIN_DAYS: Record<string, number> = { H48: 2, D3_5: 5, W1_2: 14, SCHEDULED: 2 };
-export const DEFAULT_MIN_DUE_DAYS = 2;
-
-export function minDueDays(turnaround: string | null | undefined) {
-  return (turnaround && TURNAROUND_MIN_DAYS[turnaround]) || DEFAULT_MIN_DUE_DAYS;
-}
-
-// Earliest due date for a new order: today + the turnaround, moved past
-// any of the mentor's busy dates. `today` is a "YYYY-MM-DD" string.
-export function earliestDueDay(today: string, turnaround: string | null | undefined, ranges: BusyRange[]) {
-  return nextFreeDay(addDays(today, minDueDays(turnaround)), ranges);
-}
-
-export function dueDateExplanation(turnaround: string | null | undefined, earliest: string, ranges: BusyRange[], today: string) {
-  const days = minDueDays(turnaround);
-  const label =
-    turnaround === "H48" ? "a 48-hour turnaround" :
-    turnaround === "D3_5" ? "a 3 to 5 day turnaround" :
-    turnaround === "W1_2" ? "a 1 to 2 week turnaround" :
-    turnaround === "SCHEDULED" ? "a scheduled call" : "this turnaround";
-  const skipped = earliest !== addDays(today, days);
-  return `This package has ${label}, so the earliest due date is ${days} days from today${skipped ? ", moved past days your mentor is busy" : ""}. Greyed-out dates aren't available.`;
-}
-
-// Is `day` allowed as a due date for a new order?
-export function dueDayProblem(day: string, today: string, turnaround: string | null | undefined, ranges: BusyRange[]) {
-  if (!isDayString(day)) return "Pick a valid due date";
-  if (day < addDays(today, minDueDays(turnaround))) return "That's sooner than this package's turnaround allows. Pick a later due date.";
-  if (isBusyDay(day, ranges)) return "Your mentor is busy on that date. Pick another due date.";
-  if (day > addDays(today, 365)) return "Pick a due date within the next year";
-  return null;
-}
-
 // The calendar day of a stored due date (due dates are saved as midnight UTC).
 export function dueDayOf(d: Date | string) {
   return new Date(d).toISOString().slice(0, 10);

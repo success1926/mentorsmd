@@ -119,6 +119,19 @@ function addMonths(day: string, n: number) {
   return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
+// The nth weekday (0 = Sunday) of the month that `firstOfMonth`
+// ("YYYY-MM-01") starts: n = 2 is the second, n = -1 the last. Null when
+// the month has no such day (a 5th Friday, say).
+function nthWeekdayOfMonth(firstOfMonth: string, wd: number, n: number): string | null {
+  const [y, m] = firstOfMonth.split("-").map(Number);
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  let d: number;
+  if (n > 0) d = 1 + ((wd - weekdayOfDay(firstOfMonth) + 7) % 7) + (n - 1) * 7;
+  else d = last - ((weekdayOfDay(addDays(firstOfMonth, last - 1)) - wd + 7) % 7) - (-n - 1) * 7;
+  if (n === 0 || d < 1 || d > last) return null;
+  return `${firstOfMonth.slice(0, 8)}${String(d).padStart(2, "0")}`;
+}
+
 // Expands one event into its occurrences that overlap [from, to].
 // Repeats are worked out on the event's own calendar days and clock time,
 // so daylight-saving changes don't shift them.
@@ -167,6 +180,45 @@ function expand(start: When, durMs: number, rrule: string | null, exdates: Set<n
       }
     }
     return out;
+  }
+  // MONTHLY / YEARLY: only the plain "same date each month/year" repeat
+  // and MONTHLY by ordinal weekday ("2TU" = second Tuesday, "-1FR" = last
+  // Friday) are worked out. BYMONTHDAY / BYMONTH that just restate the
+  // first event's date (Outlook adds them) are fine. Anything else
+  // (BYSETPOS, every Tuesday of the month, yearly by weekday...) would put
+  // blocks on the wrong days, so only the first occurrence is blocked.
+  if (freq === "MONTHLY" || freq === "YEARLY") {
+    const [, sm, sd] = start.day.split("-").map(Number);
+    const restates = (k: string, v: number) => !r[k] || r[k] === String(v);
+    const ordinals =
+      freq === "MONTHLY" && r.BYDAY && !r.BYSETPOS && !r.BYMONTHDAY && !r.BYMONTH
+        ? r.BYDAY.split(",").map((x) => {
+            const m = x.trim().toUpperCase().match(/^([+-]?\d{1,2})(SU|MO|TU|WE|TH|FR|SA)$/);
+            return m ? { n: parseInt(m[1], 10), wd: BYDAY[m[2]] } : null;
+          })
+        : null;
+    if (ordinals && ordinals.every((o) => o && o.n !== 0)) {
+      const firstOfMonth = `${start.day.slice(0, 8)}01`;
+      const firstM = count === Infinity ? Math.max(0, Math.floor(gapDays / 31 / interval) - 1) : 0;
+      for (let i = firstM; i < firstM + MAX_OCCURRENCES && n < count; i++) {
+        const month = addMonths(firstOfMonth, i * interval)!; // the 1st always exists
+        const days = ordinals.map((o) => nthWeekdayOfMonth(month, o!.wd, o!.n)).filter((d): d is string => !!d).sort();
+        for (const d of days) {
+          const s = at(d);
+          if (s < start.ms) continue;
+          if (s > until || s > to || n >= count) return out;
+          n++;
+          push(s);
+        }
+      }
+      return out;
+    }
+    const plain =
+      !r.BYDAY && !r.BYSETPOS && !r.BYYEARDAY && !r.BYWEEKNO && restates("BYMONTHDAY", sd) && (freq === "YEARLY" ? restates("BYMONTH", sm) : !r.BYMONTH);
+    if (!plain) {
+      push(start.ms);
+      return out;
+    }
   }
   const firstI =
     freq === "DAILY" ? Math.floor(gapDays / interval) :

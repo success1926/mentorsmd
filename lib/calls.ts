@@ -13,7 +13,6 @@ export const CANCEL_CUTOFF_HOURS = 24; // on-site cancel/reschedule closes 24h b
 export const LATE_REASON_MIN = 20;
 export const LATE_REASON_MAX = 600;
 export const CALL_HOLD_HOURS = 48; // after the due date, the student has 48h to book or waive
-export const CALL_REMINDER_EVERY_DAYS = 3; // "book your call" nudges while a call is unbooked
 
 type DateLike = string | Date;
 

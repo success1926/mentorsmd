@@ -11,6 +11,7 @@ import Constants from "expo-constants";
 import * as WebBrowser from "expo-web-browser";
 import { api, dollars, errorText, SITE, useApi } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { WarningsCard, warningsOf, type Warning } from "./mentorSheets";
 import { initials } from "../lib/sample";
 import { callMinutes, canChangeOnline, dayNum, dow, fmtTime, fmtWhen, hoursSummary, JOIN_OPENS_MINUTES_BEFORE, joinState, packageStatus, pkgTitle, shortHours, splitCredit, type Pkg } from "../lib/orders";
 
@@ -244,6 +245,7 @@ export function MoveSheet({ call, onChanged }: { call?: MoveCall; onChanged?: ()
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<Warning[] | null>(null);
   if (!call) {
     return (
       <>
@@ -268,10 +270,25 @@ export function MoveSheet({ call, onChanged }: { call?: MoveCall; onChanged?: ()
       setBusy(false);
     }
   };
-  const move = () => {
+  // Within 24 hours the reason is sent as a message, so the website's
+  // message-safety warnings can come back: show them, then "Send anyway".
+  const move = async (ack = false) => {
     if (!pick) return setError("Pick a new time.");
     if (!early && reason.trim().length < 20) return setError("Please say why you need to move it (at least 20 characters).");
-    run(() => api(`/api/orders/${call.orderId}/calls`, { method: "PATCH", body: { bookingId: call.id, startTime: pick, reason: early ? undefined : reason.trim() } }), `Call moved to ${fmtWhen(pick)}. You both got an email.`);
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/api/orders/${call.orderId}/calls`, { method: "PATCH", body: { bookingId: call.id, startTime: pick, ...(early ? {} : { reason: reason.trim(), acknowledgeWarnings: ack }) } });
+      closeSheet();
+      onChanged?.();
+      toast(`Call moved to ${fmtWhen(pick)}. You both got an email.`);
+    } catch (e) {
+      const w = warningsOf(e);
+      if (w) setWarnings(w);
+      else setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
   };
   const cancel = () =>
     run(
@@ -293,7 +310,8 @@ export function MoveSheet({ call, onChanged }: { call?: MoveCall; onChanged?: ()
             <SlotPicker slots={slots.data.slots} value={pick} onChange={setPick} />
           ) : null}
           {!early ? <Field label="Why do you need to move it?" value={reason} onChange={setReason} multiline /> : null}
-          <Btn kind="dark" label={busy ? "Saving…" : pick ? `Move to ${fmtWhen(pick)}` : "Pick a new time"} disabled={busy || !pick} onPress={move} />
+          {warnings ? <WarningsCard warnings={warnings} busy={busy} onEdit={() => setWarnings(null)} onSendAnyway={() => move(true)} /> : null}
+          <Btn kind="dark" label={busy ? "Saving…" : pick ? `Move to ${fmtWhen(pick)}` : "Pick a new time"} disabled={busy || !pick} onPress={() => move(false)} />
         </>
       )}
       {error ? <Small style={{ color: c.danger }}>{error}</Small> : null}

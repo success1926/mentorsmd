@@ -578,9 +578,7 @@ a.footer-social:hover .bg { fill: var(--tint-2); }
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
-/* Scroll-grow effect (components/ScrollGrow.tsx) */
-.scroll-grow { --from: 0.9; transform: scale(calc(var(--from) + (1 - var(--from)) * var(--p, 1))); transform-origin: center 30%; will-change: transform; }
-@media (prefers-reduced-motion: reduce) { .scroll-grow { transform: none; } html { scroll-behavior: auto; } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
 /* ---------- Additions ---------- */
 .filter-group > summary::-webkit-details-marker { display: none; }
@@ -750,9 +748,6 @@ a.footer-social:hover .bg { fill: var(--tint-2); }
 .rail-arrow { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: #fff; color: var(--ink); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: border-color .2s, background .2s; }
 .rail-arrow:hover:not(:disabled) { border-color: var(--primary); background: var(--tint-soft); }
 .rail-arrow:disabled { opacity: 0.35; cursor: default; }
-/* A box that scrolls on its own (components/ScrollBox.tsx), with its Scroll pill. */
-.scroll-box { position: relative; }
-.scroll-box-pill { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); pointer-events: none; }
 .pkg-tile { scroll-snap-align: start; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; }
 .pkg-tile-cover { position: relative; min-height: 132px; display: flex; align-items: flex-end; padding: 14px 16px; background: var(--tint); color: var(--ink); }
 .pkg-tile-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }

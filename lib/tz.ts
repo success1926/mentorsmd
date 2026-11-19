@@ -100,10 +100,6 @@ export function dayInZone(date: Date, tz: string): string {
   return `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
 }
 
-export function hourInZone(date: Date, tz: string) {
-  return partsIn(date, tz).hour;
-}
-
 // 0 = Sunday. Pure calendar maths, so no zone needed.
 export function weekdayOfDay(day: string) {
   const [y, m, d] = day.split("-").map(Number);

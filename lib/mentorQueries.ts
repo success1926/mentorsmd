@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { publicCache, toDate } from "@/lib/publicCache";
-import { searchableGigWhere, visibleMentorWhere } from "@/lib/mentor";
+import { bookableGigWhere, visibleMentorWhere } from "@/lib/mentor";
 import { completeProfileWhere } from "@/lib/profileCompleteness";
 import { BEST_FOR, FORMATS, PRICE_BANDS, SCHOOL_TYPES, SERVICES, SERVICE_TO_STAGE, STAGES, isValue, mentorSchoolName, specialtiesOf } from "@/lib/options";
 import { languagesOf, rolesOf } from "@/lib/profileCompleteness";
@@ -113,7 +113,7 @@ async function searchMentorsFresh(f: BrowseFilters): Promise<MentorCardData[]> {
   const now = new Date();
 
   const gigWhere: Prisma.GigWhereInput = {
-    ...searchableGigWhere,
+    ...bookableGigWhere,
     ...(f.format.length ? { format: { in: f.format } } : {}),
   };
   if (f.price.length) {
@@ -129,7 +129,7 @@ async function searchMentorsFresh(f: BrowseFilters): Promise<MentorCardData[]> {
     const stages = Array.from(new Set(f.service.map((s) => SERVICE_TO_STAGE[s]).filter(Boolean)));
     sellerAnd.push({
       OR: [
-        { gigs: { some: { ...searchableGigWhere, service: { in: f.service } } } },
+        { gigs: { some: { ...bookableGigWhere, service: { in: f.service } } } },
         ...(stages.length ? [{ strongestStages: { hasSome: stages } }] : []),
       ],
     });
@@ -150,7 +150,7 @@ async function searchMentorsFresh(f: BrowseFilters): Promise<MentorCardData[]> {
         {
           gigs: {
             some: {
-              ...searchableGigWhere,
+              ...bookableGigWhere,
               OR: [
                 { title: { contains: f.q, mode: "insensitive" } },
                 { description: { contains: f.q, mode: "insensitive" } },
@@ -185,7 +185,7 @@ async function searchMentorsFresh(f: BrowseFilters): Promise<MentorCardData[]> {
       hasAdmissionsRoles: true,
       admissionsRoles: true,
       languages: true,
-      gigs: { where: searchableGigWhere, select: gigSelect, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+      gigs: { where: bookableGigWhere, select: gigSelect, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
     },
     take: 200,
   });

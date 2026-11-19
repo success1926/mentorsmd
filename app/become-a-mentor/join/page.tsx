@@ -107,27 +107,38 @@ function OnboardCoachForm() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    // The button stays "loading" only while we move on to the next page; any
+    // failure (including no connection or reCAPTCHA not loading) frees it.
+    let leaving = false;
+    try {
+      const res = await fetch("/api/signup/seller", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code, email, password, name, credential, bio, medicalSchool, undergradSchool, timeZone: browserTimeZone(),
+          agreement: agreed, website: trap, recaptchaToken: await recaptcha("mentor_signup"),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
 
-    const res = await fetch("/api/signup/seller", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        code, email, password, name, credential, bio, medicalSchool, undergradSchool, timeZone: browserTimeZone(),
-        agreement: agreed, website: trap, recaptchaToken: await recaptcha("mentor_signup"),
-      }),
-    });
-    const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "Something went wrong");
+        return;
+      }
 
-    if (!res.ok) {
-      setError(data.error || "Something went wrong");
-      setLoading(false);
-      return;
+      leaving = true;
+      // The account exists now; if logging in fails, the profile page sends them to log in.
+      try {
+        await signIn("credentials", { email, password, recaptchaToken: (await recaptcha("login")) || "", redirect: false });
+      } catch {}
+      // First stop for a brand-new mentor: the profile steps (photo first).
+      router.push("/dashboard/profile");
+      router.refresh();
+    } catch {
+      setError("Couldn't reach MentorsMD. Check your connection and try again.");
+    } finally {
+      if (!leaving) setLoading(false);
     }
-
-    await signIn("credentials", { email, password, recaptchaToken: (await recaptcha("login")) || "", redirect: false });
-    // First stop for a brand-new mentor: the profile steps (photo first).
-    router.push("/dashboard/profile");
-    router.refresh();
   }
 
   return (

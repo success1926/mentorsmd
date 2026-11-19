@@ -1,7 +1,7 @@
 import * as Device from "expo-device";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { attestForLogin, forgetAttestKey } from "./attest";
-import { api, ApiError, clearTokens, currentRefreshToken, platform, saveTokens, saveTrustToken, savedUser, setSignedOutHandler, trustToken, type AppUser } from "./api";
+import { api, ApiError, clearTokens, platform, saveTokens, saveTrustToken, savedUser, setSignedOutHandler, takeRefreshTokenForSignOut, trustToken, type AppUser } from "./api";
 
 // Who is signed in. Restored from the phone's secure storage on launch;
 // cleared when the website says the session is over (signed out elsewhere,
@@ -13,13 +13,18 @@ type Ctx = {
   user: AppUser | null;
   ready: boolean;
   signIn: (email: string, password: string) => Promise<SignInResult>;
-  sendCode: (challenge: string) => Promise<void>;
+  sendCode: (challenge: string, auto?: boolean) => Promise<void>;
   verify: (challenge: string, method: "TOTP" | "EMAIL", code: string, trust: boolean) => Promise<AppUser>;
   signOut: () => Promise<void>;
   // After deleting the account: forget everything on this phone.
   forget: () => Promise<void>;
 };
 const AuthCtx = createContext<Ctx | null>(null);
+
+const TEAM_ONLY = "Team accounts use the MentorsMD website. Students and mentors can sign in here.";
+// The website refuses team (admin) accounts; if one gets through anyway,
+// end that session rather than keep it on the phone.
+const endUnusedSession = (refreshToken: string) => api("/api/app/auth/logout", { auth: false, body: { refreshToken } }).catch(() => {});
 
 const deviceName = () => [Device.deviceName || Device.modelName || "Phone", "MentorsMD app"].join(" · ").slice(0, 80);
 
@@ -29,7 +34,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setSignedOutHandler(() => setUser(null));
-    savedUser().then((u) => {
+    savedUser().then(async (u) => {
+      // Signed in without an area here (a team account): sign out.
+      if (u && !areaFor(u.role)) {
+        const refreshToken = await takeRefreshTokenForSignOut();
+        if (refreshToken) await endUnusedSession(refreshToken);
+        u = null;
+      }
       setUser(u);
       setReady(true);
     });
@@ -50,17 +61,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       r = await send();
     }
     if (r.status === "needs-code") return { status: "needs-code", challenge: r.challenge, method: r.method, email: r.email };
+    // No area in the app: don't keep the session (the screen says why).
+    if (!areaFor(r.user.role)) {
+      await endUnusedSession(r.refreshToken);
+      return { status: "signed-in", user: r.user };
+    }
     await saveTokens(r);
     setUser(r.user);
     return { status: "signed-in", user: r.user };
   }, []);
 
-  const sendCode = useCallback(async (challenge: string) => {
-    await api("/api/app/auth/two-step", { auth: false, body: { challenge, action: "send-code" } });
+  // auto: the first code, sent when the screen opens; the website skips it
+  // when an earlier code is still good.
+  const sendCode = useCallback(async (challenge: string, auto?: boolean) => {
+    await api("/api/app/auth/two-step", { auth: false, body: { challenge, action: "send-code", ...(auto ? { auto: true } : {}) } });
   }, []);
 
   const verify = useCallback(async (challenge: string, method: "TOTP" | "EMAIL", code: string, trust: boolean) => {
     const r = await api("/api/app/auth/two-step", { auth: false, body: { challenge, action: "verify", method, code: code.replace(/\s/g, ""), trust } });
+    if (!areaFor(r.user.role)) {
+      await endUnusedSession(r.refreshToken);
+      throw new ApiError(TEAM_ONLY, 403);
+    }
     if (r.trustToken) await saveTrustToken(r.trustToken);
     await saveTokens(r);
     setUser(r.user);
@@ -68,8 +90,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    await api("/api/app/auth/logout", { auth: false, body: { refreshToken: await currentRefreshToken() } }).catch(() => {});
-    await clearTokens();
+    // Waits for any refresh on its way first, so the token ended on the
+    // website is the latest one and nothing writes tokens back afterwards.
+    const refreshToken = await takeRefreshTokenForSignOut();
+    await api("/api/app/auth/logout", { auth: false, body: { refreshToken } }).catch(() => {});
     setUser(null);
   }, []);
 

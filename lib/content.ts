@@ -28,8 +28,6 @@ export const PHOTOS = {
   vetting: "",
 };
 
-export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL || "";
-
 // The Senior team page (/senior-team). Photos live in /public/images/team.
 // `photoPosition` is the CSS object-position for cropping the portrait.
 // Bios are adapted for MentorsMD from the ones on admitmd.com.
