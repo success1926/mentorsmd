@@ -1303,6 +1303,16 @@ body.has-compare { padding-bottom: 96px; }
 .pf-fun { border-radius: 20px; padding: 20px 22px; background: linear-gradient(120deg, var(--blue), var(--tint) 45%, var(--pink-soft)); font-family: var(--font-display); font-size: 19px; line-height: 1.5; white-space: pre-wrap; }
 .pf-noreviews { border: 1px dashed var(--tint-2); border-radius: 18px; padding: 22px; display: flex; flex-direction: column; gap: 2px; color: var(--muted); }
 .pf-noreviews b { font-family: var(--font-display); font-weight: 400; font-size: 22px; color: var(--ink); }
+/* Profile sidebar stays on screen while the page scrolls. On laptop-height
+   screens it was taller than the window, so Buy hours and the packages button
+   sat below the fold: shorter photo there, and the card scrolls inside itself
+   as a last resort. Padding keeps the card's shadow from being clipped. */
+@media (min-width: 961px) {
+  .pf-side { max-height: calc(100vh - var(--below-nav) - 36px); overflow-y: auto; scrollbar-width: thin; padding: 0 8px 28px; margin: 0 -8px; }
+  .pf-side > * { flex-shrink: 0; }
+}
+@media (min-width: 961px) and (max-height: 1000px) { .pf-photo { max-height: 200px; } }
+@media (min-width: 961px) and (max-height: 800px) { .pf-photo { max-height: 140px; } }
 @media (max-width: 1100px) { .pf-grid { grid-template-columns: 320px minmax(0, 1fr); gap: 32px; } }
 @media (max-width: 960px) {
   .pf-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; }
