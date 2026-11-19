@@ -8,6 +8,7 @@ import { money, type Mentor } from "../lib/sample";
 import { fonts, useColors } from "../lib/theme";
 import { CompareTick, GlowBand, PickChip, PickedPill, Tag, WhyLine } from "./brand";
 import { Av, Btn, Btns2, Card, Chip, Eyebrow, FChip, FChipRow, H, Half, Loading, Note, RowV, Search, Seg, Small, SS, Stars, T } from "./ui";
+import { useReloadOnFocus } from "./mentorSheets";
 
 // Live mentors seen in a list, so a profile can show their card while the full profile loads.
 export const liveCache = new Map<string, Mentor>();
@@ -25,6 +26,8 @@ function LiveFind() {
   const [q, setQ] = useState("");
   const [query, setQuery] = useState("");
   const { data, error, loading, reload } = useLoad(() => searchLive({ q: query || null }), [query]);
+  // Coming back to this tab shows mentors who joined, paused or changed since.
+  useReloadOnFocus(reload);
   data?.mentors.forEach((m) => liveCache.set(m.id, m));
   return (
     <Guided

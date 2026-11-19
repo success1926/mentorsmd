@@ -44,7 +44,7 @@ export function Screen({ children, footer, edges = ["top"], scroll = true }: { c
   );
   return (
     <SafeAreaView edges={footer ? [...edges, "bottom"] : edges} style={{ flex: 1, backgroundColor: c.bg }}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         {body}
         {footer ? <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 8, gap: 8, borderTopWidth: StyleSheet.hairlineWidth, borderColor: c.line, backgroundColor: c.bg }}>{footer}</View> : null}
       </KeyboardAvoidingView>
@@ -459,7 +459,7 @@ export function Overlays() {
   return (
     <>
       <Modal visible={!!Body} transparent animationType="slide" onRequestClose={closeSheet}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
           <Pressable style={{ flex: 1, backgroundColor: c.scrim }} onPress={closeSheet} accessibilityLabel="Close" />
           <View style={{ maxHeight: "88%", backgroundColor: c.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24 }}>
             <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 10, paddingBottom: 20 + insets.bottom, gap: 14 }} keyboardShouldPersistTaps="handled">
