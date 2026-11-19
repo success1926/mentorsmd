@@ -38,14 +38,16 @@ export async function POST(req: Request) {
 
   const user = await checkPassword(email, password, ip);
   if (!user) return NextResponse.json({ error: "That email and password don't match an account." }, { status: 401 });
+  // The app has no admin area: refused before any code or session.
+  if (user.role === "ADMIN") return NextResponse.json({ error: "Team accounts use the website.", code: "TEAM_ACCOUNT" }, { status: 403 });
 
   const deviceName = cleanDeviceName(body.deviceName);
   if (needsTwoStep(user) && !(await isTrustedDevice(user.id, typeof body.trustToken === "string" ? body.trustToken : undefined))) {
     return NextResponse.json({
       status: "needs-code",
       challenge: await makeChallenge(user.id, platform, deviceName),
-      // An admin who hasn't set up 2-step yet gets email codes in the app;
-      // an authenticator app can be set up on the website.
+      // Email codes unless an authenticator app is set up (that's done on
+      // the website).
       method: user.twoFactorMethod === "TOTP" ? "TOTP" : "EMAIL",
       canUseApp: user.twoFactorMethod === "TOTP",
       email: maskEmail(user.email),

@@ -165,6 +165,32 @@ async function accessTokenFrom(refreshToken: string, signal: AbortSignal) {
   throw new GoogleCalError("Google Calendar didn't answer. We'll try again in a few minutes.");
 }
 
+const FREEBUSY_CHUNK_MS = 60 * 24 * 3600_000; // Google caps one FreeBusy range at ~90 days
+
+// One FreeBusy request for `from`..`to` (ms), at most FREEBUSY_CHUNK_MS long.
+async function freeBusyChunk(accessToken: string, from: number, to: number, signal: AbortSignal): Promise<Interval[]> {
+  const res = await fetch("https://www.googleapis.com/calendar/v3/freeBusy", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ timeMin: new Date(from).toISOString(), timeMax: new Date(to).toISOString(), items: [{ id: "primary" }] }),
+    cache: "no-store",
+    signal,
+  });
+  const json: any = await res.json().catch(() => ({}));
+  if (res.status === 401 || res.status === 403) {
+    // 403 also covers "Calendar API not enabled" on our side; the
+    // mentor's fix is the same either way, and the server log has detail.
+    console.error("Google FreeBusy refused:", res.status, json?.error?.message);
+    throw new GoogleCalError("Google Calendar stopped sharing busy times. Reconnect Google Calendar.");
+  }
+  if (!res.ok) throw new GoogleCalError("Google Calendar didn't answer. We'll try again in a few minutes.");
+  const cal = json?.calendars?.primary;
+  if (cal?.errors?.length) throw new GoogleCalError("Google Calendar couldn't share busy times for your main calendar. Reconnect Google Calendar.");
+  return (Array.isArray(cal?.busy) ? cal.busy : [])
+    .map((b: any) => ({ s: Date.parse(b.start), e: Date.parse(b.end) }))
+    .filter((b: Interval) => b.s && b.e && b.e > b.s);
+}
+
 // Busy times on the mentor's main Google calendar between `from` and `to`
 // (ms), in the same { s, e } shape the iCal reader produces.
 export async function googleBusy(userId: string, from: number, to: number): Promise<Interval[]> {
@@ -175,26 +201,13 @@ export async function googleBusy(userId: string, from: number, to: number): Prom
   const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   try {
     const accessToken = await accessTokenFrom(refreshToken, ctrl.signal);
-    const res = await fetch("https://www.googleapis.com/calendar/v3/freeBusy", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ timeMin: new Date(from).toISOString(), timeMax: new Date(to).toISOString(), items: [{ id: "primary" }] }),
-      cache: "no-store",
-      signal: ctrl.signal,
-    });
-    const json: any = await res.json().catch(() => ({}));
-    if (res.status === 401 || res.status === 403) {
-      // 403 also covers "Calendar API not enabled" on our side; the
-      // mentor's fix is the same either way, and the server log has detail.
-      console.error("Google FreeBusy refused:", res.status, json?.error?.message);
-      throw new GoogleCalError("Google Calendar stopped sharing busy times. Reconnect Google Calendar.");
-    }
-    if (!res.ok) throw new GoogleCalError("Google Calendar didn't answer. We'll try again in a few minutes.");
-    const cal = json?.calendars?.primary;
-    if (cal?.errors?.length) throw new GoogleCalError("Google Calendar couldn't share busy times for your main calendar. Reconnect Google Calendar.");
-    const busy: Interval[] = (Array.isArray(cal?.busy) ? cal.busy : [])
-      .map((b: any) => ({ s: Date.parse(b.start), e: Date.parse(b.end) }))
-      .filter((b: Interval) => b.s && b.e && b.e > b.s);
+    // Google refuses one FreeBusy query longer than about 90 days
+    // ("timeRangeTooLong"), so a longer range is asked for in 60-day pieces,
+    // all at once (inside the same timeout), and the busy lists joined.
+    const chunks: [number, number][] = [];
+    for (let s = from; s < to; s += FREEBUSY_CHUNK_MS) chunks.push([s, Math.min(s + FREEBUSY_CHUNK_MS, to)]);
+    const parts = await Promise.all(chunks.map(([s, e]) => freeBusyChunk(accessToken, s, e, ctrl.signal)));
+    const busy = parts.flat().sort((a, b) => a.s - b.s);
     return busy;
   } catch (err: any) {
     if (err?.name === "AbortError") throw new GoogleCalError("Google Calendar took too long to answer. We'll try again in a few minutes.");

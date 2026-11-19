@@ -97,12 +97,6 @@ export function studentActionPatch(o: FinishOrderLike, action: StudentAction, no
   };
 }
 
-// The cron approves orders whose 48 hours have passed.
-export function autoApproveDue(o: FinishOrderLike, now: Date = new Date()) {
-  const d = t(o.responseDeadline);
-  return finishPhase(o) === "AWAITING_STUDENT" && d !== null && d <= now.getTime();
-}
-
 export const autoApprovePatch = (now: Date = new Date()) => ({ status: "COMPLETED" as const, approvedAt: now, completedAt: now, autoApproved: true, responseDeadline: null as Date | null });
 
 // Status badge text for new orders (My packages, dashboard).

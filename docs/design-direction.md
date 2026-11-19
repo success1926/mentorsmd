@@ -6,7 +6,7 @@
 - **Blue accent:** #E4EEFF.
 - Directions B and C have been switched to Iris and their palette switches removed. Cobalt and Rose are no longer options.
 
-**Decision (Sept 25): Iris chosen.** Coded on branch `iris-redesign`: theme variables in app/globals.css, fonts via next/font, new homepage with a Leland-style scroll-grow effect (components/ScrollGrow.tsx; sections scale from about 0.9 to 1 as they scroll into view, and the effect is off when "reduce motion" is set), restyled nav, footer, /coaches and profile. Live pages show only real numbers. The "Been where you are" filters are not built yet because they need new coach profile fields.
+**Decision (Sept 25): Iris chosen.** Coded on branch `iris-redesign`: theme variables in app/globals.css, fonts via next/font, new homepage with a Leland-style scroll-grow effect (sections scaled from about 0.9 to 1 as they scrolled into view; since removed), restyled nav, footer, /coaches and profile. Live pages show only real numbers. The "Been where you are" filters are not built yet because they need new coach profile fields.
 
 **Update (Sept 29): Tabo felt Iris still looks too generic.** The problem is the layout and the top bar, not the colors. Direction B was mocked up on the same canvas, built from the reference sites' text.
 

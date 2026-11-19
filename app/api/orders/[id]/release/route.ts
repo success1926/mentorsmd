@@ -13,9 +13,10 @@ import { getSession } from "@/lib/session";
 //      (admins can release straight from IN_ESCROW too, not just
 //      COMPLETED - a dispute is exactly the case where the normal
 //      seller-marks-complete flow didn't happen cleanly).
-// A third way - the 96-hour auto-release cron - does NOT come through
-// this route, since there's no logged-in user in that context. It calls
-// releaseOrder() directly instead (see /api/cron/auto-release).
+// A third way - automatic approval once the student's 48 hours pass - does
+// NOT come through this route, since there's no logged-in user in that
+// context. It's runAutoApprovals() in lib/orderFinish.ts, run every 15
+// minutes by /api/cron/call-reminders.
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
   const session = await getSession();
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });

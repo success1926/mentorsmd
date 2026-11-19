@@ -14,9 +14,10 @@ const REVISION_WINDOW_DAYS = 7;
 //   - COMPLETED: buyer is in their 96-hour review window and isn't happy
 //     with what they got. Requesting a revision here resets the order
 //     back to IN_ESCROW and clears workCompletedAt - this is important:
-//     without it, the 96-hour auto-release cron would still fire off the
-//     original completion timestamp and pay the seller regardless of the
-//     revision request.
+//     without it, the old 96-hour auto-release cron would have paid the
+//     seller regardless of the revision request. (That cron is gone;
+//     automatic approval is now runAutoApprovals() in lib/orderFinish.ts,
+//     run by /api/cron/call-reminders.)
 //
 // Every revision request also pushes the due date out to 7 days from the
 // moment it's submitted (moved later if that lands on one of the mentor's
@@ -50,7 +51,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const newDueDate = dayToDueDate(await revisionDueDay(order.sellerId, REVISION_WINDOW_DAYS));
 
   // Conditional on the status we just read, so this can't resurrect an
-  // order that the auto-release cron paid out a moment ago.
+  // order that was closed a moment ago.
   const claim = await prisma.order.updateMany({
     where: { id: params.id, status: order.status },
     data: {

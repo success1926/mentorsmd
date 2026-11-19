@@ -29,7 +29,6 @@ import { sendAccountDeletedEmail } from "@/lib/email";
 export const DELETED_NAME = "Deleted user";
 export const DELETED_EMAIL_DOMAIN = "deleted.mentorsmd.invalid";
 export const deletedEmailFor = (userId: string) => `deleted-${userId}@${DELETED_EMAIL_DOMAIN}`;
-export const isDeletedEmail = (email: string) => email.toLowerCase().endsWith(`@${DELETED_EMAIL_DOMAIN}`);
 
 export type DeletionCheck = {
   allowed: boolean;

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PLATFORM_FEE_PERCENT } from "@/lib/stripe";
 import { DEFAULT_TIME_ZONE, addDays, dayInZone, fmtDayLabel, isDayString, isValidTimeZone, weekdayOfDay, zonedToUtc } from "@/lib/tz";
 import { FILTER_GROUPS, FORMATS, PRICE_BANDS, SCHOOL_TYPES, SERVICES, STAGES, isValue, labelFor } from "@/lib/options";
-import { bookableGigWhere, searchableGigWhere } from "@/lib/mentor";
+import { bookableGigWhere } from "@/lib/mentor";
 import { sourceLabel } from "@/lib/attribution";
 import { csvCell } from "@/lib/csv";
 import { unpaidValueCents } from "@/lib/payoutRules";
@@ -466,7 +466,7 @@ async function breakdowns(r: Range): Promise<InsightsResult> {
     }),
     prisma.user.findMany({ where: { role: "SELLER", profileStatus: { not: "REMOVED" } }, select: { id: true, medicalSchool: true, schoolType: true, mentorStage: true }, take: 5000 }),
     prisma.gig.findMany({
-      where: { ...searchableGigWhere, seller: { role: "SELLER", profileStatus: { not: "REMOVED" } } },
+      where: { ...bookableGigWhere, seller: { role: "SELLER", profileStatus: { not: "REMOVED" } } },
       select: { price: true, service: true, format: true, kind: true, seller: { select: { id: true, medicalSchool: true, schoolType: true, mentorStage: true } } },
       take: BIG,
     }),
@@ -819,7 +819,7 @@ async function funnel(r: Range, sp: URLSearchParams): Promise<InsightsResult> {
 async function demand(r: Range): Promise<InsightsResult> {
   const [searches, gigs] = await Promise.all([
     prisma.activityEvent.findMany({ where: { kind: "SEARCH", createdAt: inRange(r) }, select: { id: true, createdAt: true, userId: true, visitorId: true, query: true, filters: true, resultCount: true }, take: BIG * 2 }),
-    prisma.gig.findMany({ where: { ...searchableGigWhere, seller: { role: "SELLER", profileStatus: "ACTIVE", safetyHoldAt: null } }, select: { service: true, sellerId: true }, take: BIG }),
+    prisma.gig.findMany({ where: { ...bookableGigWhere, seller: { role: "SELLER", profileStatus: "ACTIVE", safetyHoldAt: null } }, select: { service: true, sellerId: true }, take: BIG }),
   ]);
   const zero = searches.filter((s) => s.resultCount === 0);
 

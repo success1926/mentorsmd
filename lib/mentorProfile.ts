@@ -52,7 +52,7 @@ async function loadProfile(id: string, onlyBookable: boolean) {
     },
   });
   if (!seller) return null;
-  const [offers, reviews] = await Promise.all([
+  const [offers, reviews, reviewStats] = await Promise.all([
     offersFor(id, { onlyBookable }),
     prisma.review.findMany({
       where: { sellerId: id },
@@ -64,12 +64,14 @@ async function loadProfile(id: string, onlyBookable: boolean) {
         order: { select: { packageTitle: true, gig: { select: { title: true } } } },
       },
     }),
+    // Count and average over every review, not just the 50 listed.
+    prisma.review.aggregate({ where: { sellerId: id }, _count: { _all: true }, _avg: { rating: true } }),
   ]);
-  return { seller, offers, reviews };
+  return { seller, offers, reviews, reviewCount: reviewStats._count._all, avgRating: reviewStats._avg.rating };
 }
 
 // What students and visitors see, shared for up to a minute (lib/publicCache.ts).
-export const cachedPublicProfile = publicCache("mentor-profile-v2", (id: string) => loadProfile(id, true));
+export const cachedPublicProfile = publicCache("mentor-profile-v3", (id: string) => loadProfile(id, true));
 
 type Viewer = { id?: string | null; role?: string | null };
 
@@ -148,6 +150,9 @@ export async function mentorProfileView(id: string, viewer: Viewer) {
       status: profileStatus,
       pausedUntil: pausedUntil ? pausedUntil.toISOString() : null,
       adultsOnlyForViewer: viewerIsMinor,
+      // Over all of the mentor's reviews (the list below holds the newest 50).
+      reviewCount: data.reviewCount,
+      avgRating: data.avgRating,
     },
     previewState,
     offers: {

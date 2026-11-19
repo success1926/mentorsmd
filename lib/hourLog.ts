@@ -7,6 +7,7 @@ import { COUNTS_AS_HELD } from "@/lib/callOutcomes";
 import { callMinutes, hoursSummary, isBlockMinutes, shouldSendLowHours } from "@/lib/hours";
 import { hoursLabel } from "@/lib/pricing";
 import { SITE_URL, sendHoursLowEmail, sendHoursLowMentorEmail, sendWrittenTimeLoggedEmail } from "@/lib/email";
+import { reportError } from "@/lib/sentry";
 
 const hoursInclude = {
   hourEntries: { select: { type: true, minutes: true, voidedAt: true, callBookingId: true } },
@@ -50,6 +51,14 @@ export async function syncCallHourEntry(bookingId: string) {
     }
     await maybeSendLowHours(b.orderId);
   } else if (b.hourEntry && !b.hourEntry.voidedAt) {
+    // Already paid to the mentor: voiding it would put the hours back in
+    // the package and pay them a second time. Keep it counted and flag it.
+    if (b.hourEntry.payoutId) {
+      const note = `[NEEDS MANUAL CHECK] Call ${b.id} on order ${b.orderId} became ${b.outcome} after its ${b.hourEntry.minutes} min were paid to the mentor (payout ${b.hourEntry.payoutId}). The hours stay counted as used; settle it by hand.`;
+      console.error(note);
+      await reportError(note, undefined, { orderId: b.orderId, bookingId: b.id }, "fatal");
+      return;
+    }
     await prisma.hourEntry.update({ where: { id: b.hourEntry.id }, data: { voidedAt: new Date() } });
   }
 }

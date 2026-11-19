@@ -13,8 +13,9 @@ import { getSession } from "@/lib/session";
 // This is now the ONLY way an order moves out of IN_ESCROW under normal
 // circumstances - the seller says the work is done, which starts the
 // 96-hour clock. From here: the buyer can confirm early (immediate
-// release, see /api/orders/[id]/release) or do nothing, in which case
-// /api/cron/auto-release picks it up once 96 hours have passed.
+// release, see /api/orders/[id]/release) or do nothing. (The old 96-hour
+// auto-release cron is gone; automatic approval now runs from
+// runAutoApprovals() in lib/orderFinish.ts, via /api/cron/call-reminders.)
 //
 // Every call saves a Delivery (a required description plus optional
 // files already uploaded through /api/upload). A revision request sends

@@ -297,7 +297,10 @@ export async function retryPayout(payoutId: string, adminId: string) {
   let existing: { id: string } | undefined;
   try {
     const list = await stripe.transfers.list({ transfer_group: p.id, limit: 10 });
-    existing = list.data.find((t) => !t.reversed && t.amount === p.amountCents && t.destination === p.mentor.stripeAccountId);
+    // Any live transfer in this payout's group counts as sent, even to a
+    // Stripe account the mentor has since replaced (sending again would pay
+    // twice; moving money between their accounts is a manual fix).
+    existing = list.data.find((t) => !t.reversed && t.amount === p.amountCents);
   } catch (err: any) {
     await prisma.mentorPayout.update({ where: { id: p.id }, data: { status: p.status, error: p.error } });
     throw new PayoutError(`Couldn't check Stripe for an earlier transfer: ${err?.message || err}`, 502);

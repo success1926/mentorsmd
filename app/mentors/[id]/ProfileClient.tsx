@@ -130,6 +130,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
   const loginHref = `/login?callbackUrl=${encodeURIComponent(`/mentors/${seller.id}`)}`;
 
   const [unlock, setUnlock] = useState<Unlock | null>(null);
+  const [unlockError, setUnlockError] = useState(false);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [pickedHours, setPickedHours] = useState<string | null>(offers.hourly?.id || offers.bundles[0]?.id || null); // the first option shown (1 hour)
   const [reportOpen, setReportOpen] = useState(false);
@@ -144,8 +145,12 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
     if (!isBuyer) return;
     fetch(`/api/mentors/${seller.id}/unlock`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setUnlock(d))
-      .catch(() => {});
+      .then((d) => {
+        // No answer: say so instead of leaving the intro-call panel on "Loading…".
+        setUnlockError(!d);
+        if (d) setUnlock(d);
+      })
+      .catch(() => setUnlockError(true));
   }, [isBuyer, seller.id]);
   useEffect(loadUnlock, [loadUnlock]);
 
@@ -181,7 +186,11 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
     }
   }
 
-  const avg = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : null;
+  // Count and average over all reviews (from the server); only the newest
+  // 50 are listed, so they're the fallback, not the source.
+  const reviewCount: number = typeof seller.reviewCount === "number" ? seller.reviewCount : reviews.length;
+  const avg: number | null =
+    typeof seller.avgRating === "number" ? seller.avgRating : reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : null;
   const bestFor: string[] = [...(seller.bestFor || []).map((b: string) => labelFor(BEST_FOR, b)), ...(seller.bestForOther ? [seller.bestForOther] : [])];
   const closeDialog = () => setDialog(null);
   const current = dialog?.t === "details" ? allOffers.find((o) => o.id === dialog.offerId) : null;
@@ -196,7 +205,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
     ...(typeof seller.applicantsSupported === "number" && seller.applicantsSupported > 0 ? [{ value: `${seller.applicantsSupported}+`, label: "applicants helped" }] : []),
     ...(roles.length > 0 ? [{ value: String(roles.length), label: roles.length === 1 ? "admissions role" : "admissions roles" }] : []),
     ...(clientSchools.length > 0 ? [{ value: String(clientSchools.length), label: clientSchools.length === 1 ? "school students got into" : "schools students got into" }] : []),
-    ...(reviews.length > 0 && avg !== null ? [{ value: `${avg.toFixed(1)}★`, label: `${reviews.length} ${reviews.length === 1 ? "review" : "reviews"}` }] : []),
+    ...(reviewCount > 0 && avg !== null ? [{ value: `${avg.toFixed(1)}★`, label: `${reviewCount} ${reviewCount === 1 ? "review" : "reviews"}` }] : []),
   ].slice(0, 4);
   // "Buy hours": 1 hour, then each bundle.
   const hourOptions = [...(offers.hourly ? [offers.hourly] : []), ...offers.bundles];
@@ -220,7 +229,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
     knownFor: (seller.knownFor || [])[0] || null,
     languages: (seller.languages || []).map((l: Language) => l.name),
     avgRating: avg,
-    reviewCount: reviews.length,
+    reviewCount,
   });
   const compare = useCompare();
   useEffect(() => {
@@ -335,7 +344,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
               <div className="pf-info">
                 <div className="between" style={{ alignItems: "flex-start", gap: 10 }}>
                   <h1 className="pf-name">{seller.name}</h1>
-                  {reviews.length === 0 && <span className="badge badge-brand" style={{ marginTop: 6 }}>New</span>}
+                  {reviewCount === 0 && <span className="badge badge-brand" style={{ marginTop: 6 }}>New</span>}
                 </div>
                 {credentialLine(seller.credential, seller.mentorStage) && <span className="pf-cred">{credentialLine(seller.credential, seller.mentorStage)}</span>}
                 {(school || rank) && (
@@ -347,7 +356,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
                     </span>
                   </span>
                 )}
-                {reviews.length > 0 && (MOMENTS.profileStars && avg !== null ? <StarsFill avg={avg} count={reviews.length} /> : <Rating avg={avg} count={reviews.length} />)}
+                {reviewCount > 0 && (MOMENTS.profileStars && avg !== null ? <StarsFill avg={avg} count={reviewCount} /> : <Rating avg={avg} count={reviewCount} />)}
                 {bestFor.length > 0 && (
                   <div className="stack-sm" style={{ gap: 6 }}>
                     <span className="pf-label">Best for</span>
@@ -428,7 +437,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
           <div className="pf-main">
             {!seller.available && (
               <div className="alert alert-warning" style={{ marginBottom: 16 }}>
-                <b>{first} is away{seller.pausedUntil ? ` until ${new Date(seller.pausedUntil).toLocaleDateString(undefined, { month: "long", day: "numeric" })}` : ""}.</b>{" "}
+                <b>{first} is away{seller.pausedUntil ? ` until ${new Date(seller.pausedUntil).toLocaleDateString(undefined, { month: "long", day: "numeric", timeZone: "UTC" })}` : ""}.</b>{" "}
                 {seller.status === "REMOVED" ? "This profile has been removed." : seller.awayNote || "New orders are paused for now."}
               </div>
             )}
@@ -547,14 +556,14 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
             <section id="pf-reviews" className="pf-sec" aria-labelledby="reviews-title">
               <div className="row-wrap" style={{ alignItems: "baseline" }}>
                 <h2 id="reviews-title">Reviews</h2>
-                {avg !== null && <ReviewSummary avg={avg} count={reviews.length} />}
+                {avg !== null && <ReviewSummary avg={avg} count={reviewCount} />}
               </div>
               {reviews.length === 0 && <div className="pf-noreviews"><b>No reviews yet</b><span>{first} is new to MentorsMD.</span></div>}
               {reviews.map((r) => (
                 <div key={r.id} className="card stack-sm">
                   <div className="between">
                     <b>{r.author}</b>
-                    <span className="text-muted">{new Date(r.createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric" })}</span>
+                    <span className="text-muted">{new Date(r.createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric", timeZone: "UTC" })}</span>
                   </div>
                   <span className="stars" aria-label={`${r.rating} out of 5 stars`}>{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
                   {r.bought && <span className="text-muted small">Bought: {r.bought}</span>}
@@ -625,7 +634,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
           />
         )}
         {dialog?.t === "intro" && isBuyer && (
-          <IntroCallPanel seller={seller} first={first} unlock={unlock} onChanged={loadUnlock} onMessage={() => setDialog({ t: "message" })} />
+          <IntroCallPanel seller={seller} first={first} unlock={unlock} unlockError={unlockError} onChanged={loadUnlock} onMessage={() => setDialog({ t: "message" })} />
         )}
         {dialog?.t === "message" && isBuyer && (
           <MessagePanel sellerId={seller.id} first={first} unlock={unlock} blocked={blocked} onSent={loadUnlock} onOpenThread={(id) => router.push(`/messages/${id}`)} />
@@ -949,7 +958,7 @@ function OfferDetails({
 
 // ---------------- Intro call pop-up ----------------
 
-function IntroCallPanel({ seller, first, unlock, onChanged, onMessage }: { seller: any; first: string; unlock: Unlock | null; onChanged: () => void; onMessage: () => void }) {
+function IntroCallPanel({ seller, first, unlock, unlockError, onChanged, onMessage }: { seller: any; first: string; unlock: Unlock | null; unlockError: boolean; onChanged: () => void; onMessage: () => void }) {
   const [booked, setBooked] = useState<{ startTime: string; id: string } | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState("");
@@ -1003,7 +1012,7 @@ function IntroCallPanel({ seller, first, unlock, onChanged, onMessage }: { selle
     return (
       <div className="stack">
         {header}
-        <p className="text-muted">Loading…</p>
+        {unlockError ? <div className="alert alert-danger">Couldn't load intro call times. Refresh the page to try again.</div> : <p className="text-muted">Loading…</p>}
       </div>
     );
   }

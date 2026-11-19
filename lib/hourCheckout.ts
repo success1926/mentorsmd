@@ -348,6 +348,9 @@ async function payPerCallOrder(student: Buyer, mentorId: string, start: Date, mi
 async function afterOrderPaid(orderId: string) {
   const order = await prisma.order.findUnique({ where: { id: orderId }, include: { seller: { select: { name: true, email: true } }, buyer: { select: { name: true, email: true } }, gig: { select: { title: true } } } });
   if (!order) return;
+  // Book the picked time first: a Stripe retry sees the order already paid
+  // and won't run this again, so the booking shouldn't wait on emails.
+  if (order.kind === "PAY_PER_CALL" && order.requestedCallStart) await bookRequestedCall(orderId);
   const title = order.packageTitle || order.gig.title;
   const orderUrl = `${SITE_URL}/orders/${order.id}`;
   await sendOrderPaidEmail(order.seller.email, title, order.buyer.name, orderUrl).catch((err) => console.error("Failed to send order-paid email:", err));
@@ -362,7 +365,6 @@ async function afterOrderPaid(orderId: string) {
   }).catch((err) => console.error("Failed to send purchase email:", err));
   // Students under 18: their parent or guardian gets a receipt (#109).
   await sendParentReceipt(orderId).catch((err) => console.error("Failed to send the parent receipt:", err));
-  if (order.kind === "PAY_PER_CALL" && order.requestedCallStart) await bookRequestedCall(orderId);
 }
 
 // Pay-per-call: books the time the student picked before paying. If it was
@@ -530,9 +532,22 @@ export async function applyTopUp(topUpId: string, payment: Stripe.Checkout.Sessi
     });
     if (!claim.count) return null;
     const topUp = await tx.hourTopUp.findUniqueOrThrow({ where: { id: topUpId } });
-    await tx.order.update({ where: { id: topUp.orderId }, data: { minutesPurchased: { increment: topUp.minutes } } });
-    return topUp;
+    // Only while the package is still open: the Stripe page can be paid up
+    // to an hour after it opened, and the package may have been approved,
+    // settled or refunded since. Then the hours aren't added (they'd be
+    // unusable, or paid to the mentor as "unused") and an admin refunds it.
+    const added = await tx.order.updateMany({
+      where: { id: topUp.orderId, status: "IN_ESCROW", approvedAt: null },
+      data: { minutesPurchased: { increment: topUp.minutes } },
+    });
+    return { ...topUp, added: added.count > 0 };
   });
+  if (applied && !applied.added) {
+    const note = `[NEEDS MANUAL CHECK] Top-up ${topUpId} (${applied.minutes} min) on order ${applied.orderId} was paid after the package closed, so the hours weren't added. Refund the payment${applied.creditAppliedCents ? " and the credit used" : ""} to the student.`;
+    console.error(note);
+    await reportError(note, undefined, { topUpId, orderId: applied.orderId }, "fatal");
+    return;
+  }
   if (!applied) {
     const t = await prisma.hourTopUp.findUnique({ where: { id: topUpId }, select: { status: true } });
     if (t?.status === "CANCELLED" && payment) {

@@ -3,7 +3,7 @@ import { currentAdmin } from "@/lib/adminTeam";
 import { prisma } from "@/lib/prisma";
 import { logAdminAction } from "@/lib/adminLog";
 import { afterOutcome, bookingForOutcome } from "@/lib/callOutcomeRunner";
-import { CallOutcome, outcomeLabel } from "@/lib/callOutcomes";
+import { COUNTS_AS_HELD, CallOutcome, outcomeLabel } from "@/lib/callOutcomes";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +30,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (booking.status === "CANCELLED") return NextResponse.json({ error: "This call was cancelled" }, { status: 400 });
   if (booking.endTime.getTime() > Date.now()) return NextResponse.json({ error: "This call hasn't ended yet" }, { status: 400 });
   if (booking.outcome === outcome) return NextResponse.json({ ok: true, outcome });
+  // A call whose hours were already paid to the mentor can't be made free:
+  // the hours would go back in the package and be paid a second time.
+  if (!COUNTS_AS_HELD.includes(outcome)) {
+    const paid = await prisma.hourEntry.findFirst({ where: { callBookingId: booking.id, voidedAt: null, payoutId: { not: null } }, select: { id: true } });
+    if (paid)
+      return NextResponse.json(
+        { error: "This call was already paid to the mentor, so it can't be made free here. Give the student credit instead (Disputes & Flags)." },
+        { status: 400 },
+      );
+  }
 
   const res = await prisma.callBooking.updateMany({
     where: { id: booking.id, outcome: booking.outcome },

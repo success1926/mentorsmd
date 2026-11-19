@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { dueDayOf } from "@/lib/schedule";
 import { getSession } from "@/lib/session";
@@ -16,31 +17,42 @@ export async function GET() {
   const now = new Date();
   const since = new Date(now.getTime() - 60 * 24 * 3600_000);
 
-  const [calls, dueOrders, busyDates, me] = await Promise.all([
+  // Upcoming and past calls are read separately, so a busy mentor's many
+  // past calls can never push upcoming ones past the limit.
+  const callWhere: Prisma.CallBookingWhereInput = {
+    status: "BOOKED",
+    OR: [
+      { order: { OR: [{ buyerId: userId }, { sellerId: userId }], status: { in: ["IN_ESCROW", "COMPLETED", "RELEASED"] } } },
+      // Free intro calls (no order).
+      { kind: "INTRO", OR: [{ studentId: userId }, { mentorId: userId }] },
+    ],
+  };
+  const callInclude = {
+    order: {
+      select: {
+        id: true, buyerId: true, sellerId: true, packageTitle: true, disputed: true,
+        gig: { select: { title: true } },
+        buyer: { select: { name: true, photoUrl: true } },
+        seller: { select: { name: true, photoUrl: true } },
+      },
+    },
+    student: { select: { name: true, photoUrl: true } },
+    mentor: { select: { name: true, photoUrl: true } },
+  } satisfies Prisma.CallBookingInclude;
+
+  const [upcomingCalls, pastCalls, dueOrders, busyDates, me] = await Promise.all([
     prisma.callBooking.findMany({
-      where: {
-        status: "BOOKED",
-        startTime: { gte: since },
-        OR: [
-          { order: { OR: [{ buyerId: userId }, { sellerId: userId }], status: { in: ["IN_ESCROW", "COMPLETED", "RELEASED"] } } },
-          // Free intro calls (no order).
-          { kind: "INTRO", OR: [{ studentId: userId }, { mentorId: userId }] },
-        ],
-      },
-      include: {
-        order: {
-          select: {
-            id: true, buyerId: true, sellerId: true, packageTitle: true, disputed: true,
-            gig: { select: { title: true } },
-            buyer: { select: { name: true, photoUrl: true } },
-            seller: { select: { name: true, photoUrl: true } },
-          },
-        },
-        student: { select: { name: true, photoUrl: true } },
-        mentor: { select: { name: true, photoUrl: true } },
-      },
+      where: { ...callWhere, endTime: { gt: now } },
+      include: callInclude,
       orderBy: { startTime: "asc" },
-      take: 300,
+      take: 1000,
+    }),
+    // The last 60 days, newest first.
+    prisma.callBooking.findMany({
+      where: { ...callWhere, endTime: { lte: now }, startTime: { gte: since } },
+      include: callInclude,
+      orderBy: { startTime: "desc" },
+      take: 200,
     }),
     isMentor
       ? prisma.order.findMany({
@@ -56,7 +68,7 @@ export async function GET() {
     prisma.user.findUnique({ where: { id: userId }, select: { timeZone: true, calendarToken: true } }),
   ]);
 
-  const view = (b: (typeof calls)[number]) => {
+  const view = (b: (typeof upcomingCalls)[number]) => {
     const iAmMentor = b.order ? b.order.sellerId === userId : b.mentorId === userId;
     return {
       id: b.id,
@@ -77,8 +89,8 @@ export async function GET() {
     role,
     timeZone: me?.timeZone || null,
     feedConnected: !!me?.calendarToken,
-    upcoming: calls.filter((b) => b.endTime > now).map(view),
-    past: calls.filter((b) => b.endTime <= now).reverse().map(view),
+    upcoming: upcomingCalls.map(view),
+    past: pastCalls.map(view),
     dueDates: (dueOrders as any[]).map((o) => ({
       orderId: o.id,
       dueDay: dueDayOf(o.dueDate),

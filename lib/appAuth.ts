@@ -150,7 +150,8 @@ export async function refreshAppSession(refreshToken: string): Promise<AppTokens
   if (typeof refreshToken !== "string" || refreshToken.length < 20 || refreshToken.length > 200) return null;
   const oldHash = hash(refreshToken);
   const row = await prisma.appSession.findUnique({ where: { refreshHash: oldHash }, include: { user: { select: SESSION_USER } } });
-  if (!row || !appSessionActive(row)) return null;
+  // Team (admin) accounts use the website; the app has no area for them.
+  if (!row || !appSessionActive(row) || row.user.role === "ADMIN") return null;
   const next = newRefreshToken();
   // Claimed in one step, so the same refresh token can't be used twice.
   const claim = await prisma.appSession.updateMany({
@@ -212,6 +213,10 @@ export async function sessionFromAccessToken(raw: string): Promise<(Session & { 
     return null;
   }
   if (!token?.sub || typeof token.appSid !== "string") return null;
+  // "Sign out" (in the app, or of one phone in Settings) ends the access
+  // token at once, not when it runs out.
+  const appSession = await prisma.appSession.findUnique({ where: { id: token.appSid }, select: { userId: true, revokedAt: true } });
+  if (!appSession || appSession.revokedAt || appSession.userId !== token.sub) return null;
   const cb = authOptions.callbacks!;
   const checked = (await cb.jwt!({ token, user: undefined as any, account: null } as any)) as JWT;
   if (!checked || checked.revoked) return null;

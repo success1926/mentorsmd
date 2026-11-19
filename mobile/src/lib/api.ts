@@ -24,6 +24,11 @@ const K_TRUST = "mmd.trust";
 
 let access: { token: string; until: number } | null = null;
 let refreshing: Promise<boolean> | null = null;
+// Goes up each time the tokens are cleared, so a refresh that was already
+// on its way can't write tokens back after signing out.
+let generation = 0;
+// While signing out, no new refresh starts.
+let signingOut = false;
 let onSignedOut: (() => void) | null = null;
 
 export class ApiError extends Error {
@@ -56,6 +61,7 @@ export async function saveTokens(t: Tokens) {
 }
 
 export async function clearTokens() {
+  generation++;
   access = null;
   await SecureStore.deleteItemAsync(K_REFRESH).catch(() => {});
   await SecureStore.deleteItemAsync(K_USER).catch(() => {});
@@ -66,17 +72,21 @@ export const trustToken =() => SecureStore.getItemAsync(K_TRUST).catch(() => nul
 export const saveTrustToken = (t: string) => SecureStore.setItemAsync(K_TRUST, t).catch(() => {});
 
 async function doRefresh(): Promise<boolean> {
+  const gen = generation;
   const refreshToken = await SecureStore.getItemAsync(K_REFRESH).catch(() => null);
   if (!refreshToken) return false;
   try {
     const r = await fetch(SITE + "/api/app/auth/refresh", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refreshToken }) });
+    if (gen !== generation) return false; // signed out (or in again) meanwhile
     if (r.status === 401) {
       await clearTokens();
       onSignedOut?.();
       return false;
     }
     if (!r.ok) return false; // a blip: keep the refresh token and try again later
-    await saveTokens(await r.json());
+    const tokens = await r.json();
+    if (gen !== generation) return false;
+    await saveTokens(tokens);
     return true;
   } catch {
     return false;
@@ -85,8 +95,24 @@ async function doRefresh(): Promise<boolean> {
 
 // One refresh at a time, shared by every call waiting on it.
 function refresh() {
+  if (signingOut) return Promise.resolve(false);
   if (!refreshing) refreshing = doRefresh().finally(() => { refreshing = null; });
   return refreshing;
+}
+
+// Signing out: waits for any refresh on its way (it replaces the refresh
+// token), clears the tokens on this phone and returns the refresh token to
+// end on the website.
+export async function takeRefreshTokenForSignOut(): Promise<string | null> {
+  signingOut = true;
+  try {
+    while (refreshing) await refreshing.catch(() => false);
+    const t = await currentRefreshToken();
+    await clearTokens();
+    return t;
+  } finally {
+    signingOut = false;
+  }
 }
 
 async function currentToken(): Promise<string | null> {

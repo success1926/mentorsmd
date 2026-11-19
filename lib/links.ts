@@ -4,7 +4,7 @@ import { normalize } from "@/lib/moderation";
 import { extractLinks, hostOf } from "@/lib/linkText";
 import { siteUrl } from "@/lib/siteUrl";
 
-export { SHORTENERS, extractLinks, hostOf, isShortener, leavingHref } from "@/lib/linkText";
+export { isShortener } from "@/lib/linkText";
 
 // Link safety for messages:
 //  - link shorteners are refused (they hide where a link really goes)

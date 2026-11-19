@@ -19,10 +19,12 @@ export default function TwoStep() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const send = async (quiet?: boolean) => {
+  // auto: the first code when the screen opens (skipped by the website
+  // while an earlier code is still good); "Send a new code" always sends.
+  const send = async (auto?: boolean) => {
     try {
-      await sendCode(p.challenge);
-      if (!quiet) toast("New code sent");
+      await sendCode(p.challenge, auto);
+      if (!auto) toast("New code sent");
     } catch (e) {
       setError(errorText(e));
     }

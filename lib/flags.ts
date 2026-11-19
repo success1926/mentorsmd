@@ -130,10 +130,6 @@ export async function placeSafetyHold(userId: string, reason: string, adminId: s
   return true;
 }
 
-export async function liftSafetyHold(userId: string) {
-  await prisma.user.update({ where: { id: userId }, data: { safetyHoldAt: null, safetyHoldReason: null } });
-}
-
 // 3 upheld flags in 90 days -> paused automatically, pending review.
 export async function checkAutoPause(userId: string | null | undefined) {
   if (!userId) return false;

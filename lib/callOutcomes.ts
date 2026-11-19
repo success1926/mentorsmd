@@ -34,8 +34,6 @@ export const FREES_THE_CALL: readonly string[] = ["MENTOR_NO_SHOW", "FREE_REBOOK
 // Neither: waiting for an admin to decide.
 export const NEEDS_ADMIN: readonly string[] = ["NOBODY_JOINED", "UNCLEAR"];
 
-export const isOutcome = (v: unknown): v is CallOutcome => typeof v === "string" && (OUTCOMES as readonly string[]).includes(v);
-
 // Plain words for the order page and Admin.
 export function outcomeLabel(outcome: string | null | undefined, viewer: "student" | "mentor" | "admin" = "admin"): string {
   switch (outcome) {

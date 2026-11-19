@@ -113,16 +113,6 @@ export const SCHOOL_TYPES: Option[] = [
   { value: "MD_PHD", label: "MD/PhD" },
 ];
 
-// No longer used since the Oct 2026 redesign ("Who you're best for",
-// BEST_FOR below, replaced it everywhere). Kept only to label old data.
-export const BACKGROUNDS: Option[] = [
-  { value: "REAPPLICANT", label: "Reapplicant" },
-  { value: "NON_TRADITIONAL", label: "Non-traditional" },
-  { value: "FIRST_GEN", label: "First-generation" },
-  { value: "GAP_YEARS", label: "Gap years" },
-  { value: "CAREER_CHANGER", label: "Career changer" },
-];
-
 // ---- Mentor profile sections (redesign Oct 2026) ----
 // "Who you're best for": the students a mentor helps most. Also a browse
 // filter (?best=...). Changing a value needs a data update.
@@ -201,18 +191,6 @@ export const MAX_BUNDLES = 6;
 export const MAX_SPECIALIZED = 12;
 export const INTRO_CALL_MINUTES = 15;
 
-// Old per-package price limits, in cents (before the redesign: packages
-// had a typed-in price). Still used by the old checkout until part 2. Enforced on the package form, the
-// package API and checkout. Packages outside this range (made before the
-// limits changed) are hidden from search until the mentor updates them.
-export const PRICE_MIN_CENTS = 5_000; // $50
-export const PRICE_MAX_CENTS = 500_000; // $5,000
-export const PRICE_RULE = "Price must be between $50 and $5,000";
-
-export function isPriceInRange(cents: number) {
-  return cents >= PRICE_MIN_CENTS && cents <= PRICE_MAX_CENTS;
-}
-
 // Price bands for the browse filter, in cents. max is exclusive. Matched
 // against every offer's computed price (an hour, a bundle or a package).
 export const PRICE_BANDS: { value: string; label: string; min: number; max: number | null }[] = [
@@ -221,14 +199,6 @@ export const PRICE_BANDS: { value: string; label: string; min: number; max: numb
   { value: "250-500", label: "$250 to $500", min: 25001, max: 50001 },
   { value: "500p", label: "$500 and up", min: 50001, max: null },
 ];
-
-export const RATINGS: Option[] = [
-  { value: "4.5", label: "4.5 stars and up" },
-  { value: "4", label: "4 stars and up" },
-];
-
-export const CALL_LENGTHS = [30, 45, 60];
-export const MAX_CALLS = 3;
 
 export function countWords(text: string) {
   return text.trim().split(/\s+/).filter(Boolean).length;
@@ -286,15 +256,6 @@ export const FILTER_GROUPS = [
   { key: "best", title: "Best for", sub: "The students they help most", options: BEST_FOR, multi: true },
   { key: "service", title: "Specialties", sub: "What you need help with", options: SERVICES.filter((o) => o.value !== "OTHER"), multi: true },
   { key: "price", title: "Price", sub: "An hour, a bundle or a package", options: PRICE_BANDS.map(({ value, label }) => ({ value, label })), multi: true },
-];
-
-// The pills above the results also name filters that came from a link.
-export const ALL_FILTER_GROUPS = [
-  ...FILTER_GROUPS,
-  { key: "format", title: "Format", sub: "", options: FORMATS, multi: true },
-  { key: "stage", title: "Mentor stage", sub: "", options: STAGES, multi: true },
-  { key: "school", title: "School type", sub: "", options: SCHOOL_TYPES, multi: true },
-  { key: "rating", title: "Rating", sub: "", options: RATINGS, multi: false },
 ];
 
 // "Successful clients at": schools a mentor's students got into (Nov 2026).

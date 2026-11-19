@@ -19,9 +19,19 @@ export default function AvailabilityPage() {
   const role = (session?.user as any)?.role;
   const [profile, setProfile] = useState<any>(null);
   const [calls, setCalls] = useState<any[] | null>(null);
+  const [error, setError] = useState("");
 
   function loadProfile() {
-    return fetch("/api/profile").then((r) => r.json()).then((d) => setProfile(d.profile || null)).catch(() => {});
+    return fetch("/api/profile")
+      .then(async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || !d.profile) setError(d.error || "Couldn't load your availability. Refresh the page to try again.");
+        else {
+          setError("");
+          setProfile(d.profile);
+        }
+      })
+      .catch(() => setError("Couldn't load your availability. Refresh the page to try again."));
   }
 
   useEffect(() => {
@@ -38,6 +48,7 @@ export default function AvailabilityPage() {
   }, [!!profile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (session && role !== "SELLER") return <div className="page-narrow"><div className="alert">This page is for mentor accounts. <Link href="/account" className="link">Your account</Link></div></div>;
+  if (!profile && error) return <div className="page-narrow"><div className="alert alert-danger">{error}</div></div>;
   if (!profile) return <div className="page-mid text-muted">Loading…</div>;
 
   return (
