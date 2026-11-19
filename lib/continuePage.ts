@@ -19,8 +19,8 @@ body{margin:0;min-height:100vh;display:flex;align-items:flex-start;justify-conte
 .brand{font-weight:700;font-size:20px;letter-spacing:-.02em;color:#5536D6}
 h1{margin:0;font-family:Georgia,serif;font-weight:400;font-size:32px;line-height:1.1;letter-spacing:-.025em}
 p{margin:0;color:#5D5973;line-height:1.55}
-button{width:100%;min-height:50px;border-radius:999px;background:#BFB0FF;color:#1B1834;border:0;font:inherit;font-size:16px;font-weight:600;cursor:pointer}
-button:hover{background:#AE9CFF}
+button{width:100%;min-height:50px;border-radius:999px;background:#5536D6;color:#fff;border:0;font:inherit;font-size:16px;font-weight:600;cursor:pointer}
+button:hover{background:#3F24B0}
 </style></head><body><main class="card"><div class="brand">MentorsMD</div>
 <h1>${esc(opts.title)}</h1><p>${esc(opts.text)}</p>
 ${opts.button ? `<form method="post"><button type="submit">${esc(opts.button)}</button></form>` : ""}

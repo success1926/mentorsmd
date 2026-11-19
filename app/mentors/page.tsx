@@ -111,8 +111,10 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
             {c.intro && <p className="lede">{c.intro}</p>}
           </div>
           <form action="/mentors" method="get" className="search-inline" role="search">
-            <Icon d={ICONS.search} size={20} />
-            <input name="q" defaultValue={filters.q} aria-label="Search mentors" placeholder="Search by name, school or keyword" />
+            <div className="search-field">
+              <Icon d={ICONS.search} size={20} />
+              <input name="q" defaultValue={filters.q} aria-label="Search mentors" placeholder="Search by name, school or keyword" />
+            </div>
             {/* keep the current picks when searching */}
             {Array.from(params.entries())
               .filter(([k]) => k !== "q")
