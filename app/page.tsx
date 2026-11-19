@@ -54,8 +54,10 @@ export default async function HomePage() {
           </h1>
           {c.heroSub && <p className="hero-sub">{c.heroSub}</p>}
           <form action="/mentors" method="get" className="hero-search" role="search">
-            <Icon d={ICONS.search} size={20} />
-            <input name="q" aria-label="Search for help" placeholder={c.searchPlaceholder} />
+            <div className="search-field">
+              <Icon d={ICONS.search} size={20} />
+              <input name="q" aria-label="Search for help" placeholder={c.searchPlaceholder} />
+            </div>
             <button type="submit" className="btn btn-primary">
               <span className="hide-mobile">Search Mentors</span>
               <Icon d={ICONS.arrow} size={18} />
