@@ -210,7 +210,7 @@ export function FChip({ label, on, onPress }: { label: string; on?: boolean; onP
 // Filter chips that scroll sideways, edge to edge.
 export function FChipRow({ children }: { children: ReactNode }) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20 }} contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20, flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: 20, gap: 8, alignItems: "center" }}>
       {children}
     </ScrollView>
   );
