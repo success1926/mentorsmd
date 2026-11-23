@@ -7,7 +7,9 @@ import { logoKey, type LogoMap } from "@/lib/schoolLogoKey";
 // school and their "Successful clients at" row. Logos come from Admin ->
 // Website -> Site settings: the "School logos for mentor profiles" list,
 // plus every logo already in the scrolling strips (so a school's logo only
-// needs uploading once). Schools without a logo show a lettered badge
+// needs uploading once). Listed schools also have a built-in logo
+// (lib/builtinSchoolLogos.ts, used by logoFor when nothing is uploaded);
+// the rest show a lettered badge
 // (components/SchoolLogo.tsx).
 export async function getSchoolLogos(): Promise<LogoMap> {
   const s = await getSiteContent("siteSettings");

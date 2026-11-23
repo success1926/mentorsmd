@@ -1,8 +1,8 @@
 import { logoFor, schoolInitials, type LogoMap } from "@/lib/schoolLogoKey";
 
-// A school's logo in a small rounded square (Nov 2026), or its initials on
-// a deep colour when no logo has been uploaded yet (Admin -> Website ->
-// Site settings -> School logos). Works in server and client components.
+// A school's logo in a small rounded square (Nov 2026): one uploaded in
+// Admin -> Website -> Site settings -> School logos, else the built-in one
+// (lib/builtinSchoolLogos.ts), else its initials on a deep colour. Works in server and client components.
 
 // Deep colours that read like school crests, picked by the name so a
 // school always gets the same one.
