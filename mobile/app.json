@@ -70,6 +70,9 @@
         {
           "ios": {
             "useFrameworks": "dynamic"
+          },
+          "android": {
+            "extraProguardRules": "# Stripe's optional card push provisioning isn't in the app (compileOnly).\n-dontwarn com.stripe.android.pushProvisioning.**\n-dontwarn com.google.android.gms.tapandpay.**\n"
           }
         }
       ],
