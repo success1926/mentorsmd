@@ -72,7 +72,8 @@
             "useFrameworks": "dynamic"
           }
         }
-      ]
+      ],
+      "./plugins/withoutTapAndPay"
     ],
     "runtimeVersion": {
       "policy": "appVersion"
