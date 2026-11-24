@@ -25,12 +25,12 @@ export function MentorCard({ m }: { m: Mentor }) {
       <Grow gap={4}>
         <TT>{m.name}</TT>
         {m.stage ? <SS style={{ color: c.ink, fontFamily: fonts.bodySemi }}>{m.stage}</SS> : null}
-        {m.school ? <RowV gap={8}><SchoolLogo name={m.school} size={20} /><SS style={{ flexShrink: 1 }}>{m.school}</SS></RowV> : null}
+        {m.school ? <RowV gap={8}><SchoolLogo name={m.school} size={20} logo={m.logos?.[m.school]} /><SS style={{ flexShrink: 1 }}>{m.school}</SS></RowV> : null}
         {m.specialties.length ? <View style={{ marginTop: 4 }}><Chips>{m.specialties.slice(0, 2).map((s) => <Chip key={s} label={s} />)}</Chips></View> : null}
         {m.clients.length ? (
           <View style={{ borderTopWidth: 1, borderColor: c.line, paddingTop: 8, marginTop: 6, gap: 5 }}>
             <Text style={{ fontFamily: fonts.bodySemi, fontSize: 11, color: c.muted }}>Successful clients at:</Text>
-            <RowV gap={5} style={{ flexWrap: "wrap" }}>{m.clients.slice(0, 5).map((s) => <SchoolLogo key={s} name={s} />)}</RowV>
+            <RowV gap={5} style={{ flexWrap: "wrap" }}>{m.clients.slice(0, 5).map((s) => <SchoolLogo key={s} name={s} logo={m.logos?.[s]} />)}</RowV>
           </View>
         ) : null}
       </Grow>

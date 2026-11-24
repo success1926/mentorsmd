@@ -7,7 +7,7 @@ import { GROUPS, SERVICE_OPTIONS, emptyPicks, labelOf, matchMentor, optionHit, p
 import { money, type Mentor } from "../lib/sample";
 import { fonts, useColors } from "../lib/theme";
 import { CompareTick, GlowBand, PickChip, PickedPill, Tag, WhyLine } from "./brand";
-import { Av, Btn, Btns2, Card, Chip, Eyebrow, FChip, FChipRow, H, Half, Loading, Note, RowV, Search, Seg, Small, SS, Stars, T } from "./ui";
+import { Av, Btn, Btns2, Card, Chip, Eyebrow, FChip, FChipRow, H, Half, Loading, Note, RowV, SchoolLogo, Search, Seg, Small, SS, Stars, T } from "./ui";
 import { useReloadOnFocus } from "./mentorSheets";
 
 // Live mentors seen in a list, so a profile can show their card while the full profile loads.
@@ -193,7 +193,7 @@ export function MatchCard({ m, r, picks, best }: { m: Mentor; r: MatchResult; pi
             {!m.reviews ? <Chip label="New mentor" /> : null}
           </RowV>
           {m.stage ? <SS style={{ color: c.ink }}>{m.stage}</SS> : null}
-          {m.school ? <SS numberOfLines={2}>{m.school}</SS> : null}
+          {m.school ? <RowV gap={6}><SchoolLogo name={m.school} size={18} logo={m.logos?.[m.school]} /><SS numberOfLines={2} style={{ flexShrink: 1 }}>{m.school}</SS></RowV> : null}
           {m.rating != null ? <Stars>★ {m.rating.toFixed(1)} · {m.reviews} {m.reviews === 1 ? "review" : "reviews"}</Stars> : null}
         </View>
         <View style={{ alignItems: "flex-end" }}>

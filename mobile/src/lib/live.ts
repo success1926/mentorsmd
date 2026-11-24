@@ -35,8 +35,9 @@ type Card = {
   roleTitles?: string[]; languages?: string[]; totalPackages?: number;
 };
 
-function fromCard(c: Card): Mentor {
+function fromCard(c: Card, logos: Record<string, string>): Mentor {
   return {
+    logos,
     id: c.id, name: c.name, init: initials(c.name), photo: c.photoUrl, live: true,
     stage: (c.mentorStage && RANKS[c.mentorStage]) || c.credential || "",
     school: c.medicalSchool || "",
@@ -69,7 +70,7 @@ async function getJson(path: string) {
 export async function searchLive(params: Record<string, string | null>): Promise<LiveSearch> {
   const qs = Object.entries(params).filter(([, v]) => v).map(([k, v]) => `${k}=${encodeURIComponent(v as string)}`).join("&");
   const d = await getJson("/api/mentors" + (qs ? "?" + qs : ""));
-  return { mentors: (d.mentors || []).map(fromCard), filters: d.filters || [], quickLinks: d.quickLinks || [] };
+  return { mentors: (d.mentors || []).map((c: Card) => fromCard(c, d.schoolLogos || {})), filters: d.filters || [], quickLinks: d.quickLinks || [] };
 }
 
 type Offer = { id: string; kind: string; title: string; description: string | null; minutes: number | null; price: number; rateCents?: number; service?: string | null; hiddenFromStudents?: boolean };
@@ -91,6 +92,7 @@ export async function liveProfile(id: string): Promise<{ mentor: Mentor; reviews
   const stages: string[] = s.strongestStages || [];
   const specialties = [...new Set([...stages.map((x) => SPEC[x]), ...pkgServices.map((x) => SVC_SPEC[x])].filter(Boolean))];
   const mentor: Mentor = {
+    logos: d.schoolLogos || {},
     id: s.id, name: s.name, init: initials(s.name), photo: s.photoUrl, live: true,
     stage: (s.mentorStage && RANKS[s.mentorStage]) || s.credential || "",
     school: (["UNDERGRAD", "GAP_YEAR", "OTHER"].includes(s.mentorStage) ? s.undergradSchool : s.medicalSchool) || s.medicalSchool || "",

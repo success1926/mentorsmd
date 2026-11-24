@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
+import { SITE } from "../lib/api";
 import { useOverlay } from "../lib/demo";
 import type { Status } from "../lib/sample";
 import { fonts, useColors, type Colors } from "../lib/theme";
@@ -422,10 +423,22 @@ export function Composer({ placeholder, onSend }: { placeholder: string; onSend:
   );
 }
 
-// A lettered crest for a school (the website shows this when there's no logo uploaded).
+// A school's logo, as on the website (Nov 2026): `logo` is the address the
+// website gave for it (Mentor.logos, from app/api/mentors), drawn in a small
+// white rounded square. With no logo, or if it fails to load, a lettered
+// crest instead.
 const LOGO_COLORS = ["#BFB0FF", "#F5B9CD", "#BFE3D0", "#FFD9A8", "#B9D7FF", "#E2C7FF", "#FFC6B3", "#D7E8A8"];
 const SKIP = /^(of|at|the|and|University|School|Medicine|College|Medical|Osteopathic|Starting|PLME|\d+)$/i;
-export function SchoolLogo({ name, size = 22 }: { name: string; size?: number }) {
+export function SchoolLogo({ name, size = 22, logo }: { name: string; size?: number; logo?: string | null }) {
+  const c = useColors();
+  const [failed, setFailed] = useState(false);
+  if (logo && !failed) {
+    const uri = logo.startsWith("/") ? SITE + logo : logo;
+    return (
+      <Image accessibilityLabel={name} source={{ uri }} contentFit="contain" onError={() => setFailed(true)}
+        style={{ width: size, height: size, borderRadius: 6, backgroundColor: "#FFFFFF", borderWidth: StyleSheet.hairlineWidth, borderColor: c.line }} />
+    );
+  }
   const words = name.replace(/\(.*?\)/g, "").split(/[\s,·-]+/).filter((x) => x && !SKIP.test(x));
   const letters = (words.length ? words : name.split(" ")).slice(0, 2).map((x) => x[0]).join("").toUpperCase();
   let h = 0;
@@ -436,13 +449,13 @@ export function SchoolLogo({ name, size = 22 }: { name: string; size?: number })
     </View>
   );
 }
-export function SchoolList({ schools, size = 24 }: { schools: string[]; size?: number }) {
+export function SchoolList({ schools, size = 24, logos }: { schools: string[]; size?: number; logos?: Record<string, string> }) {
   const c = useColors();
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", rowGap: 8 }}>
       {schools.map((s) => (
         <View key={s} style={{ width: "50%", flexDirection: "row", alignItems: "center", gap: 8, paddingRight: 6 }}>
-          <SchoolLogo name={s} size={size} />
+          <SchoolLogo name={s} size={size} logo={logos?.[s]} />
           <Text style={{ fontFamily: fonts.body, fontSize: 13, color: c.ink, flexShrink: 1 }}>{s}</Text>
         </View>
       ))}

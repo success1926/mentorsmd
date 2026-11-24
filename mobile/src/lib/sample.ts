@@ -22,6 +22,8 @@ export type Mentor = {
   fun: string;
   reply: string;
   clients: string[];
+  // School name -> logo address, from the website (live mentors only).
+  logos?: Record<string, string>;
   bio: string;
   bundles: [number, number][]; // [hours, price]
   pkgs: [string, string, number][]; // [title, what's in it, price]
