@@ -1,13 +1,15 @@
 import { getSiteContent } from "@/lib/siteContentStore";
 import { isSafeImage } from "@/lib/siteContent";
 import { stripFocus } from "@/lib/imageFocus";
-import { logoKey, type LogoMap } from "@/lib/schoolLogoKey";
+import { logoFor, logoKey, type LogoMap } from "@/lib/schoolLogoKey";
 
 // School logos for mentor cards and profiles (Nov 2026): the mentor's own
 // school and their "Successful clients at" row. Logos come from Admin ->
 // Website -> Site settings: the "School logos for mentor profiles" list,
 // plus every logo already in the scrolling strips (so a school's logo only
-// needs uploading once). Schools without a logo show a lettered badge
+// needs uploading once). Every listed school also has a built-in logo
+// (lib/builtinSchoolLogos.ts, used by logoFor when nothing is uploaded);
+// a school typed in that isn't on the list shows a lettered badge
 // (components/SchoolLogo.tsx).
 export async function getSchoolLogos(): Promise<LogoMap> {
   const s = await getSiteContent("siteSettings");
@@ -27,4 +29,20 @@ export async function getSchoolLogos(): Promise<LogoMap> {
   add(s.mentorSchools as any);
   add(s.trainedAt as any);
   return map;
+}
+
+// The logo for each of these school names, exactly as the website would show
+// it, for the phone app's JSON (app/api/mentors): { "Duke University School
+// of Medicine": "/images/school-logos/duke-....png", ... }. Keyed by the name
+// as given; built-in logos are site paths, uploaded ones full addresses.
+// Schools with no logo are left out (the app shows initials).
+export async function schoolLogosFor(names: (string | null | undefined)[]): Promise<Record<string, string>> {
+  const logos = await getSchoolLogos().catch(() => ({}) as LogoMap);
+  const out: Record<string, string> = {};
+  for (const name of names) {
+    if (!name?.trim() || name in out) continue;
+    const logo = logoFor(logos, name);
+    if (logo) out[name] = logo;
+  }
+  return out;
 }

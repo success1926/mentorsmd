@@ -365,7 +365,7 @@ a.footer-social:hover .bg { fill: var(--tint-2); }
 .vet-items p { color: #DDD5FF; font-size: 15px; line-height: 1.6; }
 .vet-num { font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.08em; color: #CFC4FF; }
 
-.mentor-tile-photo { position: relative; aspect-ratio: 4 / 5; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 56px; color: var(--primary-deep); overflow: hidden; }
+.mentor-tile-photo { position: relative; aspect-ratio: 1 / 1; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 56px; color: var(--primary-deep); overflow: hidden; }
 .mentor-tile-photo .vetted { position: absolute; left: 14px; top: 14px; font-family: var(--font-body); }
 .mentor-tile-name { font-size: 19px; font-weight: 600; }
 .mentor-tile:hover .mentor-tile-name { text-decoration: underline; text-underline-offset: 4px; }

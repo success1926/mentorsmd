@@ -1,5 +1,6 @@
 import { isSafeHref, isSafeImage } from "@/lib/siteContent";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
+import { logoFor } from "@/lib/schoolLogoKey";
 
 // A strip of school logos and names that scrolls sideways on its own (same
 // as AdmitMD's). The schools are picked in Admin -> Website -> Site
@@ -30,7 +31,8 @@ export function SchoolMarquee({ label, schools, contained }: { label: string; sc
     <ul className="marquee-row" aria-hidden={copy || undefined}>
       {items.map((s, i) => {
         const repeat = copy || i >= list.length;
-        const logo = s.logo && isSafeImage(s.logo) ? s.logo : "";
+        // A school without an uploaded logo uses its built-in one, if any.
+        const logo = s.logo && isSafeImage(s.logo) ? s.logo : logoFor(null, s.name);
         const inner = (
           <>
             {logo ? (
