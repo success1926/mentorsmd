@@ -30,9 +30,10 @@ export EXPO_ASC_KEY_ID="$MENTORSMD_ASC_KEY_ID"
 export EXPO_ASC_ISSUER_ID="$MENTORSMD_ASC_ISSUER_ID"
 export EXPO_APPLE_TEAM_ID="$MENTORSMD_APPLE_TEAM_ID"
 export EXPO_APPLE_TEAM_TYPE="COMPANY_OR_ORGANIZATION"
-# MentorsMD needs Apple Pay + App Attest turned on for com.mentorsmd.app, so let
-# EAS set those up on Apple's side (the AdmitMD setting turns this off).
-unset EXPO_NO_CAPABILITY_SYNC
+# Apple's API can't turn on App Attest, so Apple Pay (merchant.com.mentorsmd.app)
+# and App Attest are switched on by hand once for com.mentorsmd.app in the
+# Apple developer site, and EAS is told not to touch capabilities.
+export EXPO_NO_CAPABILITY_SYNC=1
 
 if [[ "${1:-}" == "set-app-id" ]]; then
   [[ "${2:-}" =~ ^[0-9]{9,12}$ ]] || { echo "Give the Apple ID number from App Store Connect > App Information."; exit 1; }
