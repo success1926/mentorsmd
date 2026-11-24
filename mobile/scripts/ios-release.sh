@@ -34,11 +34,17 @@ export EXPO_APPLE_TEAM_TYPE="COMPANY_OR_ORGANIZATION"
 # EAS set those up on Apple's side (the AdmitMD setting turns this off).
 unset EXPO_NO_CAPABILITY_SYNC
 
+if [[ "${1:-}" == "set-app-id" ]]; then
+  [[ "${2:-}" =~ ^[0-9]{9,12}$ ]] || { echo "Give the Apple ID number from App Store Connect > App Information."; exit 1; }
+  sed -i '' -E "s/\"ascAppId\": \"[^\"]*\"/\"ascAppId\": \"$2\"/" eas.json
+  grep ascAppId eas.json; exit 0
+fi
+
 if [[ "${1:-}" == "simulator" ]]; then
   exec npx -y eas-cli@latest build --platform ios --profile simulator --non-interactive
 fi
 
 if grep -q "REPLACE-AFTER-CREATING" eas.json; then
-  echo "eas.json still has no App Store Connect app id (submit.production.ios.ascAppId)."; exit 1
+  echo "eas.json still has no App Store Connect app id. Run: ./scripts/ios-release.sh set-app-id 1234567890"; exit 1
 fi
-exec npx -y eas-cli@latest build --platform ios --profile production --non-interactive --auto-submit
+exec npx -y eas-cli@latest build --platform ios --profile production --auto-submit
