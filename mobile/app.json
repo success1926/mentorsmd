@@ -10,7 +10,6 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.mentorsmd.app",
-      "buildNumber": "1",
       "infoPlist": {
         "NSCameraUsageDescription": "MentorsMD uses your camera for video calls with your mentor or student.",
         "NSMicrophoneUsageDescription": "MentorsMD uses your microphone for video calls with your mentor or student.",
@@ -36,7 +35,6 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#FFFFFF"
       },
-      "versionCode": 1,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
@@ -78,6 +76,17 @@
     ],
     "runtimeVersion": {
       "policy": "appVersion"
-    }
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "2835cfe3-685a-4b68-be24-9f7afcc80451"
+      }
+    },
+    "owner": "success1926"
   }
 }
