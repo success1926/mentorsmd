@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { decode, encode } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
+import { androidUnverifiedAllowed, decodePlayToken, playConfigured, playProjectNumber, playRequestHash, playVerdictProblem } from "@/lib/playIntegrity";
 
 // Apple App Attest for the phone app's sign-in (Nov 2026).
 //
@@ -22,8 +23,11 @@ import { prisma } from "@/lib/prisma";
 //      sign-in can't be replayed).
 // The cryptography is done by node-app-attest (Apple's documented steps).
 //
+// Android phones use Google Play Integrity instead (lib/playIntegrity.ts).
+//
 // On the live site (VERCEL_ENV=production) iPhones must pass this, and
-// Android is refused until Google Play Integrity is added. Previews and
+// Android phones must pass Play Integrity once it's set up (refused until
+// then, unless APP_ANDROID_ALLOW_UNVERIFIED=1 lets test installs in). Previews and
 // local development accept sign-ins without it (simulators can't attest),
 // but still check an attestation when one is sent.
 // Settings (Vercel, Production): APPLE_TEAM_ID (10 characters, from the
@@ -51,11 +55,18 @@ function secret() {
 // What a sign-in from this platform needs.
 //   required:     must carry a valid assertion
 //   optional:     checked if sent, allowed without (previews, local)
-//   unavailable:  refused (Android on the live site, for now)
+//   unavailable:  refused (live Android without Play Integrity settings)
 //   unconfigured: refused (live site without APPLE_TEAM_ID)
+// Android on the live site: APP_ANDROID_ALLOW_UNVERIFIED=1 makes it
+// "optional" (the app then sends nothing), else Play Integrity is required
+// once its settings are in, else Android is refused.
 export type AttestMode = "required" | "optional" | "unavailable" | "unconfigured";
 export function attestMode(platform: string): AttestMode {
   if (!isProduction()) return "optional";
+  if (platform === "ANDROID") {
+    if (androidUnverifiedAllowed()) return "optional";
+    return playConfigured() ? "required" : "unavailable";
+  }
   if (platform !== "IOS") return "unavailable";
   return /^[A-Z0-9]{10}$/.test(teamId()) ? "required" : "unconfigured";
 }
@@ -110,6 +121,7 @@ export function setAttestLibForTests(fake: Lib | null) {
 export type AttestFail = { ok: false; status: number; code: string; error: string };
 const fail = (status: number, code: string, error: string): AttestFail => ({ ok: false, status, code, error });
 const UPDATE = "Please update the MentorsMD app and try again.";
+const ANDROID_NOT_YET = "The MentorsMD app isn't available on Android yet. Please use mentorsmd.com.";
 
 // ---- 1. Registering a new key (once per install) ----
 
@@ -155,9 +167,10 @@ export async function registerAttestKey(body: any): Promise<{ ok: true } | Attes
 
 export async function checkLoginAttest(platform: string, email: string, attest: any): Promise<{ ok: true; keyId: string | null } | AttestFail> {
   const mode = attestMode(platform);
-  if (mode === "unavailable") return fail(403, "ATTEST_PLATFORM", "The MentorsMD app isn't available on Android yet. Please use mentorsmd.com.");
+  if (mode === "unavailable") return fail(403, "ATTEST_PLATFORM", ANDROID_NOT_YET);
   if (mode === "unconfigured") return fail(503, "ATTEST_UNCONFIGURED", "App sign-in isn't set up yet. Please use the website for now.");
   if (!attest) return mode === "required" ? fail(403, "ATTEST_MISSING", UPDATE) : { ok: true, keyId: null };
+  if (platform === "ANDROID") return checkPlayLogin(email, attest);
   // A preview with no Team ID can't check anything: let it through.
   if (mode === "optional" && !teamId()) return { ok: true, keyId: null };
 
@@ -194,4 +207,52 @@ export async function checkLoginAttest(platform: string, email: string, attest: 
   const moved = await prisma.appAttestKey.updateMany({ where: { keyId, signCount: key.signCount }, data: { signCount, lastUsedAt: new Date() } });
   if (moved.count !== 1) return fail(403, "ATTEST_REFUSED", "Please try signing in again.");
   return { ok: true, keyId };
+}
+
+// ---- Android: Google Play Integrity at sign-in ----
+
+// Marks a challenge used (a row in RateLimitBucket that the usual clean-up
+// removes after it expires). False if it was used before.
+async function useChallengeOnce(challenge: string): Promise<boolean> {
+  const key = `play-once:${crypto.createHash("sha256").update(challenge).digest("hex")}`;
+  const rows = await prisma.$queryRaw<{ key: string }[]>`
+    INSERT INTO "RateLimitBucket" ("key", "count", "expiresAt") VALUES (${key}, 1, ${new Date(Date.now() + 15 * 60_000)})
+    ON CONFLICT ("key") DO NOTHING
+    RETURNING "key"`;
+  return rows.length === 1;
+}
+const INSTALL_FROM_PLAY = "This copy of the app couldn't be verified. Please install MentorsMD from Google Play.";
+
+async function checkPlayLogin(email: string, attest: any): Promise<{ ok: true; keyId: null } | AttestFail> {
+  // Without Play settings nothing can be checked. Only reached when Android
+  // is let in anyway (a preview, or APP_ANDROID_ALLOW_UNVERIFIED=1).
+  if (!playConfigured()) return { ok: true, keyId: null };
+  const token = typeof attest?.token === "string" && attest.token.length > 20 && attest.token.length < MAX_FIELD ? attest.token : null;
+  const data = parseLoginClientData(attest?.clientData);
+  if (attest?.kind !== "play" || !token || !data) return fail(400, "ATTEST_BAD_REQUEST", UPDATE);
+  if (data.email !== email.trim().toLowerCase()) return fail(400, "ATTEST_BAD_REQUEST", UPDATE);
+  if (!(await checkAttestChallenge(data.challenge, "login"))) return fail(400, "ATTEST_CHALLENGE", "That took too long. Please try again.");
+
+  let verdict: any;
+  try {
+    verdict = await decodePlayToken(token);
+  } catch (err) {
+    console.warn("Play Integrity: decode failed:", (err as Error)?.message);
+    return fail(503, "ATTEST_UNAVAILABLE", "Couldn't check this phone with Google. Please try again in a minute.");
+  }
+  const problem = playVerdictProblem(verdict, playRequestHash(attest.clientData));
+  if (problem) {
+    console.warn("Play Integrity: verdict refused:", problem);
+    return fail(403, "ATTEST_REFUSED", INSTALL_FROM_PLAY);
+  }
+  // Each challenge signs in once, so a captured token can't be replayed.
+  if (!(await useChallengeOnce(data.challenge))) return fail(403, "ATTEST_REFUSED", "Please try signing in again.");
+  return { ok: true, keyId: null };
+}
+
+// What the app needs to know before signing in on this platform: null, or
+// the Google Cloud project number when Play Integrity is required.
+export function playSetupFor(platform: string): { projectNumber: string } | null {
+  if (platform !== "ANDROID" || attestMode("ANDROID") !== "required") return null;
+  return { projectNumber: playProjectNumber() };
 }

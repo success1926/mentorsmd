@@ -28,7 +28,7 @@ const EX_PUBLIC_KEY =
 const EX_PAYLOAD = '{"subject":"Lorem ipsum","message":"Lorem ipsum dolor sit amet, consectetur adipiscing elit."}';
 
 function setEnv(env: Record<string, string | undefined>) {
-  for (const k of ["VERCEL_ENV", "APPLE_TEAM_ID", "APP_BUNDLE_ID", "APP_ATTEST_ALLOW_DEV"]) delete process.env[k];
+  for (const k of ["VERCEL_ENV", "APPLE_TEAM_ID", "APP_BUNDLE_ID", "APP_ATTEST_ALLOW_DEV", "PLAY_INTEGRITY_PROJECT_NUMBER", "PLAY_INTEGRITY_SERVICE_ACCOUNT", "PLAY_CERT_SHA256", "APP_ANDROID_ALLOW_UNVERIFIED"]) delete process.env[k];
   for (const [k, v] of Object.entries(env)) if (v !== undefined) process.env[k] = v;
 }
 
@@ -108,7 +108,7 @@ const fakeLib: any = {
 const enc = (s: string) => Buffer.from(s).toString("base64");
 const KEY = "a2V5LWlkLWZvci10ZXN0cw==";
 
-test("the live site requires the check for iPhones, refuses Android, and refuses without a Team ID", async () => {
+test("the live site requires the check for iPhones, refuses Android (no Play settings), and refuses without a Team ID", async () => {
   const m = await load();
   m.setAttestLibForTests(fakeLib);
   setEnv({ VERCEL_ENV: "production", APPLE_TEAM_ID: "ABCDE12345" });
@@ -179,4 +179,124 @@ test("an unknown key asks the app to register a new one", async () => {
   setEnv({ VERCEL_ENV: "production", APPLE_TEAM_ID: "ABCDE12345" });
   const r = await m.checkLoginAttest("IOS", "a@b.com", { keyId: "bmV2ZXItcmVnaXN0ZXJlZA==", assertion: enc("c1"), clientData: m.loginClientData(await m.makeAttestChallenge("login"), "a@b.com") });
   assert.equal("code" in r && r.code, "ATTEST_UNKNOWN_KEY");
+});
+
+// ---------- Android: Google Play Integrity ----------
+
+const SA = JSON.stringify({ client_email: "play@example.iam.gserviceaccount.com", private_key: "unused-in-tests" });
+const PLAY_ENV = { VERCEL_ENV: "production", APPLE_TEAM_ID: "ABCDE12345", PLAY_INTEGRITY_PROJECT_NUMBER: "123456789012", PLAY_INTEGRITY_SERVICE_ACCOUNT: SA };
+
+// What Google returns for the real app on a real phone, bound to `hash`.
+function goodVerdict(hash: string, over: any = {}) {
+  return {
+    requestDetails: { requestPackageName: "com.mentorsmd.app", requestHash: hash, timestampMillis: String(Date.now()), ...over.requestDetails },
+    appIntegrity: { appRecognitionVerdict: "PLAY_RECOGNIZED", packageName: "com.mentorsmd.app", certificateSha256Digest: ["6a6a1474b5cbbb2b1aa57e0bc3"], ...over.appIntegrity },
+    deviceIntegrity: { deviceRecognitionVerdict: ["MEETS_DEVICE_INTEGRITY"], ...over.deviceIntegrity },
+  };
+}
+
+// RateLimitBucket in memory (used challenges).
+function fakeBuckets(prisma: any) {
+  const used = new Set<string>();
+  prisma.$queryRaw = async (strings: TemplateStringsArray, ...vals: any[]) => {
+    assert.match(strings.join("?"), /ON CONFLICT \("key"\) DO NOTHING/);
+    const key = vals[0];
+    if (used.has(key)) return [];
+    used.add(key);
+    return [{ key }];
+  };
+}
+
+async function loadPlay(verdictFor: (token: string) => any) {
+  const m = await load();
+  const play = await import("../lib/playIntegrity");
+  const { prisma } = await import("../lib/prisma");
+  fakeBuckets(prisma);
+  play.setPlayDecoderForTests(async (t) => {
+    const v = verdictFor(t);
+    if (v instanceof Error) throw v;
+    return v;
+  });
+  return { m, play };
+}
+
+test("live Android: refused until Play Integrity is set up, required once it is, and the test switch lets it in", async () => {
+  const m = await load();
+  setEnv({ VERCEL_ENV: "production", APPLE_TEAM_ID: "ABCDE12345" });
+  assert.equal(m.attestMode("ANDROID"), "unavailable");
+  assert.equal(m.playSetupFor("ANDROID"), null);
+  setEnv({ ...PLAY_ENV });
+  assert.equal(m.attestMode("ANDROID"), "required");
+  assert.deepEqual(m.playSetupFor("ANDROID"), { projectNumber: "123456789012" });
+  assert.equal(m.playSetupFor("IOS"), null);
+  const missing = await m.checkLoginAttest("ANDROID", "a@b.com", undefined);
+  assert.equal("code" in missing && missing.code, "ATTEST_MISSING");
+  // Test installs from a link: allowed without a token, and not asked for one.
+  setEnv({ ...PLAY_ENV, APP_ANDROID_ALLOW_UNVERIFIED: "1" });
+  assert.equal(m.attestMode("ANDROID"), "optional");
+  assert.equal(m.playSetupFor("ANDROID"), null);
+  assert.deepEqual(await m.checkLoginAttest("ANDROID", "a@b.com", undefined), { ok: true, keyId: null });
+  setEnv({ VERCEL_ENV: "production", APP_ANDROID_ALLOW_UNVERIFIED: "1" });
+  assert.deepEqual(await m.checkLoginAttest("ANDROID", "a@b.com", undefined), { ok: true, keyId: null });
+  // The switch never relaxes iPhones.
+  assert.equal(m.attestMode("IOS"), "unconfigured");
+});
+
+test("a genuine Play verdict signs in once; the same challenge can't be used again", async () => {
+  setEnv({ ...PLAY_ENV });
+  const { m, play } = await loadPlay((t) => JSON.parse(t));
+  const clientData = m.loginClientData(await m.makeAttestChallenge("login"), "Jane@Example.com");
+  const token = JSON.stringify(goodVerdict(play.playRequestHash(clientData)));
+  const first = await m.checkLoginAttest("ANDROID", "jane@example.com", { kind: "play", token, clientData });
+  assert.deepEqual(first, { ok: true, keyId: null });
+  const again = await m.checkLoginAttest("ANDROID", "jane@example.com", { kind: "play", token, clientData });
+  assert.equal("code" in again && again.code, "ATTEST_REFUSED");
+});
+
+test("Play verdicts are refused for another app, another sign-in, old tokens, sideloaded copies and failing devices", async () => {
+  setEnv({ ...PLAY_ENV });
+  const { m, play } = await loadPlay((t) => JSON.parse(t));
+  const cases: [string, (h: string) => any][] = [
+    ["package", (h) => goodVerdict(h, { requestDetails: { requestPackageName: "com.other.app" } })],
+    ["hash", () => goodVerdict(play.playRequestHash("something else"))],
+    ["stale", (h) => goodVerdict(h, { requestDetails: { timestampMillis: String(Date.now() - 11 * 60_000) } })],
+    ["app", (h) => goodVerdict(h, { appIntegrity: { appRecognitionVerdict: "UNRECOGNIZED_VERSION" } })],
+    ["device", (h) => goodVerdict(h, { deviceIntegrity: { deviceRecognitionVerdict: ["MEETS_BASIC_INTEGRITY"] } })],
+    ["device", (h) => goodVerdict(h, { deviceIntegrity: { deviceRecognitionVerdict: [] } })],
+  ];
+  for (const [why, make] of cases) {
+    const clientData = m.loginClientData(await m.makeAttestChallenge("login"), "a@b.com");
+    const v = make(play.playRequestHash(clientData));
+    assert.equal(play.playVerdictProblem(v, play.playRequestHash(clientData)), why);
+    const r = await m.checkLoginAttest("ANDROID", "a@b.com", { kind: "play", token: JSON.stringify(v), clientData });
+    assert.equal("code" in r && r.code, "ATTEST_REFUSED", why);
+  }
+});
+
+test("Play token for one email can't sign in another; bad or expired challenges and Google outages are refused", async () => {
+  setEnv({ ...PLAY_ENV });
+  const { m, play } = await loadPlay((t) => (t === "google-down-token-xxxxxxxx" ? new Error("503") : JSON.parse(t)));
+  const clientData = m.loginClientData(await m.makeAttestChallenge("login"), "a@b.com");
+  const token = JSON.stringify(goodVerdict(play.playRequestHash(clientData)));
+  const other = await m.checkLoginAttest("ANDROID", "someone@else.com", { kind: "play", token, clientData });
+  assert.equal("code" in other && other.code, "ATTEST_BAD_REQUEST");
+  const regData = m.loginClientData(await m.makeAttestChallenge("register"), "a@b.com");
+  const wrongPurpose = await m.checkLoginAttest("ANDROID", "a@b.com", { kind: "play", token: JSON.stringify(goodVerdict(play.playRequestHash(regData))), clientData: regData });
+  assert.equal("code" in wrongPurpose && wrongPurpose.code, "ATTEST_CHALLENGE");
+  const down = await m.checkLoginAttest("ANDROID", "a@b.com", { kind: "play", token: "google-down-token-xxxxxxxx", clientData });
+  assert.equal("code" in down && down.code, "ATTEST_UNAVAILABLE");
+  const noKind = await m.checkLoginAttest("ANDROID", "a@b.com", { token, clientData });
+  assert.equal("code" in noKind && noKind.code, "ATTEST_BAD_REQUEST");
+});
+
+test("the Play signing certificate can be pinned", async () => {
+  setEnv({ ...PLAY_ENV });
+  const play = await import("../lib/playIntegrity");
+  const certHex = "ab".repeat(32);
+  const v = goodVerdict("h", { appIntegrity: { certificateSha256Digest: [Buffer.from(certHex, "hex").toString("base64url")] } });
+  process.env.PLAY_CERT_SHA256 = certHex.match(/../g)!.join(":").toUpperCase();
+  assert.equal(play.playVerdictProblem(v, "h"), null);
+  process.env.PLAY_CERT_SHA256 = "cd".repeat(32);
+  assert.equal(play.playVerdictProblem(v, "h"), "certificate");
+  delete process.env.PLAY_CERT_SHA256;
 });
