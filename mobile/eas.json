@@ -1,29 +1,46 @@
 {
-  "cli": { "version": ">= 16.0.0", "appVersionSource": "remote" },
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "env": { "EXPO_PUBLIC_SITE_URL": "https://REPLACE-WITH-A-PREVIEW-URL.vercel.app" }
+      "env": {
+        "EXPO_PUBLIC_SITE_URL": "https://REPLACE-WITH-A-PREVIEW-URL.vercel.app"
+      }
     },
     "preview": {
       "distribution": "internal",
-      "env": { "EXPO_PUBLIC_SITE_URL": "https://REPLACE-WITH-A-PREVIEW-URL.vercel.app" }
+      "env": {
+        "EXPO_PUBLIC_SITE_URL": "https://REPLACE-WITH-A-PREVIEW-URL.vercel.app"
+      }
     },
     "production": {
       "autoIncrement": true,
-      "env": { "EXPO_PUBLIC_SITE_URL": "https://www.mentorsmd.com" }
+      "env": {
+        "EXPO_PUBLIC_SITE_URL": "https://www.mentorsmd.com"
+      }
     },
     "simulator": {
       "extends": "production",
       "distribution": "internal",
       "autoIncrement": false,
-      "ios": { "simulator": true }
+      "ios": {
+        "simulator": true
+      }
     }
   },
   "submit": {
     "production": {
-      "ios": { "ascAppId": "6838765508" }
+      "ios": {
+        "ascAppId": "6838765508",
+        "appleTeamId": "Z7KLNC4DDV",
+        "ascApiKeyPath": "/Users/shwetabhtarun/.appstoreconnect/mentorsmd/AuthKey_73WA3LQR22.p8",
+        "ascApiKeyId": "73WA3LQR22",
+        "ascApiKeyIssuerId": "e9e6f383-dcdb-49df-8f8a-5f5ce60ba20b"
+      }
     }
   }
 }
