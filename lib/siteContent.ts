@@ -518,7 +518,7 @@ export const SITE_PAGES = {
           [],
           {
             maxItems: 200,
-            help: "Logos shown next to a mentor's school and in “Successful clients at” on cards and profiles. Most schools in the medical school list already have a built-in logo, so add one here only to replace it or for a school that shows its initials. Logos in the strips above are used too, so you don't need to add those twice.",
+            help: "Logos shown next to a mentor's school and in “Successful clients at” on cards and profiles. Every school in the medical school list already has a built-in logo, so add one here only to replace it or for a school that isn't on the list (it shows its initials). Logos in the strips above are used too, so you don't need to add those twice.",
           },
         ),
       }),
