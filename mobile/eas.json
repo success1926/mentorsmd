@@ -23,7 +23,7 @@
   },
   "submit": {
     "production": {
-      "ios": { "ascAppId": "REPLACE-AFTER-CREATING-THE-APP-IN-APP-STORE-CONNECT" }
+      "ios": { "ascAppId": "6838765508" }
     }
   }
 }
