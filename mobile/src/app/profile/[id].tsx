@@ -131,7 +131,7 @@ function ProfileView({ m, liveReviews, offers, seller }: { m: Mentor; liveReview
         <Eyebrow>About {name1}</Eyebrow>
         {knownFor[0] ? <Text style={{ fontFamily: fonts.display, fontSize: 30, lineHeight: 34, letterSpacing: -0.5, color: c.ink }}>{knownFor[0]}<Text style={{ color: c.primary }}>.</Text></Text> : null}
         {m.bio ? <Text style={{ fontFamily: fonts.displayRegular, fontSize: 17, lineHeight: 27, color: c.ink }}>{m.bio}</Text> : null}
-        {m.clients.length ? <Card tone="tint"><Small>{name1}’s students got into:</Small><SchoolList schools={m.clients} size={30} /></Card> : null}
+        {m.clients.length ? <Card tone="tint"><Small>{name1}’s students got into:</Small><SchoolList schools={m.clients} size={30} logos={m.logos} /></Card> : null}
       </>
     ) });
   }
@@ -286,7 +286,7 @@ function ProfileView({ m, liveReviews, offers, seller }: { m: Mentor; liveReview
               {m.credential ? <Text style={{ fontFamily: fonts.body, fontSize: 15, lineHeight: 21, color: c.ink }}>{m.credential}</Text> : null}
               {m.school ? (
                 <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-                  <SchoolLogo name={m.school} size={28} />
+                  <SchoolLogo name={m.school} size={28} logo={m.logos?.[m.school]} />
                   <View style={{ flex: 1 }}>
                     <TT>{m.school}</TT>
                     {m.stage ? <SS>{m.stage}</SS> : null}
