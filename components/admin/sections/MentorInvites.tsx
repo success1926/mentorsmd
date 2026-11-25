@@ -39,6 +39,8 @@ export function MentorInvites() {
     const res = await fetch(`/api/invites/${id}/resend`, { method: "POST" });
     const data = await res.json().catch(() => ({}));
     setNotice(res.ok ? { ok: true, text: "Invite email re-sent." } : { ok: false, text: data.error || "The email failed to send.", link: data.link });
+    // Resending gives the link a fresh 7 days, so reload to flip "Expired" back to "Pending".
+    loadInvites();
   }
 
   async function cancelInvite(inv: any) {
@@ -85,7 +87,7 @@ export function MentorInvites() {
                   <span className={`badge ${expired || inv.status === "REVOKED" ? "" : "badge-warning"}`}>
                     {inv.status === "REVOKED" ? "Cancelled" : expired ? "Expired" : "Pending"}
                   </span>
-                  {inv.status === "PENDING" && <button onClick={() => resend(inv.id)} className="btn btn-sm">Resend</button>}
+                  {(inv.status === "PENDING" || inv.status === "EXPIRED") && <button onClick={() => resend(inv.id)} className="btn btn-sm">Resend</button>}
                   <button onClick={() => cancelInvite(inv)} className="btn btn-sm btn-danger">{inv.status === "PENDING" && !expired ? "Cancel" : "Delete"}</button>
                 </div>
               );
