@@ -13,12 +13,13 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
 
   const invite = await prisma.invite.findUnique({ where: { id: params.id } });
   if (!invite) return NextResponse.json({ error: "Invite not found" }, { status: 404 });
-  if (invite.status !== "PENDING") {
+  // EXPIRED = someone tried the link after it ran out; resending revives it.
+  if (invite.status !== "PENDING" && invite.status !== "EXPIRED") {
     return NextResponse.json({ error: "This invite has already been used or is no longer valid" }, { status: 400 });
   }
 
   // Resending gives the link a fresh 7 days, so an expired invite can be revived.
-  await prisma.invite.update({ where: { id: invite.id }, data: { expiresAt: new Date(Date.now() + 7 * 24 * 3600_000) } });
+  await prisma.invite.update({ where: { id: invite.id }, data: { status: "PENDING", expiresAt: new Date(Date.now() + 7 * 24 * 3600_000) } });
 
   const inviteUrl = `${siteUrl()}/become-a-mentor/join?code=${invite.code}&email=${encodeURIComponent(invite.email)}`;
   try {
