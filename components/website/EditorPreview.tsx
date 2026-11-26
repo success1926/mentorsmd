@@ -79,11 +79,11 @@ export const EditorPreview = forwardRef<EditorPreviewHandle, { pageKey: string; 
     <aside className="ws-preview" aria-label="Live preview of your draft">
       <div className="ws-preview-head">
         <b style={{ fontSize: 14 }}>Preview</b>
-        <span className="ws-seg" role="radiogroup" aria-label="Preview width">
-          <button type="button" role="radio" aria-checked={device === "computer"} onClick={() => pick("computer")}>Computer</button>
-          <button type="button" role="radio" aria-checked={device === "phone"} onClick={() => pick("phone")}>Phone</button>
+        <span className="seg seg-sm" role="group" aria-label="Preview width">
+          <button type="button" className="seg-opt" aria-pressed={device === "computer"} onClick={() => pick("computer")}>Computer</button>
+          <button type="button" className="seg-opt" aria-pressed={device === "phone"} onClick={() => pick("phone")}>Phone</button>
         </span>
-        {loading && <span className="text-muted small">Loading…</span>}
+        {loading && <span className="text-muted small" role="status">Loading…</span>}
         <span style={{ flex: 1 }} />
         <a className="link small" href={src} target="_blank" rel="noreferrer">Open in a new tab ↗</a>
         <button type="button" className="btn btn-ghost btn-sm" onClick={onHide}>Hide</button>

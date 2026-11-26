@@ -3,11 +3,15 @@
 import { useEffect, useState } from "react";
 import { RESULT_STATUSES, RESULT_STATUS_LABEL } from "@/lib/cycleResults";
 import { csvBody } from "@/lib/csv";
+import { resultBadgeClass } from "@/components/admin/resultTones";
+import { EmptyState, LoadingBlock, PageHeader } from "@/components/ui";
+import { fmtDay } from "@/lib/format";
 
 // Admin -> Cycle results (read-only, lib/cycleResults.ts): what students
 // recorded, school by school, and which mentors they said helped. Not
 // shown anywhere public yet.
-const fmt = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-US", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" }) : "");
+// The dates are date-only, so they're shown in UTC.
+const fmt = (d: string | null) => fmtDay(d, { timeZone: "UTC" });
 
 export default function AdminCycleResultsPage() {
   const [rows, setRows] = useState<any[] | null>(null);
@@ -40,25 +44,23 @@ export default function AdminCycleResultsPage() {
 
   return (
     <div className="page stack-lg" style={{ gap: 24 }}>
-      <div className="stack-sm">
-        <h1 className="page-title">Cycle results</h1>
-        <p className="lede">What students recorded about their applications, school by school. Read-only, and not shown anywhere public.</p>
-      </div>
+      <PageHeader title="Cycle results" lede="What students recorded about their applications, school by school. Read-only, and not shown anywhere public." />
       <div className="row-wrap" style={{ gap: 10 }}>
-        <input className="input" style={{ maxWidth: 280 }} placeholder="Search school, student or mentor" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select className="input" style={{ maxWidth: 240 }} value={status} onChange={(e) => setStatus(e.target.value)}>
+        <input className="input" type="search" style={{ maxWidth: 280 }} placeholder="Search school, student or mentor" aria-label="Search school, student or mentor" value={q} onChange={(e) => setQ(e.target.value)} />
+        <select className="input" style={{ maxWidth: 240 }} aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">Every status ({rows?.length ?? 0})</option>
           {RESULT_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label} ({counts[s.value] || 0})</option>)}
         </select>
-        {list.length > 0 && <button className="btn btn-sm" onClick={exportCsv}>Download CSV</button>}
+        {list.length > 0 && <button type="button" className="btn btn-sm" onClick={exportCsv}>Download CSV</button>}
       </div>
+      {!rows && <LoadingBlock lines={4} title={false} />}
+      {rows && list.length === 0 && <EmptyState>Nothing here yet.</EmptyState>}
+      {list.length > 0 && (
       <div className="card" style={{ padding: "4px 20px" }}>
-        {!rows && <p className="text-muted" style={{ padding: 12 }}>Loading…</p>}
-        {rows && list.length === 0 && <p className="text-muted" style={{ padding: 12 }}>Nothing here yet.</p>}
         {list.map((r) => (
           <div key={r.id} className="list-row" style={{ flexWrap: "wrap" }}>
             <div className="grow stack-sm" style={{ gap: 2, minWidth: 220 }}>
-              <b style={{ fontSize: 15 }}>{r.school}</b>
+              <b>{r.school}</b>
               <span className="text-muted small">
                 {r.studentName} ({r.studentEmail}) · {r.cycle} cycle
                 {r.appliedOn ? ` · applied ${fmt(r.appliedOn)}` : ""}{r.interviewOn ? ` · interview ${fmt(r.interviewOn)}` : ""}{r.decisionOn ? ` · decision ${fmt(r.decisionOn)}` : ""}
@@ -66,10 +68,11 @@ export default function AdminCycleResultsPage() {
               {r.mentors.length > 0 && <span className="text-muted small">Helped by {r.mentors.join(", ")}</span>}
               {r.note && <span className="text-muted small">{r.note}</span>}
             </div>
-            <span className={`badge ${r.status === "ACCEPTED" || r.status === "MATRICULATING" ? "badge-success" : r.status === "REJECTED" ? "badge-pink" : "badge-brand"}`}>{RESULT_STATUS_LABEL[r.status] || r.status}</span>
+            <span className={resultBadgeClass(r.status)}>{RESULT_STATUS_LABEL[r.status] || r.status}</span>
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { currentAdmin } from "@/lib/adminTeam";
 import { hogql, posthogProjectUrl, posthogReady, posthogReplayUrl, posthogTrackingOn } from "@/lib/posthog";
 import { BarChart, DataTable, type TableData } from "@/components/admin/Insights";
+import { PageHeader } from "@/components/ui";
 
 // Admin -> Analytics: visitors to mentorsmd.com, read from PostHog on the
 // server (lib/posthog.ts, cached 5 minutes). Tracking itself is
@@ -54,10 +55,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
 
   const header = (
     <>
-      <div className="stack-sm">
-        <h1 className="page-title">Analytics</h1>
-        <p className="lede">Who visits mentorsmd.com, which pages they see and where they come from. Admins&apos; own visits aren&apos;t counted.</p>
-      </div>
+      <PageHeader title="Analytics" lede="Who visits mentorsmd.com, which pages they see and where they come from. Admins' own visits aren't counted." />
       <div className="between" style={{ gap: 12, flexWrap: "wrap" }}>
         <div className="seg" role="group" aria-label="Date range">
           {RANGES.map((d) => (
@@ -129,7 +127,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
   const points: { label: string; value: number }[] = [];
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
-    points.push({ label: new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }), value: byDay.get(d) ?? 0 });
+    points.push({ label: new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }) /* chart axis: no year, UTC days */, value: byDay.get(d) ?? 0 });
   }
 
   const share = (rows: unknown[][]) => {
@@ -265,7 +263,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
           {group.map(({ t, error }) =>
             error ? (
               <section key={t.key} className="stack-sm">
-                <h3 style={{ fontSize: 22 }}>{t.title}</h3>
+                <h3 className="block-title">{t.title}</h3>
                 <div className="alert alert-danger small">Couldn&apos;t load this from PostHog: {error}</div>
               </section>
             ) : (

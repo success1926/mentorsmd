@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { CopyLink } from "@/components/admin/CopyLink";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { Collapsible, EmptyState } from "@/components/ui";
+import { fmtDay } from "@/lib/format";
 
 // Admin -> Mentors: invite a mentor by email, resend or cancel invites,
 // and who has joined.
-const fmtDay = (d: string) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 
 export function MentorInvites() {
   const [invites, setInvites] = useState<any[]>([]);
@@ -15,7 +16,7 @@ export function MentorInvites() {
   const [creating, setCreating] = useState(false);
   // `link`: the invite link, shown with a Copy button when the email failed.
   const [notice, setNotice] = useState<{ ok: boolean; text: string; link?: string } | null>(null);
-  const { confirm, dialog } = useAdminDialog();
+  const { confirm, dialog } = useConfirm();
 
   const loadInvites = useCallback(() => {
     fetch("/api/invites").then((r) => r.json()).then((d) => setInvites(d.invites || [])).catch(() => {});
@@ -44,7 +45,7 @@ export function MentorInvites() {
   }
 
   async function cancelInvite(inv: any) {
-    if (!(await confirm({ title: `Cancel the invite for ${inv.email}?`, body: "Their link stops working.", confirmLabel: "Cancel Invite", cancelLabel: "Keep It", danger: true }))) return;
+    if (!(await confirm({ title: `Cancel the invite for ${inv.email}?`, body: "Their link stops working.", confirmLabel: "Cancel invite", cancelLabel: "Keep it", danger: true }))) return;
     const res = await fetch(`/api/invites/${inv.id}`, { method: "DELETE" });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) setNotice({ ok: false, text: data.error || "Couldn't cancel the invite." });
@@ -64,52 +65,46 @@ export function MentorInvites() {
         </div>
       )}
       <section className="stack-sm">
-        <h2 style={{ fontSize: 30 }}>Invite a mentor</h2>
+        <h2 className="block-title">Invite a mentor</h2>
         <div className="card stack">
           <span className="text-secondary">We email a one-time link (valid 7 days). If the email fails, you get the link here to copy and send yourself.</span>
           <div className="row">
-            <input className="input grow" style={{ marginBottom: 0 }} type="email" placeholder="Mentor's email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === "Enter" && createInvite()} />
+            <input className="input grow" style={{ marginBottom: 0 }} type="email" placeholder="Mentor's email" aria-label="Mentor's email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === "Enter" && createInvite()} />
             <button onClick={createInvite} disabled={creating || !email.trim()} className="btn btn-primary">{creating ? "Sending…" : "Send invite"}</button>
           </div>
         </div>
-        <details className="collapse">
-          <summary><span className="row" style={{ gap: 8 }}>Pending <span className="tab-count">{pending.length}</span></span></summary>
-          <div className="collapse-body" style={{ gap: 0 }}>
-            {pending.length === 0 && <span className="text-muted">No pending invites.</span>}
+        <Collapsible title="Pending" count={pending.length} bodyClassName="adm-collapse-list">
+            {pending.length === 0 && <EmptyState>No pending invites.</EmptyState>}
             {pending.map((inv) => {
               const expired = inv.status === "EXPIRED" || (inv.status === "PENDING" && new Date(inv.expiresAt) < new Date());
               return (
                 <div key={inv.id} className="list-row" style={{ flexWrap: "wrap" }}>
                   <div className="grow stack-sm" style={{ gap: 2 }}>
-                    <b style={{ fontSize: 15 }}>{inv.email}</b>
+                    <b>{inv.email}</b>
                     <span className="text-muted">Sent {fmtDay(inv.createdAt)}</span>
                   </div>
                   <span className={`badge ${expired || inv.status === "REVOKED" ? "" : "badge-warning"}`}>
                     {inv.status === "REVOKED" ? "Cancelled" : expired ? "Expired" : "Pending"}
                   </span>
-                  {(inv.status === "PENDING" || inv.status === "EXPIRED") && <button onClick={() => resend(inv.id)} className="btn btn-sm">Resend</button>}
-                  <button onClick={() => cancelInvite(inv)} className="btn btn-sm btn-danger">{inv.status === "PENDING" && !expired ? "Cancel" : "Delete"}</button>
+                  {(inv.status === "PENDING" || inv.status === "EXPIRED") && <button type="button" onClick={() => resend(inv.id)} className="btn btn-sm">Resend</button>}
+                  <button type="button" onClick={() => cancelInvite(inv)} className="btn btn-sm btn-danger">{inv.status === "PENDING" && !expired ? "Cancel" : "Delete"}</button>
                 </div>
               );
             })}
-          </div>
-        </details>
-        <details className="collapse">
-          <summary><span className="row" style={{ gap: 8 }}>Joined <span className="tab-count">{joined.length}</span></span></summary>
-          <div className="collapse-body" style={{ gap: 0 }}>
-            {joined.length === 0 && <span className="text-muted">Nobody has joined yet.</span>}
+        </Collapsible>
+        <Collapsible title="Joined" count={joined.length} bodyClassName="adm-collapse-list">
+            {joined.length === 0 && <EmptyState>Nobody has joined yet.</EmptyState>}
             {joined.map((inv) => (
               <div key={inv.id} className="list-row">
                 <div className="grow stack-sm" style={{ gap: 2 }}>
-                  <b style={{ fontSize: 15 }}>{inv.joinedUser?.name || inv.email}</b>
+                  <b>{inv.joinedUser?.name || inv.email}</b>
                   <span className="text-muted">{inv.email}{inv.joinedUser?.createdAt ? ` · joined ${fmtDay(inv.joinedUser.createdAt)}` : ""}</span>
                 </div>
                 <span className="badge badge-success">Joined</span>
                 {inv.redeemedByUserId && <Link href={`/mentors/${inv.redeemedByUserId}`} className="btn btn-sm">Profile</Link>}
               </div>
             ))}
-          </div>
-        </details>
+        </Collapsible>
       </section>
     </>
   );

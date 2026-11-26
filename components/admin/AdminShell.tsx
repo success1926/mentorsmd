@@ -110,7 +110,7 @@ export function AdminShell({ me, nav, sitePages = [], tools = [], children }: { 
                     <button type="button" className="adm-group-btn" aria-expanded={isOpen} onClick={() => toggleGroup(g)}>
                       <span>{g}</span>
                       {!isOpen && badge > 0 && <span className="tab-count" aria-label={`${badge} new`}>{badge}</span>}
-                      <span className="adm-caret" aria-hidden="true">{isOpen ? "▾" : "▸"}</span>
+                      <span className="adm-caret" aria-hidden="true" />
                     </button>
                     {isOpen && <div className="adm-group-items">{items.map(link)}</div>}
                   </div>
@@ -120,7 +120,7 @@ export function AdminShell({ me, nav, sitePages = [], tools = [], children }: { 
                 <div className="adm-group adm-tools" role="group" aria-label="Other Tools">
                   <button type="button" className="adm-group-btn" aria-expanded={toolsOpen} onClick={() => toggleGroup("Other Tools")}>
                     <span>Other Tools</span>
-                    <span className="adm-caret" aria-hidden="true">{toolsOpen ? "▾" : "▸"}</span>
+                    <span className="adm-caret" aria-hidden="true" />
                   </button>
                   {toolsOpen && (
                     <div className="adm-group-items">

@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { celebrateBadge } from "@/components/Moments";
 import { MedicalSchoolPicker } from "@/components/MedicalSchoolPicker";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { EmptyState, LoadingBlock } from "@/components/ui";
+import { resultBadgeClass } from "@/components/admin/resultTones";
+import { fmtDay } from "@/lib/format";
 import { RESULT_NOTE_MAX, RESULT_STATUSES, RESULT_STATUS_LABEL, cycleOptions } from "@/lib/cycleResults";
 
 // The student's list of schools for each cycle, with a form to add or
@@ -22,7 +26,8 @@ type Row = {
 type Mentor = { id: string; name: string };
 
 const day = (d: string | null) => (d ? d.slice(0, 10) : "");
-const fmt = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-US", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" }) : "");
+// The dates are date-only, so they're shown in UTC.
+const fmt = (d: string | null) => fmtDay(d, { timeZone: "UTC" });
 const EMPTY = { id: "", cycle: cycleOptions()[2], school: "", status: "APPLIED", appliedOn: "", interviewOn: "", decisionOn: "", mentorIds: [] as string[], note: "" };
 
 export function ResultsEditor() {
@@ -33,6 +38,7 @@ export function ResultsEditor() {
   const [error, setError] = useState("");
   // Moment 3 (lib/moments.ts): the school that just became an acceptance, celebrated once the list reloads.
   const [celebrate, setCelebrate] = useState<{ school: string; cycle: number } | null>(null);
+  const { confirm, dialog } = useConfirm();
 
   const load = useCallback(() => {
     fetch("/api/me/cycle-results")
@@ -73,7 +79,7 @@ export function ResultsEditor() {
   }
 
   async function remove(r: Row) {
-    if (!confirm(`Remove ${r.school} from your ${r.cycle} list?`)) return;
+    if (!(await confirm({ title: `Remove ${r.school} from your ${r.cycle} list?`, confirmLabel: "Remove", danger: true }))) return;
     await fetch(`/api/me/cycle-results?id=${encodeURIComponent(r.id)}`, { method: "DELETE" });
     load();
   }
@@ -83,15 +89,16 @@ export function ResultsEditor() {
 
   return (
     <>
+      {dialog}
       {!form && (
-        <button className="btn btn-primary" style={{ alignSelf: "flex-start" }} onClick={() => { setError(""); setForm({ ...EMPTY }); }}>
+        <button type="button" className="btn btn-primary" style={{ alignSelf: "flex-start" }} onClick={() => { setError(""); setForm({ ...EMPTY }); }}>
           Add a school
         </button>
       )}
 
       {form && (
         <form onSubmit={save} className="card stack" style={{ gap: 12 }}>
-          <h2 style={{ fontSize: 22 }}>{form.id ? "Update school" : "Add a school"}</h2>
+          <h2 className="block-title">{form.id ? "Update school" : "Add a school"}</h2>
           <label className="field" style={{ marginBottom: 0, maxWidth: 260 }}>
             <span className="field-label">Cycle (the year you&apos;d start medical school)</span>
             <select className="input" value={form.cycle} onChange={(e) => setForm({ ...form, cycle: Number(e.target.value) })}>
@@ -142,25 +149,25 @@ export function ResultsEditor() {
         </form>
       )}
 
-      {rows === null && <p className="text-muted">Loading…</p>}
-      {rows && rows.length === 0 && !form && <p className="text-muted">No schools yet. Add the schools you applied to, and update each one as you hear back.</p>}
+      {rows === null && <LoadingBlock lines={3} title={false} />}
+      {rows && rows.length === 0 && !form && <EmptyState>No schools yet. Add the schools you applied to, and update each one as you hear back.</EmptyState>}
       {cycles.map((cycle) => (
         <section key={cycle} className="stack-sm">
-          <h2 style={{ fontSize: 24 }}>{cycle} cycle</h2>
+          <h2 className="block-title">{cycle} cycle</h2>
           <div className="card" style={{ padding: "4px 20px" }}>
             {rows!.filter((r) => r.cycle === cycle).map((r) => (
               <div key={r.id} className="list-row" style={{ flexWrap: "wrap" }}>
                 <div className="grow stack-sm" style={{ gap: 2, minWidth: 220 }}>
-                  <b style={{ fontSize: 15 }}>{r.school}</b>
+                  <b>{r.school}</b>
                   <span className="text-muted small">
                     {[r.appliedOn && `Applied ${fmt(r.appliedOn)}`, r.interviewOn && `Interview ${fmt(r.interviewOn)}`, r.decisionOn && `Decision ${fmt(r.decisionOn)}`].filter(Boolean).join(" · ")}
                     {r.mentorIds.length ? `${r.appliedOn || r.interviewOn || r.decisionOn ? " · " : ""}Helped by ${r.mentorIds.map(mentorName).filter(Boolean).join(", ")}` : ""}
                   </span>
                   {r.note && <span className="text-muted small">{r.note}</span>}
                 </div>
-                <span data-result-badge={r.id} className={`badge ${r.status === "ACCEPTED" || r.status === "MATRICULATING" ? "badge-success" : r.status === "REJECTED" ? "badge-pink" : "badge-brand"}`}>{RESULT_STATUS_LABEL[r.status] || r.status}</span>
-                <button className="btn btn-sm" onClick={() => edit(r)}>Update</button>
-                <button className="btn btn-sm" onClick={() => remove(r)}>Remove</button>
+                <span data-result-badge={r.id} className={resultBadgeClass(r.status)}>{RESULT_STATUS_LABEL[r.status] || r.status}</span>
+                <button type="button" className="btn btn-sm" onClick={() => edit(r)}>Update</button>
+                <button type="button" className="btn btn-sm" onClick={() => remove(r)}>Remove</button>
               </div>
             ))}
           </div>

@@ -4,16 +4,18 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { PeopleTabs } from "@/components/admin/AdminTabs";
-import { statusBadge, tintFor, initialsOf } from "@/components/ui";
+import { EmptyState, LoadingBlock, StatusBadge, tintFor, initialsOf } from "@/components/ui";
+import { Modal } from "@/components/Modal";
 import { SEVERITY, kindLabel } from "@/components/admin/Flags";
 import { BEST_FOR, SCHOOL_TYPES, STAGES, labelFor, money, ownSchoolLabel, usesOwnSchool } from "@/lib/options";
 import { CREDIT_REASON_LABEL } from "@/lib/hours";
 import { useAdminCan } from "@/components/admin/AdminShell";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { fmtDay } from "@/lib/format";
 
 // Admin -> People: mentors and students, with pause / remove / restore,
-// health badges and the "View" panel.
-const fmtDay = (d: string) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+// health badges and "View", which opens the person's details in a panel
+// from the right (PersonDrawer).
 
 export function People() {
   // Mentors or students, from the tabs (?role=BUYER for students). The
@@ -42,7 +44,7 @@ export function People() {
     return () => clearTimeout(t);
   }, [load]);
 
-  const { ask, notify, dialog } = useAdminDialog();
+  const { ask, notify, dialog } = useConfirm();
 
   // Sends the change; returns an error message for the pop-up, or nothing.
   async function send(u: any, action: string, reason?: string): Promise<string | void> {
@@ -88,23 +90,22 @@ export function People() {
       {dialog}
       <PeopleTabs role={role} counts={counts} />
       <div className="row" style={{ gap: 8 }}>
-        <input className="input grow" style={{ marginBottom: 0 }} placeholder="Search by name or email" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
+        <input className="input grow" type="search" style={{ marginBottom: 0 }} placeholder="Search by name or email" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search people" />
         <a className="btn btn-sm" href={`/api/admin/users?${new URLSearchParams({ role, format: "csv", ...(q.trim() ? { q: q.trim() } : {}) })}`} download>Download CSV</a>
       </div>
+      {users === null && <LoadingBlock lines={5} title={false} />}
+      {users?.length === 0 &&
+        (q.trim() ? (
+          <EmptyState action={<button type="button" className="btn btn-sm" onClick={() => setQ("")}>Clear search</button>}>
+            No {role === "SELLER" ? "mentors" : "students"} match this search.
+          </EmptyState>
+        ) : (
+          <EmptyState>Nothing here yet.</EmptyState>
+        ))}
+      {!!users?.length && (
       <div className="card" style={{ padding: "4px 20px" }}>
-        {users === null && <p className="text-muted" style={{ padding: 12 }}>Loading…</p>}
-        {users?.length === 0 &&
-          (q.trim() ? (
-            <div className="row-wrap" style={{ padding: 12 }}>
-              <span className="text-muted">No {role === "SELLER" ? "mentors" : "students"} match this search.</span>
-              <button type="button" className="btn btn-sm" onClick={() => setQ("")}>Clear Search</button>
-            </div>
-          ) : (
-            <p className="text-muted" style={{ padding: 12 }}>Nothing here yet.</p>
-          ))}
-        {users?.map((u) => (
-          <div key={u.id}>
-            <div className="list-row" style={{ flexWrap: "wrap" }}>
+        {users.map((u) => (
+            <div key={u.id} className="list-row" style={{ flexWrap: "wrap" }}>
               {u.photoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={u.photoUrl} alt="" className="avatar" style={{ width: 40, height: 40, objectFit: "cover" }} />
@@ -129,7 +130,7 @@ export function People() {
               {u.profileStatus === "REMOVED" && <span className="badge badge-danger">{u.removedByAdmin ? "Removed by admin" : "Removed by mentor"}</span>}
               {role === "SELLER" && !u.payoutsConnected && <span className="badge">No payouts</span>}
               <div className="row" style={{ gap: 6 }}>
-                <button className="btn btn-sm" onClick={() => setViewing(viewing === u.id ? null : u.id)} aria-expanded={viewing === u.id}>View</button>
+                <button type="button" className="btn btn-sm" onClick={() => setViewing(u.id)} aria-haspopup="dialog">View</button>
                 {u.profileStatus !== "REMOVED" && !u.safetyHoldAt && (role === "BUYER" || u.profileStatus === "ACTIVE") && (
                   <button className="btn btn-sm" onClick={() => act(u, "pause")}>Pause</button>
                 )}
@@ -143,92 +144,162 @@ export function People() {
                 )}
               </div>
             </div>
-            {viewing === u.id && <PersonDetail id={u.id} />}
-          </div>
         ))}
       </div>
+      )}
+      <PersonDrawer id={viewing} name={users?.find((u) => u.id === viewing)?.name} onClose={() => setViewing(null)} />
     </section>
+  );
+}
+
+// The person's details, in a panel from the right (styled in admin.css as
+// .adm-drawer): status, health and flags, profile, credit, activity and
+// packages, each its own section. Loads fresh each time it opens.
+function PersonDrawer({ id, name, onClose }: { id: string | null; name?: string; onClose: () => void }) {
+  return (
+    <Modal open={!!id} onClose={onClose} label={name ? `${name}: details` : "Person details"} wide>
+      {id && <PersonDetail key={id} id={id} />}
+    </Modal>
   );
 }
 
 function PersonDetail({ id }: { id: string }) {
   const [d, setD] = useState<any>(null);
   useEffect(() => {
-    fetch(`/api/admin/users/${id}`).then((r) => r.json()).then(setD).catch(() => {});
+    fetch(`/api/admin/users/${id}`).then((r) => r.json()).then(setD).catch(() => setD({}));
   }, [id]);
-  if (!d?.user) return <div className="text-muted" style={{ padding: "0 0 16px 54px" }}>Loading…</div>;
+  if (!d) return <div className="adm-drawer"><LoadingBlock lines={6} /></div>;
+  if (!d.user) return <div className="adm-drawer"><div className="alert alert-danger">Couldn&apos;t load this person. Close and try again.</div></div>;
   const u = d.user;
   const isMentor = u.role === "SELLER";
   return (
-    <div className="card card-tint stack-sm" style={{ margin: "0 0 16px", padding: 18 }}>
+    <div className="adm-drawer">
+      <header className="adm-drawer-head">
+        <h2 className="modal-title">{u.name}</h2>
+        <span className="text-muted small">{u.email} · {isMentor ? "mentor" : "student"}{u.createdAt ? ` · joined ${fmtDay(u.createdAt)}` : ""}</span>
+      </header>
       {u.profileStatus === "REMOVED" && u.removedReason && (
         <div className="alert alert-danger small">Removed {u.removedAt ? fmtDay(u.removedAt) : ""}: {u.removedReason}</div>
       )}
       {u.safetyHoldAt && (
         <div className="alert alert-warning small">On hold since {fmtDay(u.safetyHoldAt)}{u.safetyHoldReason ? `: ${u.safetyHoldReason}` : ""}. Use Unpause once reviewed.</div>
       )}
-      <HealthCard d={d} />
-      <div className="row-wrap small text-secondary">
-        {isMentor && usesOwnSchool(u.mentorStage) && <span><b>{ownSchoolLabel(u.mentorStage)}:</b> {u.undergradSchool || "not added yet"}</span>}
-        {isMentor && <span><b>Medical school:</b> {u.medicalSchool || (usesOwnSchool(u.mentorStage) ? "not given (optional)" : "not added yet")}</span>}
-        <span><b>Signup source:</b> {u.signupSource ? `${u.signupSource}${u.signupDetail ? ` (${u.signupDetail})` : ""}` : "unknown"}</span>
-      </div>
-      {isMentor && (
-        <>
-          <div className="row-wrap small">
-            {u.credential && <span><b>Credential:</b> {u.credential}</span>}
-            {u.mentorStage && <span className="badge">{labelFor(STAGES, u.mentorStage)}</span>}
-            {u.schoolType && <span className="badge">{labelFor(SCHOOL_TYPES, u.schoolType)}</span>}
-            {(u.bestFor || []).map((b: string) => <span key={b} className="badge">{labelFor(BEST_FOR, b)}</span>)}
-            {u.hourlyRateCents ? <span><b>Rate:</b> {money(u.hourlyRateCents)}/hr</span> : <span className="text-muted">No hourly rate</span>}
-            {d.rating?.count > 0 && <span>★ {d.rating.avg?.toFixed(1)} ({d.rating.count})</span>}
-            <span>{u.hasAvailability ? "Call hours set" : "No call hours"}{u.timeZone ? ` · ${u.timeZone}` : ""}{u.externalCalConnected ? " · Own calendar connected" : ""}</span>
-          </div>
-          {u.progress && (
-            <div className="small">
-              <b>Profile: {u.progress.done} of {u.progress.total} sections</b>{" "}
-              {u.progress.complete ? (
-                <span className="badge badge-success">Listed</span>
-              ) : (
-                <span className="text-secondary">
-                  (hidden from Browse until finished; missing: {u.progress.sections.filter((x: any) => !x.done).map((x: any) => x.label).join(", ")})
-                </span>
-              )}
-            </div>
-          )}
-          {u.bio && <p className="text-secondary small" style={{ whiteSpace: "pre-wrap" }}>{u.bio}</p>}
-          <div className="row-wrap small">
-            {u.gigs.map((g: any) => <span key={g.id} className="badge badge-brand">{g.title} · {money(g.price)}</span>)}
-          </div>
-          <ClientSchoolsEditor userId={u.id} initial={u.clientSchools || []} />
-          <Link href={`/mentors/${u.id}`} className="link small">Open public profile →</Link>
-        </>
+      {d.health && (
+        <DrawerSection title="Health">
+          <HealthCard d={d} />
+        </DrawerSection>
       )}
+      {d.flags?.length > 0 && (
+        <DrawerSection title="Flag history" count={d.flags.length}>
+          <div>
+            {d.flags.map((f: any) => (
+              <div key={f.id} className="list-row small" style={{ flexWrap: "wrap" }}>
+                <span className="text-muted nowrap">{fmtDay(f.createdAt)}</span>
+                <span className={`badge ${(SEVERITY[f.severity] || SEVERITY[1]).cls}`}>{(SEVERITY[f.severity] || SEVERITY[1]).label}</span>
+                <span className="badge badge-brand">{kindLabel(f.kind)}</span>
+                <span className="grow">{f.reason}</span>
+                <span className={`badge ${f.status === "UPHELD" ? "badge-danger" : f.status === "OPEN" ? "badge-warning" : ""}`}>
+                  {f.status === "OPEN" ? "Open" : f.status === "UPHELD" ? `Upheld${f.action ? ` (${f.action.toLowerCase()})` : ""}` : "Dismissed"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </DrawerSection>
+      )}
+      {d.actions?.length > 0 && (
+        <DrawerSection title="Admin actions" count={d.actions.length}>
+          <div>
+            {d.actions.map((a: any) => (
+              <div key={a.id} className="list-row small">
+                <span className="text-muted nowrap">{fmtDay(a.createdAt)}</span>
+                <span className="grow">{a.summary}</span>
+                <span className="badge">{a.admin?.name || "System"}</span>
+              </div>
+            ))}
+          </div>
+        </DrawerSection>
+      )}
+      <DrawerSection title={isMentor ? "Profile" : "Details"}>
+        <div className="row-wrap small text-secondary">
+          {isMentor && usesOwnSchool(u.mentorStage) && <span><b>{ownSchoolLabel(u.mentorStage)}:</b> {u.undergradSchool || "not added yet"}</span>}
+          {isMentor && <span><b>Medical school:</b> {u.medicalSchool || (usesOwnSchool(u.mentorStage) ? "not given (optional)" : "not added yet")}</span>}
+          <span><b>Signup source:</b> {u.signupSource ? `${u.signupSource}${u.signupDetail ? ` (${u.signupDetail})` : ""}` : "unknown"}</span>
+        </div>
+        {isMentor && (
+          <>
+            <div className="row-wrap small">
+              {u.credential && <span><b>Credential:</b> {u.credential}</span>}
+              {u.mentorStage && <span className="badge">{labelFor(STAGES, u.mentorStage)}</span>}
+              {u.schoolType && <span className="badge">{labelFor(SCHOOL_TYPES, u.schoolType)}</span>}
+              {(u.bestFor || []).map((b: string) => <span key={b} className="badge">{labelFor(BEST_FOR, b)}</span>)}
+              {u.hourlyRateCents ? <span><b>Rate:</b> {money(u.hourlyRateCents)}/hr</span> : <span className="text-muted">No hourly rate</span>}
+              {d.rating?.count > 0 && <span>★ {d.rating.avg?.toFixed(1)} ({d.rating.count})</span>}
+              <span>{u.hasAvailability ? "Call hours set" : "No call hours"}{u.timeZone ? ` · ${u.timeZone}` : ""}{u.externalCalConnected ? " · Own calendar connected" : ""}</span>
+            </div>
+            {u.progress && (
+              <div className="small">
+                <b>Profile: {u.progress.done} of {u.progress.total} sections</b>{" "}
+                {u.progress.complete ? (
+                  <span className="badge badge-success">Listed</span>
+                ) : (
+                  <span className="text-secondary">
+                    (hidden from Browse until finished; missing: {u.progress.sections.filter((x: any) => !x.done).map((x: any) => x.label).join(", ")})
+                  </span>
+                )}
+              </div>
+            )}
+            {u.bio && <p className="text-secondary small" style={{ whiteSpace: "pre-wrap" }}>{u.bio}</p>}
+            <div className="row-wrap small">
+              {u.gigs.map((g: any) => <span key={g.id} className="badge badge-brand">{g.title} · {money(g.price)}</span>)}
+            </div>
+            <Link href={`/mentors/${u.id}`} className="link small">Open public profile →</Link>
+          </>
+        )}
+      </DrawerSection>
+      {isMentor && (
+        <DrawerSection title="Schools their students got into" count={(u.clientSchools || []).length}>
+          <ClientSchoolsEditor userId={u.id} initial={u.clientSchools || []} />
+        </DrawerSection>
+      )}
+      {u.role === "BUYER" && <StudentCredit userId={u.id} />}
       {d.activity?.length > 0 && (
-        <details className="collapse">
-          <summary><span className="row" style={{ gap: 8 }}>Recent activity (private) <span className="tab-count">{d.activity.length}</span></span></summary>
-          <div className="collapse-body" style={{ gap: 0 }}>
+        <DrawerSection title="Recent activity (private)" count={d.activity.length}>
+          <div>
             {d.activity.map((a: any) => (
               <div key={a.id} className="list-row small">
                 <span className="text-muted nowrap">{fmtDay(a.createdAt)}</span>
                 <span className="grow">{a.text}</span>
               </div>
             ))}
-            <Link href="/admin/insights?tab=log" className="link small" style={{ paddingTop: 8 }}>Full activity log →</Link>
           </div>
-        </details>
+          <Link href="/admin/insights?tab=log" className="link small">Full activity log →</Link>
+        </DrawerSection>
       )}
-      {u.role === "BUYER" && <StudentCredit userId={u.id} />}
-      <b className="small" style={{ marginTop: 6 }}>Recent packages</b>
-      {d.orders.length === 0 && <span className="text-muted">No packages.</span>}
-      {d.orders.map((o: any) => (
-        <Link key={o.id} href={`/orders/${o.id}`} className="between small" style={{ gap: 10 }}>
-          <span className="grow">{o.packageTitle || o.gig.title} · {isMentor ? o.buyer.name : o.seller.name}</span>
-          <span>{money(o.amount)}</span>
-          {statusBadge(o)}
-        </Link>
-      ))}
+      <DrawerSection title="Recent packages" count={d.orders.length}>
+        {d.orders.length === 0 && <span className="text-muted small">No packages.</span>}
+        {d.orders.map((o: any) => (
+          <Link key={o.id} href={`/orders/${o.id}`} className="between small" style={{ gap: 10 }}>
+            <span className="grow">{o.packageTitle || o.gig.title} · {isMentor ? o.buyer.name : o.seller.name}</span>
+            <span>{money(o.amount)}</span>
+            <StatusBadge order={o} audience="admin" />
+          </Link>
+        ))}
+      </DrawerSection>
     </div>
+  );
+}
+
+// One part of the person panel: a small heading (with a count) and its content.
+function DrawerSection({ title, count, extra, children }: { title: string; count?: number; extra?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section className="adm-drawer-section">
+      <h3 className="adm-drawer-title">
+        {title}
+        {count != null && <span className="tab-count">{count}</span>}
+        {extra}
+      </h3>
+      {children}
+    </section>
   );
 }
 
@@ -250,13 +321,7 @@ function ClientSchoolsEditor({ userId, initial }: { userId: string; initial: str
     setMsg({ ok: res.ok, text: res.ok ? "Saved. The profile updates within a minute." : d.error || "Couldn't save" });
   }
   return (
-    <details className="collapse">
-      <summary>
-        <span className="row" style={{ gap: 8 }}>
-          Schools their students got into <span className="tab-count">{initial.length}</span>
-        </span>
-      </summary>
-      <div className="collapse-body">
+    <div className="stack-sm">
         <label className="field" style={{ marginBottom: 0 }}>
           <span className="field-label">One school per line, best first</span>
           <textarea className="input" style={{ minHeight: 110 }} value={text} onChange={(e) => setText(e.target.value)} placeholder={"Harvard Medical School\nStanford University School of Medicine"} />
@@ -266,8 +331,7 @@ function ClientSchoolsEditor({ userId, initial }: { userId: string; initial: str
           <button type="button" className="btn btn-primary btn-sm" disabled={saving} onClick={save}>{saving ? "Saving…" : "Save schools"}</button>
           {msg && <span role="status" className="small" style={{ color: msg.ok ? "var(--success-fg)" : "var(--danger)" }}>{msg.text}</span>}
         </div>
-      </div>
-    </details>
+    </div>
   );
 }
 
@@ -281,7 +345,7 @@ function StudentCredit({ userId }: { userId: string }) {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const { confirm, dialog } = useAdminDialog();
+  const { confirm, dialog } = useConfirm();
   useEffect(() => {
     fetch(`/api/admin/users/${userId}/credit`).then((r) => r.json()).then(setData).catch(() => setData({ balanceCents: 0, entries: [] }));
   }, [userId]);
@@ -291,7 +355,7 @@ function StudentCredit({ userId }: { userId: string }) {
     const cents = Math.round(Number(amount) * 100);
     if (!Number.isFinite(cents) || cents <= 0) return setError("Enter an amount.");
     if (!reason.trim()) return setError("Say why (it's saved in the action log).");
-    if (!(await confirm({ title: `${sign > 0 ? "Add" : "Remove"} ${money(cents)} of credit ${sign > 0 ? "to" : "from"} this student?`, body: sign > 0 ? "They get an email (without the reason)." : undefined, confirmLabel: sign > 0 ? "Add Credit" : "Remove Credit", danger: sign < 0 }))) return;
+    if (!(await confirm({ title: `${sign > 0 ? "Add" : "Remove"} ${money(cents)} of credit ${sign > 0 ? "to" : "from"} this student?`, body: sign > 0 ? "They get an email (without the reason)." : undefined, confirmLabel: sign > 0 ? "Add credit" : "Remove credit", danger: sign < 0 }))) return;
     setBusy(true);
     const res = await fetch(`/api/admin/users/${userId}/credit`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amountCents: sign * cents, reason }) });
     const d = await res.json().catch(() => ({}));
@@ -303,9 +367,7 @@ function StudentCredit({ userId }: { userId: string }) {
   }
 
   return (
-    <details className="collapse">
-      <summary><span className="row" style={{ gap: 8 }}>MentorsMD credit <span className="tab-count">{data ? money(data.balanceCents) : "…"}</span></span></summary>
-      <div className="collapse-body" style={{ gap: 8 }}>
+    <DrawerSection title="MentorsMD credit" extra={<span className="adm-drawer-value">{data ? `${money(data.balanceCents)} left` : "…"}</span>}>
         {dialog}
         {data && data.entries.length === 0 && <span className="text-muted small">No credit history.</span>}
         {(data?.entries || []).map((e: any) => (
@@ -330,7 +392,7 @@ function StudentCredit({ userId }: { userId: string }) {
               </select>
               <input className="input" inputMode="decimal" placeholder="Amount, e.g. 25" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))} style={{ marginBottom: 0, maxWidth: 140 }} />
               <input className="input grow" placeholder="Reason (required, for the action log)" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} style={{ marginBottom: 0, minWidth: 200 }} />
-              <button className="btn btn-sm" disabled={busy} onClick={save}>Save</button>
+              <button type="button" className="btn btn-sm" disabled={busy} onClick={save}>Save</button>
             </div>
             <span className="text-muted small">Added credit emails the student (without the reason). Credit never expires and works with any mentor.</span>
             {error && <div role="alert" className="alert alert-danger small">{error}</div>}
@@ -338,12 +400,12 @@ function StudentCredit({ userId }: { userId: string }) {
         ) : (
           <span className="text-muted small">Changing credit needs the Orders permission.</span>
         )}
-      </div>
-    </details>
+    </DrawerSection>
   );
 }
 
-// Health scorecard (#89): flags, performance numbers and flag history.
+// Health scorecard (#89): flags and performance numbers. Flag history and
+// admin actions are their own sections in the person panel.
 function HealthCard({ d }: { d: any }) {
   const h = d.health;
   const u = d.user;
@@ -353,13 +415,13 @@ function HealthCard({ d }: { d: any }) {
   return (
     <div className="stack-sm">
       <div className="row-wrap small">
-        <b>Health</b> <span className={`badge ${cls}`}>{h.label}</span>
+        <span className={`badge ${cls}`}>{h.label}</span>
         <span>{h.openFlags} open flag{h.openFlags === 1 ? "" : "s"}{h.highOpen ? ` (${h.highOpen} high)` : ""}</span>
         <span>· {h.upheld90} upheld in 90 days</span>
         {u.role === "BUYER" && <span>· email {u.emailVerified ? "confirmed" : "not confirmed"}</span>}
         {u.role === "BUYER" && (
           <span>
-            · {u.dateOfBirth ? `born ${new Date(u.dateOfBirth).toLocaleDateString(undefined, { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" })}` : "no date of birth yet"}
+            · {u.dateOfBirth ? `born ${fmtDay(u.dateOfBirth, { timeZone: "UTC" })}` : "no date of birth yet"}
             {u.minorStatus ? <> (under 18: <Link href="/admin/minors" className="link">consent {u.minorStatus === "CONSENTED" ? "given" : u.minorStatus === "PENDING" ? "pending" : "not given"}</Link>)</> : u.becameAdultAt ? " (turned 18 here)" : ""}
           </span>
         )}
@@ -382,38 +444,6 @@ function HealthCard({ d }: { d: any }) {
         <ul className="small text-secondary" style={{ paddingLeft: 18, margin: 0 }}>
           {h.issues.map((i: any) => <li key={i.key}><b>{i.reason}:</b> {i.details}</li>)}
         </ul>
-      )}
-      {d.flags?.length > 0 && (
-        <details className="collapse">
-          <summary><span className="row" style={{ gap: 8 }}>Flag history <span className="tab-count">{d.flags.length}</span></span></summary>
-          <div className="collapse-body" style={{ gap: 0 }}>
-            {d.flags.map((f: any) => (
-              <div key={f.id} className="list-row small" style={{ flexWrap: "wrap" }}>
-                <span className="text-muted nowrap">{fmtDay(f.createdAt)}</span>
-                <span className={`badge ${(SEVERITY[f.severity] || SEVERITY[1]).cls}`}>{(SEVERITY[f.severity] || SEVERITY[1]).label}</span>
-                <span className="badge badge-brand">{kindLabel(f.kind)}</span>
-                <span className="grow">{f.reason}</span>
-                <span className={`badge ${f.status === "UPHELD" ? "badge-danger" : f.status === "OPEN" ? "badge-warning" : ""}`}>
-                  {f.status === "OPEN" ? "Open" : f.status === "UPHELD" ? `Upheld${f.action ? ` (${f.action.toLowerCase()})` : ""}` : "Dismissed"}
-                </span>
-              </div>
-            ))}
-          </div>
-        </details>
-      )}
-      {d.actions?.length > 0 && (
-        <details className="collapse">
-          <summary><span className="row" style={{ gap: 8 }}>Admin actions <span className="tab-count">{d.actions.length}</span></span></summary>
-          <div className="collapse-body" style={{ gap: 0 }}>
-            {d.actions.map((a: any) => (
-              <div key={a.id} className="list-row small">
-                <span className="text-muted nowrap">{fmtDay(a.createdAt)}</span>
-                <span className="grow">{a.summary}</span>
-                <span className="badge">{a.admin?.name || "System"}</span>
-              </div>
-            ))}
-          </div>
-        </details>
       )}
     </div>
   );
