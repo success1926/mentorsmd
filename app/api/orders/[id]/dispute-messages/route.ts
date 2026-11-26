@@ -5,7 +5,7 @@ import { sendLive } from "@/lib/realtime";
 import { sendDisputeMessageEmail, SITE_URL } from "@/lib/email";
 import { LIMITS } from "@/lib/validate";
 import { adminEmailsWith } from "@/lib/adminRecipients";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 
 async function getAuthorizedOrder(orderId: string, userId: string, role: string) {
   const order = await prisma.order.findUnique({
@@ -20,10 +20,10 @@ async function getAuthorizedOrder(orderId: string, userId: string, role: string)
 }
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
 
-  const order = await getAuthorizedOrder(params.id, (session.user as any).id, (session.user as any).role);
+  const order = await getAuthorizedOrder(params.id, me.id, me.role);
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
   const messages = await prisma.disputeMessage.findMany({
@@ -41,11 +41,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 // admin posts -> buyer and seller are emailed; buyer or seller posts ->
 // every admin is emailed.
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
 
-  const userId = (session.user as any).id;
-  const role = (session.user as any).role;
+  const userId = me.id;
+  const role = me.role;
 
   const order = await getAuthorizedOrder(params.id, userId, role);
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });

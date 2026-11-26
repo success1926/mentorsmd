@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { GOOGLE_CAL_STATE_COOKIE, googleCalConfigured, googleConsentUrl, makeState } from "@/lib/googleCalendar";
 import { siteUrl } from "@/lib/siteUrl";
-import { getSession } from "@/lib/session";
+import { getSession, sessionUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -13,12 +13,12 @@ export async function GET() {
   // forwards it to www.mentorsmd.com, where this cookie and the login are.
   const base = siteUrl();
   const back = (flag: string) => NextResponse.redirect(`${base}/dashboard/availability?gcal=${flag}#calendar`);
-  const session = await getSession();
-  if (!session?.user) return NextResponse.redirect(`${base}/login?callbackUrl=${encodeURIComponent("/dashboard/availability#calendar")}`);
-  if ((session.user as any).role !== "SELLER") return back("mentors-only");
+  const me = sessionUser(await getSession());
+  if (!me) return NextResponse.redirect(`${base}/login?callbackUrl=${encodeURIComponent("/dashboard/availability#calendar")}`);
+  if (me.role !== "SELLER") return back("mentors-only");
   if (!googleCalConfigured()) return back("not-set-up");
 
-  const state = makeState((session.user as any).id);
+  const state = makeState(me.id);
   const res = NextResponse.redirect(googleConsentUrl(state.value));
   res.cookies.set(GOOGLE_CAL_STATE_COOKIE, state.value, {
     httpOnly: true,

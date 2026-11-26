@@ -1,7 +1,7 @@
 import { docOrDefault } from "@/lib/legal";
 import { LegalBody, LegalHeader } from "@/components/LegalBody";
 
-export const metadata = { alternates: { canonical: "/parental-consent" }, title: "Parental Consent", description: "How parents and guardians give consent for students aged 13 to 17 on MentorsMD." };
+export const metadata = { alternates: { canonical: "/parental-consent" }, title: "Parental consent", description: "How parents and guardians give consent for students aged 13 to 17 on MentorsMD." };
 
 // The latest version published in Admin -> Legal, or the built-in text in
 // lib/legalDefaults.ts (drafted Nov 18, 2026, to be reviewed by a lawyer

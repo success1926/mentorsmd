@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { PersonAvatar, MinorBadge } from "@/components/ui";
+import { firstName } from "@/lib/format";
 import { profileLines, type StudentProfile } from "@/lib/studentProfile";
 
 // What a mentor sees about a student (their optional "About you",
@@ -30,7 +31,7 @@ export function StudentCard({ studentId, title = "About the student", hideName =
   if (failed) return null;
   if (!d) return <div className="card text-muted small" style={{ padding: 16 }}>Loading the student&apos;s details…</div>;
 
-  const first = (d.name || "").split(" ")[0] || "The student";
+  const first = firstName(d.name) || "The student";
   const l = profileLines(d.profile);
   const facts = [l.applying, l.stage, l.degree, d.profile.school].filter(Boolean) as string[];
 

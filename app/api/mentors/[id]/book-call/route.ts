@@ -5,7 +5,7 @@ import { CallError, bookCall, orderForCallsInclude } from "@/lib/callBooking";
 import { CheckoutError, startPayPerCallCheckout } from "@/lib/hourCheckout";
 import { isBlockMinutes } from "@/lib/hours";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
-import { getSession } from "@/lib/session";
+import { getSession, sessionUser } from "@/lib/session";
 
 // "Book a call" with a mentor: { startTime, minutes: 30 | 60, orderId? }.
 //   orderId: book it from that package's hours (no payment).
@@ -13,11 +13,11 @@ import { getSession } from "@/lib/session";
 //   { url } (Stripe Checkout, or the paid package when credit covered it),
 //   and the call is booked when the payment clears.
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
-  if (!session?.user || (session.user as any).role !== "BUYER") {
+  const me = sessionUser(await getSession());
+  if (!me || me.role !== "BUYER") {
     return NextResponse.json({ error: "Only student accounts can book a call" }, { status: 403 });
   }
-  const studentId = (session.user as any).id;
+  const studentId = me.id;
   const r = await rateLimit(RATE_LIMITS.messagesPerMinute, `book:${studentId}`);
   if (!r.ok) return tooMany(r.retryAfterSec, "Please wait a moment and try again.");
   const body = await req.json().catch(() => ({}));
@@ -34,10 +34,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       const booking = await bookCall(order, start, { id: studentId, isMentor: false }, minutes);
       return NextResponse.json({ booking: { id: booking.id, startTime: booking.startTime, endTime: booking.endTime }, orderId: order.id });
     }
-    const { url, orderId } = await startPayPerCallCheckout({ id: studentId, email: session.user.email }, params.id, start, minutes);
+    const { url, orderId } = await startPayPerCallCheckout({ id: studentId, email: me.email }, params.id, start, minutes);
     return NextResponse.json({ url, orderId });
   } catch (err) {
-    if (err instanceof CallError || err instanceof CheckoutError) return NextResponse.json({ error: err.message }, { status: err.status });
+    if (err instanceof CallError || err instanceof CheckoutError) return NextResponse.json({ error: err.message, ...(err.code ? { code: err.code } : {}) }, { status: err.status });
     console.error("Booking a call failed", err);
     return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }

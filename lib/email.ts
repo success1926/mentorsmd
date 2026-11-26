@@ -6,12 +6,13 @@ import { prisma } from "@/lib/prisma";
 import { logEmail } from "@/lib/emailLog";
 import { allowEmailTo } from "@/lib/rateLimit";
 import { EMAILS, blocks, previewText, renderEmail, validateTemplate, type Values } from "@/lib/emailTemplates";
+import { firstName, money } from "@/lib/format";
 
 // Lazy, like lib/stripe.ts: the Resend constructor throws if the API key
 // is missing, which would otherwise crash every route that imports this
 // file (messaging, orders, webhooks) - not just the email sends.
 let _resend: Resend | null = null;
-export const resend = {
+const resend = {
   emails: {
     // Resend returns { error } instead of throwing when a send fails, so
     // every try/catch around an email send used to silently "succeed".
@@ -128,8 +129,6 @@ export async function sendTestEmail(key: string, toEmail: string, tpl: { subject
   return deliver(key, toEmail, `[Test] ${subject}`.slice(0, 160), html);
 }
 
-const first = (name: string) => name.split(" ")[0];
-const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
 export async function sendSellerInviteEmail(toEmail: string, inviteUrl: string) {
   await sendTemplate("mentor_invite", toEmail, { inviteLink: inviteUrl });
@@ -147,40 +146,12 @@ export async function sendOrderPaidEmail(sellerEmail: string, gigTitle: string, 
   await sendTemplate("new_order", sellerEmail, { studentName: buyerName, packageTitle: gigTitle, orderLink: orderUrl });
 }
 
-export async function sendOrderReleasedEmail(sellerEmail: string, gigTitle: string, amountCents: number, orderUrl: string) {
-  await sendTemplate("payment_released", sellerEmail, { packageTitle: gigTitle, amount: money(amountCents), orderLink: orderUrl });
-}
-
-export async function sendRevisionRequestedEmail(sellerEmail: string, gigTitle: string, note: string, orderUrl: string) {
-  await sendTemplate("revision_requested", sellerEmail, { packageTitle: gigTitle, note, orderLink: orderUrl });
-}
-
 export async function sendDisputeOpenedEmail(adminEmail: string, gigTitle: string, reason: string, orderUrl: string) {
   await sendTemplate("dispute_opened", adminEmail, { packageTitle: gigTitle, reason, orderLink: orderUrl });
 }
 
 export async function sendReviewReceivedEmail(sellerEmail: string, rating: number, gigTitle: string, profileUrl: string) {
   await sendTemplate("review_received", sellerEmail, { rating: String(rating), packageTitle: gigTitle, profileLink: profileUrl });
-}
-
-// Sent to the student the moment the mentor marks work complete - starts
-// the 96-hour window they have to review before payment releases
-// automatically. Includes the mentor's delivery note and file names.
-export async function sendWorkCompleteEmail(
-  buyerEmail: string,
-  gigTitle: string,
-  orderUrl: string,
-  delivery?: { number: number; description: string; files: { name: string }[] }
-) {
-  const files = delivery?.files || [];
-  await sendTemplate("work_delivered", buyerEmail, {
-    packageTitle: gigTitle,
-    deliveryLabel: delivery && delivery.number > 1 ? ` (delivery ${delivery.number})` : "",
-    deliveryNote: delivery ? blocks.deliveryNote(delivery.description) : "",
-    fileCount: files.length ? `${files.length} file${files.length === 1 ? "" : "s"}` : "",
-    fileNames: files.map((f) => f.name).join(", "),
-    orderLink: orderUrl,
-  });
 }
 
 // Sent whenever someone posts in a dispute thread - to whoever DIDN'T
@@ -316,13 +287,13 @@ export async function sendPackageApprovedEmail(toEmail: string, v: { packageTitl
 
 // Monthly payout sent (lib/payouts.ts).
 export async function sendPayoutSentEmail(toEmail: string, v: { name: string; period: string; amount: string; hours: string; heldNote: string }) {
-  await sendTemplate("payout_sent", toEmail, { firstName: first(v.name), period: v.period, amount: v.amount, hours: v.hours, heldNote: v.heldNote, dashboardLink: `${SITE_URL}/dashboard` });
+  await sendTemplate("payout_sent", toEmail, { firstName: firstName(v.name), period: v.period, amount: v.amount, hours: v.hours, heldNote: v.heldNote, dashboardLink: `${SITE_URL}/dashboard` });
 }
 
 // MentorsMD credit added (a dispute refunded as credit, or an admin adjustment).
 export async function sendCreditIssuedEmail(toEmail: string, v: { name: string; amount: string; packageTitle?: string | null; note?: string | null; balance: string }) {
   await sendTemplate("credit_issued", toEmail, {
-    firstName: first(v.name),
+    firstName: firstName(v.name),
     amount: v.amount,
     forPackage: v.packageTitle ? ` for ${v.packageTitle}` : "",
     note: v.note ? blocks.quote(v.note) : "",
@@ -338,7 +309,7 @@ export async function sendGiftReceivedEmail(
   v: { studentName: string; parentName: string; giftShort: string; giftLine: string; note: string | null; claimUrl: string | null; claimDays: number }
 ) {
   await sendTemplate("gift_received", toEmail, {
-    firstName: first(v.studentName),
+    firstName: firstName(v.studentName),
     parentName: v.parentName,
     giftShort: v.giftShort,
     giftLine: v.giftLine,
@@ -354,14 +325,14 @@ export async function sendGiftReceiptEmail(
   v: { parentName: string; studentName: string; giftLine: string; amountCents: number; paidAt: Date; under18: boolean; giftUrl: string }
 ) {
   await sendTemplate("gift_receipt", toEmail, {
-    parentFirstName: first(v.parentName),
+    parentFirstName: firstName(v.parentName),
     studentName: v.studentName,
-    studentFirstName: first(v.studentName),
+    studentFirstName: firstName(v.studentName),
     giftLine: v.giftLine,
     amount: money(v.amountCents),
     paidOn: v.paidAt.toDateString(),
     consentNote: v.under18
-      ? `Because ${first(v.studentName)} is under 18, they'll need your consent before they can use MentorsMD. That's a separate email we send you once they set up their account.`
+      ? `Because ${firstName(v.studentName)} is under 18, they'll need your consent before they can use MentorsMD. That's a separate email we send you once they set up their account.`
       : "",
     giftLink: v.giftUrl,
   });
@@ -426,14 +397,14 @@ export async function sendApplicationEmail(app: ApplicationForEmail, adminUrl: s
 
 // To the applicant, right after they submit.
 export async function sendApplicationReceivedEmail(toEmail: string, name: string) {
-  await sendTemplate("application_received", toEmail, { firstName: first(name) }, { reply_to: APPLICATIONS_EMAIL });
+  await sendTemplate("application_received", toEmail, { firstName: firstName(name) }, { reply_to: APPLICATIONS_EMAIL });
 }
 
 // ---- Safety (Phase 4) ----
 
 // "Confirm your email" - students confirm before sending their first message.
 export async function sendEmailVerificationEmail(toEmail: string, name: string, verifyUrl: string) {
-  await sendTemplate("email_verification", toEmail, { firstName: first(name), verifyLink: verifyUrl });
+  await sendTemplate("email_verification", toEmail, { firstName: firstName(name), verifyLink: verifyUrl });
 }
 
 // Instant alert to every admin for a high-severity flag.
@@ -476,12 +447,12 @@ export async function sendSafetyDigestEmail(toEmail: string, d: DigestSummary, a
 
 // An admin's warning to a student or mentor.
 export async function sendSafetyWarningEmail(toEmail: string, name: string, reason: string, note: string | null) {
-  await sendTemplate("safety_warning", toEmail, { firstName: first(name), reason, teamNote: note ? blocks.quote(note) : "", siteLink: SITE_URL });
+  await sendTemplate("safety_warning", toEmail, { firstName: firstName(name), reason, teamNote: note ? blocks.quote(note) : "", siteLink: SITE_URL });
 }
 
 // Account paused pending review (by an admin or automatically).
 export async function sendAccountPausedEmail(toEmail: string, name: string, isMentor: boolean) {
-  await sendTemplate(isMentor ? "account_paused_mentor" : "account_paused_student", toEmail, { firstName: first(name) });
+  await sendTemplate(isMentor ? "account_paused_mentor" : "account_paused_student", toEmail, { firstName: firstName(name) });
 }
 
 // ---- Minors and parental consent (Phase 5) ----
@@ -496,9 +467,9 @@ export async function sendParentConsentEmail(
   reminder = false
 ) {
   await sendTemplate(reminder ? "parent_consent_reminder" : "parent_consent", toEmail, {
-    parentFirstName: first(parentName),
+    parentFirstName: firstName(parentName),
     studentName,
-    studentFirstName: first(studentName),
+    studentFirstName: firstName(studentName),
     consentLink: consentUrl,
     expiresOn: expiresAt.toDateString(),
   });
@@ -507,9 +478,9 @@ export async function sendParentConsentEmail(
 // To the parent once they've consented: their private parent link.
 export async function sendParentConsentConfirmedEmail(toEmail: string, parentName: string, studentName: string, parentUrl: string) {
   await sendTemplate("parent_consent_confirmed", toEmail, {
-    parentFirstName: first(parentName),
+    parentFirstName: firstName(parentName),
     studentName,
-    studentFirstName: first(studentName),
+    studentFirstName: firstName(studentName),
     parentLink: parentUrl,
   });
 }
@@ -523,7 +494,7 @@ export async function sendParentReceiptEmail(
   parentUrl: string
 ) {
   await sendTemplate("parent_receipt", toEmail, {
-    parentFirstName: first(parentName),
+    parentFirstName: firstName(parentName),
     studentName,
     packageTitle: order.gigTitle,
     mentorName: order.mentorName,
@@ -537,7 +508,7 @@ export async function sendParentReceiptEmail(
 // To the student when their minor status changes.
 export async function sendMinorStatusEmail(toEmail: string, name: string, kind: "CONSENTED" | "DECLINED" | "WITHDRAWN" | "ADULT") {
   const key = { CONSENTED: "minor_consented", DECLINED: "minor_declined", WITHDRAWN: "minor_withdrawn", ADULT: "minor_turned_18" }[kind];
-  await sendTemplate(key, toEmail, { firstName: first(name), siteLink: SITE_URL });
+  await sendTemplate(key, toEmail, { firstName: firstName(name), siteLink: SITE_URL });
 }
 
 // ---- Admin team (Phase 5) ----
@@ -558,15 +529,15 @@ export async function sendLoginCodeEmail(toEmail: string, code: string) {
 // Security notice: someone's 2-step method changed (Settings, or set up at
 // their first login).
 export async function sendTwoStepChangedEmail(toEmail: string, name: string, change: string) {
-  await sendTemplate("two_step_changed", toEmail, { firstName: first(name), change, siteLink: SITE_URL });
+  await sendTemplate("two_step_changed", toEmail, { firstName: firstName(name), change, siteLink: SITE_URL });
 }
 
 export async function sendAccountDeletedEmail(toEmail: string, name: string) {
-  await sendTemplate("account_deleted", toEmail, { firstName: first(name), contactLink: `${SITE_URL}/contact` });
+  await sendTemplate("account_deleted", toEmail, { firstName: firstName(name), contactLink: `${SITE_URL}/contact` });
 }
 
 export async function sendTeamAccessChangedEmail(toEmail: string, name: string, text: string) {
-  await sendTemplate("team_access_changed", toEmail, { firstName: first(name), message: text });
+  await sendTemplate("team_access_changed", toEmail, { firstName: firstName(name), message: text });
 }
 
 // ---- Leads: contact form and waitlist (Oct 2026) ----
@@ -586,9 +557,9 @@ export async function sendContactMessageEmail(m: { name: string; email: string; 
 // Only a plain first name is used (anything that looks like a link or is
 // long becomes "there"), so the form can't be used to send links.
 export async function sendContactReceivedEmail(toEmail: string, name: string) {
-  const f = first(name);
-  const firstName = f.length <= 30 && /^[\p{L}' -]+$/u.test(f) ? f : "there";
-  await sendTemplate("contact_received", toEmail, { firstName }, { reply_to: APPLICATIONS_EMAIL });
+  const f = firstName(name);
+  const safe = f.length <= 30 && /^[\p{L}' -]+$/u.test(f) ? f : "there";
+  await sendTemplate("contact_received", toEmail, { firstName: safe }, { reply_to: APPLICATIONS_EMAIL });
 }
 
 // To one waitlist signup (Admin -> Leads -> Waitlist -> Email everyone).

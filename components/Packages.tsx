@@ -13,15 +13,12 @@ import { Icon, ICONS, StaffBadge } from "@/components/ui";
 import { MessageText, SendWarnings, type SendWarning } from "@/components/Safety";
 import { useConversation, SendError } from "@/lib/hooks/useConversation";
 import { hoursSummary, isLowOnHours, shortHours, splitCredit, TOP_UP_HOURS } from "@/lib/hours";
-import { finishPhase, hoursToRespond, packageStatus, studentActions } from "@/lib/finishing";
+import { finishPhase, hoursToRespond, studentActions } from "@/lib/finishing";
 import { hoursLabel, priceFor } from "@/lib/pricing";
 import { money } from "@/lib/options";
 import { uploadFile } from "@/lib/upload";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
-
-export const fmtWhen = (d: string | Date) => new Date(d).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-export const fmtDay = (d: string | Date) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-const firstName = (n?: string | null) => (n || "").split(" ")[0];
+import { useConfirm } from "@/components/ConfirmDialog";
+import { fmtDateTime, fmtDay, firstName } from "@/lib/format";
 
 export async function postJson(url: string, body?: any): Promise<{ ok: boolean; data: any }> {
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
@@ -29,10 +26,6 @@ export async function postJson(url: string, body?: any): Promise<{ ok: boolean; 
   return { ok: res.ok, data };
 }
 
-export function PackageBadge({ order }: { order: any }) {
-  const s = packageStatus(order);
-  return <span className={`badge ${s.tone ? `badge-${s.tone}` : ""}`}>{s.label}</span>;
-}
 
 // Running low while the work is still going (not after "Mark work complete").
 export const showLowHours = (order: any) => finishPhase(order) === "WORKING" && isLowOnHours(order);
@@ -183,8 +176,8 @@ export function BookCallModal({
     <Modal open={open} onClose={onClose} label={`Book a call with ${first}`} booker>
       {done ? (
         <div className="stack" style={{ gap: 14 }}>
-          <h2 style={{ fontSize: 24, paddingRight: 36 }}>Book a call with {first}</h2>
-          <div className="alert alert-success">Booked for {fmtWhen(done)}. You&apos;ll both get an email with a calendar invite.</div>
+          <h2 className="modal-title">Book a call with {first}</h2>
+          <div className="alert alert-success">Booked for {fmtDateTime(done)}. You&apos;ll both get an email with a calendar invite.</div>
           <button className="btn" style={{ alignSelf: "flex-start" }} onClick={onClose}>Done</button>
         </div>
       ) : (
@@ -239,11 +232,11 @@ export function AddHoursModal({ open, onClose, order, initialHours }: { open: bo
   return (
     <Modal open={open} onClose={onClose} label="Add hours">
       <div className="stack" style={{ gap: 14 }}>
-        <h2 style={{ fontSize: 24, paddingRight: 36 }}>Add hours</h2>
+        <h2 className="modal-title">Add hours</h2>
         <span className="text-secondary">At this package&apos;s rate, {money(rate)} an hour. The hours are added as soon as the payment goes through.</span>
-        <div className="row-wrap" role="radiogroup" aria-label="Hours to add">
+        <div className="seg" role="radiogroup" aria-label="Hours to add">
           {TOP_UP_HOURS.map((h) => (
-            <button key={h} type="button" role="radio" aria-checked={hours === h} className={`btn btn-sm ${hours === h ? "btn-primary" : ""}`} onClick={() => setHours(h)}>
+            <button key={h} type="button" role="radio" aria-checked={hours === h} className={`seg-opt${hours === h ? " is-on" : ""}`} onClick={() => setHours(h)}>
               {h} hour{h === 1 ? "" : "s"}
             </button>
           ))}
@@ -304,17 +297,17 @@ export function SuggestHoursModal({ open, onClose, order, onSent }: { open: bool
     <Modal open={open} onClose={onClose} label="Suggest more hours">
       {sent ? (
         <div className="stack" style={{ gap: 14 }}>
-          <h2 style={{ fontSize: 24, paddingRight: 36 }}>Sent</h2>
+          <h2 className="modal-title">Sent</h2>
           <span className="text-secondary">We posted it in your messages with {student} and emailed them a button to add {hoursLabel(hours * 60)}. Nothing is charged unless they add them.</span>
           <div className="row-wrap"><button className="btn btn-primary" onClick={onClose}>Done</button></div>
         </div>
       ) : (
         <div className="stack" style={{ gap: 14 }}>
-          <h2 style={{ fontSize: 24, paddingRight: 36 }}>Suggest more hours</h2>
+          <h2 className="modal-title">Suggest more hours</h2>
           <span className="text-secondary">If the work will take longer than the hours left, let {student} know how many more you expect. They can add them in one click, at this package&apos;s rate.</span>
-          <div className="row-wrap" role="radiogroup" aria-label="Hours to suggest">
+          <div className="seg" role="radiogroup" aria-label="Hours to suggest">
             {TOP_UP_HOURS.map((h) => (
-              <button key={h} type="button" role="radio" aria-checked={hours === h} className={`btn btn-sm ${hours === h ? "btn-primary" : ""}`} onClick={() => setHours(h)}>
+              <button key={h} type="button" role="radio" aria-checked={hours === h} className={`seg-opt${hours === h ? " is-on" : ""}`} onClick={() => setHours(h)}>
                 {h} hour{h === 1 ? "" : "s"}
               </button>
             ))}
@@ -336,11 +329,7 @@ export function SuggestHoursModal({ open, onClose, order, onSent }: { open: bool
 // ---------- The 48-hour decision ----------
 
 export function DecisionBanner({ order, isBuyer, onChanged }: { order: any; isBuyer: boolean; onChanged: () => void }) {
-  const [mode, setMode] = useState<"" | "LAST_CALL" | "LAST_REVISION" | "DISPUTE">("");
-  const [note, setNote] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const { confirm, dialog } = useAdminDialog();
+  const { confirm, ask, dialog } = useConfirm();
   const left = hoursToRespond(order);
   if (left === null) return null;
   const can = studentActions(order);
@@ -354,57 +343,42 @@ export function DecisionBanner({ order, isBuyer, onChanged }: { order: any; isBu
     );
   }
 
-  async function send(action: string) {
-    setBusy(true);
-    setError("");
-    const r =
-      action === "DISPUTE"
-        ? await postJson(`/api/orders/${order.id}/dispute`, { reason: note })
-        : await postJson(`/api/orders/${order.id}/finish`, { action, note });
-    setBusy(false);
-    if (!r.ok) return setError(r.data.error || "Something went wrong.");
-    setMode("");
-    setNote("");
-    onChanged();
+  // Each answer is sent from inside its pop-up, so an error shows there.
+  const run = (action: string) => async (note: string) => {
+    const r = action === "DISPUTE" ? await postJson(`/api/orders/${order.id}/dispute`, { reason: note }) : await postJson(`/api/orders/${order.id}/finish`, { action, note });
+    if (!r.ok) return r.data.error || "Something went wrong.";
+  };
+  async function approve() {
+    const ok = await confirm({ title: `Approve ${order.title || order.packageTitle}?`, body: `${mentor} is paid for the hours, including any unused ones.`, confirmLabel: "Approve", run: run("APPROVE") });
+    if (ok) onChanged();
+  }
+  async function request(action: "LAST_CALL" | "LAST_REVISION" | "DISPUTE") {
+    const opts =
+      action === "LAST_CALL"
+        ? { title: "Request one last call", body: "Then book the call from this page. It uses the package's hours; if none are left, add hours first.", label: "What would you like to cover in the last call?", confirmLabel: "Request one last call" }
+        : action === "LAST_REVISION"
+          ? { title: "Request one last revision", body: `${mentor} makes the changes, then marks the work complete again.`, label: "What would you like changed?", confirmLabel: "Request one last revision" }
+          : { title: "Open a dispute", body: "An admin reviews it and decides; the package stays on hold meanwhile.", label: "Describe the problem", confirmLabel: "Open a dispute" };
+    const note = await ask({ title: opts.title, body: opts.body, reason: { label: opts.label, required: true, requiredMessage: "Add a few words first." }, confirmLabel: opts.confirmLabel, danger: action === "DISPUTE", run: run(action) });
+    if (note !== null) onChanged();
   }
 
   return (
     <div className="card stack decision-banner">
       {dialog}
       <div className="stack-sm">
-        <b style={{ fontSize: 18 }}>{mentor} marked this package complete</b>
+        <b className="card-title">{mentor} marked this package complete</b>
         <span className="text-secondary">
           You have <b>{left} hours</b> to respond. If you don&apos;t, it&apos;s approved automatically.
           {can.lastCall ? " You can ask for one last call or one last revision (once)." : ""} Any unused hours aren&apos;t refunded (mentors aren&apos;t penalised for finishing efficiently). If something isn&apos;t right, open a dispute.
         </span>
       </div>
-      {error && <div role="alert" className="alert alert-danger">{error}</div>}
-      {mode ? (
-        <div className="stack-sm">
-          <textarea
-            className="input"
-            style={{ marginBottom: 0 }}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder={mode === "LAST_CALL" ? "What would you like to cover in the last call?" : mode === "LAST_REVISION" ? "What would you like changed?" : "Describe the problem. An admin reviews it; the package stays on hold."}
-            aria-label="Details"
-          />
-          <div className="row-wrap">
-            <button className={`btn btn-sm ${mode === "DISPUTE" ? "btn-danger" : "btn-primary"}`} disabled={busy || !note.trim()} onClick={() => send(mode)}>
-              {mode === "LAST_CALL" ? "Request one last call" : mode === "LAST_REVISION" ? "Request one last revision" : "Open a dispute"}
-            </button>
-            <button className="btn btn-sm btn-ghost" onClick={() => setMode("")}>Back</button>
-          </div>
-          {mode === "LAST_CALL" && <span className="text-muted small">Then book the call from this page. It uses the package&apos;s hours; if none are left, add hours first.</span>}
-        </div>
-      ) : (
-        <div className="row-wrap">
-          <button className="btn btn-primary" disabled={busy} onClick={async () => (await confirm({ title: `Approve ${order.title || order.packageTitle}?`, body: `${mentor} is paid for the hours, including any unused ones.`, confirmLabel: "Approve" })) && send("APPROVE")}>Approve</button>
-          {can.lastCall && <button className="btn" onClick={() => setMode("LAST_CALL")}>Request one last call</button>}
-          {can.lastRevision && <button className="btn" onClick={() => setMode("LAST_REVISION")}>Request one last revision</button>}
-          <button className="btn btn-ghost" style={{ color: "var(--muted)" }} onClick={() => setMode("DISPUTE")}>Open a dispute</button>
-        </div>
-      )}
+      <div className="row-wrap">
+        <button className="btn btn-primary" onClick={approve}>Approve</button>
+        {can.lastCall && <button className="btn" onClick={() => request("LAST_CALL")}>Request one last call</button>}
+        {can.lastRevision && <button className="btn" onClick={() => request("LAST_REVISION")}>Request one last revision</button>}
+        <button className="btn btn-ghost" style={{ color: "var(--muted)" }} onClick={() => request("DISPUTE")}>Open a dispute</button>
+      </div>
     </div>
   );
 }
@@ -564,9 +538,9 @@ export function LogWrittenWork({ order, onLogged }: { order: any; onLogged: () =
   if (left < 30) return <span className="text-muted small">No hours left to log. The student can add hours.</span>;
   return (
     <div className="stack-sm">
-      <div className="row-wrap">
+      <div className="seg">
         {([30, 60] as const).map((m) => (
-          <button key={m} type="button" aria-pressed={minutes === m} disabled={m > left} className={`btn btn-sm ${minutes === m ? "btn-primary" : ""}`} onClick={() => setMinutes(m)}>
+          <button key={m} type="button" aria-pressed={minutes === m} disabled={m > left} className="seg-opt" onClick={() => setMinutes(m)}>
             {m} min
           </button>
         ))}
@@ -576,7 +550,7 @@ export function LogWrittenWork({ order, onLogged }: { order: any; onLogged: () =
       <div className="row-wrap">
         <input type="file" ref={fileRef} style={{ display: "none" }} accept=".pdf,.doc,.docx" onChange={(e) => setFile(e.target.files?.[0] || null)} />
         <button className="btn btn-sm btn-ghost" onClick={() => fileRef.current?.click()}>📎 {file ? file.name : "Attach a file (optional)"}</button>
-        <button className="btn btn-sm btn-deep" disabled={busy || note.trim().length < 3 || minutes > left} onClick={save}>{busy ? "Saving…" : `Log ${minutes} minutes`}</button>
+        <button className="btn btn-sm btn-primary" disabled={busy || note.trim().length < 3 || minutes > left} onClick={save}>{busy ? "Saving…" : `Log ${minutes} minutes`}</button>
       </div>
       {error && <div role="alert" className="alert alert-danger">{error}</div>}
       <span className="text-muted small">{shortHours(left)} left to log (booked calls count as used). The student gets an email.</span>
@@ -585,30 +559,27 @@ export function LogWrittenWork({ order, onLogged }: { order: any; onLogged: () =
 }
 
 // "Report a problem" while the package is in progress: opens a dispute
-// (the only route for problems; an admin decides).
+// (the only route for problems; an admin decides), in a pop-up.
 export function ReportProblem({ orderId, onChanged }: { orderId: string; onChanged: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  if (!open) return <button className="btn btn-ghost btn-sm" style={{ color: "var(--muted)", alignSelf: "flex-start" }} onClick={() => setOpen(true)}>Report a problem</button>;
-  async function send() {
-    setBusy(true);
-    setError("");
-    const r = await postJson(`/api/orders/${orderId}/dispute`, { reason });
-    setBusy(false);
-    if (!r.ok) return setError(r.data.error || "Something went wrong.");
-    setOpen(false);
-    onChanged();
+  const { ask, dialog } = useConfirm();
+  async function open() {
+    const reason = await ask({
+      title: "Report a problem",
+      body: "An admin reviews it and decides; the package is on hold meanwhile.",
+      reason: { label: "Describe the problem", required: true, requiredMessage: "Describe the problem first." },
+      confirmLabel: "Open a dispute",
+      danger: true,
+      run: async (text) => {
+        const r = await postJson(`/api/orders/${orderId}/dispute`, { reason: text });
+        if (!r.ok) return r.data.error || "Something went wrong.";
+      },
+    });
+    if (reason !== null) onChanged();
   }
   return (
-    <div className="stack-sm">
-      <textarea className="input" style={{ marginBottom: 0 }} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Describe the problem. An admin reviews it and decides; the package is on hold meanwhile." aria-label="The problem" />
-      {error && <div role="alert" className="alert alert-danger">{error}</div>}
-      <div className="row-wrap">
-        <button className="btn btn-danger btn-sm" disabled={busy || !reason.trim()} onClick={send}>Open a dispute</button>
-        <button className="btn btn-ghost btn-sm" onClick={() => setOpen(false)}>Cancel</button>
-      </div>
-    </div>
+    <>
+      {dialog}
+      <button className="btn btn-ghost btn-sm" style={{ color: "var(--muted)", alignSelf: "flex-start" }} onClick={open}>Report a problem</button>
+    </>
   );
 }

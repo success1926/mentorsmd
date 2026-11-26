@@ -4,14 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon, ICONS } from "@/components/ui";
 import { Booker } from "@/components/Booker";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { firstName, fmtTime } from "@/lib/format";
 import {
   BookingLike,
   CANCEL_CUTOFF_HOURS,
   JOIN_OPENS_MINUTES_BEFORE,
-  RECORDING_NOTICE,
   callHeld,
-  callSummary,
   LATE_REASON_MAX,
   LATE_REASON_MIN,
   canChangeOnline,
@@ -40,8 +39,6 @@ async function callApi(orderId: string, method: "POST" | "PATCH" | "DELETE", bod
   const data = await res.json().catch(() => ({}));
   return res.ok ? null : data.error || "Something went wrong";
 }
-
-const fmtTime = (d: string | Date) => new Date(d).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 
 // Moving a package call. With less than 24 hours to go it needs a reason,
 // which is sent to the other person as a message (and quoted in the
@@ -120,6 +117,7 @@ export function Attendance({ booking, order }: { booking: any; order: any }) {
 // hours packages pass watchUrl (/api/orders/[id]/recordings/[recId]).
 export function Recordings({ booking, watchUrl }: { booking: any; watchUrl?: (recordingId: string) => string }) {
   const [busy, setBusy] = useState<string | null>(null);
+  const { notify, dialog } = useConfirm();
   const recs: any[] = booking.recordings || [];
   if (!recs.length) return <span className="text-muted small">No recording.</span>;
   async function watch(id: string) {
@@ -133,11 +131,12 @@ export function Recordings({ booking, watchUrl }: { booking: any; watchUrl?: (re
       else window.location.href = d.url;
     } else {
       tab?.close();
-      alert(d.error || "Couldn't open the recording");
+      notify("Couldn't open the recording", d.error || "Please try again in a moment.");
     }
   }
   return (
     <div className="row-wrap">
+      {dialog}
       {recs.map((r, i) =>
         r.deletedAt ? (
           <span key={r.id} className="badge">Recording {i + 1} deleted</span>
@@ -180,14 +179,14 @@ export function CallRow({
   const [busy, setBusy] = useState(false);
   const [custom, setCustom] = useState("");
   const [err, setErr] = useState("");
-  const studentFirst = (order.buyer?.name || "the student").split(" ")[0];
-  const otherFirst = isSeller ? studentFirst : (order.seller?.name || "your mentor").split(" ")[0];
+  const studentFirst = firstName(order.buyer?.name) || "the student";
+  const otherFirst = isSeller ? studentFirst : firstName(order.seller?.name) || "your mentor";
   const mover = useMoveCall(order.id, booking.id, late, () => {
     setMoving(false);
     onChanged?.();
   });
   // In-page pop-up instead of the browser's confirm box.
-  const { confirm, dialog } = useAdminDialog();
+  const { confirm, dialog } = useConfirm();
 
   async function cancel() {
     if (!(await confirm({ title: "Cancel this call?", body: "You'll both get an email, and the call goes back to unbooked.", confirmLabel: "Cancel the call", cancelLabel: "Keep it", danger: true }))) return;
@@ -217,7 +216,7 @@ export function CallRow({
         {state !== "ended" && (
           <div className="row-wrap" style={{ gap: 8 }}>
             {canManage && (
-              <Link className={`btn btn-sm ${state === "open" ? "btn-deep" : ""}`} href={`/calls/${booking.id}`}>
+              <Link className={`btn btn-sm ${state === "open" ? "btn-primary" : ""}`} href={`/calls/${booking.id}`}>
                 {state === "open" ? "Join" : "Call page"}
               </Link>
             )}
@@ -287,168 +286,9 @@ export function PastCallOutcome({ booking, order, viewer }: { booking: any; orde
       <span className={`badge ${tone}`} style={{ alignSelf: "flex-start", whiteSpace: "normal" }}>{outcomeLabel(booking.outcome, viewer)}</span>
       {booking.outcome === "STUDENT_NO_SHOW" && viewer === "mentor" && order.conversationId && (
         <span className="small text-secondary">
-          Please <Link href={`/messages/${order.conversationId}`} className="link">message {(order.buyer?.name || "the student").split(" ")[0]}</Link> so there&apos;s a record.
+          Please <Link href={`/messages/${order.conversationId}`} className="link">message {firstName(order.buyer?.name) || "the student"}</Link> so there&apos;s a record.
         </span>
       )}
-    </div>
-  );
-}
-
-// Everything about calls on one order: booked calls (Join, Reschedule,
-// Cancel), the slot picker for booking (students, only after payment and
-// only when the package includes a call), past calls with attendance, and
-// recordings for admins.
-export function OrderCalls({
-  order,
-  isBuyer,
-  isSeller,
-  isAdmin = false,
-  onChanged,
-  compact = false,
-}: {
-  order: any;
-  viewer?: unknown; // no longer used; kept so older callers still compile
-  isBuyer: boolean;
-  isSeller: boolean;
-  isAdmin?: boolean;
-  onChanged?: () => void;
-  compact?: boolean; // short summary for the Messages side panel
-}) {
-  const [booking, setBooking] = useState(false);
-  const [when, setWhen] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState("");
-  const calls = callSummary(order);
-  if (calls.included === 0) return null;
-
-  if (compact) {
-    const next = calls.upcoming[0];
-    return (
-      <div className="stack-sm small">
-        {next && (
-          <Link href={`/calls/${next.id}`} className="row link" style={{ gap: 6 }}>
-            <Icon d={ICONS.video} size={16} /> Call {fmtDateTime(next.startTime)}
-          </Link>
-        )}
-        {calls.canBook && !order.disputed && (
-          <Link href={`/orders/${order.id}`} className="text-secondary">
-            {isBuyer ? `Book your call (${calls.toBook} left) on the order page` : `${calls.toBook} call${calls.toBook === 1 ? "" : "s"} not booked yet`}
-          </Link>
-        )}
-      </div>
-    );
-  }
-
-  const mentorFirst = (order.seller?.name || "your mentor").split(" ")[0];
-  const studentFirst = (order.buyer?.name || "the student").split(" ")[0];
-  const bookable = calls.canBook && !order.disputed;
-  const past = (order.callBookings || []).filter((b: any) => b.status !== "CANCELLED" && joinState(b) === "ended");
-
-  async function book(startIso: string) {
-    const e = await callApi(order.id, "POST", { startTime: startIso });
-    if (!e) {
-      setBooking(false);
-      onChanged?.();
-    }
-    return e;
-  }
-
-  async function addManual() {
-    if (!when) return;
-    setSaving(true);
-    setErr("");
-    const e = await callApi(order.id, "POST", { startTime: new Date(when).toISOString() });
-    setSaving(false);
-    if (e) setErr(e);
-    else {
-      setWhen("");
-      onChanged?.();
-    }
-  }
-
-  return (
-    <div className="stack" style={{ gap: 12 }}>
-      <div className="between">
-        <b style={{ fontSize: 17 }}>Calls</b>
-        <span className="text-muted">
-          {calls.held} of {calls.included} done · {order.gig.callLength} min each
-        </span>
-      </div>
-
-      {calls.mentorNoShows > 0 && calls.canBook && isBuyer && !order.disputed && (
-        <div className="alert alert-blue">Your mentor missed a call, so it doesn&apos;t count. Book another one below for free.</div>
-      )}
-      {calls.awaitingAdmin > 0 && (
-        <div className="alert alert-warning">
-          {isAdmin ? "A past call needs a decision in Admin → Calls & recordings." : "Our records don't show a past call taking place. The MentorsMD team will be in touch to sort it out."}
-        </div>
-      )}
-
-      {calls.upcoming.map((b) => (
-        <CallRow key={b.id} booking={b} order={order} canManage={isBuyer || isSeller} isSeller={isSeller} isAdmin={isAdmin} onChanged={onChanged} />
-      ))}
-
-      {calls.waived && <div className="alert">The student chose to skip the call.</div>}
-      {calls.forfeited && <div className="alert alert-warning">The call wasn&apos;t booked in time and was forfeited.</div>}
-
-      {bookable && isBuyer && (
-        booking ? (
-          <Booker
-            framed
-            slotsUrl={`/api/orders/${order.id}/slots`}
-            mentor={{ id: order.sellerId, name: order.seller?.name || "Your mentor", photoUrl: order.seller?.photoUrl }}
-            title="Package call"
-            durationMinutes={order.gig?.callLength || undefined}
-            description={<>A one-to-one video call with {mentorFirst}, included in this package{calls.toBook > 1 ? ` (${calls.toBook} calls left to book)` : ""}. You&apos;ll both get an email with a calendar invite.</>}
-            onConfirm={book}
-            onCancel={() => setBooking(false)}
-            emptyHint="Message them to agree a time, and they can add it here."
-          />
-        ) : (
-          <div className="stack-sm">
-            <button className="btn btn-primary" style={{ alignSelf: "flex-start" }} onClick={() => setBooking(true)}>
-              <Icon d={ICONS.calendar} size={18} /> Book a call{calls.toBook > 1 ? ` (${calls.toBook} left)` : ""}
-            </button>
-            <span className="text-muted">Pick from {mentorFirst}&apos;s open times. You&apos;ll both get an email with a calendar invite.</span>
-          </div>
-        )
-      )}
-
-      {bookable && isSeller && (
-        <div className="stack-sm">
-          {order.seller?.hasAvailability ? (
-            <span className="text-secondary">Waiting for {studentFirst} to book from your open times. You can also add a time you agreed in messages:</span>
-          ) : (
-            <div className="alert alert-blue">
-              Set your call hours so {studentFirst} can book from your open times.{" "}
-              <Link href="/dashboard/availability#call-hours" className="link">Set call hours</Link>. Until then, agree a time in messages and add it here:
-            </div>
-          )}
-          <div className="row-wrap">
-            <input type="datetime-local" className="input time-input" value={when} onChange={(e) => setWhen(e.target.value)} aria-label="Call date and time" />
-            <button className="btn btn-soft" disabled={!when || saving} onClick={addManual}>
-              {saving ? "Adding…" : "Add call time"}
-            </button>
-          </div>
-          {err && <div role="alert" className="alert alert-danger">{err}</div>}
-        </div>
-      )}
-
-      {past.length > 0 && (
-        <div className="stack-sm">
-          <b className="small">Past calls</b>
-          {past.map((b: any) => (
-            <div key={b.id} className="stack-sm" style={{ gap: 4 }}>
-              <span className="small">{fmtDateTime(b.startTime)}</span>
-              <PastCallOutcome booking={b} order={order} viewer={isBuyer ? "student" : isSeller ? "mentor" : "admin"} />
-              <Attendance booking={b} order={order} />
-              {isAdmin && <Recordings booking={b} />}
-            </div>
-          ))}
-        </div>
-      )}
-
-      <p className="notice">{RECORDING_NOTICE}</p>
     </div>
   );
 }

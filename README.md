@@ -186,7 +186,7 @@ Oct 2026. The pieces:
 - `/api/realtime/token` - gives a signed-in person a one-hour pass (a JWT
   signed with `SUPABASE_JWT_SECRET`, `sub` = their user id). A Realtime
   authorization rule on `realtime.messages`
-  (`prisma/supabase-storage-realtime-2026-10.sql`) only lets that pass
+  (`prisma/applied/supabase-storage-realtime-2026-10.sql`) only lets that pass
   receive its own topic; browsers can never send.
 - `lib/realtimeClient.ts` (browser) - one shared connection per tab:
   `onLive((event, payload) => ...)`. Events: `message`
@@ -347,7 +347,7 @@ This replaces the old "buyer clicks release" flow entirely.
    and the cron job so there's exactly one place that logic lives.
 
 **Discount codes** were removed entirely in Oct 2026 (no promos); see
-`prisma/cleanup-2026-10-drop-discount-codes.sql`.
+`prisma/applied/cleanup-2026-10-drop-discount-codes.sql`.
 
 **Two cron jobs, defined in `vercel.json`:**
 - `/api/cron/auto-release` runs hourly - finds every `COMPLETED` order
@@ -738,7 +738,7 @@ New look (Iris colors, Fraunces + Instrument Sans, Leland-style layout) on every
 - **Admin**: collapsible Pending/Resolved disputes, Pending/Joined invites, People (mentors/students: view, pause, remove with reason, restore).
 - **Fixes**: checkout cancel URL 404, mentor shown at checkout, confirm before removing a package, Stripe debug data no longer sent to the browser.
 
-Database: run `npx prisma db push` (or paste `prisma/redesign-2026-09.sql` into the Neon SQL editor) **before** deploying.
+Database: run `npx prisma db push` (or paste `prisma/applied/redesign-2026-09.sql` into the Neon SQL editor) **before** deploying.
 Marketing content (schools strip, testimonials, photos) started in `lib/content.ts`; it's now edited in Admin -> Website, and `lib/content.ts` only holds the built-in defaults. Empty items are hidden.
 
 ## Phase 3 (Oct 2026): built-in calendar, calls and reminders
@@ -753,14 +753,14 @@ Cal.com is gone. Everything happens on the site:
 - **Calls**: `/calls/<id>` is the pre-join screen (recording notice), then the private room with a per-person token. Attendance (join/leave times) and recordings come in through `/api/webhooks/daily`; attendance shows on the order page and in Admin -> Calls & recordings, recordings are admin-only ("Watch recording") and deleted 60 days after the order closes (daily, by `/api/cron/recordings-cleanup`).
 - **My calendar** (`/calendar`): upcoming and past calls, plus due dates and busy dates for mentors. The private subscribe feed on `/account#calendar` stays.
 - **Reminders**: 8am on the day (each person's own time zone) and 1 hour before, with the Join link, sent once and reset when a call moves. `/api/cron/call-reminders` runs every 15 minutes from `vercel.json` (needs Vercel Pro, which the project is on).
-- **Call outcomes and no-shows** (Oct 14, 2026): the same cron decides, about 30 minutes after each call, whether it was held, a student no-show, a mentor no-show (free rebook; a second one lets the student dispute for a full refund) or nobody joined, from Daily's attendance (`lib/callOutcomes.ts`, `lib/callOutcomeRunner.ts`). Admins can change any outcome in Admin -> Calls & recordings. Details: items 4 and 5 in `docs/open-questions.md`. SQL: `prisma/call-outcomes-2026-10.sql`.
+- **Call outcomes and no-shows** (Oct 14, 2026): the same cron decides, about 30 minutes after each call, whether it was held, a student no-show, a mentor no-show (free rebook; a second one lets the student dispute for a full refund) or nobody joined, from Daily's attendance (`lib/callOutcomes.ts`, `lib/callOutcomeRunner.ts`). Admins can change any outcome in Admin -> Calls & recordings. Details: items 4 and 5 in `docs/open-questions.md`. SQL: `prisma/applied/call-outcomes-2026-10.sql`.
 - **Time zones**: every account stores one (detected in the browser, editable on Account).
 
-Setup: run `prisma/phase3-2026-10.sql` in the Neon SQL editor (after a backup branch) before deploying. Env vars: `DAILY_API_KEY` (video), `DAILY_RECORDING_ENABLED="true"` (recording, paid Daily plan), `DAILY_WEBHOOK_SECRET` (from Admin -> Calls & recordings -> Connect Daily webhook).
+Setup: run `prisma/applied/phase3-2026-10.sql` in the Neon SQL editor (after a backup branch) before deploying. Env vars: `DAILY_API_KEY` (video), `DAILY_RECORDING_ENABLED="true"` (recording, paid Daily plan), `DAILY_WEBHOOK_SECRET` (from Admin -> Calls & recordings -> Connect Daily webhook).
 
 ## Oct 2026 hourly redesign: orders, payments and crons
 
-Spec: `docs/redesign-2026-10.md`. Database: `prisma/hourly-redesign-2026-10.sql` (only adds things; run it on Supabase, live and preview, before the code goes live).
+Spec: `docs/redesign-2026-10.md`. Database: `prisma/applied/hourly-redesign-2026-10.sql` (only adds things; run it on Supabase, live and preview, before the code goes live).
 
 - **Pricing**: one hourly rate per mentor; offers are Hourly, hour bundles and specialized packages, priced hours x rate (`lib/pricing.ts`, `lib/offers.ts`). Buying unlocks after the mentor replies or a free 15-minute intro call is held (`lib/unlock.ts`, `lib/introCalls.ts`).
 - **Orders** have a `kind` (HOURLY / BUNDLE / SPECIALIZED / PAY_PER_CALL), minutes bought (plus paid `HourTopUp`s), the rate paid and no due date. Statuses for these: `IN_ESCROW` = active (including waiting on the student), `COMPLETED` = approved and waiting for the monthly payout, `RELEASED` = paid to the mentor, `REFUNDED` = refunded in full as credit.

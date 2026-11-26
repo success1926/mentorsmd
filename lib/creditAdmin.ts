@@ -19,6 +19,7 @@ import { creditBalance, lockCredit } from "@/lib/credit";
 import { logAdminAction } from "@/lib/adminLog";
 import { closeDisputeFlag } from "@/lib/flags";
 import { sendCreditIssuedEmail } from "@/lib/email";
+import { cancelFutureCalls } from "@/lib/callBooking";
 import { money } from "@/lib/options";
 
 export class CreditError extends Error {
@@ -70,10 +71,9 @@ export async function refundAsCredit(orderId: string, admin: { id: string; name:
     });
   });
 
-  // A closed package keeps no future calls.
-  await prisma.callBooking
-    .updateMany({ where: { orderId: order.id, status: "BOOKED", startTime: { gt: now } }, data: { status: "CANCELLED", cancelledAt: now, cancelledById: admin.id } })
-    .catch((e) => console.error("Couldn't cancel calls on a refunded package:", e));
+  // A closed package keeps no future calls (cancelled the normal way, so
+  // both people are told and the time is free again).
+  await cancelFutureCalls(order.id, { id: admin.id, name: "The MentorsMD team" });
 
   await logAdminAction({
     adminId: admin.id,

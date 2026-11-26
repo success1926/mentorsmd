@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Text, View } from "react-native";
-import { Btn, Card, Eyebrow, FChip, Field, H, Hdr, Link, Loading, Note, Price, Row, RowV, Screen, Sec, SecH, Small, SS, Toggle, TT } from "../../components/ui";
-import { BUNDLE_HOURS, ErrText, ErrorBox, FEE_PERCENT, RATE_RULE, hoursLabel, mentorShare, openSite, priceFor, useConfirm, useReloadOnFocus } from "../../components/mentorSheets";
+import { Btn, Card, Eyebrow, FChip, Field, H, Hdr, Link, LoadError, Loading, Note, Price, Row, RowV, Screen, Sec, SecH, Small, SS, Toggle, TT } from "../../components/ui";
+import { BUNDLE_HOURS, ErrText, RATE_RULE, openSite, useConfirm, useReloadOnFocus } from "../../components/mentorSheets";
 import { api, dollars, errorText, useApi } from "../../lib/api";
-import { useOverlay } from "../../lib/demo";
+import { useOverlay } from "../../lib/overlay";
 import { fonts } from "../../lib/theme";
+import { mentorShare, PLATFORM_FEE_PERCENT } from "../../lib/fee";
+import { hoursLabel, priceFor } from "../../lib/orders";
 
 type Gig = { id: string; kind: string; title: string; description: string; minutes: number | null; rateCents: number | null; price: number; active: boolean; format: string | null };
 type Offers = { hourlyRateCents: number | null; hourly: Gig | null; bundles: Gig[]; packages: Gig[] };
@@ -67,13 +69,13 @@ export default function Rates() {
   return (
     <Screen>
       <Hdr title="Rates & Packages" />
-      {q.loading && !d ? <Loading /> : !d ? <ErrorBox error={q.error || "Couldn’t load your offers"} onRetry={q.reload} /> : (
+      {q.loading && !d ? <Loading /> : !d ? <LoadError error={q.error || "Couldn’t load your offers"} onRetry={q.reload} /> : (
         <>
           <Card>
             <Field label="Your hourly rate (USD)" value={shown} onChange={setRate} numeric placeholder="e.g. 100" />
             <Small>
               {RATE_RULE}. Students pay MentorsMD for hours at your rate.
-              {current ? <> You receive <Text style={{ fontFamily: fonts.bodyBold }}>{dollars(mentorShare(current))}</Text> an hour after the {FEE_PERCENT}% MentorsMD fee.</> : null}
+              {current ? <> You receive <Text style={{ fontFamily: fonts.bodyBold }}>{dollars(mentorShare(current))}</Text> an hour after the {PLATFORM_FEE_PERCENT}% MentorsMD fee.</> : null}
             </Small>
             <ErrText>{error}</ErrText>
             <Btn kind="line" sm label={busy ? "Saving…" : "Save rate"} disabled={busy} onPress={saveRate} />

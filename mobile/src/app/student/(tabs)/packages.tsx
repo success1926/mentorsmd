@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
-import { LoadError, PkgCard, useRefresh } from "../../../components/shared";
-import { Btn, Card, Eyebrow, Loading, Note, Screen, Sec, Small, T, TT } from "../../../components/ui";
+import { PkgCard, useRefresh } from "../../../components/shared";
+import { EmptyState, Eyebrow, LoadError, Loading, Screen, Sec, Small, T } from "../../../components/ui";
 import { useApi } from "../../../lib/api";
 import { isActive, type Pkg } from "../../../lib/orders";
 
@@ -18,11 +18,9 @@ export default function Packages() {
       {pk.loading && !pk.data ? <Loading /> : null}
       {pk.error && !pk.data ? <LoadError error={pk.error} onRetry={pk.reload} title="Couldn’t load your packages" /> : null}
       {pk.data && !all.length ? (
-        <Card>
-          <TT>No packages yet</TT>
-          <Note>Buy hours or a package from a mentor’s profile. Message any mentor for free first, or book a free 15-minute intro call.</Note>
-          <Btn kind="line" sm label="Find a mentor" onPress={() => router.push("/student/find")} />
-        </Card>
+        <EmptyState title="No packages yet" action={{ label: "Find a mentor", onPress: () => router.push("/student/find") }}>
+          Buy hours or a package from a mentor’s profile. Message any mentor for free first, or book a free 15-minute intro call.
+        </EmptyState>
       ) : null}
       {active.length ? <Sec><Eyebrow>Active</Eyebrow>{active.map((p) => <PkgCard key={p.id} p={p} />)}</Sec> : null}
       {done.length ? <Sec><Eyebrow>Finished</Eyebrow>{done.map((p) => <PkgCard key={p.id} p={p} />)}</Sec> : null}

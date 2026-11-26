@@ -2,7 +2,7 @@
 
 Collected from a Q&A session with Tabo. Status: **all six phases are live (merged Oct 12, 2026).** Phases: 1 quick wins · 2 deliveries + applications · 3 calendar/calls/reminders · 4 safety · 5 legal/minors/admin team · 6 insights.
 
-Phase 1 covered items 27–34, 53–57, 61–69, 75–76 (code on local branch `phase-1`, shipped as mentorsmd-phase1.zip; SQL prisma/phase1-2026-10.sql). Deviation: Admin → Custom services section added at the bottom of Admin (item 69). Cal.com was removed in Phase 3.
+Phase 1 covered items 27–34, 53–57, 61–69, 75–76 (code on local branch `phase-1`, shipped as mentorsmd-phase1.zip; SQL prisma/applied/phase1-2026-10.sql). Deviation: Admin → Custom services section added at the bottom of Admin (item 69). Cal.com was removed in Phase 3.
 Repo: github.com/success1926/mentorsmd
 
 ## Deliveries

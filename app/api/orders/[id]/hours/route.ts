@@ -5,15 +5,15 @@ import { isOurPath } from "@/lib/storage";
 import { checkText } from "@/lib/moderation";
 import { createFlagsForFindings } from "@/lib/flags";
 import { HoursError, logWrittenWork } from "@/lib/hourLog";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 
 // The mentor logs written work on a package: { minutes: 30 | 60, workDate:
 // "YYYY-MM-DD", note, fileUrl?, fileName? } (the file is uploaded first
 // through /api/upload with { orderId }). It can't go over the hours left.
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  const mentorId = (session.user as any).id;
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
+  const mentorId = me.id;
   const body = await req.json().catch(() => ({}));
   const note = typeof body.note === "string" ? body.note.trim() : "";
   if (note.length < 3) return NextResponse.json({ error: "Add a short note about what you worked on" }, { status: 400 });

@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { LeadsInbox } from "@/components/admin/sections/LeadsInbox";
+import { LoadingBlock } from "@/components/ui";
 
 export const metadata = { title: "Leads" };
 
@@ -7,7 +8,7 @@ export const metadata = { title: "Leads" };
 // signups in one place (components/admin/sections/LeadsInbox.tsx).
 export default function AdminLeadsPage() {
   return (
-    <Suspense fallback={<div className="page text-muted">Loading…</div>}>
+    <Suspense fallback={<div className="page"><LoadingBlock lines={5} /></div>}>
       <LeadsInbox />
     </Suspense>
   );

@@ -47,7 +47,7 @@ async function daily(path: string, init: RequestInit = {}) {
   return { ok: res.ok, status: res.status, data };
 }
 
-export function roomNameFor(bookingId: string) {
+function roomNameFor(bookingId: string) {
   return `mmd-${bookingId}`.slice(0, 60);
 }
 

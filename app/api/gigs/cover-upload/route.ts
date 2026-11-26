@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { PUBLIC_BUCKET, fileExtension, newPath, publicUrl, safeFileName, uploadLinkResponse } from "@/lib/storage";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
-import { getSession } from "@/lib/session";
+import { getSession, sessionUser } from "@/lib/session";
 
 // Cover photos for specialized packages. Like Admin -> Website photos, the
 // browser uploads straight to the public-media bucket (lib/upload.ts); this
@@ -13,11 +13,11 @@ const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 const MAX_BYTES = 8 * 1024 * 1024;
 
 export async function POST(req: Request) {
-  const session = await getSession();
-  if (!session?.user || (session.user as any).role !== "SELLER") {
+  const me = sessionUser(await getSession());
+  if (!me || me.role !== "SELLER") {
     return NextResponse.json({ error: "Only mentors can add package photos" }, { status: 403 });
   }
-  const userId = (session.user as any).id;
+  const userId = me.id;
   const r = await rateLimit(RATE_LIMITS.uploadsPerHour, userId);
   if (!r.ok) return tooMany(r.retryAfterSec, "Too many uploads. Please try again later.");
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { Alert } from "@/components/ui";
 
-export const metadata = { title: { absolute: "You're Leaving MentorsMD" }, robots: { index: false } };
+export const metadata = { title: { absolute: "You're leaving MentorsMD" }, robots: { index: false } };
 
 // Every link inside a message opens this page first (#42), so nobody
 // lands on an outside site thinking it's part of MentorsMD.
@@ -19,16 +20,16 @@ export default function LeavingPage({ searchParams }: { searchParams: { url?: st
   return (
     <div className="page-narrow">
       <div className="card-narrow stack">
-        <h1 className="page-title" style={{ fontSize: 34 }}>You&apos;re leaving MentorsMD</h1>
+        <h1 className="auth-title">You&apos;re leaving MentorsMD</h1>
         {target ? (
           <>
-            <p className="text-secondary" style={{ lineHeight: 1.6 }}>This link was shared in a message. It goes to:</p>
+            <p className="text-secondary">This link was shared in a message. It goes to:</p>
             <p className="evidence" style={{ fontWeight: 600 }}>{target.hostname}</p>
             <p className="text-muted small" style={{ wordBreak: "break-all" }}>{target.href}</p>
-            <div className="alert alert-warning small">
+            <Alert tone="warning" className="small">
               We don&apos;t control this site. Never enter a password (AMCAS, email or anything else) or pay for anything there. Payments for mentoring
               only happen on MentorsMD, where every hour is logged and our team can step in if something goes wrong.
-            </div>
+            </Alert>
             <div className="row-wrap">
               <a href={target.href} className="btn btn-primary" rel="noopener noreferrer nofollow">Continue to {target.hostname}</a>
               <Link href="/messages" className="btn">Back to messages</Link>

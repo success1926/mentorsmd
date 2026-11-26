@@ -27,15 +27,16 @@ import { sendReminderEmail, SITE_URL } from "@/lib/email";
 import { visibleMentorWhere } from "@/lib/mentor";
 import { profileFieldsSelect, profileSections } from "@/lib/profileCompleteness";
 import { payoutsReady } from "@/lib/stripeAccountStatus";
+import { firstName } from "@/lib/format";
 
 const HOUR = 3600_000;
 // A step is still sent up to a week after it was due (a missed cron run,
 // or the reminder was switched on a few days late), never later.
-export const GRACE_HOURS = 7 * 24;
+const GRACE_HOURS = 7 * 24;
 // The most reminder emails one cron run sends; the rest go the next day.
-export const MAX_SENDS_PER_RUN = 150;
+const MAX_SENDS_PER_RUN = 150;
 // The cron's time of day (UTC), matching /api/cron/emails in vercel.json.
-export const CRON_HOUR_UTC = 15;
+const CRON_HOUR_UTC = 15;
 // A checkout reminder isn't sent again for the same student and mentor
 // within this many days, even for a newer unfinished checkout.
 const CHECKOUT_REPEAT_DAYS = 14;
@@ -59,7 +60,7 @@ export type ReminderSetting = {
   standard: boolean; // true = no saved timing
 };
 
-export async function reminderSettings(): Promise<Record<ReminderKey, ReminderSetting>> {
+async function reminderSettings(): Promise<Record<ReminderKey, ReminderSetting>> {
   const rows = await prisma.emailSchedule.findMany({ where: { key: { in: [...REMINDER_KEYS] } } }).catch((err) => {
     console.error("Couldn't load reminder settings:", err);
     return [];
@@ -87,7 +88,7 @@ export async function reminderSettings(): Promise<Record<ReminderKey, ReminderSe
 function secret() {
   return process.env.NEXTAUTH_SECRET || "mentorsmd";
 }
-export function remindersOffSig(userId: string) {
+function remindersOffSig(userId: string) {
   return crypto.createHmac("sha256", secret()).update(`reminders-off:${userId}`).digest("hex").slice(0, 40);
 }
 export function checkRemindersOffSig(userId: unknown, sig: unknown) {
@@ -96,7 +97,7 @@ export function checkRemindersOffSig(userId: unknown, sig: unknown) {
   const got = Buffer.from(sig);
   return want.length === got.length && crypto.timingSafeEqual(want, got);
 }
-export const remindersOffUrl = (userId: string) => `${SITE_URL}/api/reminders/stop?u=${userId}&sig=${remindersOffSig(userId)}`;
+const remindersOffUrl = (userId: string) => `${SITE_URL}/api/reminders/stop?u=${userId}&sig=${remindersOffSig(userId)}`;
 
 // ---- Who's due ----
 
@@ -120,7 +121,7 @@ export type PlannedReminder = Omit<Candidate, "values" | "start"> & {
   values: Values;
 };
 
-const first = (name: string) => name.trim().split(/\s+/)[0] || "there";
+const first = (name: string) => firstName(name) || "there";
 const isUnique = (err: unknown) => (err as { code?: string })?.code === "P2002";
 
 // Students who can get reminders.
@@ -384,7 +385,7 @@ const FINDERS: Record<ReminderKey, (now: Date, from: Date, to: Date) => Promise<
 // already due is sent now; if several are due (a missed run), only the
 // latest. Steps already sent, and steps more than GRACE_HOURS overdue, are
 // skipped. Null = nothing left to send.
-export function nextStep(start: Date, hours: number[], sentSteps: number[], now: Date): { step: number; dueAt: Date } | null {
+function nextStep(start: Date, hours: number[], sentSteps: number[], now: Date): { step: number; dueAt: Date } | null {
   const after = sentSteps.length ? Math.max(...sentSteps) : -1;
   const open = hours
     .map((h, step) => ({ step, dueAt: new Date(start.getTime() + h * HOUR) }))

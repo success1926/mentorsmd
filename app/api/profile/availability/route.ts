@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { LIMITS, parseDate } from "@/lib/validate";
-import { getSession } from "@/lib/session";
+import { getSession, sessionUser } from "@/lib/session";
 
 // Mentor-only: pause, unpause, remove or restore their own profile.
 //   pause   { pausedUntil?: date, awayNote?: string } - hidden from search; returns automatically on pausedUntil
@@ -10,11 +10,11 @@ import { getSession } from "@/lib/session";
 //   restore                                          - undo a self-removal (not an admin removal)
 // Existing orders are never affected - the mentor still finishes them.
 export async function POST(req: Request) {
-  const session = await getSession();
-  if (!session?.user || (session.user as any).role !== "SELLER") {
+  const me = sessionUser(await getSession());
+  if (!me || me.role !== "SELLER") {
     return NextResponse.json({ error: "Mentor accounts only" }, { status: 403 });
   }
-  const userId = (session.user as any).id;
+  const userId = me.id;
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
 

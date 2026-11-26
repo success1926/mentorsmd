@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getSiteContent } from "@/lib/siteContentStore";
 import { splitLead } from "@/lib/handbookContent";
+import { PageHeader } from "@/components/ui";
 
 export const metadata = { title: "Mentor Handbook", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -28,9 +29,9 @@ export default async function MentorHandbookPage() {
   const sections = v.sections.filter((s) => s.title.trim());
 
   return (
-    <div className="page-mid stack-lg">
+    <div className="page-narrow stack-lg">
       <div className="stack-sm">
-        <h1 className="page-title">{v.title}</h1>
+        <PageHeader title={v.title} />
         {paragraphs(v.intro).map((p) => <p key={p} className="lede">{p}</p>)}
         {sections.length > 1 && (
           <nav aria-label="On this page" style={{ display: "flex", flexWrap: "wrap", gap: "8px 18px" }}>
@@ -43,7 +44,7 @@ export default async function MentorHandbookPage() {
 
       {sections.map((s, i) => (
         <section key={i} id={slug(s.title, i)} className="stack-sm" style={{ scrollMarginTop: 90 }}>
-          <h2 style={{ fontSize: 24 }}>{s.title}</h2>
+          <h2 className="block-title">{s.title}</h2>
           {paragraphs(s.intro).map((p) => <p key={p} className="text-secondary" style={{ lineHeight: 1.6 }}>{p}</p>)}
           {s.points.length > 0 && (
             <ul className="stack-sm text-secondary" style={{ paddingLeft: 20, lineHeight: 1.6 }}>
@@ -57,7 +58,7 @@ export default async function MentorHandbookPage() {
       ))}
 
       <section className="card card-tint stack-sm">
-        {v.helpTitle && <h2 style={{ fontSize: 20 }}>{v.helpTitle}</h2>}
+        {v.helpTitle && <h2 className="card-title">{v.helpTitle}</h2>}
         {paragraphs(v.helpText).map((p) => <p key={p} className="text-secondary" style={{ lineHeight: 1.6 }}>{p}</p>)}
         <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 18px" }}>
           <Link href="/contact" className="link">Contact us</Link>

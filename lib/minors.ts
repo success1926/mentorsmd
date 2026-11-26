@@ -24,15 +24,15 @@ import { createFlag } from "@/lib/flags";
 //    they can also withdraw consent.
 //  - On the 18th birthday the account converts to a regular one.
 
-export const CONSENT_LINK_DAYS = 7;
+const CONSENT_LINK_DAYS = 7;
 const REMINDER_EVERY_DAYS = 2.5; // day ~2.5 and ~5
 const MAX_REMINDERS = 2;
 
 const hash = (t: string) => crypto.createHash("sha256").update(t).digest("hex");
 const newToken = () => crypto.randomBytes(32).toString("hex");
 
-export const consentUrl = (token: string) => `${SITE_URL}/consent/${token}`;
-export const parentUrl = (viewToken: string) => `${SITE_URL}/parent/${viewToken}`;
+const consentUrl = (token: string) => `${SITE_URL}/consent/${token}`;
+const parentUrl = (viewToken: string) => `${SITE_URL}/parent/${viewToken}`;
 
 export type ParentInfo = { name: string; email: string; phone: string };
 
@@ -229,7 +229,7 @@ export async function sendParentReceipt(orderId: string, topUpId?: string) {
       mentorName: order.seller.name,
       amountCents: topUp ? topUp.amountCents : order.amount,
       paidAt: new Date(),
-      dueDate: order.kind ? null : order.dueDate,
+      dueDate: null,
     },
     parentUrl(consent.viewToken)
   );

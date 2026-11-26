@@ -3,13 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { confirmGiftFromStripe, giftByViewToken, giftLine } from "@/lib/gifts";
 import { GIFT_STATUS_LABEL } from "@/lib/giftOptions";
 import { hoursSummary, shortHours } from "@/lib/hours";
-import { money } from "@/lib/options";
+import { fmtDateTime, fmtDay, firstName, money } from "@/lib/format";
+import { Alert } from "@/components/ui";
 import { tzOrDefault } from "@/lib/tz";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Your Gift", robots: { index: false } };
+export const metadata = { title: "Your gift", robots: { index: false } };
 
-const fmtDay = (d: Date, tz?: string) => d.toLocaleDateString("en-US", { timeZone: tz, month: "short", day: "numeric", year: "numeric" });
 const ORDER_STATUS: Record<string, string> = {
   IN_ESCROW: "In progress",
   COMPLETED: "Completed",
@@ -28,7 +28,7 @@ export default async function GiftParentPage({ params, searchParams }: { params:
     return (
       <div className="page-narrow">
         <div className="card-narrow stack">
-          <h1 className="page-title" style={{ fontSize: 34 }}>This link isn&apos;t active</h1>
+          <h1 className="auth-title">This link isn&apos;t active</h1>
           <p className="text-secondary">Check you copied the whole link from your receipt email. Contact us if you need help.</p>
           <Link href="/contact" className="link">Contact us</Link>
         </div>
@@ -56,7 +56,7 @@ export default async function GiftParentPage({ params, searchParams }: { params:
       : null,
   ]);
   const tz = tzOrDefault(student?.timeZone);
-  const first = gift.studentName.split(" ")[0];
+  const first = firstName(gift.studentName);
   const setUp = !!student && (!!student.passwordHash || student._count.accounts > 0);
   const h = order ? hoursSummary(order as any) : null;
   const calls = order?.callBookings ?? [];
@@ -65,26 +65,26 @@ export default async function GiftParentPage({ params, searchParams }: { params:
     <div className="page-narrow stack-lg">
       <div className="stack-sm">
         <span className="eyebrow">Your gift</span>
-        <h1 className="page-title" style={{ textAlign: "left" }}>Your gift to {gift.studentName}</h1>
+        <h1 className="page-title">Your gift to {gift.studentName}</h1>
         <p className="lede">Keep this link private: anyone with it can see this page. It never shows {first}&apos;s messages.</p>
       </div>
 
       {gift.status === "PENDING" && (
-        <div role="status" className="alert alert-blue">
+        <Alert tone="blue">
           {searchParams.paid ? "Thanks! We're confirming your payment with Stripe. Refresh this page in a minute." : "This gift hasn't been paid yet."}
-        </div>
+        </Alert>
       )}
-      {gift.status === "CANCELLED" && <div className="alert">Checkout was closed before paying, so nothing was charged. <Link href="/gift" className="link">Start a new gift</Link>.</div>}
-      {gift.status === "NEEDS_REVIEW" && <div className="alert alert-warning">Your payment went through, but our team needs to sort something out with this gift. We&apos;ll email you; you can also <Link href="/contact" className="link">contact us</Link>.</div>}
-      {searchParams.stripe === "none" && <div className="alert">Stripe&apos;s receipt isn&apos;t available right now. Stripe also emailed it to you when you paid.</div>}
+      {gift.status === "CANCELLED" && <Alert>Checkout was closed before paying, so nothing was charged. <Link href="/gift" className="link">Start a new gift</Link>.</Alert>}
+      {gift.status === "NEEDS_REVIEW" && <Alert tone="warning">Your payment went through, but our team needs to sort something out with this gift. We&apos;ll email you; you can also <Link href="/contact" className="link">contact us</Link>.</Alert>}
+      {searchParams.stripe === "none" && <Alert>Stripe&apos;s receipt isn&apos;t available right now. Stripe also emailed it to you when you paid.</Alert>}
 
       <section className="card stack-sm">
         <div className="between" style={{ flexWrap: "wrap", gap: 10 }}>
-          <b style={{ fontSize: 18 }}>{gift.kind === "CREDIT" || !gift.orderId ? `${money(gift.amountCents)} of MentorsMD credit` : giftLine(gift)}</b>
+          <b className="card-title">{gift.kind === "CREDIT" || !gift.orderId ? `${money(gift.amountCents)} of MentorsMD credit` : giftLine(gift)}</b>
           <span className={`badge ${gift.status === "PAID" ? "badge-success" : gift.status === "NEEDS_REVIEW" ? "badge-warning" : ""}`}>{GIFT_STATUS_LABEL[gift.status] || gift.status}</span>
         </div>
         <span className="text-secondary">
-          For {gift.studentName} ({gift.studentEmail}) · {money(gift.amountCents)}{gift.paidAt ? ` · paid ${fmtDay(gift.paidAt, tz)}` : ""}
+          For {gift.studentName} ({gift.studentEmail}) · {money(gift.amountCents)}{gift.paidAt ? ` · paid ${fmtDay(gift.paidAt, { timeZone: tz })}` : ""}
         </span>
         {order && <span className="text-secondary">Mentor: {order.seller.name}{order.seller.credential ? ` (${order.seller.credential})` : ""}</span>}
         {gift.kind === "PACKAGE" && gift.status === "PAID" && !gift.orderId && (
@@ -98,7 +98,7 @@ export default async function GiftParentPage({ params, searchParams }: { params:
 
       {gift.status === "PAID" && (
         <section className="card stack-sm">
-          <h2 style={{ fontSize: 22 }}>{first}&apos;s account</h2>
+          <h2 className="card-title">{first}&apos;s account</h2>
           <p className="text-secondary">
             {setUp
               ? `${first} has a MentorsMD account and can use your gift${student?.minorStatus && student.minorStatus !== "CONSENTED" ? " once a parent or guardian gives consent" : ""}.`
@@ -109,7 +109,7 @@ export default async function GiftParentPage({ params, searchParams }: { params:
 
       {order && h && (
         <section className="stack-sm">
-          <h2 style={{ fontSize: 26 }}>Hours and calls</h2>
+          <h2 className="block-title">Hours and calls</h2>
           <div className="card stack-sm">
             <span className="badge badge-brand" style={{ alignSelf: "flex-start" }}>
               {order.disputed && ["IN_ESCROW", "COMPLETED"].includes(order.status) ? "Under review" : ORDER_STATUS[order.status] || order.status}
@@ -126,8 +126,8 @@ export default async function GiftParentPage({ params, searchParams }: { params:
             {calls.length === 0 && <p className="text-muted" style={{ padding: "12px 0" }}>No calls booked yet.</p>}
             {calls.map((c) => (
               <div key={c.id} className="list-row" style={{ flexWrap: "wrap" }}>
-                <b className="grow" style={{ fontSize: 15 }}>
-                  {c.startTime.toLocaleString("en-US", { timeZone: tz, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}
+                <b className="grow">
+                  {fmtDateTime(c.startTime, { timeZone: tz, zone: true })}
                 </b>
                 <span className={`badge ${c.status === "CANCELLED" ? "" : c.endTime < new Date() ? "badge-success" : "badge-brand"}`}>
                   {c.status === "CANCELLED" ? "Cancelled" : c.endTime < new Date() ? (c.outcome && c.outcome !== "HELD" ? "Missed" : "Held") : "Upcoming"}

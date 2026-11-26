@@ -5,6 +5,8 @@ import { isMentorListed } from "@/lib/mentor";
 import { toDate } from "@/lib/publicCache";
 import { cachedPublicProfile, mentorProfileView } from "@/lib/mentorProfile";
 import { ProfileClient } from "./ProfileClient";
+import { ProfileBody, ReviewList } from "./ProfileStatic";
+import { firstName } from "@/lib/format";
 import { getSchoolLogos } from "@/lib/schoolLogos";
 import type { Metadata } from "next";
 
@@ -19,14 +21,14 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const data = await cachedPublicProfile(params.id).catch(() => null);
   const s = data?.seller;
-  if (!s || s.role !== "SELLER") return { title: "Mentor Profile" };
+  if (!s || s.role !== "SELLER") return { title: "Mentor profile" };
   const listed = isMentorListed({
     profileStatus: s.profileStatus,
     pausedUntil: s.pausedUntil && toDate(s.pausedUntil),
     safetyHoldAt: s.safetyHoldAt && toDate(s.safetyHoldAt),
     profileCompleteAt: s.profileCompleteAt && toDate(s.profileCompleteAt),
   });
-  if (!listed) return { title: "Mentor Profile", robots: { index: false } };
+  if (!listed) return { title: "Mentor profile", robots: { index: false } };
   const title = s.credential ? `${s.name}, ${s.credential}` : s.name;
   const bio = (s.bio || "").replace(/\s+/g, " ").trim();
   const description = bio
@@ -43,5 +45,18 @@ export default async function MentorProfilePage({ params }: { params: { id: stri
   const session = await getServerSession(authOptions);
   const [view, logos] = await Promise.all([mentorProfileView(params.id, { id: (session?.user as any)?.id, role: (session?.user as any)?.role }), getSchoolLogos()]);
   if (!view) notFound();
-  return <ProfileClient seller={view.seller} previewState={view.previewState} offers={view.offers} reviews={view.reviews} logos={logos} />;
+  // The sections that don't change are rendered here on the server
+  // (ProfileStatic.tsx); ProfileClient adds the buttons and pop-ups.
+  const first = firstName(view.seller.name) || view.seller.name;
+  return (
+    <ProfileClient
+      seller={view.seller}
+      previewState={view.previewState}
+      offers={view.offers}
+      reviews={view.reviews}
+      logos={logos}
+      body={<ProfileBody seller={view.seller} offers={view.offers} reviews={view.reviews} logos={logos} />}
+      reviewList={<ReviewList reviews={view.reviews as any} first={first} />}
+    />
+  );
 }

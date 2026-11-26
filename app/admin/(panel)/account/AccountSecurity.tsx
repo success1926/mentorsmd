@@ -3,14 +3,16 @@
 import { useState } from "react";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 import { logOut } from "@/components/TopNav";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { AppDevices } from "@/components/AppDevices";
+import { PageHeader } from "@/components/ui";
+import { fmtMonth } from "@/lib/format";
 
 // The Account & Security page's sections (app/admin/(panel)/account/page.tsx).
 export function AccountSecurity({ name, email, roleName, hasPassword, twoStep, joined }: { name: string; email: string; roleName: string; hasPassword: boolean; twoStep: "TOTP" | "EMAIL" | null; joined: string | null }) {
   const [pwOpen, setPwOpen] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string; which: "devices" | "trust" } | null>(null);
-  const { confirm, dialog } = useAdminDialog();
+  const { confirm, dialog } = useConfirm();
 
   async function post(action: string) {
     const res = await fetch("/api/admin/account", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
@@ -19,7 +21,7 @@ export function AccountSecurity({ name, email, roleName, hasPassword, twoStep, j
   }
 
   async function signOutOthers() {
-    if (!(await confirm({ title: "Sign out of all other devices?", body: "Every other browser and phone logged in to this account is logged out right away. You stay logged in here.", confirmLabel: "Sign Out Other Devices" }))) return;
+    if (!(await confirm({ title: "Sign out of all other devices?", body: "Every other browser and phone logged in to this account is logged out right away. You stay logged in here.", confirmLabel: "Sign out other devices" }))) return;
     setMsg(null);
     const { ok, d } = await post("sign-out-others");
     if (!ok) return setMsg({ ok: false, text: d.error || "That didn't work. Try again.", which: "devices" });
@@ -29,7 +31,7 @@ export function AccountSecurity({ name, email, roleName, hasPassword, twoStep, j
   }
 
   async function forgetDevices() {
-    if (!(await confirm({ title: "Forget every trusted device?", body: "Each one, this one included, will need a 2-step code at the next login.", confirmLabel: "Forget Devices" }))) return;
+    if (!(await confirm({ title: "Forget every trusted device?", body: "Each one, this one included, will need a 2-step code at the next login.", confirmLabel: "Forget devices" }))) return;
     setMsg(null);
     const { ok, d } = await post("forget-devices");
     setMsg(ok ? { ok: true, text: "Done. Every device will need a code at the next login.", which: "trust" } : { ok: false, text: d.error || "That didn't work. Try again.", which: "trust" });
@@ -41,20 +43,22 @@ export function AccountSecurity({ name, email, roleName, hasPassword, twoStep, j
   return (
     <div className="page stack-lg adm-account" style={{ gap: 24 }}>
       {dialog}
-      <div className="stack-sm">
-        <h1 className="page-title">Account &amp; Security</h1>
-        <p className="text-secondary" style={{ overflowWrap: "anywhere" }}>
-          {name} · {email} · <span className="badge">{roleName}</span>
-          {joined ? ` · on the team since ${new Date(joined).toLocaleDateString(undefined, { month: "short", year: "numeric" })}` : ""}
-        </p>
-      </div>
+      <PageHeader
+        title="Account & security"
+        lede={
+          <span style={{ overflowWrap: "anywhere" }}>
+            {name} · {email} · <span className="badge">{roleName}</span>
+            {joined ? ` · on the team since ${fmtMonth(joined)}` : ""}
+          </span>
+        }
+      />
 
       <section className="card stack-sm">
         <h2 className="adm-card-title">Password</h2>
         {hasPassword ? (
           <>
             <span className="text-secondary">Choose a new password for {email}. Other devices are logged out when you change it; this browser logs straight back in (you may be asked for your 2-step code).</span>
-            <button type="button" className="btn btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setPwOpen(true)}>Change Password</button>
+            <button type="button" className="btn btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => setPwOpen(true)}>Change password</button>
           </>
         ) : (
           <span className="text-secondary">This account has no MentorsMD password. Use &ldquo;Forgot password&rdquo; on the login page to set one.</span>
@@ -63,7 +67,7 @@ export function AccountSecurity({ name, email, roleName, hasPassword, twoStep, j
 
       <section className="card stack-sm">
         <div className="between" style={{ flexWrap: "wrap", gap: 8 }}>
-          <h2 className="adm-card-title">2-Step Verification</h2>
+          <h2 className="adm-card-title">2-step verification</h2>
           <span className={`badge ${twoStep ? "badge-success" : "badge-warning"}`}>{twoStep ? "On" : "Not set up yet"}</span>
         </div>
         <span className="text-secondary">
@@ -75,15 +79,15 @@ export function AccountSecurity({ name, email, roleName, hasPassword, twoStep, j
           If you ticked &ldquo;Trust this device for 30 days&rdquo;, you won&apos;t be asked again on that device. To switch method, ask an Owner to reset your 2-step (Team &amp; Roles); you choose again at your next login.
         </span>
         {twoStep && (
-          <button type="button" className="btn btn-sm" style={{ alignSelf: "flex-start" }} onClick={forgetDevices}>Forget Trusted Devices</button>
+          <button type="button" className="btn btn-sm" style={{ alignSelf: "flex-start" }} onClick={forgetDevices}>Forget trusted devices</button>
         )}
         {note("trust")}
       </section>
 
       <section className="card stack-sm">
-        <h2 className="adm-card-title">Signed-In Devices</h2>
+        <h2 className="adm-card-title">Signed-in devices</h2>
         <span className="text-secondary">Logged in somewhere you no longer use, like a shared or lost computer? Log out everywhere except here.</span>
-        <button type="button" className="btn btn-sm" style={{ alignSelf: "flex-start" }} onClick={signOutOthers}>Sign Out of All Other Devices</button>
+        <button type="button" className="btn btn-sm" style={{ alignSelf: "flex-start" }} onClick={signOutOthers}>Sign out of all other devices</button>
         {note("devices")}
       </section>
 

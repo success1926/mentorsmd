@@ -10,7 +10,7 @@ import { fetchWithTimeout } from "@/lib/request";
 //    "live:user:<userId>" (or "preview:user:<userId>" on preview sites).
 //  - The browser gets a short-lived pass from /api/realtime/token, signed
 //    with SUPABASE_JWT_SECRET, saying who they are. A rule in the Supabase
-//    project (prisma/supabase-storage-realtime-2026-10.sql) only lets that
+//    project (prisma/applied/supabase-storage-realtime-2026-10.sql) only lets that
 //    pass receive its own topic. Browsers can never send anything.
 //  - When something happens, the server sends the event to the topic of
 //    every person who should see it (sendLive below), e.g. both people in
@@ -19,9 +19,9 @@ import { fetchWithTimeout } from "@/lib/request";
 // If Supabase isn't set up (or is down), nothing breaks: pages still load
 // everything when opened, and the unread badge still refreshes every minute.
 
-export const userTopic = (userId: string) => `${ENV_TAG}:user:${userId}`;
+const userTopic = (userId: string) => `${ENV_TAG}:user:${userId}`;
 
-export const REALTIME_TOKEN_SECONDS = 60 * 60;
+const REALTIME_TOKEN_SECONDS = 60 * 60;
 
 const b64url = (input: Buffer | string) => Buffer.from(input).toString("base64url");
 

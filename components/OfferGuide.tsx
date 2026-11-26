@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Modal } from "@/components/Modal";
-import { PLATFORM_FEE_PERCENT } from "@/lib/fee";
+import { LoadingBlock } from "@/components/ui";
+import { PLATFORM_FEE_PERCENT, feeOf, mentorShare } from "@/lib/fee";
 import { FORMATS, PACKAGE_MAX_MINUTES, PACKAGE_MIN_MINUTES, labelFor, money } from "@/lib/options";
 import { hoursLabel, priceFor, priceMath } from "@/lib/pricing";
 import type { PageValues } from "@/lib/siteContent";
@@ -17,9 +18,9 @@ export type GuideValues = PageValues<"mentorGuide">;
 export type GuideTab = "packages" | "hourly" | "notes";
 
 const TABS: { value: GuideTab; label: string }[] = [
-  { value: "packages", label: "Package Examples" },
-  { value: "hourly", label: "Hourly & Bundles" },
-  { value: "notes", label: "Freelancing Notes" },
+  { value: "packages", label: "Package examples" },
+  { value: "hourly", label: "Hourly & bundles" },
+  { value: "notes", label: "Freelancing notes" },
 ];
 
 // Picked for easy math. Only used before the mentor has set a rate, and
@@ -47,18 +48,18 @@ export function OfferGuideBody({ values, rateCents, tab, onTab }: { values: Guid
     ? `Example prices below use your rate of ${money(rateCents)} an hour.`
     : `Prices below use an example rate of ${money(EXAMPLE_RATE_CENTS)} an hour, picked for easy math. It isn't a suggested rate.`;
   const packagePrice = priceFor(360, rate);
-  const fee = Math.round((packagePrice * PLATFORM_FEE_PERCENT) / 100);
+  const fee = feeOf(packagePrice);
 
   return (
     <div className="stack offer-guide">
       <div className="stack-sm">
-        <h2 style={{ fontSize: 28, paddingRight: 36 }}>{values.title}</h2>
+        <h2 className="block-title" style={{ paddingRight: 36 }}>{values.title}</h2>
         <span className="text-secondary">{values.intro}</span>
       </div>
 
-      <div className="seg" role="group" aria-label="Guide sections">
+      <div className="tabs" role="tablist" aria-label="Guide sections">
         {TABS.map((t) => (
-          <button type="button" key={t.value} className="seg-opt" aria-pressed={tab === t.value} onClick={() => onTab(t.value)}>
+          <button type="button" role="tab" key={t.value} className="tab" aria-selected={tab === t.value} onClick={() => onTab(t.value)}>
             {t.label}
           </button>
         ))}
@@ -72,7 +73,7 @@ export function OfferGuideBody({ values, rateCents, tab, onTab }: { values: Guid
             const minutes = exampleMinutes(ex.hours);
             return (
               <div key={ex.title} className="pkg-card">
-                <b style={{ fontSize: 18 }}>{ex.title}</b>
+                <b className="card-title">{ex.title}</b>
                 <div className="pkg-meta">
                   <span className="badge">Example</span>
                   <span className="badge badge-blue">{labelFor(FORMATS, ex.format)}</span>
@@ -86,7 +87,7 @@ export function OfferGuideBody({ values, rateCents, tab, onTab }: { values: Guid
             );
           })}
           <div className="stack-sm">
-            <h3 className="offer-guide-head">How Packages Work</h3>
+            <h3 className="offer-guide-head">How packages work</h3>
             <Points items={values.packageRules} />
           </div>
         </div>
@@ -97,25 +98,25 @@ export function OfferGuideBody({ values, rateCents, tab, onTab }: { values: Guid
           <span className="text-secondary">{values.hourlyIntro}</span>
           {values.hourlyOptions.map((o) => (
             <div key={o.name} className="pkg-card">
-              <b style={{ fontSize: 18 }}>{o.name}</b>
+              <b className="card-title">{o.name}</b>
               <span className="text-secondary">{o.what}</span>
               {o.fits.length > 0 && (
                 <div className="stack-sm">
-                  <b className="small">When It Fits</b>
+                  <b className="small">When it fits</b>
                   <Points items={o.fits} />
                 </div>
               )}
             </div>
           ))}
           <div className="alert alert-blue stack-sm small">
-            <b>The Math, As An Example</b>
+            <b>The math, as an example</b>
             <span>{rateNote}</span>
             <span>Single hour: {priceMath(60, rate)}</span>
             <span>Bundle: {priceMath(180, rate)}</span>
             <span>Bundle: {priceMath(600, rate)}</span>
           </div>
           <div className="stack-sm">
-            <h3 className="offer-guide-head">Good To Know</h3>
+            <h3 className="offer-guide-head">Good to know</h3>
             <Points items={values.hourlyNotes} />
           </div>
         </div>
@@ -131,9 +132,9 @@ export function OfferGuideBody({ values, rateCents, tab, onTab }: { values: Guid
             </div>
           ))}
           <div className="alert alert-blue stack-sm small">
-            <b>The Split, As An Example</b>
+            <b>The split, as an example</b>
             <span>{rateNote}</span>
-            <span>A package of {priceMath(360, rate)}. You earn {money(packagePrice - fee)} ({100 - PLATFORM_FEE_PERCENT}%) and MentorsMD keeps {money(fee)} ({PLATFORM_FEE_PERCENT}%).</span>
+            <span>A package of {priceMath(360, rate)}. You earn {money(mentorShare(packagePrice))} ({100 - PLATFORM_FEE_PERCENT}%) and MentorsMD keeps {money(fee)} ({PLATFORM_FEE_PERCENT}%).</span>
           </div>
         </div>
       )}
@@ -183,7 +184,7 @@ export function OfferGuideButton({ rateCents, tab = "packages", className = "btn
             <button type="button" className="btn btn-sm" style={{ alignSelf: "flex-start" }} onClick={load}>Try again</button>
           </div>
         ) : (
-          <span className="text-muted">Loading…</span>
+          <LoadingBlock lines={4} />
         )}
       </Modal>
     </>

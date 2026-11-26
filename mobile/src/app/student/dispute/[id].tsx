@@ -1,13 +1,14 @@
 import { useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
-import { LoadError, useRefresh } from "../../../components/shared";
-import { Btn, Bubble, Composer, Field, Hdr, Loading, Note, Screen, Select, Small } from "../../../components/ui";
+import { useRefresh } from "../../../components/shared";
+import { Btn, Bubble, Composer, Field, Hdr, LoadError, Loading, Note, Screen, Select, Small } from "../../../components/ui";
 import { api, errorText, useApi } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth";
-import { useOverlay } from "../../../lib/demo";
-import { fmtWhen, pkgTitle, type Pkg } from "../../../lib/orders";
+import { useOverlay } from "../../../lib/overlay";
+import { pkgTitle, type Pkg } from "../../../lib/orders";
 import { useColors } from "../../../lib/theme";
+import { fmtDateTime } from "../../../lib/format";
 
 const REASONS = ["The work is not what we agreed on", "My mentor missed a call", "My mentor stopped replying", "Something else"];
 type DMsg = { id: string; body: string; createdAt: string; sender: { id: string; name: string; role: string } };
@@ -87,7 +88,7 @@ function Thread({ order }: { order: Pkg }) {
         {(q.data?.messages || []).map((m) => (
           <View key={m.id} style={{ gap: 3 }}>
             <Bubble who={m.sender?.id === user?.id ? "me" : "them"}>{m.sender?.role === "ADMIN" ? `${m.sender.name}, MentorsMD team: ` : ""}{m.body}</Bubble>
-            <Small style={{ alignSelf: m.sender?.id === user?.id ? "flex-end" : "flex-start", fontSize: 11 }}>{fmtWhen(m.createdAt)}</Small>
+            <Small style={{ alignSelf: m.sender?.id === user?.id ? "flex-end" : "flex-start", fontSize: 11 }}>{fmtDateTime(m.createdAt)}</Small>
           </View>
         ))}
       </View>

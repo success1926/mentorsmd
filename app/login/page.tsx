@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AuthShell, GoogleButton } from "@/components/AuthShell";
+import { Alert, Field } from "@/components/ui";
 import { Honeypot, useRecaptcha, RecaptchaNotice } from "@/components/FormGuards";
 import { homeForRole, isPending2faRole, verifyPathFor } from "@/lib/sessionRules";
 
@@ -76,41 +77,24 @@ function LoginForm() {
   }
 
   return (
-    <AuthShell title="Welcome Back" body="Pick up where you left off: messages, orders and calls are all in one place.">
+    <AuthShell title="Welcome back" body="Pick up where you left off: messages, orders and calls are all in one place.">
       <div className="stack" style={{ gap: 14 }}>
-        <h1 className="page-title" style={{ fontSize: 40 }}>Log In</h1>
-        {reason === "idle" && (
-          <div role="status" className="alert alert-warning">
-            You were logged out due to inactivity. Log in to pick up where you left off.
-          </div>
-        )}
-        {authError && (
-          <div role="alert" className="alert alert-warning">
-            {authError}
-          </div>
-        )}
-        {reason === "ended" && (
-          <div role="status" className="alert alert-warning">
-            Your session ended. Please log in again.
-          </div>
-        )}
+        <h1 className="auth-title">Log in</h1>
+        {reason === "idle" && <Alert tone="warning">You were logged out due to inactivity. Log in to pick up where you left off.</Alert>}
+        {authError && <Alert tone="warning">{authError}</Alert>}
+        {reason === "ended" && <Alert tone="warning">Your session ended. Please log in again.</Alert>}
         <GoogleButton onClick={() => signIn("google", { callbackUrl: safeCallback() || "/dashboard" })} />
         <span className="text-muted">Google sign-in is for student accounts. Mentors log in with email.</span>
         <div className="or-line">or</div>
         <form onSubmit={handleSubmit} className="stack" style={{ gap: 0 }}>
-          <label className="field">
-            <span className="field-label">Email</span>
+          <Field id="login-email" label="Email">
             <input className="input" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </label>
-          <label className="field">
-            <span className="field-label between">
-              Password
-              <Link href="/forgot-password" className="link small">Forgot password?</Link>
-            </span>
+          </Field>
+          <Field id="login-password" label={<span className="between">Password<Link href="/forgot-password" className="link small">Forgot password?</Link></span>}>
             <input className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          </label>
+          </Field>
           <Honeypot value={trap} onChange={setTrap} />
-          {error && <div role="alert" className="alert alert-danger" style={{ marginBottom: 14 }}>{error}</div>}
+          {error && <Alert tone="danger" style={{ marginBottom: 14 }}>{error}</Alert>}
           <button className="btn btn-primary btn-lg btn-block" disabled={loading || !email || !password}>
             {loading ? "Logging in…" : "Log in"}
           </button>

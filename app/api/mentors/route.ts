@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { getSession, sessionUser } from "@/lib/session";
 import { parseBrowseFilters, searchMentors } from "@/lib/mentorQueries";
 import { logBrowseSearch } from "@/lib/searchLog";
 import { FILTER_GROUPS, MENTOR_QUICK_LINKS } from "@/lib/options";
@@ -23,8 +23,8 @@ export async function GET(req: Request) {
   const filters = parseBrowseFilters(sp);
   const mentors = await searchMentors(filters);
 
-  const session = await getSession().catch(() => null);
-  logBrowseSearch(filters, mentors.length, { userId: (session?.user as any)?.id, role: (session?.user as any)?.role, userAgent: req.headers.get("user-agent") });
+  const viewer = sessionUser(await getSession().catch(() => null));
+  logBrowseSearch(filters, mentors.length, { userId: viewer?.id, role: viewer?.role, userAgent: req.headers.get("user-agent") });
 
   const schoolLogos = await schoolLogosFor(mentors.flatMap((m: any) => [m.medicalSchool, m.undergradSchool, ...(m.clientSchools || [])]));
 

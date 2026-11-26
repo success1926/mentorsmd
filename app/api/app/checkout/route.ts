@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { getSession, sessionUser } from "@/lib/session";
 import { CheckoutError, startOfferAppPayment, startPayPerCallAppPayment, startTopUpAppPayment } from "@/lib/hourCheckout";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
 
@@ -16,15 +16,15 @@ export const dynamic = "force-dynamic";
 //   chargeCents, creditCents, publishableKey } for the payment sheet.
 // After the sheet: /api/app/checkout/confirm (paid) or /cancel (closed).
 export async function POST(req: Request) {
-  const session = await getSession();
-  if (!session?.user || (session.user as any).role !== "BUYER") {
+  const me = sessionUser(await getSession());
+  if (!me || me.role !== "BUYER") {
     return NextResponse.json({ error: "Only student accounts can buy" }, { status: 403 });
   }
-  const studentId = (session.user as any).id;
+  const studentId = me.id;
   const r = await rateLimit(RATE_LIMITS.messagesPerMinute, `checkout:${studentId}`);
   if (!r.ok) return tooMany(r.retryAfterSec, "Please wait a moment and try again.");
   const body = await req.json().catch(() => ({}));
-  const student = { id: studentId, email: session.user.email };
+  const student = { id: studentId, email: me.email };
 
   try {
     let result;

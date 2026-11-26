@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { GOOGLE_CAL_STATE_COOKIE, checkState, encryptToken, exchangeCode } from "@/lib/googleCalendar";
 import { siteUrl } from "@/lib/siteUrl";
 import { externalBusyFor, mentorScheduleSelect } from "@/lib/callBooking";
-import { getSession } from "@/lib/session";
+import { getSession, sessionUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -22,11 +22,11 @@ export async function GET(req: Request) {
     return res;
   };
 
-  const session = await getSession();
-  const userId = (session?.user as any)?.id as string | undefined;
+  const me = sessionUser(await getSession());
+  const userId = me?.id;
   const stateUser = checkState(url.searchParams.get("state"), stateCookie);
   if (!userId || !stateUser || stateUser !== userId) return back("expired");
-  if ((session!.user as any).role !== "SELLER") return back("mentors-only");
+  if (me?.role !== "SELLER") return back("mentors-only");
   // e.g. "access_denied" when the mentor clicks Cancel on Google's screen.
   if (url.searchParams.get("error")) return back("denied");
   const code = url.searchParams.get("code");

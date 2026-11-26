@@ -1,14 +1,14 @@
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { Text, View } from "react-native";
-import { useOverlay } from "../lib/demo";
-import { searchLive, useLoad } from "../lib/live";
+import { useOverlay } from "../lib/overlay";
+import { type Mentor, searchLive, useLoad } from "../lib/live";
 import { GROUPS, SERVICE_OPTIONS, emptyPicks, labelOf, matchMentor, optionHit, pickCount, rank, type GuidedKey, type MatchResult, type Picks } from "../lib/match";
-import { money, type Mentor } from "../lib/sample";
 import { fonts, useColors } from "../lib/theme";
 import { CompareTick, GlowBand, PickChip, PickedPill, Tag, WhyLine } from "./brand";
 import { Av, Btn, Btns2, Card, Chip, Eyebrow, FChip, FChipRow, H, Half, Loading, Note, RowV, SchoolLogo, Search, Seg, Small, SS, Stars, T } from "./ui";
 import { useReloadOnFocus } from "./mentorSheets";
+import { money } from "../lib/format";
 
 // Live mentors seen in a list, so a profile can show their card while the full profile loads.
 export const liveCache = new Map<string, Mentor>();
@@ -53,7 +53,6 @@ function Guided({ mentors, q, setQ, onSubmit, loading, error, reload }: {
   mentors: Mentor[]; q: string; setQ: (v: string) => void; onSubmit: () => void; loading?: boolean; error?: string | null; reload?: () => void;
 }) {
   const c = useColors();
-  const router = useRouter();
   const { openSheet } = useOverlay();
   const [picks, setPicks] = useState<Picks>(emptyPicks);
   const [sort, setSort] = useState("best");

@@ -5,7 +5,7 @@ import { bookingWindowFor, hasAvailability } from "@/lib/schedule";
 import { tzOrDefault } from "@/lib/tz";
 import { isBlockMinutes } from "@/lib/hours";
 import { bookablePackages, payPerCallOffer } from "@/lib/bookFromHours";
-import { getSession } from "@/lib/session";
+import { getSession, sessionUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +13,11 @@ export const dynamic = "force-dynamic";
 // calendar, the student's packages with hours left, and the pay-per-call
 // price for when there are none (lib/bookFromHours.ts).
 export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
-  if (!session?.user || (session.user as any).role !== "BUYER") {
+  const me = sessionUser(await getSession());
+  if (!me || me.role !== "BUYER") {
     return NextResponse.json({ error: "Log in with a student account to book a call" }, { status: 401 });
   }
-  const studentId = (session.user as any).id;
+  const studentId = me.id;
   const minutes = Number(new URL(req.url).searchParams.get("minutes") || 60);
   if (!isBlockMinutes(minutes)) return NextResponse.json({ error: "Pick a 30- or 60-minute call" }, { status: 400 });
   const mentor = await prisma.user.findUnique({ where: { id: params.id }, select: { ...mentorScheduleSelect, role: true } });

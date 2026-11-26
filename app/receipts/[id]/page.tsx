@@ -4,7 +4,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { receiptFor } from "@/lib/receipts";
-import { money } from "@/lib/options";
+import { money } from "@/lib/format";
+import { PageHeader } from "@/components/ui";
 import { siteUrl } from "@/lib/siteUrl";
 import { tzOrDefault } from "@/lib/tz";
 import { PrintButton } from "./PrintButton";
@@ -36,12 +37,17 @@ export default async function ReceiptPage({ params, searchParams }: { params: { 
 
   return (
     <div className="page-narrow stack-lg receipt-page" style={{ gap: 20 }}>
-      <div className="between no-print" style={{ flexWrap: "wrap", gap: 10 }}>
-        <Link href="/receipts" className="link small">← All receipts</Link>
-        <div className="row-wrap">
-          <PrintButton />
-          {r.stripeRef && <a href={`/api/receipts/${r.id}/stripe`} target="_blank" rel="noopener noreferrer" className="btn btn-sm">Stripe receipt</a>}
-        </div>
+      <div className="no-print">
+        <PageHeader
+          back={{ href: "/receipts", label: "All receipts" }}
+          title={r.title}
+          actions={
+            <>
+              <PrintButton />
+              {r.stripeRef && <a href={`/api/receipts/${r.id}/stripe`} target="_blank" rel="noopener noreferrer" className="btn btn-sm">Stripe receipt</a>}
+            </>
+          }
+        />
       </div>
       {searchParams.stripe === "none" && <div className="alert no-print">Stripe&apos;s receipt isn&apos;t available for this payment. This page is your receipt.</div>}
 

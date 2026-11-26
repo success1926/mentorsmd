@@ -65,11 +65,6 @@ export function hoursSummary(order: HoursOrderLike, now: Date = new Date()) {
   };
 }
 
-// Can a new block of `minutes` (a call or written work) fit?
-export function fits(order: HoursOrderLike, minutes: number) {
-  return hoursSummary(order).left >= minutes;
-}
-
 // Running low: 1 hour or less left on an active package that started with
 // more than that. Shown on the hours bar for both sides, and the trigger
 // for the "1 hour left" emails.

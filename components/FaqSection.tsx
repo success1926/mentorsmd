@@ -1,26 +1,37 @@
 import { paragraphs } from "@/lib/siteContent";
+import { Collapsible } from "@/components/ui";
 
-// The questions and answers from Admin -> Website -> Homepage -> Frequently
-// asked questions. Used on the homepage and on /how-it-works; hidden while
-// there are no questions.
-export function FaqSection({ title, faq }: { title: string; faq: { question: string; answer: string }[] }) {
+export type FaqItem = { question: string; answer: string };
+
+// One look for every list of questions: the homepage / How it works
+// questions (Admin -> Website -> Homepage) and any added FAQ section
+// (components/website/PageSections.tsx). Hidden while empty.
+export function Faq({ title, faq, center = true }: { title?: string; faq: FaqItem[]; center?: boolean }) {
+  const qs = faq.filter((q) => q?.question);
+  if (!qs.length && !title) return null;
+  return (
+    <div className={`faq${center ? " is-center" : ""}`}>
+      {title && <h2 className="section-title faq-title">{title}</h2>}
+      <div>
+        {qs.map((q, i) => (
+          <Collapsible key={i} title={q.question}>
+            {paragraphs(q.answer).map((a, j) => (
+              <p key={j} className="faq-answer">{a}</p>
+            ))}
+          </Collapsible>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// The homepage and /how-it-works section (#faq).
+export function FaqSection({ title, faq }: { title: string; faq: FaqItem[] }) {
   if (faq.length === 0) return null;
   return (
-    <section id="faq" style={{ paddingBottom: 40, scrollMarginTop: 150 }}>
-      <div className="wrap" style={{ maxWidth: 900 }}>
-        <h2 className="big-title" style={{ textAlign: "center", marginBottom: 48 }}>{title}</h2>
-        <div>
-          {faq.map((q, i) => (
-            <details key={i} className="collapse">
-              <summary style={{ fontSize: 18 }}>{q.question}</summary>
-              <div className="collapse-body">
-                {paragraphs(q.answer).map((a, j) => (
-                  <p key={j} className="text-secondary" style={{ fontSize: 17, lineHeight: 1.6 }}>{a}</p>
-                ))}
-              </div>
-            </details>
-          ))}
-        </div>
+    <section id="faq" className="faq-section">
+      <div className="wrap">
+        <Faq title={title} faq={faq} />
       </div>
     </section>
   );

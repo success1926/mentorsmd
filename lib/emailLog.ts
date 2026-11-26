@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 // Admin -> Email log: one row per send attempt from lib/email.ts. Only
 // who, what kind, subject and the result; never the email body. Logging
 // must never break (or block) the send itself.
-export const EMAIL_LOG_KEEP_DAYS = 90;
+const EMAIL_LOG_KEEP_DAYS = 90;
 
 export async function logEmail(row: { templateKey: string; toEmail: string; subject: string; status: "SENT" | "FAILED"; providerId?: string | null; error?: string | null }) {
   try {

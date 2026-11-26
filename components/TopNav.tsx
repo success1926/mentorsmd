@@ -9,6 +9,8 @@ import { MENTOR_QUICK_LINKS, quickLinkHref } from "@/lib/options";
 import { useNavStatus } from "@/components/NavStatus";
 import { MENTOR_NAV, previewHref } from "@/lib/mentorNav";
 import { STUDENT_NAV } from "@/lib/studentNav";
+import { initialsOf } from "@/lib/format";
+import { useFocusTrap } from "@/components/useFocusTrap";
 
 // The brand mark: a graduation cap whose tassel is a stethoscope.
 // Same drawing as app/icon.svg (browser tab) - keep the two in step.
@@ -95,15 +97,6 @@ const ROLE_LABEL: Record<string, string> = {
   BUYER_2FA: "Student account (verification needed)",
 };
 
-function initials(name: string) {
-  return (name || "?")
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
-
 function LogoutIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -138,6 +131,9 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  // Phone menu: focus stays inside, Esc closes, the page behind doesn't scroll.
+  useFocusTrap(drawerRef, drawerOpen, () => setDrawerOpen(false));
   const [scrolled, setScrolled] = useState(false);
   // Unread badge (components/NavStatus.tsx, shared with the sidebars).
   const navInfo = { unread: useNavStatus()?.unread ?? 0 };
@@ -177,8 +173,9 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
 
   const isHome = pathname === "/";
   const marketing = !session || role === "BUYER";
-  // Quick links only on the pages where students are looking for a mentor.
-  const showQuick = scrolled && marketing && (isHome || pathname.startsWith("/mentors"));
+  // Quick links only on the homepage: /mentors has the same links as its own
+  // filter row, so they aren't repeated up here.
+  const showQuick = scrolled && marketing && isHome;
   const userId: string | undefined = (session?.user as any)?.id;
   const right = role ? RIGHT_LINKS[role] || [] : [];
   // Mentors: a simple bar (logo, View my public profile, account menu).
@@ -233,12 +230,12 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
               the sign-in check runs, so the bar doesn't jump when they appear. */}
           {!session && (
             <>
-              <Link href="/login" className="btn hide-tablet" aria-hidden={status === "loading" || undefined} tabIndex={status === "loading" ? -1 : undefined} style={{ padding: "13px 22px", fontSize: 16, visibility: status === "loading" ? "hidden" : undefined }}>Log In</Link>
-              <Link href="/signup" className="btn btn-primary hide-tablet" aria-hidden={status === "loading" || undefined} tabIndex={status === "loading" ? -1 : undefined} style={{ padding: "14px 26px", fontSize: 16, visibility: status === "loading" ? "hidden" : undefined }}>
-                Get Started
+              <Link href="/login" className="btn btn-lg hide-tablet" aria-hidden={status === "loading" || undefined} tabIndex={status === "loading" ? -1 : undefined} style={status === "loading" ? { visibility: "hidden" } : undefined}>Log in</Link>
+              <Link href="/signup" className="btn btn-primary btn-lg hide-tablet" aria-hidden={status === "loading" || undefined} tabIndex={status === "loading" ? -1 : undefined} style={status === "loading" ? { visibility: "hidden" } : undefined}>
+                Get started
               </Link>
               {status !== "loading" && pathname !== "/signup" && (
-                <Link href="/signup" className="btn btn-primary nav-cta-phone">Get Started</Link>
+                <Link href="/signup" className="btn btn-primary btn-sm nav-cta-phone">Get started</Link>
               )}
             </>
           )}
@@ -246,7 +243,7 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
           {session && (
             <div ref={menuRef} style={{ position: "relative" }} className="hide-tablet">
               <button className="acct-btn" aria-label="Account menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
-                <span className="avatar" style={{ background: role === "SELLER" ? "var(--pink-soft)" : "var(--tint-2)" }}>{initials(name)}</span>
+                <span className="avatar" style={{ background: role === "SELLER" ? "var(--pink-soft)" : "var(--tint-2)" }}>{initialsOf(name || "?")}</span>
                 <Chevron />
               </button>
               {menuOpen && (
@@ -286,7 +283,7 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
       )}
 
       {drawerOpen && (
-        <div className="nav-drawer" role="dialog" aria-modal="true" aria-label="Menu">
+        <div ref={drawerRef} className="nav-drawer" role="dialog" aria-modal="true" aria-label="Menu">
           <div className="between" style={{ marginBottom: 12 }}>
             <Logo />
             <button className="nav-burger" aria-label="Close menu" onClick={() => setDrawerOpen(false)} style={{ display: "inline-flex" }}>
@@ -305,8 +302,8 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
             .map((m) => <Link key={"m" + m.href + m.label} href={m.href}>{m.label}</Link>)}
           {!session ? (
             <div className="stack" style={{ marginTop: 24 }}>
-              <Link href="/signup" className="btn btn-primary btn-lg" style={{ borderBottom: "none" }}>Get Started</Link>
-              <Link href="/login" className="btn btn-lg" style={{ borderBottom: "1px solid var(--line)" }}>Log In</Link>
+              <Link href="/signup" className="btn btn-primary btn-lg">Get started</Link>
+              <Link href="/login" className="btn btn-lg">Log in</Link>
             </div>
           ) : (
             <button className="drawer-link" onClick={() => logOut()} style={{ color: "var(--danger)", fontWeight: 600, display: "flex", alignItems: "center", gap: 10 }}>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Alert } from "@/components/ui";
 
 export function RemoveFromWaitlist({ id, sig }: { id: string; sig: string }) {
   const [state, setState] = useState<"idle" | "busy" | "done">("idle");
@@ -25,15 +26,15 @@ export function RemoveFromWaitlist({ id, sig }: { id: string; sig: string }) {
 
   if (state === "done") {
     return (
-      <div className="stack" role="status">
-        <div className="alert alert-success">You&apos;re off the waitlist. We won&apos;t email you about it again.</div>
+      <div className="stack">
+        <Alert tone="success">You&apos;re off the waitlist. We won&apos;t email you about it again.</Alert>
         <Link href="/mentors" className="btn" style={{ alignSelf: "flex-start" }}>Browse mentors</Link>
       </div>
     );
   }
   return (
     <div className="stack">
-      {error && <div role="alert" className="alert alert-danger">{error}</div>}
+      {error && <Alert tone="danger">{error}</Alert>}
       <button className="btn btn-primary" style={{ alignSelf: "flex-start" }} disabled={state === "busy" || !id || !sig} onClick={remove}>
         {state === "busy" ? "Removing…" : "Remove me from the waitlist"}
       </button>

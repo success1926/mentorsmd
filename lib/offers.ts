@@ -4,8 +4,8 @@
 import { prisma } from "@/lib/prisma";
 import { offerPrice } from "@/lib/pricing";
 
-export const HOURLY_TITLE = "Hourly";
-export const HOURLY_DESCRIPTION = "One hour with your mentor, for a call, written feedback or both. No due date: book calls on their calendar, or send work to review.";
+const HOURLY_TITLE = "Hourly";
+const HOURLY_DESCRIPTION = "One hour with your mentor, for a call, written feedback or both. No due date: book calls on their calendar, or send work to review.";
 
 // The mentor's HOURLY offer, made the first time it's needed (switched on,
 // calls + written). Pay-per-call orders point at it too.

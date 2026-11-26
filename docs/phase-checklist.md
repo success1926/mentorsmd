@@ -90,7 +90,7 @@ Also check that your Vercel plan allows 3 daily crons, because Phase 4 adds a th
 - With keys only: [reCAPTCHA] the badge shows; [Anthropic] "write my essay for me" creates an AI flag; [Safe Browsing] a test-unsafe link is blocked; [Sentry] errors appear in Sentry.
 
 ## Phase 5 (#9): legal, under 18, admin team
-Right after running `prisma/phase5-2026-10.sql`, open `prisma/phase5-make-owner-2026-10.sql` in the Neon SQL Editor. Put your login email in both places, then run it. Don't save your email in the repo file.
+Right after running `prisma/applied/phase5-2026-10.sql`, open `prisma/applied/phase5-make-owner-2026-10.sql` in the Neon SQL Editor. Put your login email in both places, then run it. Don't save your email in the repo file.
 - Your next admin login asks you to set up 2-step verification. Scan the QR code. Every login after that asks for a code.
 - Admin → Legal: publish version 1 of the Terms. A student then gets a "Please review our terms" screen until they accept.
 - Version 2 published as "Minor change" shows no screen. Version 3 published as "Everyone must accept again" shows the screen with "What changed".

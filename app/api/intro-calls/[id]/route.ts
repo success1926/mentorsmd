@@ -4,14 +4,14 @@ import { adminCan } from "@/lib/adminTeam";
 import { CANCEL_CUTOFF_HOURS, canChangeOnline } from "@/lib/calls";
 import { CallError } from "@/lib/callBooking";
 import { cancelIntroCall } from "@/lib/introCalls";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 
 // Cancels a free intro call: the student or mentor until 24 hours before
 // the start, admins any time. The student can then book a new one.
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  const user = session.user as any;
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
+  const user = me;
 
   const booking = await prisma.callBooking.findUnique({ where: { id: params.id } });
   const isAdmin = user.role === "ADMIN" && (await adminCan("calls"));

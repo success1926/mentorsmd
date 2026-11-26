@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
 import { currentAdmin } from "@/lib/adminTeam";
 import { prisma } from "@/lib/prisma";
-import { PLATFORM_FEE_PERCENT } from "@/lib/stripe";
 import { hoursSummary } from "@/lib/hours";
 import { finishPhase } from "@/lib/finishing";
 import { openDispute, unpaidValueCents } from "@/lib/payoutRules";
 
 export const dynamic = "force-dynamic";
-
-const fee = (cents: number) => Math.round((cents * PLATFORM_FEE_PERCENT) / 100);
 
 // Admin -> Orders & payouts: the money summary and every paid order.
 // Worked out from the database (orders, paid top-ups, the credit ledger
@@ -16,8 +13,7 @@ const fee = (cents: number) => Math.round((cents * PLATFORM_FEE_PERCENT) / 100);
 //   - Sales: package prices plus paid "Add hours" top-ups.
 //   - Paid with credit: the part of those paid with MentorsMD credit.
 //   - Collected by card: sales minus credit (what Stripe charged).
-//   - Paid to mentors / MentorsMD fee: monthly payouts sent (plus orders
-//     from before the hourly redesign that were released one by one).
+//   - Paid to mentors / MentorsMD fee: monthly payouts sent.
 //   - Not yet paid out: the value of hours bought that haven't been paid
 //     to a mentor yet (active, waiting, approved and disputed packages).
 //   - Credit issued: refunds given as credit and manual additions.
@@ -57,8 +53,6 @@ export async function GET() {
   let sales = 0;
   let credit = 0;
   let notPaidOut = 0;
-  let oldReleasedFee = 0;
-  let oldReleasedToMentors = 0;
   const rows = orders.map((o) => {
     const topUpCents = o.topUps.reduce((s, t) => s + t.amountCents, 0);
     const topUpCredit = o.topUps.reduce((s, t) => s + t.creditAppliedCents, 0);
@@ -67,17 +61,6 @@ export async function GET() {
     sales += priceCents;
     credit += creditCents;
     const refundedCreditCents = o.creditEntries.reduce((s, c) => s + c.amountCents, 0);
-    if (!o.kind) {
-      if (o.status === "RELEASED") {
-        oldReleasedFee += fee(o.amount);
-        oldReleasedToMentors += o.amount - fee(o.amount);
-      } else if (o.status !== "REFUNDED") notPaidOut += o.amount;
-      return {
-        id: o.id, kind: null, status: o.status, phase: null, title: o.gig.title, buyerName: o.buyer.name, sellerName: o.seller.name,
-        priceCents, creditCents, topUpCents: 0, refundedCreditCents: 0, minutesPurchased: 0, minutesUsed: 0, minutesLeft: 0, payout: null,
-        createdAt: o.paidAt ?? o.createdAt, giftFrom: null,
-      };
-    }
     const h = hoursSummary(o);
     notPaidOut += unpaidValueCents({ ...o, refundedCreditCents });
     return {
@@ -86,6 +69,14 @@ export async function GET() {
       status: o.status,
       phase: finishPhase(o),
       disputeOpen: openDispute(o),
+      // For orderStatus(o, "admin") (lib/statusLabels.ts).
+      disputed: o.disputed,
+      disputeResolvedAt: o.disputeResolvedAt,
+      approvedAt: o.approvedAt,
+      markedCompleteAt: o.markedCompleteAt,
+      responseDeadline: o.responseDeadline,
+      lastCallUsedAt: o.lastCallUsedAt,
+      lastRevisionUsedAt: o.lastRevisionUsedAt,
       title: o.packageTitle || o.gig.title,
       buyerName: o.buyer.name,
       sellerName: o.seller.name,
@@ -102,8 +93,8 @@ export async function GET() {
     };
   });
 
-  const paidToMentors = payouts.reduce((s, p) => s + p.amountCents, 0) + oldReleasedToMentors;
-  const platformFee = payouts.reduce((s, p) => s + (p.grossCents - p.amountCents), 0) + oldReleasedFee;
+  const paidToMentors = payouts.reduce((s, p) => s + p.amountCents, 0);
+  const platformFee = payouts.reduce((s, p) => s + (p.grossCents - p.amountCents), 0);
   return NextResponse.json({
     salesCents: sales,
     creditUsedCents: credit,

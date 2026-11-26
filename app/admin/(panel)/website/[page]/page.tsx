@@ -8,7 +8,8 @@ import { ChangedTag, ListEditor, ScalarEditor, same } from "@/components/website
 import { EditorPreview, type EditorPreviewHandle } from "@/components/website/EditorPreview";
 import { LayoutEditor } from "@/components/website/LayoutEditor";
 import { EDIT_MESSAGE } from "@/components/website/SiteEditButtons";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { LoadingBlock, PageHeader } from "@/components/ui";
 import { hasLayout, sectionLabel, sectionsFor, type BuiltinSection, type LayoutItem } from "@/lib/pageLayout";
 
 type Values = Record<string, any>;
@@ -48,7 +49,7 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveErrors, setSaveErrors] = useState<{ text: string; errors?: string[] } | null>(null);
-  const { confirm, dialog } = useAdminDialog();
+  const { confirm, dialog } = useConfirm();
 
   // Autosave bookkeeping: every change bumps `rev`; a save remembers the rev
   // it sent. Saves go out one at a time, in order, so an older save can
@@ -248,10 +249,10 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
     return () => window.removeEventListener("message", onMsg);
   }, [params.page]);
 
-  if (status === "loading") return <div className="page text-muted">Loading…</div>;
+  if (status === "loading") return <div className="page"><LoadingBlock lines={6} /></div>;
   if (!isAdmin) return <div className="page-narrow"><div className="alert alert-danger">Admin access required.</div></div>;
   if (loadError) return <div className="page-narrow stack"><Link href="/admin/website" className="link small">← Website</Link><div className="alert alert-danger">{loadError}</div></div>;
-  if (!data) return <div className="page text-muted">Loading…</div>;
+  if (!data) return <div className="page"><LoadingBlock lines={6} /></div>;
 
   async function run(label: string, fn: () => Promise<void>) {
     setBusy(label);
@@ -292,7 +293,7 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
   };
 
   const onDiscard = async () => {
-    if (!(await confirm({ title: "Discard all unpublished changes to this page?", body: "It goes back to what's live now. This can't be undone.", confirmLabel: "Discard Changes", danger: true }))) return;
+    if (!(await confirm({ title: "Discard all unpublished changes to this page?", body: "It goes back to what's live now. This can't be undone.", confirmLabel: "Discard changes", danger: true }))) return;
     run("discard", async () => {
       window.clearTimeout(timer.current);
       timer.current = undefined;
@@ -315,16 +316,16 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
       {dialog}
       <div className={showPanel ? "ws-ed-grid" : undefined}>
         <div className="stack-lg" style={{ gap: 28, minWidth: 0, maxWidth: showPanel ? undefined : 980 }}>
-          <div className="row-wrap" style={{ gap: 16 }}>
-            <Link href="/admin/website" className="link small">All website pages</Link>
-          </div>
-          <div className="stack-sm">
-            <h1 className="page-title">{data.page.label}</h1>
-            <p className="lede" style={{ fontSize: 17 }}>
-              {data.page.about ? data.page.about : <>The page at <a className="link" href={data.page.path} target="_blank" rel="noreferrer">{data.page.path}</a>.</>}{" "}
-              Changes save as a draft automatically; visitors see them only after you publish. Text shows exactly as typed (no formatting codes); a line break starts a new paragraph.
-            </p>
-          </div>
+          <PageHeader
+            back={{ href: "/admin/website", label: "All website pages" }}
+            title={data.page.label}
+            lede={
+              <>
+                {data.page.about ? data.page.about : <>The page at <a className="link" href={data.page.path} target="_blank" rel="noreferrer">{data.page.path}</a>.</>}{" "}
+                Changes save as a draft automatically; visitors see them only after you publish. Text shows exactly as typed (no formatting codes); a line break starts a new paragraph.
+              </>
+            }
+          />
 
           <div className="card stack ws-bar" style={{ gap: 12 }}>
             <div className="row-wrap" style={{ gap: 10, alignItems: "center" }}>
@@ -382,9 +383,9 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
           {notice && <div role="status" className={`alert ${notice.ok ? "alert-success" : "alert-danger"}`}>{notice.text}</div>}
 
           {layoutPage && (
-            <div className="ws-tabs" role="tablist" aria-label="What to edit">
-              <button type="button" role="tab" aria-selected={tab === "content"} onClick={() => setTab("content")}>Content</button>
-              <button type="button" role="tab" aria-selected={tab === "layout"} onClick={() => setTab("layout")}>
+            <div className="tabs adm-tabs-inline" role="tablist" aria-label="What to edit">
+              <button type="button" role="tab" className="tab" aria-selected={tab === "content"} onClick={() => setTab("content")}>Content</button>
+              <button type="button" role="tab" className="tab" aria-selected={tab === "layout"} onClick={() => setTab("layout")}>
                 Layout{!same(values.layout, data.live.layout) && <ChangedTag />}
               </button>
             </div>
@@ -399,7 +400,7 @@ export default function AdminWebsiteEditPage({ params }: { params: { page: strin
           {(tab === "content" || !layoutPage) && groups.map((g) => (
             <section key={g.key} id={`ws-sec-${g.key}`} className={`card stack ws-sec${g.hidden ? " ws-sec-hidden" : ""}`} style={{ gap: 18 }}>
               {g.title && (
-                <h2 style={{ fontSize: 22 }}>
+                <h2 className="block-title">
                   {g.title}
                   {g.hidden && <span className="badge" style={{ marginLeft: 10, verticalAlign: 4 }}>Hidden on the page</span>}
                 </h2>

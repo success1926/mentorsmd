@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 // The page itself is a client component, so its title and description live here.
 export const metadata: Metadata = {
-  title: "Forgot Password",
+  title: "Forgot password",
   robots: { index: false },
 };
 

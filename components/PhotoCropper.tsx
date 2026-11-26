@@ -97,7 +97,7 @@ export function PhotoCropper({ file, onCancel, onDone, busy }: { file: File; onC
   return (
     <Modal open onClose={onCancel} label="Position your photo">
       <div className="stack" style={{ gap: 14, alignItems: "center" }}>
-        <h2 style={{ fontSize: 24, alignSelf: "flex-start", paddingRight: 36 }}>Position your photo</h2>
+        <h2 className="modal-title" style={{ alignSelf: "flex-start" }}>Position your photo</h2>
         <span className="text-secondary small" style={{ alignSelf: "flex-start" }}>Drag to move it and use the slider to zoom. The circle is how it shows on your profile and in messages.</span>
         {error ? (
           <div role="alert" className="alert alert-danger">{error}</div>

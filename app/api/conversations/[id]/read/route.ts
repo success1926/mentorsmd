@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { markRead } from "@/lib/unread";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 
 // Marks a conversation read for the logged-in person. Called when a new
 // message arrives while they already have the thread open.
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  const userId = (session.user as any).id;
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
+  const userId = me.id;
 
   const convo = await prisma.conversation.findUnique({ where: { id: params.id }, select: { id: true, buyerId: true, sellerId: true } });
   if (!convo || (convo.buyerId !== userId && convo.sellerId !== userId)) {

@@ -14,7 +14,6 @@ export const REPORT_REASONS = [
   { value: "OTHER", label: "Something else", severity: 1 },
 ] as const;
 
-export type ReportReason = (typeof REPORT_REASONS)[number]["value"];
 
 export function reportReason(value: unknown) {
   return REPORT_REASONS.find((r) => r.value === value) || null;

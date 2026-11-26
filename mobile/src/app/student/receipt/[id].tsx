@@ -1,9 +1,9 @@
 import { useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { LoadError } from "../../../components/shared";
-import { Btn, Card, Hdr, KV, Loading, Screen, Small } from "../../../components/ui";
+import { Btn, Card, Hdr, KV, LoadError, Loading, Screen, Small } from "../../../components/ui";
 import { dollars, SITE, useApi } from "../../../lib/api";
-import { fmtDayYear, hoursLabel, pkgTitle, type Pkg } from "../../../lib/orders";
+import { hoursLabel, pkgTitle, type Pkg } from "../../../lib/orders";
+import { fmtDay } from "../../../lib/format";
 
 // One receipt: an order (/api/orders/[id]), or one of its "Add hours"
 // payments (?t=<topUpId>).
@@ -25,7 +25,7 @@ export default function Receipt() {
   const receiptId = top ? `t_${top.id}` : `o_${o.id}`;
   return (
     <Screen>
-      <Hdr title="Receipt" sub={fmtDayYear(top ? top.paidAt : o.paidAt || o.createdAt)} />
+      <Hdr title="Receipt" sub={fmtDay(top ? top.paidAt : o.paidAt || o.createdAt)} />
       <Card>
         <KV k={top ? `${hoursLabel(top.minutes)} more: ${pkgTitle(o)}` : pkgTitle(o)} v={dollars(total)} />
         <KV k="Mentor" v={o.seller?.name || ""} />

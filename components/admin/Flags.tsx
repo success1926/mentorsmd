@@ -2,15 +2,16 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { StaffBadge } from "@/components/ui";
+import { Collapsible, EmptyState, LoadingBlock, StaffBadge, StatusBadge } from "@/components/ui";
+import { ShowMore } from "@/components/admin/ShowMore";
+import { orderStatus } from "@/lib/statusLabels";
 import { money } from "@/lib/options";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { fmtDateTime } from "@/lib/format";
 
 // Admin -> Flags (#87): reports, disputes and automatic flags in one
 // queue, most severe first. Evidence is shown with the matching words
 // highlighted. Actions: Dismiss / Warn / Pause / Remove.
-
-const fmt = (d: string) => new Date(d).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
 export const SEVERITY: Record<number, { label: string; cls: string }> = {
   3: { label: "High", cls: "badge-danger" },
@@ -44,16 +45,6 @@ const ACTION_LABEL: Record<string, string> = {
   AUTO_PAUSE: "Paused automatically",
 };
 
-// Plain words for the order line on a flag (same wording as Orders & Payouts).
-const FLAG_ORDER_STATUS: Record<string, string> = {
-  PENDING_PAYMENT: "not paid yet",
-  IN_ESCROW: "active",
-  COMPLETED: "approved, waiting for payout",
-  RELEASED: "paid to mentor",
-  REFUNDED: "refunded as credit",
-  CANCELLED: "cancelled",
-};
-
 const roleWord =(r?: string) => (r === "SELLER" ? "mentor" : r === "BUYER" ? "student" : r === "ADMIN" ? "admin" : "");
 
 function sourceLine(f: any) {
@@ -79,33 +70,39 @@ export function Highlighted({ text, matches }: { text: string; matches: string[]
 
 export function FlagsAdmin({ onChanged }: { onChanged?: () => void }) {
   const [view, setView] = useState<"open" | "closed">("open");
-  const [data, setData] = useState<{ flags: any[]; counts: { open: number; high: number } } | null>(null);
+  // Both lists load together so each tab can show its count (the server
+  // sends the last 150 handled flags, so that count tops out at "150+").
+  const [lists, setLists] = useState<{ open: any[]; closed: any[]; counts: { open: number; high: number } } | null>(null);
   const [kind, setKind] = useState("ALL");
 
   const load = useCallback(() => {
-    fetch(`/api/admin/flags?view=${view}`)
-      .then((r) => r.json())
-      .then((d) => setData({ flags: d.flags || [], counts: d.counts || { open: 0, high: 0 } }))
-      .catch(() => setData({ flags: [], counts: { open: 0, high: 0 } }));
-  }, [view]);
+    const get = (v: string) => fetch(`/api/admin/flags?view=${v}`).then((r) => r.json());
+    Promise.all([get("open"), get("closed")])
+      .then(([o, c]) => setLists({ open: o.flags || [], closed: c.flags || [], counts: o.counts || { open: 0, high: 0 } }))
+      .catch(() => setLists({ open: [], closed: [], counts: { open: 0, high: 0 } }));
+  }, []);
   useEffect(load, [load]);
 
+  const data = lists ? { flags: lists[view], counts: lists.counts } : null;
   const flags = (data?.flags || []).filter((f) => kind === "ALL" || f.kind === kind);
   const kinds = Array.from(new Set((data?.flags || []).map((f) => f.kind)));
+  const handledCount = lists ? (lists.closed.length >= 150 ? "150+" : lists.closed.length) : null;
 
   return (
     <section className="stack-sm" id="flags">
       <div className="between" style={{ flexWrap: "wrap", gap: 10 }}>
-        <h2 style={{ fontSize: 30 }}>Flags</h2>
+        <h2 className="block-title">Flags</h2>
         {data && data.counts.high > 0 && <span className="badge badge-danger">{data.counts.high} high severity open</span>}
       </div>
       <p className="text-secondary">Reports from students and mentors, disputes, and automatic flags (word filter, off-site contact, ghostwriting, links, AI check, daily performance checks). Most serious first. Three upheld flags (Warn, Pause or Remove) about the same person within 90 days pauses their account automatically.</p>
       <div className="row-wrap">
-        <div className="tabs" role="tablist">
-          <button role="tab" className="tab" aria-selected={view === "open"} onClick={() => setView("open")}>
-            Open {data && <span className="tab-count">{data.counts.open}</span>}
+        <div className="tabs adm-tabs-inline" role="tablist" aria-label="Flags">
+          <button type="button" role="tab" className="tab" aria-selected={view === "open"} onClick={() => setView("open")}>
+            Open {lists && <span className="tab-count">{lists.counts.open}</span>}
           </button>
-          <button role="tab" className="tab" aria-selected={view === "closed"} onClick={() => setView("closed")}>Handled</button>
+          <button type="button" role="tab" className="tab" aria-selected={view === "closed"} onClick={() => setView("closed")}>
+            Handled {handledCount != null && <span className="tab-count">{handledCount}</span>}
+          </button>
         </div>
         {kinds.length > 1 && (
           <select className="input" style={{ width: "auto", marginBottom: 0 }} value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Filter by type">
@@ -114,8 +111,8 @@ export function FlagsAdmin({ onChanged }: { onChanged?: () => void }) {
           </select>
         )}
       </div>
-      {data === null && <p className="text-muted">Loading…</p>}
-      {data && flags.length === 0 && <div className="card text-muted">{view === "open" ? "Nothing to review. Nice." : "No handled flags yet."}</div>}
+      {data === null && <LoadingBlock lines={2} cards={2} title={false} />}
+      {data && flags.length === 0 && <EmptyState>{view === "open" ? "Nothing to review. Nice." : "No handled flags yet."}</EmptyState>}
       {flags.map((f) => (
         <FlagCard key={f.id} flag={f} onDone={() => { load(); onChanged?.(); }} />
       ))}
@@ -133,7 +130,7 @@ function FlagCard({ flag: f, onDone }: { flag: any; onDone: () => void }) {
   const subject = f.subject;
   const open = f.status === "OPEN";
 
-  const { ask, dialog } = useAdminDialog();
+  const { ask, dialog } = useConfirm();
 
   // Sends the decision; returns an error message for the pop-up, or nothing.
   async function send(action: string, n: string): Promise<string | void> {
@@ -154,7 +151,7 @@ function FlagCard({ flag: f, onDone }: { flag: any; onDone: () => void }) {
         action === "PAUSE"
           ? { title: `Pause ${who}'s account pending review?`, body: `${subject?.role === "SELLER" ? "Their profile is hidden from search." : "They can't send messages."} They get an email.`, confirmLabel: "Pause", reason: { label: "Note (optional, kept on record)", initial: note } }
           : action === "WARN"
-          ? { title: `Email ${who} a warning?`, body: `About "${f.reason}". Your note is included in the email.`, confirmLabel: "Send Warning", reason: { label: "Note to include (optional)", initial: note } }
+          ? { title: `Email ${who} a warning?`, body: `About "${f.reason}". Your note is included in the email.`, confirmLabel: "Send warning", reason: { label: "Note to include (optional)", initial: note } }
           : { title: `Remove ${who}?`, body: "They'll be hidden and can't log in.", confirmLabel: "Remove", danger: true, reason: { label: "Reason (kept on record)", required: true, initial: note }, typeToConfirm: subject?.name || "REMOVE" };
       await ask({ ...opts, run: (n) => send(action, n) });
       return;
@@ -180,11 +177,11 @@ function FlagCard({ flag: f, onDone }: { flag: any; onDone: () => void }) {
         <span className="row-wrap" style={{ gap: 6 }}>
           <span className={`badge ${sev.cls}`}>{sev.label}</span>
           <span className="badge badge-brand">{kindLabel(f.kind)}</span>
-          <span className="text-muted small">{sourceLine(f)} · {fmt(f.createdAt)}</span>
+          <span className="text-muted small">{sourceLine(f)} · {fmtDateTime(f.createdAt)}</span>
         </span>
         {!open && (
           <span className="badge badge-success">
-            {ACTION_LABEL[f.action] || f.status}{f.resolvedBy ? ` by ${f.resolvedBy.name}` : ""}{f.resolvedAt ? ` · ${fmt(f.resolvedAt)}` : ""}
+            {ACTION_LABEL[f.action] || f.status}{f.resolvedBy ? ` by ${f.resolvedBy.name}` : ""}{f.resolvedAt ? ` · ${fmtDateTime(f.resolvedAt)}` : ""}
           </span>
         )}
       </div>
@@ -205,24 +202,24 @@ function FlagCard({ flag: f, onDone }: { flag: any; onDone: () => void }) {
       )}
       {f.order && (
         <span className="small">
-          Order: <b>{f.order.gig.title}</b> · {money(f.order.amount)} · {FLAG_ORDER_STATUS[f.order.status] || f.order.status.toLowerCase().replace(/_/g, " ")}{f.order.disputed ? " · disputed" : ""} ·{" "}
+          Order: <b>{f.order.gig.title}</b> · {money(f.order.amount)} · <StatusBadge order={f.order} audience="admin" />{f.order.disputed && orderStatus(f.order, "admin").tone !== "danger" ? " · disputed" : ""} ·{" "}
           <Link href={`/orders/${f.order.id}`} className="link">Open order</Link>
           {f.kind === "DISPUTE" && open && <> · refund or release it under <a href="#disputes" className="link">Disputes</a></>}
         </span>
       )}
       {f.conversationId && (
-        <button type="button" className="link-btn small" style={{ alignSelf: "flex-start" }} onClick={toggleThread}>
-          {showThread ? "Hide conversation" : "Show the conversation"}
+        <button type="button" className="btn btn-sm btn-ghost toggle-btn" style={{ alignSelf: "flex-start" }} aria-expanded={showThread} aria-controls={`flag-thread-${f.id}`} onClick={toggleThread}>
+          {showThread ? "Hide conversation" : "Show conversation"}
         </button>
       )}
       {showThread && (
-        <div className="msg-thread" style={{ maxHeight: 360, overflowY: "auto" }}>
-          {thread === null && <span className="text-muted">Loading…</span>}
+        <div id={`flag-thread-${f.id}`} className="msg-thread" style={{ maxHeight: 360, overflowY: "auto" }}>
+          {thread === null && <LoadingBlock lines={2} title={false} />}
           {thread?.length === 0 && <span className="text-muted">No messages.</span>}
           {thread?.map((m) => (
-            <div key={m.id} className={`msg-bubble ${m.senderId === subject?.id ? "msg-theirs" : "msg-mine"}`} style={m.id === f.messageId ? { outline: "3px solid #E3A008" } : undefined}>
+            <div key={m.id} className={`msg-bubble ${m.senderId === subject?.id ? "msg-theirs" : "msg-mine"}${m.id === f.messageId ? " adm-msg-flagged" : ""}`}>
               <div style={{ fontSize: 11, opacity: 0.8, marginBottom: 2 }}>
-                {m.sender?.name} ({roleWord(m.sender?.role)}) {m.sender?.role === "ADMIN" && <StaffBadge />} · {fmt(m.createdAt)}
+                {m.sender?.name} ({roleWord(m.sender?.role)}) {m.sender?.role === "ADMIN" && <StaffBadge />} · {fmtDateTime(m.createdAt)}
               </div>
               <Highlighted text={m.body} matches={m.id === f.messageId ? f.matches : []} />
               {m.attachmentName && (
@@ -275,30 +272,25 @@ export function ActionLog() {
   }, []);
   useEffect(() => load(), [load]);
 
+  // The only section on its page, so no heading of its own (the page has one).
   return (
     <section className="stack-sm" id="action-log">
-      <h2 style={{ fontSize: 30 }}>Action log</h2>
       <div className="between" style={{ gap: 8, flexWrap: "wrap" }}>
         <p className="text-secondary">Every admin decision: flags, pauses, removals, refunds, releases and invites, with who did it and when.</p>
         <a className="btn btn-sm" href="/api/admin/actions?format=csv" download>Download CSV</a>
       </div>
-      <details className="collapse">
-        <summary><span className="row" style={{ gap: 8 }}>Recent actions {rows && <span className="tab-count">{rows.length}{hasMore ? "+" : ""}</span>}</span></summary>
-        <div className="collapse-body" style={{ gap: 0 }}>
-          {rows === null && <span className="text-muted">Loading…</span>}
-          {rows?.length === 0 && <span className="text-muted">Nothing yet.</span>}
-          {rows?.map((a) => (
-            <div key={a.id} className="list-row" style={{ flexWrap: "wrap" }}>
-              <span className="text-muted small nowrap" style={{ minWidth: 120 }}>{fmt(a.createdAt)}</span>
-              <span className="grow small">{a.summary}</span>
-              <span className="badge">{a.admin?.name || "System"}</span>
-            </div>
-          ))}
-          {hasMore && rows && rows.length > 0 && (
-            <button className="btn btn-sm" style={{ alignSelf: "flex-start", marginTop: 10 }} onClick={() => load(rows[rows.length - 1].createdAt)}>Show older</button>
-          )}
-        </div>
-      </details>
+      <Collapsible title="Recent actions" count={rows ? rows.length : null} defaultOpen bodyClassName="adm-collapse-list">
+        {rows === null && <LoadingBlock lines={4} title={false} />}
+        {rows?.length === 0 && <EmptyState>Nothing yet.</EmptyState>}
+        {rows?.map((a) => (
+          <div key={a.id} className="list-row" style={{ flexWrap: "wrap" }}>
+            <span className="text-muted small nowrap" style={{ minWidth: 120 }}>{fmtDateTime(a.createdAt)}</span>
+            <span className="grow small">{a.summary}</span>
+            <span className="badge">{a.admin?.name || "System"}</span>
+          </div>
+        ))}
+        {hasMore && rows && rows.length > 0 && <ShowMore onClick={() => load(rows[rows.length - 1].createdAt)} />}
+      </Collapsible>
     </section>
   );
 }

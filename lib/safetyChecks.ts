@@ -11,10 +11,10 @@ import { SITE_URL, sendSafetyDigestEmail, type DigestSummary } from "@/lib/email
 
 const DAY = 86400_000;
 const ESSAY_SERVICES = ["PERSONAL_STATEMENT", "SECONDARIES", "ACTIVITIES", "REAPPLICANT"];
-export const QUIET_AFTER_CONTACT_DAYS = 3;
+const QUIET_AFTER_CONTACT_DAYS = 3;
 
 // #91 Performance flags (and #93 low conversion) for every visible mentor.
-export async function runPerformanceChecks(now = new Date()) {
+async function runPerformanceChecks(now = new Date()) {
   const mentors = await prisma.user.findMany({
     where: { role: "SELLER", profileStatus: { not: "REMOVED" }, removedByAdmin: false },
     select: { id: true, name: true, profileStatus: true },
@@ -54,7 +54,7 @@ export async function runPerformanceChecks(now = new Date()) {
 // #93 "Went quiet after exchanging contact info": contact details were
 // flagged in a conversation 3-30 days ago, and since then there's been at
 // most one more message and no order on MentorsMD.
-export async function runQuietAfterContactCheck(now = new Date()) {
+async function runQuietAfterContactCheck(now = new Date()) {
   const flags = await prisma.flag.findMany({
     where: {
       kind: "OFF_SITE",
@@ -98,7 +98,7 @@ export async function runQuietAfterContactCheck(now = new Date()) {
 // #92 "Essay with no draft": an essay-type order was delivered with files,
 // but the student never shared a file of their own in the conversation.
 // A hint, not proof (drafts can arrive other ways), so low severity.
-export async function runEssayWithoutDraftCheck(now = new Date()) {
+async function runEssayWithoutDraftCheck(now = new Date()) {
   const orders = await prisma.order.findMany({
     where: {
       gig: { service: { in: ESSAY_SERVICES } },
@@ -141,7 +141,7 @@ export async function runEssayWithoutDraftCheck(now = new Date()) {
 }
 
 // High-severity flags whose instant email didn't go out (e.g. email was down).
-export async function resendMissedAlerts() {
+async function resendMissedAlerts() {
   const missed = await prisma.flag.findMany({
     where: { status: "OPEN", severity: { gte: 3 }, emailedAt: null },
     select: { id: true },
@@ -152,7 +152,7 @@ export async function resendMissedAlerts() {
 }
 
 // #88 Weekly digest, sent on Mondays (UTC) by the daily run.
-export async function sendWeeklyDigest(now = new Date(), force = false) {
+async function sendWeeklyDigest(now = new Date(), force = false) {
   if (!force && now.getUTCDay() !== 1) return { sent: false, reason: "not Monday" };
   const week = new Date(now.getTime() - 7 * DAY);
   const [open, newThisWeek, high, byKind, top, autoPaused, admins] = await Promise.all([

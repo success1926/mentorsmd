@@ -3,12 +3,12 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, TextInput, View, type ScrollViewInstance } from "react-native";
 import { useSafetySheet } from "../../../components/safety";
-import { LoadError, useRefresh } from "../../../components/shared";
-import { Btn, Bubble, Card, FChip, Hdr, Link, Loading, Note, RowV, Screen, Small, TT } from "../../../components/ui";
+import { useRefresh } from "../../../components/shared";
+import { Btn, Bubble, Card, FChip, Hdr, Link, LoadError, Loading, Note, RowV, Screen, Small, TT } from "../../../components/ui";
 import { api, ApiError, errorText, useApi } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth";
-import { first, fmtDay, fmtTime } from "../../../lib/orders";
 import { fonts, useColors } from "../../../lib/theme";
+import { firstName, fmtDay, fmtTime } from "../../../lib/format";
 
 type Msg = { id: string; body: string; senderId: string; attachmentName: string | null; createdAt: string; orderId: string | null; sender?: { id: string; name: string; role: string } };
 type Ctx = {
@@ -37,10 +37,10 @@ export default function Chat() {
   const scroll = useRef<ScrollViewInstance>(null);
 
   const mentor = ctx.data?.conversation.seller;
-  const name1 = first(mentor?.name);
+  const name1 = firstName(mentor?.name);
   const blocked = ctx.data?.safety.iBlocked ? `You blocked ${name1}. Unblock them to send a message.` : ctx.data?.safety.theyBlocked ? "You can’t message this person." : "";
   const list = msgs.data?.messages || [];
-  const hasPackage = (ctx.data?.orders || []).some((o) => !!o.kind && ["IN_ESCROW", "COMPLETED", "RELEASED"].includes(o.status));
+  const hasPackage = (ctx.data?.orders || []).some((o) => ["IN_ESCROW", "COMPLETED", "RELEASED"].includes(o.status));
 
   useEffect(() => {
     const t = setTimeout(() => scroll.current?.scrollToEnd({ animated: false }), 50);

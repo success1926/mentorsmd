@@ -1,7 +1,7 @@
 // Finding links in text. No server-only code, so the message thread in
 // the browser uses the same rules to turn links into safe links.
 
-export const SHORTENERS = [
+const SHORTENERS = [
   "bit.ly", "bitly.com", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "buff.ly", "rebrand.ly", "cutt.ly",
   "shorturl.at", "rb.gy", "tiny.cc", "bl.ink", "t.ly", "s.id", "lnkd.in", "shorte.st", "adf.ly", "bit.do", "v.gd",
   "qr.ae", "tr.im", "soo.gd", "x.co", "tiny.one", "short.io", "shorturl.com", "rotf.lol", "u.to", "clck.ru", "urlz.fr",

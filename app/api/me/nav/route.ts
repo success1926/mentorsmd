@@ -5,7 +5,7 @@ import { isMentorListed, isMentorVisible } from "@/lib/mentor";
 import { profileFieldsSelect, profileProgress } from "@/lib/profileCompleteness";
 import { creditBalance } from "@/lib/credit";
 import { isStudentProfileFilled, profileFromRow, studentProfileSelect } from "@/lib/studentProfile";
-import { getSession } from "@/lib/session";
+import { getSession, sessionUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -15,10 +15,10 @@ export const dynamic = "force-dynamic";
 // v2): active packages, how many wait on their answer, upcoming calls and
 // their MentorsMD credit.
 export async function GET() {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ unread: 0, unreadConversations: 0, mentor: null, student: null });
-  const userId = (session.user as any).id;
-  const role = (session.user as any).role;
+  const viewer = sessionUser(await getSession());
+  if (!viewer) return NextResponse.json({ unread: 0, unreadConversations: 0, mentor: null, student: null });
+  const userId = viewer.id;
+  const role = viewer.role;
   const isMentor = role === "SELLER";
 
   const [unread, activePackages, me] = await Promise.all([
@@ -50,7 +50,7 @@ export async function GET() {
       payoutsStarted: !!me.stripeAccountId,
     };
   }
-  const student = role === "BUYER" ? await studentStatus(userId, session.user.name || "") : null;
+  const student = role === "BUYER" ? await studentStatus(userId, viewer.name || "") : null;
   return NextResponse.json({ unread: unread.messages, unreadConversations: unread.conversations, mentor, student });
 }
 

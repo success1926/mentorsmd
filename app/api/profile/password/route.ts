@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/prisma";
 import { isValidNewPassword, PASSWORD_RULE } from "@/lib/validate";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 
 // Change password while logged in. Requires the current password, so
 // someone who walks up to an unlocked laptop can't lock the owner out.
 export async function POST(req: Request) {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  const userId = (session.user as any).id;
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
+  const userId = me.id;
 
   const { currentPassword, newPassword } = await req.json().catch(() => ({}));
   if (!isValidNewPassword(newPassword)) return NextResponse.json({ error: PASSWORD_RULE }, { status: 400 });

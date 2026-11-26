@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { EmailTabs } from "@/components/admin/AdminTabs";
 import { GROUP_LABELS, type EmailGroup } from "@/lib/emailTemplates";
+import { LoadingBlock, PageHeader } from "@/components/ui";
+import { fmtDateTime } from "@/lib/format";
 
 type Planned = { userId: string; name: string; toEmail: string; about: string; step: number; steps: number; dueAt: string };
 type Reminder = {
@@ -24,7 +26,6 @@ type Reminder = {
 type Sent = { id: string; key: string; name: string; step: number; toEmail: string; userId: string; userName: string | null; aboutName: string | null; sentAt: string };
 type Data = { now: string; nextRun: string; aheadDays: number; canRun: boolean; reminders: Reminder[]; recent: Sent[] };
 
-const fmtWhen = (d: string) => new Date(d).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const stepLabel = (p: { step: number; steps: number }) => (p.steps > 1 ? `Email ${p.step + 1} of ${p.steps}` : "");
 
 function PlannedTable({ rows, total, showDue }: { rows: Planned[]; total: number; showDue: boolean }) {
@@ -40,7 +41,7 @@ function PlannedTable({ rows, total, showDue }: { rows: Planned[]; total: number
             <tr key={`${p.userId}-${p.about}-${p.step}`}>
               <td className="wrap-cell"><b>{p.name}</b><div className="text-muted">{p.toEmail}</div></td>
               <td className="wrap-cell">{p.about}</td>
-              {showDue && <td>{fmtWhen(p.dueAt)}</td>}
+              {showDue && <td>{fmtDateTime(p.dueAt)}</td>}
               <td>{stepLabel(p) || "Only email"}</td>
             </tr>
           ))}
@@ -61,7 +62,7 @@ export default function AdminOutboxPage() {
   const [error, setError] = useState("");
   const [running, setRunning] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
-  const { confirm, dialog } = useAdminDialog();
+  const { confirm, dialog } = useConfirm();
 
   const load = useCallback(() => {
     setError("");
@@ -76,7 +77,7 @@ export default function AdminOutboxPage() {
   }, [isAdmin, load]);
 
   async function runNow() {
-    if (!(await confirm({ title: "Send every reminder that's due right now?", body: "Only reminders that are switched on are sent, and nobody gets the same reminder twice.", confirmLabel: "Send Now" }))) return;
+    if (!(await confirm({ title: "Send every reminder that's due right now?", body: "Only reminders that are switched on are sent, and nobody gets the same reminder twice.", confirmLabel: "Send now" }))) return;
     setRunning(true);
     setNotice(null);
     const res = await fetch("/api/admin/emails/outbox", { method: "POST" });
@@ -87,28 +88,25 @@ export default function AdminOutboxPage() {
     load();
   }
 
-  if (status === "loading") return <div className="page text-muted">Loading…</div>;
+  if (status === "loading") return <div className="page"><LoadingBlock lines={5} /></div>;
   if (!isAdmin) return <div className="page-narrow"><div className="alert alert-danger">Admin access required.</div></div>;
 
   return (
     <div className="page stack-lg" style={{ gap: 28 }}>
       {dialog}
-      <div className="stack-sm">
-        <h1 className="page-title">Emails</h1>
-        <p className="lede">
-          Reminder emails go out once a day{data ? `, next at ${fmtWhen(data.nextRun)}` : ""}. Here&apos;s who gets each one on the next run, who&apos;s
-          coming up, and what was sent recently. Switch a reminder on or change its timing on its page in Templates.
-        </p>
-      </div>
+      <PageHeader
+        title="Emails"
+        lede={`Reminder emails go out once a day${data ? `, next at ${fmtDateTime(data.nextRun)}` : ""}. Here's who gets each one on the next run, who's coming up, and what was sent recently. Switch a reminder on or change its timing on its page in Templates.`}
+      />
       <EmailTabs />
 
       {notice && <div role="status" className={`alert ${notice.ok ? "alert-success" : "alert-danger"}`}>{notice.text}</div>}
       {error && <div className="alert alert-danger">{error}</div>}
-      {!data && !error && <p className="text-muted">Working out who&apos;s due…</p>}
+      {!data && !error && <LoadingBlock lines={3} cards={2} title={false} label="Working out who's due…" />}
 
       {data && data.canRun && (
         <div className="row-wrap">
-          <button className="btn" disabled={running} onClick={runNow}>{running ? "Sending…" : "Run now"}</button>
+          <button type="button" className="btn" disabled={running} onClick={runNow}>{running ? "Sending…" : "Run now"}</button>
           <span className="text-muted">Sends what&apos;s due now, the same as the daily run (Owner only).</span>
         </div>
       )}
@@ -117,7 +115,7 @@ export default function AdminOutboxPage() {
         <section key={r.key} className="card stack" style={{ gap: 14 }}>
           <div className="row-wrap" style={{ justifyContent: "space-between" }}>
             <div className="stack-sm" style={{ gap: 2 }}>
-              <Link href={`/admin/emails/${r.key}`} style={{ color: "inherit" }}><b style={{ fontSize: 17 }}>{r.name}</b></Link>
+              <Link href={`/admin/emails/${r.key}`} style={{ color: "inherit" }}><b className="card-title">{r.name}</b></Link>
               <span className="text-secondary" style={{ fontSize: 14 }}>
                 To: {GROUP_LABELS[r.group]} · {r.timing} ({r.steps.join(", ")})
               </span>
@@ -129,12 +127,12 @@ export default function AdminOutboxPage() {
             <div className="alert alert-blue">This reminder is off, so nobody below gets it. This is who would, if it were on.</div>
           )}
           <div className="stack-sm">
-            <b>Next run{data ? ` (${fmtWhen(data.nextRun)})` : ""}: {r.nextCount}</b>
+            <b>Next run{data ? ` (${fmtDateTime(data.nextRun)})` : ""}: {r.nextCount}</b>
             <PlannedTable rows={r.next} total={r.nextCount} showDue={false} />
           </div>
           <div className="stack-sm">
             <b>Coming up in the next {data.aheadDays} days: {r.laterCount}</b>
-            <span className="text-muted">Sent on the first daily run after the due time, unless something changes first (they buy, finish their profile...).</span>
+            <span className="text-muted">Sent on the first daily run after the due time, unless something changes first (they buy, finish their profile…).</span>
             <PlannedTable rows={r.later} total={r.laterCount} showDue />
           </div>
         </section>
@@ -142,7 +140,7 @@ export default function AdminOutboxPage() {
 
       {data && (
         <section className="stack-sm">
-          <h2 style={{ fontSize: 26 }}>Recently sent</h2>
+          <h2 className="block-title">Recently sent</h2>
           <span className="text-muted">The last 50 reminders. Every email, with whether it was delivered, is in the <Link href="/admin/email-log">Sent log</Link>.</span>
           <div className="table-wrap">
             <table className="data-table">
@@ -155,7 +153,7 @@ export default function AdminOutboxPage() {
                 )}
                 {data.recent.map((s) => (
                   <tr key={s.id}>
-                    <td>{fmtWhen(s.sentAt)}</td>
+                    <td>{fmtDateTime(s.sentAt)}</td>
                     <td><Link href={`/admin/emails/${s.key}`}>{s.name}</Link></td>
                     <td className="wrap-cell">{s.userName && <b>{s.userName}</b>}<div className="text-muted">{s.toEmail}</div></td>
                     <td className="wrap-cell">{s.aboutName || <span className="text-muted">-</span>}</td>

@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 export function SitePreviewBarClient({ pageKey, pageLabel }: { pageKey: string | null; pageLabel: string | null }) {
   const path = usePathname();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const { confirm: confirmDialog, dialog } = useAdminDialog();
+  const { confirm: confirmDialog, dialog } = useConfirm();
   const [msg, setMsg] = useState("");
   // Inside the editor's preview panel (Admin -> Website) the editor has its
   // own Publish/Discard buttons, so the bar is left out there.

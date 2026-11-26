@@ -1238,7 +1238,6 @@ function PARENT_CONSENT_VARS(): EmailVar[] {
 
 export const EMAILS: Record<string, EmailDef> = Object.fromEntries(LIST.map((d) => [d.key, d]));
 export const EMAIL_LIST: EmailDef[] = LIST.filter((d) => !d.retired);
-export type EmailKey = string;
 
 // ---- Reminder timing ("After 1 day, then 3 days") ----
 // Plain words an admin types in Admin -> Emails. Each number is one

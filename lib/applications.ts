@@ -7,8 +7,8 @@ import { guessMedicalSchool } from "@/lib/medicalSchools";
 // applications already in the database (no extra service needed).
 // reCAPTCHA is planned for later; this keeps bots and repeat
 // submissions in check until then.
-export const MAX_PER_IP_PER_DAY = 3;
-export const MAX_PER_EMAIL_PER_DAY = 2;
+const MAX_PER_IP_PER_DAY = 3;
+const MAX_PER_EMAIL_PER_DAY = 2;
 
 // The sender's IP, as Vercel reports it. Only a salted hash is ever stored.
 export function ipHashFor(req: Request): string | null {

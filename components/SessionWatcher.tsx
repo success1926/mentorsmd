@@ -171,7 +171,7 @@ export function SessionWatcher() {
   return (
     <Modal open={warning} onClose={stayLoggedIn} label="Still there?">
       <div className="stack" style={{ gap: 14 }}>
-        <h2 style={{ fontSize: 26 }}>Still there?</h2>
+        <h2 className="modal-title">Still there?</h2>
         <p className="text-secondary">
           For security, admins are logged out after an hour with no activity. You&apos;ll be logged out in{" "}
           <b>

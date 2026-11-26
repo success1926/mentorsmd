@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 
 // Health scorecard (Admin -> People -> View) and the performance checks
 // the daily safety cron turns into flags. All thresholds are here.
-export const PERF = {
+const PERF = {
   slowReplyAvgHours: 24, // average first-reply time over 30 days
   unansweredHours: 48, // a student message with no reply for this long
   overdueCount: 2, // overdue orders in 60 days

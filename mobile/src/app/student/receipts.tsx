@@ -1,9 +1,10 @@
 import { useRouter } from "expo-router";
 import { View } from "react-native";
-import { LoadError, useCallbackAll, useRefresh } from "../../components/shared";
-import { Hdr, Loading, Note, Row, Screen, Small } from "../../components/ui";
+import { useCallbackAll, useRefresh } from "../../components/shared";
+import { Hdr, LoadError, Loading, Note, Row, Screen, Small } from "../../components/ui";
 import { dollars, useApi } from "../../lib/api";
-import { fmtDayYear, hoursLabel, pkgTitle, priceFor, type Pkg } from "../../lib/orders";
+import { hoursLabel, pkgTitle, priceFor, type Pkg } from "../../lib/orders";
+import { fmtDay } from "../../lib/format";
 
 type OrderRow = { id: string; status: string; amount: number; creditAppliedCents: number; createdAt: string; paidAt: string | null; packageTitle: string | null; gig: { title: string } | null; seller: { name: string } };
 type Line = { key: string; href: string; title: string; sub: string; cents: number; at: number };
@@ -19,11 +20,11 @@ export default function Receipts() {
   for (const o of orders.data?.orders || []) {
     if (o.status === "PENDING_PAYMENT" || o.status === "CANCELLED") continue;
     const at = o.paidAt || o.createdAt;
-    lines.push({ key: "o" + o.id, href: `/student/receipt/${o.id}`, title: pkgTitle(o), sub: `${o.seller.name} · ${fmtDayYear(at)}${o.status === "REFUNDED" ? " · Refunded" : ""}`, cents: o.amount, at: new Date(at).getTime() });
+    lines.push({ key: "o" + o.id, href: `/student/receipt/${o.id}`, title: pkgTitle(o), sub: `${o.seller.name} · ${fmtDay(at)}${o.status === "REFUNDED" ? " · Refunded" : ""}`, cents: o.amount, at: new Date(at).getTime() });
   }
   for (const p of pk.data?.packages || [])
     for (const t of p.topUps || [])
-      lines.push({ key: "t" + t.id, href: `/student/receipt/${p.id}?t=${t.id}`, title: `${hoursLabel(t.minutes)} more: ${pkgTitle(p)}`, sub: `${p.seller?.name} · ${fmtDayYear(t.paidAt)}`, cents: priceFor(t.minutes, p.rateCents || 0), at: new Date(t.paidAt || 0).getTime() });
+      lines.push({ key: "t" + t.id, href: `/student/receipt/${p.id}?t=${t.id}`, title: `${hoursLabel(t.minutes)} more: ${pkgTitle(p)}`, sub: `${p.seller?.name} · ${fmtDay(t.paidAt)}`, cents: priceFor(t.minutes, p.rateCents || 0), at: new Date(t.paidAt || 0).getTime() });
   lines.sort((a, b) => b.at - a.at);
   const loading = (orders.loading && !orders.data) || (pk.loading && !pk.data);
   const error = (!orders.data && orders.error) || (!pk.data && pk.error);

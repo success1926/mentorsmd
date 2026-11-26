@@ -2,7 +2,8 @@
 
 import type { ListDef, ScalarDef } from "@/lib/siteContent";
 import { ImageFocusEditor } from "@/components/ImageFocusEditor";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { Collapsible } from "@/components/ui";
 
 // The inputs used by Admin -> Website: one per field type (text, longer
 // text, link, photo, one-per-line list) plus a list of cards. The page is
@@ -86,7 +87,7 @@ export function ScalarEditor({ def, value, onChange, compact, changed }: { def: 
 
 export function ListEditor({ def, value, live, onChange }: { def: ListDef; value: Values[]; live?: Values[]; onChange: (v: Values[]) => void }) {
   const fields = Object.entries(def.fields as Record<string, ScalarDef>);
-  const { confirm: confirmDialog, dialog } = useAdminDialog();
+  const { confirm: confirmDialog, dialog } = useConfirm();
   const blank = () => Object.fromEntries(fields.map(([k, f]) => [k, structuredClone(f.default)]));
   const move = (i: number, d: number) => {
     const next = [...value];
@@ -113,22 +114,23 @@ export function ListEditor({ def, value, live, onChange }: { def: ListDef; value
         const liveItem = live?.[i];
         const itemChanged = !!live && !same(item, liveItem);
         return (
-          <details key={i} className={`collapse${itemChanged ? " ws-changed" : ""}`} style={{ marginTop: 0 }}>
-            <summary>
-              <span>
+          <Collapsible
+            key={i}
+            className={`ws-list-item${itemChanged ? " ws-changed" : ""}`}
+            title={
+              <>
                 {def.itemLabel} {i + 1}
-                {titleOf(item) ? <span className="text-secondary" style={{ fontWeight: 400 }}> · {titleOf(item)}</span> : null}
                 {itemChanged && <ChangedTag />}
-              </span>
-            </summary>
-            <div className="collapse-body">
+              </>
+            }
+            meta={titleOf(item) || undefined}
+          >
               <div className="row-wrap" style={{ gap: 8 }}>
-                <button type="button" className="btn btn-soft" style={{ padding: "6px 12px", fontSize: 14 }} disabled={i === 0} onClick={() => move(i, -1)}>↑ Move up</button>
-                <button type="button" className="btn btn-soft" style={{ padding: "6px 12px", fontSize: 14 }} disabled={i === value.length - 1} onClick={() => move(i, 1)}>↓ Move down</button>
+                <button type="button" className="btn btn-soft btn-sm" disabled={i === 0} onClick={() => move(i, -1)}>↑ Move up</button>
+                <button type="button" className="btn btn-soft btn-sm" disabled={i === value.length - 1} onClick={() => move(i, 1)}>↓ Move down</button>
                 <button
                   type="button"
-                  className="btn"
-                  style={{ padding: "6px 12px", fontSize: 14, color: "var(--danger)" }}
+                  className="btn btn-sm ws-layout-remove"
                   onClick={() => {
                     void confirmDialog({ title: `Remove ${def.itemLabel.toLowerCase()} ${i + 1}?`, confirmLabel: "Remove", danger: true }).then((ok) => ok && onChange(value.filter((_, j) => j !== i)));
                   }}
@@ -146,8 +148,7 @@ export function ListEditor({ def, value, live, onChange }: { def: ListDef; value
                   onChange={(v) => onChange(value.map((it, j) => (j === i ? { ...it, [k]: v } : it)))}
                 />
               ))}
-            </div>
-          </details>
+          </Collapsible>
         );
       })}
       <button type="button" className="btn btn-soft" style={{ alignSelf: "flex-start" }} disabled={value.length >= def.maxItems} onClick={() => onChange([...value, blank()])}>

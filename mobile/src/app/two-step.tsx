@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Btn, Field, Hdr, Link, Note, Screen, Small, T, Toggle } from "../components/ui";
 import { errorText } from "../lib/api";
 import { areaFor, useAuth } from "../lib/auth";
-import { useOverlay } from "../lib/demo";
+import { useOverlay } from "../lib/overlay";
 import { useColors } from "../lib/theme";
 
 // The 2-step code after the password, for accounts that need one.

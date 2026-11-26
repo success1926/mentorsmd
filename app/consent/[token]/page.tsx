@@ -5,7 +5,7 @@ import { LegalBody } from "@/components/LegalBody";
 import { ConsentForm } from "./ConsentForm";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Parental Consent", robots: { index: false } };
+export const metadata = { title: "Parental consent", robots: { index: false } };
 
 // The page a parent or guardian opens from the consent email (#108): the
 // Terms and the Parental Consent form, then a typed full name as their
@@ -19,7 +19,7 @@ export default async function ConsentPage({ params }: { params: { token: string 
     return (
       <div className="page-narrow">
         <div className="card-narrow stack">
-          <h1 className="page-title" style={{ fontSize: 34 }}>{done ? "Consent already given" : "This link isn't valid any more"}</h1>
+          <h1 className="auth-title">{done ? "Consent already given" : "This link isn't valid any more"}</h1>
           <p className="text-secondary">
             {done
               ? "Thank you, your consent is already recorded. We emailed you a private link to see your student's orders and calls."
@@ -38,7 +38,7 @@ export default async function ConsentPage({ params }: { params: { token: string 
     <div className="page-narrow stack-lg">
       <div className="stack-sm">
         <span className="eyebrow">For parents and guardians</span>
-        <h1 className="page-title" style={{ textAlign: "left" }}>Consent for {consent.user.name}</h1>
+        <h1 className="page-title">Consent for {consent.user.name}</h1>
         <p className="lede">
           {consent.user.name}{age !== null ? ` (age ${age})` : ""} created a student account on MentorsMD and listed you, {consent.parentName}, as their parent or guardian.
           Please read the form and our Terms, then sign below.
@@ -46,12 +46,12 @@ export default async function ConsentPage({ params }: { params: { token: string 
       </div>
 
       <section className="card stack">
-        <h2 style={{ fontSize: 26 }}>{form.title}{form.version > 0 ? ` (version ${form.version})` : ""}</h2>
+        <h2 className="block-title">{form.title}{form.version > 0 ? ` (version ${form.version})` : ""}</h2>
         {form.body && <LegalBody body={form.body} />}
       </section>
 
       <section className="card stack">
-        <h2 style={{ fontSize: 26 }}>{terms.title}{terms.version > 0 ? ` (version ${terms.version})` : ""}</h2>
+        <h2 className="block-title">{terms.title}{terms.version > 0 ? ` (version ${terms.version})` : ""}</h2>
         {terms.body ? (
           <div style={{ maxHeight: 360, overflowY: "auto" }}>
             <LegalBody body={terms.body} />

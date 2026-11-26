@@ -88,13 +88,13 @@ export function ChangePasswordModal({ open, onClose, email }: { open: boolean; o
               <path d="M5 12.5l4.5 4.5L19 7.5" />
             </svg>
           </span>
-          <h2 style={{ fontSize: 26 }}>Your password has been changed</h2>
+          <h2 className="modal-title" style={{ paddingRight: 0 }}>Your password has been changed</h2>
           <p className="text-secondary">You&apos;re still logged in here. Other devices will be logged out within a few minutes.</p>
           <button className="btn btn-primary" onClick={close} style={{ minWidth: 140 }}>Done</button>
         </div>
       ) : (
         <form onSubmit={submit} className="stack" style={{ gap: 4 }}>
-          <h2 style={{ fontSize: 26, marginBottom: 12 }}>Change password</h2>
+          <h2 className="modal-title" style={{ marginBottom: 12 }}>Change password</h2>
           <PasswordInput id="pw-current" label="Current password" value={currentPw} onChange={setCurrentPw} autoComplete="current-password" />
           <PasswordInput id="pw-new" label="New password" value={newPw} onChange={setNewPw} autoComplete="new-password" />
           {newPw && (

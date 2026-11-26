@@ -14,13 +14,11 @@ import { logOut } from "@/components/TopNav";
 import { TwoStepSettings } from "@/components/TwoStepSettings";
 import { AppDevices } from "@/components/AppDevices";
 import { DeleteAccount } from "@/components/DeleteAccount";
+import { SettingsRow, SettingsSection } from "@/components/SettingsSection";
+import { Alert, LoadingBlock, PageHeader, SaveStatus } from "@/components/ui";
+import { fmtDay } from "@/lib/format";
 
 const LIMITS = { name: 100 };
-
-function Msg({ m }: { m: { ok: boolean; text: string } | null }) {
-  if (!m) return null;
-  return <div role="status" className={`alert ${m.ok ? "alert-success" : "alert-danger"}`}>{m.text}</div>;
-}
 
 // Settings for students (student area v2, Oct 2026): name and sign-in,
 // time zone, age & parent consent (under 18 only), receipts and credit,
@@ -38,10 +36,6 @@ export default function AccountPage() {
   const isStudent = (session?.user as any)?.role === "BUYER";
   const [profile, setProfile] = useState<any>(null);
   const [loadError, setLoadError] = useState(false);
-  const [name, setName] = useState("");
-  const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [pwOpen, setPwOpen] = useState(false);
 
   useEffect(() => {
     if (isSeller) router.replace(mentorAccountRedirect(window.location.hash, window.location.search));
@@ -57,7 +51,6 @@ export default function AccountPage() {
       .then(({ profile }) => {
         if (!profile) return setLoadError(true);
         setProfile(profile);
-        setName(profile.name || "");
       })
       .catch(() => setLoadError(true));
   }
@@ -67,7 +60,7 @@ export default function AccountPage() {
     loadProfile();
   }, [status, isSeller]);
 
-  // Jump to #calendar once the page has content.
+  // Jump to #time-zone, #two-step… once the page has content.
   useEffect(() => {
     if (profile && window.location.hash) {
       document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -84,201 +77,144 @@ export default function AccountPage() {
       </div>
     );
   }
-  if (isSeller) return <div className="page-narrow text-muted">Opening your mentor settings…</div>;
-  if (loadError) return <div className="page-narrow"><div className="alert alert-danger">Your session has ended. <Link href="/login" className="link">Log in again</Link>.</div></div>;
-  if (!profile) return <div className="page-narrow text-muted">Loading…</div>;
+  if (isSeller) return <div className="page-mid"><LoadingBlock lines={2} label="Opening your mentor settings…" /></div>;
+  if (loadError) return <div className="page-mid"><Alert tone="danger">Your session has ended. <Link href="/login" className="link">Log in again</Link>.</Alert></div>;
+  if (!profile) return <div className="page-mid"><LoadingBlock lines={3} cards={3} /></div>;
+  return <AccountSettings profile={profile} isStudent={isStudent} onReload={loadProfile} />;
+}
 
-  async function saveName(e: React.FormEvent) {
+// Name and login (students); name (admins, who manage sign-in below).
+function NameSection({ profile, onSaved, signIn, onChangePassword }: { profile: any; onSaved: () => void; signIn: boolean; onChangePassword: () => void }) {
+  const [name, setName] = useState(profile.name || "");
+  const [save, setSave] = useState<{ state: "idle" | "saving" | "saved" | "error"; error?: string }>({ state: "idle" });
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setSaving(true);
+    setSave({ state: "saving" });
     const res = await fetch("/api/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
     const data = await res.json().catch(() => ({}));
-    setSaving(false);
-    setSaveMsg(res.ok ? { ok: true, text: "Saved." } : { ok: false, text: data.error || "Couldn't save" });
-    if (res.ok) loadProfile();
+    setSave(res.ok ? { state: "saved" } : { state: "error", error: data.error || "Couldn't save" });
+    if (res.ok) onSaved();
   }
-
-  if (isStudent) {
-    return (
-      <StudentSettings
-        profile={profile}
-        name={name}
-        setName={setName}
-        saving={saving}
-        saveMsg={saveMsg}
-        onSaveName={saveName}
-        onReload={loadProfile}
-        onChangePassword={() => setPwOpen(true)}
-        passwordModal={<ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} email={profile.email} />}
-      />
-    );
-  }
-
   return (
-    <div className="page-mid stack-lg" style={{ gap: 32 }}>
-      <div className="stack-sm">
-        <h1 className="page-title">Your account</h1>
-        <p className="lede">Update your name, calendar and password.</p>
-      </div>
-
-      <form onSubmit={saveName} className="card stack" style={{ gap: 4 }}>
-        <h2 style={{ fontSize: 26, marginBottom: 12 }}>Your name</h2>
-        <label className="field">
+    <SettingsSection id="profile" title={signIn ? "Name & sign-in" : "Your name"}>
+      <form onSubmit={submit} className="stack-sm">
+        <label className="field" style={{ marginBottom: 0 }}>
           <span className="field-label">Name</span>
-          <input className="input" value={name} maxLength={LIMITS.name} onChange={(e) => setName(e.target.value)} />
+          <input className="input" value={name} maxLength={LIMITS.name} onChange={(e) => { setName(e.target.value); setSave({ state: "idle" }); }} />
         </label>
-        <div className="row-wrap">
-          <button className="btn btn-primary" disabled={saving || !name.trim()}>{saving ? "Saving…" : "Save changes"}</button>
+        <div className="settings-save">
+          <button className="btn btn-primary" disabled={save.state === "saving" || !name.trim() || name.trim() === profile.name}>Save changes</button>
+          <SaveStatus state={save.state} error={save.error} />
         </div>
-        <Msg m={saveMsg} />
       </form>
-
-      {/* ---------- Calendar & calls ---------- */}
-      <section id="calendar" className="card stack" style={{ scrollMarginTop: 100, gap: 20 }}>
-        <div className="stack-sm">
-          <h2 style={{ fontSize: 26 }}>Calendar &amp; calls</h2>
-          <span className="text-secondary">Your time zone, and adding your MentorsMD calls to the calendar you already use.</span>
-        </div>
-        <TimeZoneCard key={profile.timeZone || "none"} initial={profile.timeZone || null} onSaved={loadProfile} />
-        <CalendarSync isMentor={false} />
-      </section>
-
-      {/* ---------- Sign-in & security ---------- */}
-      <SignInCard profile={profile} onChangePassword={() => setPwOpen(true)} />
-      <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} email={profile.email} />
-    </div>
+      {signIn && (
+        <>
+          <SettingsRow label="Login email"><b>{profile.email}</b></SettingsRow>
+          {profile.hasPassword ? (
+            <SettingsRow label="Password" action={<button type="button" className="btn btn-sm" onClick={onChangePassword}>Change password</button>}>
+              <b aria-label="Password hidden" style={{ letterSpacing: 2 }}>••••••••</b>
+            </SettingsRow>
+          ) : (
+            <SettingsRow label="Password"><span>You sign in with Google, so there&apos;s no MentorsMD password to change.</span></SettingsRow>
+          )}
+        </>
+      )}
+    </SettingsSection>
   );
 }
 
-const fmtLong = (d: string | Date) => new Date(d).toLocaleDateString(undefined, { timeZone: "UTC", month: "long", day: "numeric", year: "numeric" });
+const fmtLong = (d: string | Date) => new Date(d).toLocaleDateString("en-US", { timeZone: "UTC", month: "long", day: "numeric", year: "numeric" });
 
-function StudentSettings({
-  profile,
-  name,
-  setName,
-  saving,
-  saveMsg,
-  onSaveName,
-  onReload,
-  onChangePassword,
-  passwordModal,
-}: {
-  profile: any;
-  name: string;
-  setName: (v: string) => void;
-  saving: boolean;
-  saveMsg: { ok: boolean; text: string } | null;
-  onSaveName: (e: React.FormEvent) => void;
-  onReload: () => void;
-  onChangePassword: () => void;
-  passwordModal: React.ReactNode;
-}) {
-  const minor = !!profile.minorStatus;
+// Settings for students and admins, one layout. Students: name and
+// sign-in, 2-step, app phones, time zone, age & parent consent (under 18
+// only), payments, delete, log out. Admins: name, time zone with calendar
+// sync, sign-in.
+function AccountSettings({ profile, isStudent, onReload }: { profile: any; isStudent: boolean; onReload: () => void }) {
+  const [pwOpen, setPwOpen] = useState(false);
+  const minor = isStudent && !!profile.minorStatus;
   return (
-    <div className="page-mid stack-lg" style={{ gap: 24, maxWidth: 820 }}>
-      <div className="stack-sm">
-        <h1 className="page-title">Settings</h1>
-        <p className="lede">
-          Your login, time zone and payments. Calendar sync is in <Link href="/calendar#calendar-sync" className="link">Calendar</Link>.
-        </p>
-      </div>
+    <div className="page-mid stack-lg" style={{ gap: 24 }}>
+      <PageHeader title="Settings" lede={isStudent ? "Your login, time zone and payments." : "Your name, time zone, calendar and sign-in."} />
 
-      <section id="profile" className="card stack" style={{ gap: 14, scrollMarginTop: 100 }}>
-        <h2 style={{ fontSize: 24 }}>Name &amp; sign-in</h2>
-        <form onSubmit={onSaveName} className="stack-sm">
-          <label className="field" style={{ marginBottom: 0 }}>
-            <span className="field-label">Name</span>
-            <div className="row">
-              <input className="input grow" style={{ marginBottom: 0 }} value={name} maxLength={LIMITS.name} onChange={(e) => setName(e.target.value)} />
-              <button className="btn btn-primary" disabled={saving || !name.trim() || name === profile.name}>{saving ? "Saving…" : "Save"}</button>
-            </div>
-          </label>
-          <Msg m={saveMsg} />
-        </form>
-        <div className="between" style={{ flexWrap: "wrap", gap: 8, borderTop: "1px solid var(--line)", paddingTop: 14 }}>
-          <span className="text-secondary">Login email</span>
-          <b>{profile.email}</b>
-        </div>
-        {profile.hasPassword ? (
-          <div className="between" style={{ flexWrap: "wrap", gap: 12, borderTop: "1px solid var(--line)", paddingTop: 14 }}>
-            <div className="stack-sm" style={{ gap: 0 }}>
-              <span className="text-secondary">Password</span>
-              <b aria-label="Password hidden" style={{ letterSpacing: 2 }}>••••••••</b>
-            </div>
-            <button type="button" className="btn btn-sm" onClick={onChangePassword}>Change password</button>
-          </div>
-        ) : (
-          <p className="text-secondary small" style={{ borderTop: "1px solid var(--line)", paddingTop: 14 }}>
-            You sign in with Google, so there&apos;s no MentorsMD password to change.
-          </p>
-        )}
-      </section>
+      <NameSection profile={profile} onSaved={onReload} signIn={isStudent} onChangePassword={() => setPwOpen(true)} />
 
-      <TwoStepSettings />
+      {isStudent && <TwoStepSettings />}
+      {isStudent && <AppDevices />}
 
-      <AppDevices />
-
-      <section id="time-zone" className="card stack" style={{ gap: 14, scrollMarginTop: 100 }}>
-        <h2 style={{ fontSize: 24 }}>Time zone</h2>
+      <SettingsSection
+        id="time-zone"
+        title="Time zone"
+        description={
+          isStudent ? (
+            <>To add your MentorsMD calls to your own calendar app, use <Link href="/calendar#calendar-sync" className="link">Calendar sync</Link> on your Calendar.</>
+          ) : undefined
+        }
+      >
         <TimeZoneCard key={profile.timeZone || "none"} initial={profile.timeZone || null} onSaved={onReload} />
-      </section>
+      </SettingsSection>
+
+      {!isStudent && (
+        <SettingsSection id="calendar" title="Calendar sync" description="Add your MentorsMD calls to the calendar you already use.">
+          <CalendarSync showTitle={false} />
+        </SettingsSection>
+      )}
 
       {minor && (
-        <section id="age" className="card stack" style={{ gap: 14, scrollMarginTop: 100 }}>
-          <div className="row" style={{ gap: 10 }}>
-            <h2 style={{ fontSize: 24 }}>Age &amp; parent consent</h2>
-            <span className="badge badge-warning">Under 18</span>
-          </div>
+        <SettingsSection id="age" title="Age &amp; parent consent" badge={<span className="badge badge-warning">Under 18</span>}>
           {profile.dateOfBirth && (
-            <div className="between" style={{ flexWrap: "wrap", gap: 8 }}>
-              <span className="text-secondary">Date of birth</span>
-              <b>{fmtLong(profile.dateOfBirth)}</b>
-            </div>
+            <SettingsRow label="Date of birth"><b>{fmtLong(profile.dateOfBirth)}</b></SettingsRow>
           )}
-          <div className="between" style={{ flexWrap: "wrap", gap: 8, borderTop: "1px solid var(--line)", paddingTop: 14 }}>
-            <span className="text-secondary">Parent or guardian consent</span>
-            {profile.minorStatus === "CONSENTED" ? (
-              <span className="badge badge-success">Given{profile.parentConsentAt ? ` ${new Date(profile.parentConsentAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}</span>
-            ) : profile.minorStatus === "PENDING" ? (
-              <span className="badge badge-warning">Waiting for your parent</span>
-            ) : (
-              <span className="badge">Not given</span>
-            )}
-          </div>
+          <SettingsRow
+            label="Parent or guardian consent"
+            action={
+              profile.minorStatus === "CONSENTED" ? (
+                <span className="badge badge-success">Given{profile.parentConsentAt ? ` ${fmtDay(profile.parentConsentAt)}` : ""}</span>
+              ) : profile.minorStatus === "PENDING" ? (
+                <span className="badge badge-warning">Waiting for your parent</span>
+              ) : (
+                <span className="badge">Not given</span>
+              )
+            }
+          />
           <span className="text-muted small">
             Your parent gets a receipt for every order and can see your orders and calls. <Link href="/parental-consent" className="link">How parent consent works</Link>
           </span>
-        </section>
+        </SettingsSection>
       )}
 
-      <section id="payments" className="card stack" style={{ gap: 10, scrollMarginTop: 100 }}>
-        <h2 style={{ fontSize: 24 }}>Payments</h2>
-        <Link href="/receipts" className="between link-row" style={{ padding: "8px 0" }}>
-          <span className="stack-sm" style={{ gap: 0 }}>
-            <b>Receipts</b>
-            <span className="text-secondary small">Every package and added hours you&apos;ve paid for, with Stripe receipts.</span>
-          </span>
-          <span aria-hidden="true">→</span>
-        </Link>
-        <Link href="/credit" className="between link-row" style={{ padding: "8px 0", borderTop: "1px solid var(--line)" }}>
-          <span className="stack-sm" style={{ gap: 0 }}>
-            <b>MentorsMD credit</b>
-            <span className="text-secondary small">Your balance and history. Used automatically at checkout; it never expires.</span>
-          </span>
-          <span aria-hidden="true">→</span>
-        </Link>
-      </section>
+      {isStudent && (
+        <SettingsSection id="payments" title="Payments" className="settings-links">
+          <div>
+            <Link href="/receipts" className="link-row">
+              <span className="stack-sm" style={{ gap: 0 }}>
+                <b>Receipts</b>
+                <span className="text-secondary small">Every package and added hours you&apos;ve paid for, with Stripe receipts.</span>
+              </span>
+              <span aria-hidden="true">→</span>
+            </Link>
+            <Link href="/credit" className="link-row">
+              <span className="stack-sm" style={{ gap: 0 }}>
+                <b>MentorsMD credit</b>
+                <span className="text-secondary small">Your balance and history. Used automatically at checkout; it never expires.</span>
+              </span>
+              <span aria-hidden="true">→</span>
+            </Link>
+          </div>
+        </SettingsSection>
+      )}
 
-      <DeleteAccount />
+      {!isStudent && <SignInCard profile={profile} onChangePassword={() => setPwOpen(true)} />}
 
-      <section className="card between" style={{ flexWrap: "wrap", gap: 12 }}>
-        <span className="stack-sm" style={{ gap: 0 }}>
-          <b>Log out</b>
-          <span className="text-secondary small">You&apos;ll be logged out on this device and any other open tabs.</span>
-        </span>
-        <button type="button" className="btn btn-sm" style={{ color: "var(--danger)" }} onClick={() => logOut()}>Log out</button>
-      </section>
-      {passwordModal}
+      {isStudent && <DeleteAccount />}
+
+      {isStudent && (
+        <SettingsSection
+          title="Log out"
+          description="You'll be logged out on this device and any other open tabs."
+          aside={<button type="button" className="btn btn-sm" style={{ color: "var(--danger)" }} onClick={() => logOut()}>Log out</button>}
+        />
+      )}
+      <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} email={profile.email} />
     </div>
   );
 }

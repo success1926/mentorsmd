@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { consentByViewToken } from "@/lib/minors";
-import { money } from "@/lib/options";
+import { fmtDateTime, fmtDay, money } from "@/lib/format";
 import { tzOrDefault } from "@/lib/tz";
 import { WithdrawButton } from "./WithdrawButton";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Parent Page", robots: { index: false } };
+export const metadata = { title: "Parent page", robots: { index: false } };
 
 const ORDER_STATUS: Record<string, string> = {
   IN_ESCROW: "In progress",
@@ -15,7 +15,6 @@ const ORDER_STATUS: Record<string, string> = {
   REFUNDED: "Refunded",
   CANCELLED: "Cancelled",
 };
-const fmtDay = (d: Date, tz?: string) => d.toLocaleDateString("en-US", { timeZone: tz, month: "short", day: "numeric", year: "numeric" });
 
 // A parent or guardian's private page (#109): their student's orders and
 // calls, and a button to withdraw consent. The link was emailed when they
@@ -26,7 +25,7 @@ export default async function ParentPage({ params }: { params: { token: string }
     return (
       <div className="page-narrow">
         <div className="card-narrow stack">
-          <h1 className="page-title" style={{ fontSize: 34 }}>This link isn&apos;t active</h1>
+          <h1 className="auth-title">This link isn&apos;t active</h1>
           <p className="text-secondary">Parent links stop working when consent is withdrawn or when the student turns 18. Contact us if you need help.</p>
           <Link href="/contact" className="link">Contact us</Link>
         </div>
@@ -57,23 +56,23 @@ export default async function ParentPage({ params }: { params: { token: string }
     <div className="page-narrow stack-lg">
       <div className="stack-sm">
         <span className="eyebrow">Parent page</span>
-        <h1 className="page-title" style={{ textAlign: "left" }}>{consent.user.name}&apos;s orders and calls</h1>
+        <h1 className="page-title">{consent.user.name}&apos;s orders and calls</h1>
         <p className="lede">
-          You gave consent on {consent.consentedAt ? fmtDay(consent.consentedAt, tz) : "file"} (signed &ldquo;{consent.signatureName}&rdquo;). Keep this link private.
+          You gave consent on {consent.consentedAt ? fmtDay(consent.consentedAt, { timeZone: tz }) : "file"} (signed &ldquo;{consent.signatureName}&rdquo;). Keep this link private.
         </p>
       </div>
 
       <section className="stack-sm">
-        <h2 style={{ fontSize: 26 }}>Orders</h2>
+        <h2 className="block-title">Orders</h2>
         <div className="card" style={{ padding: "4px 20px" }}>
           {paid.length === 0 && <p className="text-muted" style={{ padding: "12px 0" }}>{first} hasn&apos;t booked anything yet.</p>}
           {paid.map((o) => (
             <div key={o.id} className="list-row" style={{ flexWrap: "wrap" }}>
               <div className="grow stack-sm" style={{ gap: 2, minWidth: 200 }}>
-                <b style={{ fontSize: 15 }}>{o.packageTitle || o.gig.title}</b>
+                <b>{o.packageTitle || o.gig.title}</b>
                 <span className="text-muted">
-                  Mentor: {o.seller.name}{o.seller.credential ? ` (${o.seller.credential})` : ""} · booked {fmtDay(o.createdAt, tz)}
-                  {o.dueDate ? ` · due ${fmtDay(o.dueDate, tz)}` : ""}
+                  Mentor: {o.seller.name}{o.seller.credential ? ` (${o.seller.credential})` : ""} · booked {fmtDay(o.createdAt, { timeZone: tz })}
+                  {o.dueDate ? ` · due ${fmtDay(o.dueDate, { timeZone: tz })}` : ""}
                 </span>
               </div>
               <b>{money(o.amount)}</b>
@@ -87,13 +86,13 @@ export default async function ParentPage({ params }: { params: { token: string }
       </section>
 
       <section className="stack-sm">
-        <h2 style={{ fontSize: 26 }}>Calls</h2>
+        <h2 className="block-title">Calls</h2>
         <div className="card" style={{ padding: "4px 20px" }}>
           {calls.length === 0 && <p className="text-muted" style={{ padding: "12px 0" }}>No calls booked.</p>}
           {calls.map((c) => (
             <div key={c.id} className="list-row" style={{ flexWrap: "wrap" }}>
               <div className="grow stack-sm" style={{ gap: 2 }}>
-                <b style={{ fontSize: 15 }}>{c.startTime.toLocaleString("en-US", { timeZone: tz, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}</b>
+                <b>{fmtDateTime(c.startTime, { timeZone: tz, zone: true })}</b>
                 <span className="text-muted">{c.gigTitle} with {c.mentor}</span>
               </div>
               <span className={`badge ${c.status === "CANCELLED" ? "" : c.endTime < new Date() ? "badge-success" : "badge-brand"}`}>
@@ -106,7 +105,7 @@ export default async function ParentPage({ params }: { params: { token: string }
       </section>
 
       <section className="card stack-sm">
-        <h2 style={{ fontSize: 22 }}>Withdraw consent</h2>
+        <h2 className="card-title">Withdraw consent</h2>
         <p className="text-secondary">
           If you withdraw consent, {first}&apos;s account is paused right away: they can&apos;t message mentors or book anything. Our team will contact you about any orders still in progress.
         </p>

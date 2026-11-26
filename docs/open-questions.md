@@ -62,7 +62,7 @@ All decided with the owner; the code follows `docs/redesign-2026-10.md`.
 ## Payments and orders
 
 8. **Review window.** **Replaced**: 48 hours after the mentor marks the work complete (see "Hourly redesign"). The old 96-hour release is gone.
-9. **Discount codes.** Decided: **no promos**. Discount codes were removed completely on Oct 13, 2026: the code and admin API are gone, and the database table is dropped with `prisma/cleanup-2026-10-drop-discount-codes.sql` once that change is live.
+9. **Discount codes.** Decided: **no promos**. Discount codes were removed completely on Oct 13, 2026: the code and admin API are gone, and the database table is dropped with `prisma/applied/cleanup-2026-10-drop-discount-codes.sql` once that change is live.
 10. **Forfeited or skipped calls and payment.** **Replaced**: calls aren't forfeited any more, and unused hours are paid to the mentor once the package is approved. Refunds stay a case-by-case admin call through disputes, always as MentorsMD credit.
 11. *(merged into 10)*
 

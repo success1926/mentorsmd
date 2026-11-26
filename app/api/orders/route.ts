@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 
 export async function GET() {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
 
-  const userId = (session.user as any).id;
-  const role = (session.user as any).role;
+  const userId = me.id;
+  const role = me.role;
 
   const orders = await prisma.order.findMany({
     where: role === "SELLER" ? { sellerId: userId } : { buyerId: userId },

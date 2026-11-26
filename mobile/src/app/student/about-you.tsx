@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { LoadError } from "../../components/shared";
-import { Btn, Chips, FChip, Field, Hdr, Loading, Note, Screen, Select, Small } from "../../components/ui";
+import { Btn, Chips, FChip, Field, Hdr, LoadError, Loading, Note, Screen, Select, Small } from "../../components/ui";
 import { api, errorText, useApi } from "../../lib/api";
-import { useOverlay } from "../../lib/demo";
+import { useOverlay } from "../../lib/overlay";
 import { useColors } from "../../lib/theme";
 
 // Same lists as the website's lib/studentProfile.ts.

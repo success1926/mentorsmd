@@ -14,19 +14,23 @@ export async function GET(req: Request) {
   if (!admin) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
   const seeApps = can(admin, "applications");
+  // Admins with only "applications" see application counts only.
+  const seeLeads = can(admin, "leads");
+  const zero = Promise.resolve(0);
   const [rows, admins, newContact, newWaitlist, newApps, toNotify] = await Promise.all([
     listLeads(kind),
     activeAdmins(),
-    prisma.lead.count({ where: { kind: "CONTACT", status: "NEW" } }),
-    prisma.lead.count({ where: { kind: "WAITLIST", status: "NEW" } }),
-    seeApps ? prisma.mentorApplication.count({ where: { status: "PENDING", assignedToId: null } }) : Promise.resolve(0),
-    prisma.lead.count({ where: { kind: "WAITLIST", notifiedAt: null } }),
+    seeLeads ? prisma.lead.count({ where: { kind: "CONTACT", status: "NEW" } }) : zero,
+    seeLeads ? prisma.lead.count({ where: { kind: "WAITLIST", status: "NEW" } }) : zero,
+    seeApps ? prisma.mentorApplication.count({ where: { status: "PENDING", assignedToId: null } }) : zero,
+    seeLeads ? prisma.lead.count({ where: { kind: "WAITLIST", notifiedAt: null } }) : zero,
   ]);
   return NextResponse.json({
     rows,
     admins,
     me: admin.id,
     canApplications: seeApps,
+    canLeads: seeLeads,
     counts: { APPLICATION: newApps, CONTACT: newContact, WAITLIST: newWaitlist },
     toNotify,
   });

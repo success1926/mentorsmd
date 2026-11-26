@@ -14,10 +14,6 @@ const hoursInclude = {
   callBookings: { select: { id: true, startTime: true, endTime: true, status: true, outcome: true, kind: true } },
 } as const;
 
-export function loadOrderHours(orderId: string) {
-  return prisma.order.findUnique({ where: { id: orderId }, include: hoursInclude });
-}
-
 // After a call's outcome is set (by the cron or an admin): a held call, or
 // one the student didn't join, uses its booked time (a CALL entry); a
 // mentor no-show, a free rebook or "nobody joined" uses nothing (any entry
@@ -25,11 +21,20 @@ export function loadOrderHours(orderId: string) {
 export async function syncCallHourEntry(bookingId: string) {
   const b = await prisma.callBooking.findUnique({
     where: { id: bookingId },
-    select: { id: true, startTime: true, endTime: true, status: true, outcome: true, orderId: true, order: { select: { kind: true } }, hourEntry: true },
+    select: { id: true, startTime: true, endTime: true, status: true, outcome: true, orderId: true, order: { select: { kind: true, unusedMinutesPaid: true } }, hourEntry: true },
   });
   if (!b?.orderId || !b.order?.kind) return;
   const counts = b.status !== "CANCELLED" && COUNTS_AS_HELD.includes(b.outcome || "");
   if (counts) {
+    // The package's final payout line (its unused hours) was already paid:
+    // these minutes went to the mentor with it. Counting them again would
+    // pay them twice, so leave it and flag it for the team.
+    if (b.order.unusedMinutesPaid != null && (!b.hourEntry || b.hourEntry.voidedAt)) {
+      const note = `[NEEDS MANUAL CHECK] Call ${b.id} on order ${b.orderId} became ${b.outcome} after the package's final payout was claimed. Its minutes were not logged again (they were paid with the unused hours); settle it by hand if needed.`;
+      console.error(note);
+      await reportError(note, undefined, { orderId: b.orderId, bookingId: b.id }, "fatal");
+      return;
+    }
     if (!b.hourEntry) {
       await prisma.hourEntry
         .create({

@@ -9,7 +9,11 @@ import { shortHours } from "@/lib/hours";
 import { PAYOUT_STATUS_LABEL, payoutDayLabel, periodLabel } from "@/lib/payoutRules";
 import { csvBody } from "@/lib/csv";
 import { GIFT_STATUS_LABEL } from "@/lib/giftOptions";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { EmptyState, LoadingBlock } from "@/components/ui";
+import { ShowMore } from "@/components/admin/ShowMore";
+import { orderStatus, statusClass } from "@/lib/statusLabels";
+import { fmtDay } from "@/lib/format";
 
 // Admin -> Orders & payouts: the money summary (sales, credit, collected,
 // fee, paid to mentors, not yet paid out), the monthly payouts to mentors
@@ -17,18 +21,12 @@ import { useAdminDialog } from "@/components/admin/AdminDialog";
 // every paid package (from /api/admin/earnings and /api/admin/payouts),
 // and gifts parents bought on /gift (/api/admin/gifts, lib/gifts.ts).
 
-function statusOf(o: any): { label: string; cls: string } {
-  if (!o.kind) {
-    if (o.status === "RELEASED") return { label: "Paid to mentor", cls: "badge-success" };
-    if (o.status === "REFUNDED") return { label: "Refunded", cls: "badge-pink" };
-    return { label: "Old order, payment held", cls: "badge-warning" };
-  }
-  if (o.status === "REFUNDED") return { label: "Refunded as credit", cls: "badge-pink" };
-  if (o.status === "RELEASED") return { label: "Paid to mentor", cls: "badge-success" };
-  if (o.status === "COMPLETED") return { label: "Approved, waiting for payout", cls: "badge-blue" };
-  if (o.disputeOpen) return { label: "Disputed (hours held)", cls: "badge-danger" };
-  if (o.phase === "AWAITING_STUDENT") return { label: "Waiting on student (48 h)", cls: "badge-warning" };
-  return { label: "Active", cls: "badge-brand" };
+// Status words and colours come from lib/statusLabels (the same as the
+// student's and mentor's pages). The earnings API sends the package's
+// phase rather than its dates, so "waiting on the student" is rebuilt from it.
+function statusOf(o: any) {
+  const awaiting = o.phase === "AWAITING_STUDENT" ? o.createdAt : null;
+  return orderStatus({ ...o, disputed: o.disputeOpen ?? o.disputed, markedCompleteAt: o.markedCompleteAt ?? awaiting, responseDeadline: o.responseDeadline ?? awaiting }, "admin");
 }
 
 const PAYOUT_CLS: Record<string, string> = { PAID: "badge-success", FAILED: "badge-danger", PROCESSING: "badge-warning" };
@@ -45,7 +43,10 @@ const dollars = (cents: number) => (cents / 100).toFixed(2);
 
 // The Paid packages filter tabs.
 type OrderFilter = "ALL" | "ACTIVE" | "WAITING" | "PAID" | "REFUNDED" | "GIFT";
-const ORDER_FILTERS: readonly (readonly [OrderFilter, string])[] = [["ALL", "All"], ["ACTIVE", "Active"], ["WAITING", "Approved, waiting for payout"], ["PAID", "Paid to mentor"], ["REFUNDED", "Refunded"], ["GIFT", "Gift / parent purchase"]];
+// Labels match the status badges (lib/statusLabels, audience "admin").
+const ORDER_FILTERS: readonly (readonly [OrderFilter, string])[] = [["ALL", "All"], ["ACTIVE", "Active"], ["WAITING", "Approved, paid on the 24th"], ["PAID", "Paid to mentor"], ["REFUNDED", "Refunded as credit"], ["GIFT", "Gift / parent purchase"]];
+// Packages shown at first; "Show more" adds this many again.
+const PAGE = 50;
 function inFilter(o: any, filter: OrderFilter) {
   if (filter === "ALL") return true;
   if (filter === "PAID") return o.status === "RELEASED";
@@ -60,11 +61,13 @@ export function Orders() {
   const [earnings, setEarnings] = useState<any>(null);
   const [payouts, setPayouts] = useState<any>(null);
   const [filter, setFilter] = useState<OrderFilter>("ALL");
+  const [shown, setShown] = useState(PAGE);
+  useEffect(() => setShown(PAGE), [filter]);
   const [gifts, setGifts] = useState<any[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [run, setRun] = useState<any>(null);
-  const { confirm, dialog } = useAdminDialog();
+  const { confirm, dialog } = useConfirm();
 
   const load = useCallback(() => {
     fetch("/api/admin/earnings").then((r) => r.json()).then(setEarnings).catch(() => setEarnings({ orders: [] }));
@@ -75,7 +78,7 @@ export function Orders() {
 
   async function runNow() {
     const label = periodLabel(payouts.currentPeriod);
-    if (!(await confirm({ title: `Run the ${label} payouts now?`, body: `Every mentor with connected payouts who hasn't been paid for ${label} yet is paid what they've earned so far. Mentors already paid for ${label} are left alone.`, confirmLabel: "Run Payouts" }))) return;
+    if (!(await confirm({ title: `Run the ${label} payouts now?`, body: `Every mentor with connected payouts who hasn't been paid for ${label} yet is paid what they've earned so far. Mentors already paid for ${label} are left alone.`, confirmLabel: "Run payouts" }))) return;
     setBusy("run");
     setMsg(null);
     const res = await fetch("/api/admin/payouts/run", { method: "POST" });
@@ -107,7 +110,7 @@ export function Orders() {
       "packages.csv",
       ["Date", "Package", "Kind", "Student", "Mentor", "Price", "Added hours", "Paid with credit", "Refunded as credit", "Hours bought", "Hours used", "Hours left", "Status", "Payout", "Bought by parent"],
       list.map((o) => [
-        new Date(o.createdAt).toISOString().slice(0, 10), o.title, o.kind ? KIND_LABEL[o.kind] || o.kind : "Old order", o.buyerName, o.sellerName,
+        new Date(o.createdAt).toISOString().slice(0, 10), o.title, KIND_LABEL[o.kind] || o.kind || "", o.buyerName, o.sellerName,
         dollars(o.priceCents), dollars(o.topUpCents), dollars(o.creditCents), dollars(o.refundedCreditCents),
         hrs(o.minutesPurchased), hrs(o.minutesUsed), hrs(o.minutesLeft), statusOf(o).label, o.payout ? `${o.payout.period} ${o.payout.status}` : "", o.giftFrom || "",
       ])
@@ -147,10 +150,10 @@ export function Orders() {
 
       <section className="stack-sm">
         <div className="between" style={{ flexWrap: "wrap", gap: 10 }}>
-          <h2 style={{ fontSize: 30 }}>Monthly payouts</h2>
+          <h2 className="block-title">Monthly payouts</h2>
           <div className="row-wrap">
             {plist.length > 0 && <button className="btn btn-sm" onClick={exportPayouts}>Download CSV</button>}
-            {payouts?.isOwner && <button className="btn btn-sm btn-deep" disabled={busy === "run"} onClick={runNow}>{busy === "run" ? "Running…" : "Run payouts now"}</button>}
+            {payouts?.isOwner && <button className="btn btn-sm btn-primary" disabled={busy === "run"} onClick={runNow}>{busy === "run" ? "Running…" : "Run payouts now"}</button>}
           </div>
         </div>
         <span className="text-muted small">
@@ -168,9 +171,10 @@ export function Orders() {
             {run.skipped.map((p: any) => <span key={p.mentorId} className="small">Skipped {p.name}: {p.reason}</span>)}
           </div>
         )}
+        {!payouts && <LoadingBlock lines={3} title={false} />}
+        {payouts && plist.length === 0 && <EmptyState>No payouts yet. The first one runs on the 24th.</EmptyState>}
+        {plist.length > 0 && (
         <div className="card" style={{ padding: "4px 20px" }}>
-          {!payouts && <p className="text-muted" style={{ padding: 12 }}>Loading…</p>}
-          {payouts && plist.length === 0 && <p className="text-muted" style={{ padding: 12 }}>No payouts yet. The first one runs on the 24th.</p>}
           {plist.map((p) => (
             <div key={p.id} className="list-row" style={{ flexWrap: "wrap" }}>
               <div className="grow stack-sm" style={{ gap: 2, minWidth: 200 }}>
@@ -189,32 +193,31 @@ export function Orders() {
             </div>
           ))}
         </div>
+        )}
       </section>
 
       <section className="stack-sm">
         <div className="between" style={{ flexWrap: "wrap", gap: 10 }}>
-          <h2 style={{ fontSize: 30 }}>Paid packages</h2>
+          <h2 className="block-title">Paid packages</h2>
           {list.length > 0 && <button className="btn btn-sm" onClick={exportOrders}>Download CSV</button>}
         </div>
-        <div className="tabs" role="tablist">
+        <div className="tabs" role="tablist" aria-label="Filter packages">
           {ORDER_FILTERS.map(([k, label]) => (
-            <button key={k} role="tab" className="tab" aria-selected={filter === k} onClick={() => setFilter(k)}>
+            <button key={k} type="button" role="tab" className="tab" aria-selected={filter === k} onClick={() => setFilter(k)}>
               {label} {earnings && <span className="tab-count">{orders.filter((o) => inFilter(o, k)).length}</span>}
             </button>
           ))}
         </div>
+        {!earnings && <LoadingBlock lines={4} title={false} />}
+        {earnings && list.length === 0 &&
+          (orders.length > 0 ? (
+            <EmptyState action={<button type="button" className="btn btn-sm" onClick={() => setFilter("ALL")}>Clear filters</button>}>No packages match this filter.</EmptyState>
+          ) : (
+            <EmptyState>Nothing here yet.</EmptyState>
+          ))}
+        {list.length > 0 && (
         <div className="card" style={{ padding: "4px 20px" }}>
-          {!earnings && <p className="text-muted" style={{ padding: 12 }}>Loading…</p>}
-          {earnings && list.length === 0 &&
-            (orders.length > 0 ? (
-              <div className="row-wrap" style={{ padding: 12 }}>
-                <span className="text-muted">No packages match this filter.</span>
-                <button type="button" className="btn btn-sm" onClick={() => setFilter("ALL")}>Clear Filters</button>
-              </div>
-            ) : (
-              <p className="text-muted" style={{ padding: 12 }}>Nothing here yet.</p>
-            ))}
-          {list.map((o) => {
+          {list.slice(0, shown).map((o) => {
             const st = statusOf(o);
             return (
               <div key={o.id} className="list-row" style={{ flexWrap: "wrap" }}>
@@ -237,12 +240,14 @@ export function Orders() {
                   )}
                 </div>
                 <span className="text-muted small">{money(o.priceCents)}</span>
-                <span className={`badge ${st.cls}`}>{st.label}</span>
+                <span className={statusClass(st)}>{st.label}</span>
                 <Link href={`/orders/${o.id}`} className="btn btn-sm">Open</Link>
               </div>
             );
           })}
+          {list.length > shown && <ShowMore onClick={() => setShown((n) => n + PAGE)} />}
         </div>
+        )}
         <span className="text-muted small">Disputes are settled from Disputes &amp; flags: packages are refunded as MentorsMD credit, never to the card. Mentors are paid monthly through Stripe Connect.</span>
       </section>
 
@@ -270,7 +275,7 @@ function GiftsSection({ gifts }: { gifts: any[] | null }) {
   return (
     <section className="stack-sm">
       <div className="between" style={{ flexWrap: "wrap", gap: 10 }}>
-        <h2 style={{ fontSize: 30 }}>Gifts and parent purchases</h2>
+        <h2 className="block-title">Gifts and parent purchases</h2>
         {gifts && gifts.length > 0 && <button className="btn btn-sm" onClick={exportGifts}>Download CSV</button>}
       </div>
       <span className="text-muted small">
@@ -278,10 +283,11 @@ function GiftsSection({ gifts }: { gifts: any[] | null }) {
         A card refund to the parent is done in Stripe.
       </span>
       {needs.length > 0 && <div className="alert alert-danger">{needs.length} paid gift{needs.length === 1 ? "" : "s"} need{needs.length === 1 ? "s" : ""} the team: read the note on each one.</div>}
+      {!gifts && <LoadingBlock lines={2} title={false} />}
+      {gifts && gifts.length === 0 && <EmptyState>No gifts yet.</EmptyState>}
+      {!!gifts?.length && (
       <div className="card" style={{ padding: "4px 20px" }}>
-        {!gifts && <p className="text-muted" style={{ padding: 12 }}>Loading…</p>}
-        {gifts && gifts.length === 0 && <p className="text-muted" style={{ padding: 12 }}>No gifts yet.</p>}
-        {(gifts || []).map((g) => (
+        {gifts.map((g) => (
           <div key={g.id} className="list-row" style={{ flexWrap: "wrap" }}>
             <div className="grow stack-sm" style={{ gap: 2, minWidth: 220 }}>
               <b style={{ fontSize: 15 }}>
@@ -289,7 +295,7 @@ function GiftsSection({ gifts }: { gifts: any[] | null }) {
                 {g.mentorName ? ` · ${g.mentorName}` : ""}
               </b>
               <span className="text-muted small">
-                From {g.parentName} ({g.parentEmail}) to {g.studentName} ({g.studentEmail}){g.studentUnder18 ? " · under 18" : ""} · {new Date(g.paidAt || g.createdAt).toLocaleDateString()}
+                From {g.parentName} ({g.parentEmail}) to {g.studentName} ({g.studentEmail}){g.studentUnder18 ? " · under 18" : ""} · {fmtDay(g.paidAt || g.createdAt)}
                 {g.status === "PAID" ? (g.accountReady ? " · student can log in" : " · student hasn't set up their account yet") : ""}
               </span>
               {g.reviewNote && <span className="small" style={{ color: g.status === "NEEDS_REVIEW" ? "var(--danger)" : undefined }}>{g.reviewNote}</span>}
@@ -300,6 +306,7 @@ function GiftsSection({ gifts }: { gifts: any[] | null }) {
           </div>
         ))}
       </div>
+      )}
     </section>
   );
 }

@@ -1,15 +1,15 @@
 import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
-import { Btn, Eyebrow, Field, H, Link, Loading, Note, Row, Screen, Sec, SecH, Seg, Small, SS, T } from "../../../components/ui";
-import {
-  BOOKING_WINDOW_OPTIONS, CallSheet, DayGrid, ErrText, ErrorBox, dayString, dayWord, fmtDayString, fmtTime, joinState, minutesBetween, openSite, useConfirm, useReloadOnFocus,
-} from "../../../components/mentorSheets";
+import { Btn, Eyebrow, Field, H, Link, LoadError, Loading, Note, Row, Screen, Sec, SecH, Seg, Small, SS, T } from "../../../components/ui";
+import { BOOKING_WINDOW_OPTIONS, CallSheet, DayGrid, ErrText, openSite, useConfirm, useReloadOnFocus } from "../../../components/mentorSheets";
 import { api, errorText, useApi } from "../../../lib/api";
-import { useOverlay } from "../../../lib/demo";
+import { useOverlay } from "../../../lib/overlay";
+import { dayString, dayWord, fmtDayString, fmtTime, minutesBetween } from "../../../lib/format";
+import { joinState } from "../../../lib/orders";
 
 type CalCall = { id: string; startTime: string; endTime: string; orderId: string | null; title: string; withName: string; kind: string; disputed: boolean };
-type Cal = { upcoming: CalCall[]; dueDates: { orderId: string; dueDay: string; title: string; studentName: string; onHold: boolean; revision: boolean }[] };
+type Cal = { upcoming: CalCall[] };
 type Busy = { id: string; startDay: string; endDay: string; note: string | null };
 type Profile = {
   timeZone: string | null; weeklyHours: Record<string, [string, string][]> | null; bufferMinutes: number | null; minNoticeHours: number | null;
@@ -20,12 +20,11 @@ const DAYS: [string, string][] = [["1", "Mon"], ["2", "Tue"], ["3", "Wed"], ["4"
 const clock = (t: string) => {
   const [h, m] = t.split(":").map(Number);
   const d = new Date(2000, 0, 1, h || 0, m || 0);
-  return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  return fmtTime(d);
 };
 const tzName = (tz: string | null) => (tz ? tz.replace(/_/g, " ").split("/").pop() : "");
 
-// Calendar & availability: upcoming calls (join, move, cancel), due dates on
-// older orders, call hours, booking window, busy dates and calendar links.
+// Calendar & availability: upcoming calls (join, move, cancel), call hours, booking window, busy dates and calendar links.
 export default function MentorCalendar() {
   const router = useRouter();
   const { toast, openSheet } = useOverlay();
@@ -77,7 +76,6 @@ export default function MentorCalendar() {
     });
 
   const upcoming = cal.data?.upcoming || [];
-  const due = cal.data?.dueDates || [];
   const busyList = busy.data?.busyDates || [];
 
   return (
@@ -87,7 +85,7 @@ export default function MentorCalendar() {
         <>
           <Sec>
             <Eyebrow>Upcoming calls</Eyebrow>
-            {cal.error ? <ErrorBox error={cal.error} onRetry={cal.reload} /> : upcoming.length ? (
+            {cal.error ? <LoadError error={cal.error} onRetry={cal.reload} /> : upcoming.length ? (
               <View>
                 {upcoming.map((x, i) => {
                   const open = joinState(x) === "open";
@@ -102,21 +100,9 @@ export default function MentorCalendar() {
             <Small>Tap a call to reschedule or cancel it. The Join button appears 10 minutes before the start.</Small>
           </Sec>
 
-          {due.length ? (
-            <Sec>
-              <Eyebrow>Due dates</Eyebrow>
-              <View>
-                {due.map((d, i) => (
-                  <Row key={d.orderId} tt={`${d.studentName} · ${d.title}`} ss={`Due ${fmtDayString(d.dueDay)}${d.onHold ? " · on hold until the call is booked" : d.revision ? " · revision requested" : ""}`}
-                    onPress={() => router.push(`/mentor/package/${d.orderId}`)} last={i === due.length - 1} />
-                ))}
-              </View>
-            </Sec>
-          ) : null}
-
           <Sec>
             <SecH><Eyebrow>Call hours</Eyebrow><Link label="Edit on mentorsmd.com" onPress={() => openSite("/dashboard/availability#call-hours")} /></SecH>
-            {prof.error ? <ErrorBox error={prof.error} onRetry={prof.reload} /> : p ? (
+            {prof.error ? <LoadError error={prof.error} onRetry={prof.reload} /> : p ? (
               <>
                 {!p.hasAvailability ? <Note>No call hours yet. Set your call hours so students can book the calls in your packages.</Note> : (
                   <View>
@@ -140,7 +126,7 @@ export default function MentorCalendar() {
 
           <Sec>
             <SecH><Eyebrow>Busy dates</Eyebrow><Link label="Add busy dates" onPress={() => openSheet(() => <AddBusySheet onAdded={(d) => busy.setData(d)} />)} /></SecH>
-            {busy.error ? <ErrorBox error={busy.error} onRetry={busy.reload} /> : busy.loading && !busy.data ? <Loading /> : busyList.length ? (
+            {busy.error ? <LoadError error={busy.error} onRetry={busy.reload} /> : busy.loading && !busy.data ? <Loading /> : busyList.length ? (
               <View>
                 {busyList.map((b, i) => (
                   <Row key={b.id} tt={`${fmtDayString(b.startDay)}${b.endDay !== b.startDay ? ` – ${fmtDayString(b.endDay)}` : ""}`} ss={b.note || undefined} rr="Remove" onPress={() => removeBusy(b)} last={i === busyList.length - 1} />

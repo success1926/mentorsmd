@@ -1,6 +1,6 @@
 -- MentorsMD Phase 5: make your existing admin account the team Owner (#119).
 --
--- Run this ONCE, after prisma/phase5-2026-10.sql, in the Neon SQL Editor.
+-- Run this ONCE, after prisma/applied/phase5-2026-10.sql, in the Neon SQL Editor.
 --  1. Replace OWNER_EMAIL_HERE below (both places) with the email you log in with.
 --     Keep the single quotes around it. Don't save your real email in this
 --     file in the repository - just edit it in the SQL Editor.

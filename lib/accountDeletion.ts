@@ -4,6 +4,7 @@ import { creditBalance } from "@/lib/credit";
 import { mentorPayoutSummary } from "@/lib/payouts";
 import { PUBLIC_BUCKET, isLegacyUrl, publicPathFromUrl, removeFiles } from "@/lib/storage";
 import { sendAccountDeletedEmail } from "@/lib/email";
+import { money } from "@/lib/format";
 
 // "Delete my account" (Oct 2026), for students and mentors, on the website
 // (Settings) and in the phone app. Both app stores require it.
@@ -71,7 +72,14 @@ export async function deletionCheck(userId: string, now = new Date()): Promise<D
     const pay = await mentorPayoutSummary(userId, now);
     const waiting = pay.unpaidCents + pay.heldCents;
     if (waiting > 0) {
-      blockers.push(`You have $${(waiting / 100).toFixed(2)} waiting to be paid to you. You can delete your account once the monthly payout (the 24th) has sent it.`);
+      blockers.push(`You have ${money(waiting)} waiting to be paid to you. You can delete your account once the monthly payout (the 24th) has sent it.`);
+    }
+    // A payout being sent, or one that failed and is waiting for the team to
+    // retry: its hours aren't in the amounts above, and deleting the account
+    // removes the Stripe link the retry needs.
+    const stuck = await prisma.mentorPayout.count({ where: { mentorId: userId, status: { in: ["PENDING", "PROCESSING", "FAILED"] } } });
+    if (stuck) {
+      blockers.push("A payout to you is still being sent, or didn't go through and the MentorsMD team is sorting it out. You can delete your account once it has been paid. Contact us if you need help.");
     }
   }
 

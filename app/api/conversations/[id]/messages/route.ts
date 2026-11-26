@@ -11,7 +11,7 @@ import { blockBetween } from "@/lib/blocks";
 import { aiCheckAndFlag, checkOutgoingMessage, flagSavedMessage, senderBlockReason } from "@/lib/messageSafety";
 import { runAfterResponse } from "@/lib/request";
 import { gateBlockReason } from "@/lib/gate";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 
 // Most recent N messages returned when a thread opens. Keeps long-running
 // threads fast; older history can be paged in with ?before=<messageId>.
@@ -35,10 +35,10 @@ async function assertParticipant(conversationId: string, userId: string) {
 // Still useful for loading history when a thread first opens, even though
 // new messages after that arrive instantly over Supabase Realtime.
 export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
 
-  const convo = await assertParticipant(params.id, (session.user as any).id);
+  const convo = await assertParticipant(params.id, me.id);
   if (!convo) return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
 
   const url = new URL(req.url);
@@ -47,7 +47,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   const orderId = url.searchParams.get("orderId");
 
   // Opening the thread (first page) marks it read for this person.
-  if (!before) await markRead(convo, (session.user as any).id);
+  if (!before) await markRead(convo, me.id);
   const beforeMsg = before ? await prisma.message.findUnique({ where: { id: before }, select: { createdAt: true } }) : null;
 
   // Newest PAGE_SIZE, then flipped back to oldest-first for display.
@@ -62,10 +62,10 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 }
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
 
-  const convo = await assertParticipant(params.id, (session.user as any).id);
+  const convo = await assertParticipant(params.id, me.id);
   if (!convo) return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
 
   const payload = await req.json().catch(() => ({}));
@@ -77,7 +77,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (text.length > LIMITS.messageBody) {
     return NextResponse.json({ error: `Message is too long (${LIMITS.messageBody} characters max)` }, { status: 400 });
   }
-  const senderId = (session.user as any).id;
+  const senderId = me.id;
   // Attachments must be files this person uploaded through /api/upload
   // (a private storage path, lib/storage.ts). Without this, a message's
   // "attachment" could point anywhere, or at someone else's file.

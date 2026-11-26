@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Honeypot, useRecaptcha, RecaptchaNotice } from "@/components/FormGuards";
 import { CONTACT_LIMITS as L, CONTACT_TOPICS } from "@/lib/leadOptions";
+import { Alert, Field } from "@/components/ui";
 
 // The message form on /contact. Messages land in Admin -> Leads ->
 // Contact messages and are emailed to the team inbox. The heading, text
@@ -14,14 +15,21 @@ export function ContactForm({ title, intro, success, defaultTopic = "STUDENT" }:
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
+  // Which field the error is about, so it shows under that field.
+  const [fieldErr, setFieldErr] = useState<"" | "name" | "email" | "message">("");
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm({ ...form, [k]: e.target.value });
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    if (!form.name.trim()) return setError("Please enter your name.");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return setError("Please enter a valid email address.");
-    if (form.message.trim().length < L.messageMin) return setError("Please write a little more in your message.");
+    setFieldErr("");
+    const fail = (f: "name" | "email" | "message", msg: string) => {
+      setFieldErr(f);
+      setError(msg);
+    };
+    if (!form.name.trim()) return fail("name", "Please enter your name.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return fail("email", "Please enter a valid email address.");
+    if (form.message.trim().length < L.messageMin) return fail("message", "Please write a little more in your message.");
     setBusy(true);
     try {
       const recaptchaToken = await recaptcha("contact");
@@ -42,43 +50,38 @@ export function ContactForm({ title, intro, success, defaultTopic = "STUDENT" }:
 
   if (done) {
     return (
-      <div className="card card-tint stack-sm" role="status">
-        <b>Message sent</b>
-        <span className="text-secondary">{success}</span>
-      </div>
+      <Alert tone="success">
+        <b>Message sent.</b> {success}
+      </Alert>
     );
   }
 
   return (
     <form onSubmit={submit} className="card stack" style={{ gap: 0 }} noValidate id="message">
       <div className="stack-sm" style={{ gap: 4, marginBottom: 16 }}>
-        {title && <h2 style={{ fontSize: 24 }}>{title}</h2>}
+        {title && <h2 className="block-title">{title}</h2>}
         {intro && <span className="text-secondary">{intro}</span>}
       </div>
       <div className="grid-2" style={{ gap: "0 20px" }}>
-        <label className="field">
-          <span className="field-label">Name</span>
+        <Field id="contact-name" label="Name" error={fieldErr === "name" ? error : undefined}>
           <input className="input" autoComplete="name" maxLength={L.name} value={form.name} onChange={set("name")} required />
-        </label>
-        <label className="field">
-          <span className="field-label">Email</span>
+        </Field>
+        <Field id="contact-email" label="Email" error={fieldErr === "email" ? error : undefined}>
           <input className="input" type="email" autoComplete="email" maxLength={L.email} value={form.email} onChange={set("email")} required />
-        </label>
+        </Field>
       </div>
-      <label className="field">
-        <span className="field-label">About you</span>
+      <Field id="contact-topic" label="About you">
         <select className="input" value={form.topic} onChange={set("topic")}>
           {CONTACT_TOPICS.map((t) => (
             <option key={t.value} value={t.value}>{t.formLabel}</option>
           ))}
         </select>
-      </label>
-      <label className="field">
-        <span className="field-label">Message</span>
+      </Field>
+      <Field id="contact-message" label="Message" error={fieldErr === "message" ? error : undefined}>
         <textarea className="input" rows={6} maxLength={L.message} value={form.message} onChange={set("message")} required />
-      </label>
+      </Field>
       <Honeypot value={honeypot} onChange={setHoneypot} />
-      {error && <div role="alert" className="alert alert-danger" style={{ marginBottom: 14 }}>{error}</div>}
+      {error && !fieldErr && <Alert tone="danger" style={{ marginBottom: 14 }}>{error}</Alert>}
       <button className="btn btn-primary btn-lg" disabled={busy} style={{ alignSelf: "flex-start" }}>
         {busy ? "Sending…" : "Send message"}
       </button>

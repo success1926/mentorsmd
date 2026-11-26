@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { sendDisputeOpenedEmail, SITE_URL } from "@/lib/email";
 import { createFlag } from "@/lib/flags";
 import { adminEmailsWith } from "@/lib/adminRecipients";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 
 // Disputes are buyer-raised, admin-resolved - opening one does NOT
 // automatically refund or release anything. It just flags the order and
@@ -11,13 +11,13 @@ import { getSession } from "@/lib/session";
 // and the release endpoint, which an admin can call on any order regardless
 // of who'd normally be allowed to).
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
 
   const order = await prisma.order.findUnique({ where: { id: params.id }, include: { gig: true } });
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
-  if (order.buyerId !== (session.user as any).id) {
+  if (order.buyerId !== me.id) {
     return NextResponse.json({ error: "Only the student on this order can open a dispute" }, { status: 403 });
   }
   if (!["IN_ESCROW", "COMPLETED"].includes(order.status)) {
@@ -27,8 +27,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (order.disputed) {
     return NextResponse.json({ error: "A dispute is already open on this order" }, { status: 409 });
   }
-  // Hours packages: open until approved (COMPLETED means approved for them).
-  if (order.kind && (order.approvedAt || order.status !== "IN_ESCROW")) {
+  // Open until approved (COMPLETED means approved).
+  if (!order.kind || order.approvedAt || order.status !== "IN_ESCROW") {
     return NextResponse.json({ error: "This package was already approved" }, { status: 400 });
   }
 
@@ -41,7 +41,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   // Conditional: only flag it if it's still unreleased and not already
   // disputed (stops the cron paying out mid-dispute, and duplicate threads).
   const claim = await prisma.order.updateMany({
-    where: { id: params.id, status: { in: order.kind ? ["IN_ESCROW"] : ["IN_ESCROW", "COMPLETED"] }, disputed: false, ...(order.kind ? { approvedAt: null } : {}) },
+    where: { id: params.id, status: "IN_ESCROW", disputed: false, approvedAt: null },
     data: { disputed: true, disputeReason: reason },
   });
   if (claim.count === 0) {

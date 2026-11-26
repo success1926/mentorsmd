@@ -3,6 +3,9 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { money } from "@/lib/options";
+import { fmtDay } from "@/lib/format";
+import { EmptyState } from "@/components/ui";
+import { ShowMore } from "@/components/admin/ShowMore";
 
 // Building blocks for Admin -> Insights: stat cards, bar charts, sortable
 // tables and funnels. Every table and chart has a CSV download (#84),
@@ -29,7 +32,7 @@ export function fmt(v: string | number | null | undefined, kind: Kind = "text"):
   }
   if (kind === "date") {
     const d = new Date(v);
-    return isNaN(d.getTime()) ? v : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+    return isNaN(d.getTime()) ? v : fmtDay(d);
   }
   return v;
 }
@@ -124,7 +127,7 @@ export function BarChart({ chart, csvHref }: { chart: ChartData; csvHref?: strin
 
 export function DataTable({ table, csvHref, pageSize = 50 }: { table: TableData; csvHref?: string; pageSize?: number }) {
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | null>(table.sort || null);
-  const [all, setAll] = useState(false);
+  const [limit, setLimit] = useState(pageSize);
   const rows = useMemo(() => {
     if (!sort) return table.rows;
     const dir = sort.dir === "asc" ? 1 : -1;
@@ -138,7 +141,7 @@ export function DataTable({ table, csvHref, pageSize = 50 }: { table: TableData;
       return String(x).localeCompare(String(y)) * dir;
     });
   }, [table.rows, sort]);
-  const shown = all ? rows : rows.slice(0, pageSize);
+  const shown = rows.slice(0, limit);
 
   function toggle(c: Col) {
     const numeric = NUMERIC.includes(c.kind || "text") || c.kind === "date";
@@ -149,13 +152,13 @@ export function DataTable({ table, csvHref, pageSize = 50 }: { table: TableData;
     <section className="stack-sm">
       <div className="between" style={{ gap: 8, flexWrap: "wrap" }}>
         <span className="stack-sm" style={{ gap: 2 }}>
-          <h3 style={{ fontSize: 22 }}>{table.title}</h3>
+          <h3 className="block-title">{table.title}</h3>
           {table.note && <span className="text-muted small">{table.note}</span>}
         </span>
         {csvHref && <CsvLink href={csvHref} />}
       </div>
       {table.rows.length === 0 ? (
-        <div className="card text-muted small" style={{ padding: 16 }}>Nothing here for these dates yet.</div>
+        <EmptyState>Nothing here for these dates yet.</EmptyState>
       ) : (
         <div className="table-wrap">
           <table className="data-table">
@@ -195,11 +198,7 @@ export function DataTable({ table, csvHref, pageSize = 50 }: { table: TableData;
           </table>
         </div>
       )}
-      {rows.length > pageSize && (
-        <button className="link-btn small" style={{ alignSelf: "flex-start" }} onClick={() => setAll((a) => !a)}>
-          {all ? "Show fewer" : `Show all ${rows.length.toLocaleString()} rows`}
-        </button>
-      )}
+      {rows.length > limit && <ShowMore onClick={() => setLimit((n) => n + pageSize)} />}
     </section>
   );
 }
@@ -211,7 +210,7 @@ export function Funnel({ funnel, csvHref }: { funnel: FunnelData; csvHref?: stri
     <section className="card stack-sm">
       <div className="between" style={{ gap: 8, flexWrap: "wrap" }}>
         <span className="stack-sm" style={{ gap: 2 }}>
-          <h3 style={{ fontSize: 22 }}>{funnel.title}</h3>
+          <h3 className="block-title">{funnel.title}</h3>
           {funnel.note && <span className="text-muted small">{funnel.note}</span>}
         </span>
         {csvHref && <CsvLink href={csvHref} label="CSV" />}

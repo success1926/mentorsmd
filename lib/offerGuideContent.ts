@@ -16,7 +16,7 @@
 // rates, earnings claims or statistics here.
 
 export const GUIDE_DEFAULTS = {
-  title: "How To Set Up Your Offers",
+  title: "How to set up your offers",
   intro: "Examples and notes for structuring your offers on MentorsMD. Use what fits how you work and change the rest.",
 
   packagesIntro:

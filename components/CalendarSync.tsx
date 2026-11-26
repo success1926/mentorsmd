@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 // "Sync to your calendar": a private calendar link (ICS feed) with the
-// person's booked calls (and, for mentors, order due dates), plus one-click
-// buttons for Google, Outlook and Apple. Used on /account (students) and
-// Calendar & availability (mentors).
+// person's booked calls, plus one-click buttons for Google, Outlook and
+// Apple. Used on the student Calendar, Calendar & availability (mentors,
+// under Connected calendars) and the admin's /account.
 
 function CopyField({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
@@ -31,15 +32,16 @@ function CopyField({ value, label }: { value: string; label: string }) {
   );
 }
 
-export function CalendarSync({ isMentor }: { isMentor: boolean }) {
+export function CalendarSync({ showTitle = true }: { isMentor?: boolean; showTitle?: boolean }) {
   const [feedUrl, setFeedUrl] = useState<string | null>(null);
+  const { confirm, dialog } = useConfirm();
 
   useEffect(() => {
     fetch("/api/profile/calendar").then((r) => r.json()).then((d) => setFeedUrl(d.feedUrl)).catch(() => {});
   }, []);
 
   async function calendarFeed(method: "POST" | "DELETE") {
-    if (method === "POST" && feedUrl && !confirm("Reset your calendar link? The old link stops working and you'll need to add the new one to your calendar.")) return;
+    if (method === "POST" && feedUrl && !(await confirm({ title: "Reset your calendar link?", body: "The old link stops working and you'll need to add the new one to your calendar.", confirmLabel: "Reset link" }))) return;
     const res = await fetch("/api/profile/calendar", { method });
     const d = await res.json().catch(() => ({}));
     if (res.ok) setFeedUrl(d.feedUrl);
@@ -49,7 +51,8 @@ export function CalendarSync({ isMentor }: { isMentor: boolean }) {
 
   return (
     <div className="stack">
-      <b>Sync to your calendar</b>
+      {dialog}
+      {showTitle && <b>Sync to your calendar</b>}
       <span className="text-secondary small">
         Your booked calls appear in your calendar and update on their own. This link is private, so don&apos;t share it.
       </span>

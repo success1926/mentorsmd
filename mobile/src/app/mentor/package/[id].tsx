@@ -2,29 +2,28 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
 import { useSafetySheet } from "../../../components/safety";
-import { Bar, Btn, Card, Chip, Eyebrow, Field, H, Hdr, KV, Link, Loading, Note, Row, RowV, Screen, Sec, SecH, Seg, Small, SS, TT } from "../../../components/ui";
-import {
-  CallSheet, DayChips, DayGrid, ErrText, ErrorBox, FEE_PERCENT, PackageChip, TOP_UP_HOURS, WarningsCard, dayString, dayWord, finishPhase, firstName, fmtDay, fmtTime, hoursLabel,
-  hoursSummary, hoursToRespond, isLowOnHours, joinState, markCompleteBlocker, mentorShare, minutesBetween, priceFor, shortHours, useConfirm, useReloadOnFocus, warningsOf, type Warning,
-} from "../../../components/mentorSheets";
+import { Bar, Btn, Card, Chip, Collapsible, Eyebrow, Field, H, Hdr, KV, Link, LoadError, Loading, Note, Row, RowV, Screen, Sec, SecH, Seg, Small, SS, StatusBadge, TT } from "../../../components/ui";
+import { CallSheet, DayChips, ErrText, WarningsCard, useConfirm, useReloadOnFocus, warningsOf, type Warning } from "../../../components/mentorSheets";
 import { api, dollars, errorText, useApi } from "../../../lib/api";
-import { useOverlay } from "../../../lib/demo";
+import { useOverlay } from "../../../lib/overlay";
 import { useColors } from "../../../lib/theme";
+import { mentorShare, PLATFORM_FEE_PERCENT } from "../../../lib/fee";
+import { finishPhase, hoursLabel, hoursSummary, hoursToRespond, isLowOnHours, joinState, markCompleteBlocker, priceFor, shortHours, TOP_UP_HOURS } from "../../../lib/orders";
+import { dayString, dayWord, firstName, fmtDay, fmtTime } from "../../../lib/format";
 
 const KIND_LABEL: Record<string, string> = { HOURLY: "Hourly", BUNDLE: "Hour bundle", SPECIALIZED: "Specialized package", PAY_PER_CALL: "Pay-per-call" };
 
 // One package (the website's /orders/[id] for the mentor): hours used and
 // left, log written work, suggest more hours, calls, the hours log and
-// "Mark work complete". Orders from before hourly pricing show their due
-// date (which the mentor can change) and are marked complete with a note.
+// "Mark work complete".
 export default function MentorPackage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const q = useApi<{ order: any }>(`/api/orders/${encodeURIComponent(id)}`);
   useReloadOnFocus(q.reload);
   const o = q.data?.order;
   if (q.loading && !o) return <Screen><Hdr title="Package" /><Loading /></Screen>;
-  if (!o) return <Screen><Hdr title="Package" /><ErrorBox error={q.error || "Package not found"} onRetry={q.reload} /></Screen>;
-  return o.kind ? <HoursPackage o={o} reload={q.reload} /> : <OlderOrder o={o} reload={q.reload} />;
+  if (!o) return <Screen><Hdr title="Package" /><LoadError error={q.error || "Package not found"} onRetry={q.reload} /></Screen>;
+  return <HoursPackage o={o} reload={q.reload} />;
 }
 
 function Safety({ o, reload }: { o: any; reload: () => void }) {
@@ -69,7 +68,7 @@ function HoursPackage({ o, reload }: { o: any; reload: () => void }) {
     <Screen>
       <Hdr title={o.buyer?.name || "Student"} sub={`${KIND_LABEL[o.kind] || "Package"} · ${title}`} />
       <RowV gap={6} style={{ flexWrap: "wrap" }}>
-        <PackageChip order={o} />
+        <StatusBadge order={o} audience="mentor" />
         {o.buyer?.minorStatus ? <Chip label="Under 18" tone="gray" /> : null}
         {isLowOnHours(o) ? <Chip label="Running low" tone="warn" /> : null}
       </RowV>
@@ -123,9 +122,8 @@ function HoursPackage({ o, reload }: { o: any; reload: () => void }) {
         </Sec>
       ) : null}
 
-      <Sec>
-        <Eyebrow>Hours log</Eyebrow>
-        {(o.hourEntries || []).length ? (
+      {(o.hourEntries || []).length ? (
+        <Collapsible title="Hours log" count={o.hourEntries.length}>
           <View>
             {(o.hourEntries as any[]).map((e) => (
               <View key={e.id} style={{ opacity: e.voidedAt ? 0.55 : 1 }}>
@@ -135,8 +133,13 @@ function HoursPackage({ o, reload }: { o: any; reload: () => void }) {
               </View>
             ))}
           </View>
-        ) : <Note>Nothing logged yet. Held calls are added automatically; log written work here.</Note>}
-      </Sec>
+        </Collapsible>
+      ) : (
+        <Sec>
+          <Eyebrow>Hours log</Eyebrow>
+          <Note>Nothing logged yet. Held calls are added automatically; log written work here.</Note>
+        </Sec>
+      )}
 
       <Card>
         <TT>Your totals</TT>
@@ -147,7 +150,7 @@ function HoursPackage({ o, reload }: { o: any; reload: () => void }) {
           <KV k="Earned so far" v={dollars(earned)} />
           {h.left > 0 && phase !== "CLOSED" ? <KV k="Unused hours, paid on approval" v={dollars(unused)} /> : null}
         </View>
-        <Small>You earn {100 - FEE_PERCENT}% of each hour, paid monthly on the 24th.</Small>
+        <Small>You earn {100 - PLATFORM_FEE_PERCENT}% of each hour, paid monthly on the 24th.</Small>
       </Card>
 
       {phase === "WORKING" ? (
@@ -255,118 +258,6 @@ function SuggestHoursSheet({ o }: { o: any }) {
       {warnings ? <WarningsCard warnings={warnings} busy={busy} onEdit={() => setWarnings(null)} onSendAnyway={() => send(true)} /> : null}
       <ErrText>{error}</ErrText>
       <Btn kind="dark" label={busy ? "Sending…" : `Suggest ${hours} hour${hours === 1 ? "" : "s"}`} disabled={busy} onPress={() => send(false)} />
-      <Btn kind="line" label="Cancel" onPress={closeSheet} />
-    </>
-  );
-}
-
-// ---------- orders from before hourly pricing ----------
-function OlderOrder({ o, reload }: { o: any; reload: () => void }) {
-  const router = useRouter();
-  const { openSheet } = useOverlay();
-  const who = firstName(o.buyer?.name) || "The student";
-  const active = o.status === "IN_ESCROW";
-  const upcoming = (o.callBookings || []).filter((b: any) => b.status === "BOOKED" && new Date(b.endTime) > new Date());
-  return (
-    <Screen>
-      <Hdr title={o.buyer?.name || "Student"} sub={o.gig?.title} />
-      <RowV gap={6}><PackageChip order={o} />{o.buyer?.minorStatus ? <Chip label="Under 18" tone="gray" /> : null}</RowV>
-      {o.status === "COMPLETED" ? <Card tone="tint"><Note ink>You marked this complete. Waiting for {who} to approve it.</Note></Card> : null}
-      {o.revisionRequested && o.revisionNote ? <Card tone="warn"><TT>{who} asked for a revision</TT><Note ink>{o.revisionNote}</Note></Card> : null}
-      {o.disputed ? <Card tone="danger"><Note>This order has an open dispute. An admin will resolve it.</Note></Card> : null}
-      <Card>
-        <View>
-          <KV k="Price" v={dollars(o.amount)} />
-          <KV k="Due" v={o.dueDate ? fmtDay(o.dueDate) : "None"} />
-          <KV k="Ordered" v={fmtDay(o.createdAt)} />
-        </View>
-        {["IN_ESCROW", "COMPLETED"].includes(o.status) ? (
-          <>
-            <Link label="Change due date" onPress={() => openSheet(() => <DueDateSheet o={o} onSaved={reload} />)} />
-            <Small>A revision request sets the due date to 7 days out. Use this if you need longer, or to give the student more time to book a call.</Small>
-          </>
-        ) : null}
-      </Card>
-      {upcoming.length ? (
-        <Sec>
-          <Eyebrow>Calls</Eyebrow>
-          <View>
-            {upcoming.map((b: any, i: number) => {
-              const open = joinState(b) === "open";
-              return (
-                <Row key={b.id} tt={`${dayWord(b.startTime)} · ${fmtTime(b.startTime)}`} ss={`${minutesBetween(b.startTime, b.endTime)} min`}
-                  rr={open ? <Btn kind="dark" sm label="Join" onPress={() => router.push(`/call/${b.id}`)} /> : undefined}
-                  onPress={() => openSheet(() => <CallSheet call={{ ...b, kind: "ORDER", orderId: o.id, disputed: o.disputed, withName: o.buyer?.name }} onChanged={reload} />)} last={i === upcoming.length - 1} />
-              );
-            })}
-          </View>
-        </Sec>
-      ) : null}
-      {o.conversationId ? <Btn kind="line" label={`Message ${who}`} onPress={() => router.push(`/mentor/chat/${o.conversationId}`)} /> : null}
-      {active && !o.disputed ? <Btn kind="black" label="Mark complete" onPress={() => openSheet(() => <DeliverSheet o={o} onDone={reload} />)} /> : null}
-      <Safety o={o} reload={reload} />
-    </Screen>
-  );
-}
-
-function DueDateSheet({ o, onSaved }: { o: any; onSaved: () => void }) {
-  const { closeSheet, toast } = useOverlay();
-  const [day, setDay] = useState<string | null>(o.dueDate ? String(o.dueDate).slice(0, 10) : null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const save = async () => {
-    if (!day) return setError("Pick a date.");
-    setBusy(true);
-    setError(null);
-    try {
-      await api(`/api/orders/${encodeURIComponent(o.id)}/due-date`, { body: { dueDate: `${day}T12:00:00.000Z` } });
-      closeSheet();
-      toast("Due date saved");
-      onSaved();
-    } catch (e) {
-      setError(errorText(e));
-      setBusy(false);
-    }
-  };
-  return (
-    <>
-      <H>Change Due Date</H>
-      <DayGrid start={day} minDay={dayString(new Date())} onChange={(s) => setDay(s)} />
-      <ErrText>{error}</ErrText>
-      <Btn kind="dark" label={busy ? "Saving…" : "Save due date"} disabled={busy || !day} onPress={save} />
-      <Btn kind="line" label="Cancel" onPress={closeSheet} />
-    </>
-  );
-}
-
-// Older orders are marked complete with a short description of what was
-// delivered (/api/orders/[id]/mark-complete). Files can be added on the website.
-function DeliverSheet({ o, onDone }: { o: any; onDone: () => void }) {
-  const { closeSheet, toast } = useOverlay();
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const go = async () => {
-    if (text.trim().length < 20) return setError("Describe what you're delivering (at least 20 characters).");
-    setBusy(true);
-    setError(null);
-    try {
-      await api(`/api/orders/${encodeURIComponent(o.id)}/mark-complete`, { body: { description: text.trim(), files: [] } });
-      closeSheet();
-      toast("Marked complete. The student got an email.");
-      onDone();
-    } catch (e) {
-      setError(errorText(e));
-      setBusy(false);
-    }
-  };
-  return (
-    <>
-      <H>Mark Complete</H>
-      <Field label="What you’re delivering" value={text} onChange={setText} multiline placeholder="At least 20 characters" />
-      <Small>To attach files, mark it complete on mentorsmd.com.</Small>
-      <ErrText>{error}</ErrText>
-      <Btn kind="dark" label={busy ? "Sending…" : "Mark complete"} disabled={busy} onPress={go} />
       <Btn kind="line" label="Cancel" onPress={closeSheet} />
     </>
   );

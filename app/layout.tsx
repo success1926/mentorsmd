@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Hanken_Grotesk, IBM_Plex_Mono, Newsreader } from "next/font/google";
 import "./globals.css";
 import "./moments.css";
+import "./styles/public.css";
+import "./styles/areas.css";
 import { Providers } from "./providers";
 import { TopNav } from "@/components/TopNav";
 import { Footer } from "@/components/Footer";

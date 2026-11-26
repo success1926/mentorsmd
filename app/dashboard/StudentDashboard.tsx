@@ -10,17 +10,17 @@
 // mentor".
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AddHoursModal, BookCallModal, HoursBar, LowHoursBadge, PackageBadge, fmtWhen, postJson, showLowHours } from "@/components/Packages";
-import { Icon, ICONS, PersonAvatar } from "@/components/ui";
+import { AddHoursModal, BookCallModal, postJson, showLowHours } from "@/components/Packages";
+import { PackageRow } from "@/components/PackageRow";
+import { Alert, Icon, ICONS, LoadingBlock, PageHeader } from "@/components/ui";
 import { notifyPackagesChanged, useNavStatus } from "@/components/NavStatus";
 import { finishPhase, hoursToRespond, studentActions } from "@/lib/finishing";
 import { hoursSummary, shortHours, TOP_UP_HOURS } from "@/lib/hours";
 import { JOIN_OPENS_MINUTES_BEFORE, joinState } from "@/lib/calls";
-import { money } from "@/lib/options";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { firstName as first, fmtDateTime as fmtWhen, fmtTime, money } from "@/lib/format";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 const DAY = 24 * 3600_000;
-const first = (n?: string | null) => (n || "").split(" ")[0];
 
 // "Suggested adding 2 hours to this package." from the mentor (see
 // /api/orders/[id]/suggest-hours), if it's recent and no hours were added
@@ -36,8 +36,6 @@ function suggestedHours(p: any): number | null {
   const n = Number(match[1]);
   return TOP_UP_HOURS.includes(n) ? n : null;
 }
-
-const MentorAvatar = ({ person, size = 40 }: { person: any; size?: number }) => <PersonAvatar person={person} size={size} fontSize={size > 36 ? 15 : 13} />;
 
 type Next = {
   key: string;
@@ -60,7 +58,7 @@ export function StudentDashboard({ name }: { name: string; viewerId: string }) {
   const [adding, setAdding] = useState<{ order: any; hours?: number } | null>(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
-  const { confirm, dialog } = useAdminDialog();
+  const { confirm, dialog } = useConfirm();
 
   function load() {
     fetch("/api/packages").then((r) => r.json()).then((d) => setPackages(d.packages || [])).catch(() => setPackages([]));
@@ -99,7 +97,7 @@ export function StudentDashboard({ name }: { name: string; viewerId: string }) {
       actions: (
         <>
           <button className="btn btn-sm btn-primary" disabled={busy === p.id} onClick={() => approve(p)}>Approve</button>
-          <Link href={`/orders?id=${p.id}`} className="btn btn-sm">{can.lastRevision || can.lastCall ? "One last call or revision" : "Respond"}</Link>
+          <Link href={`/orders/${p.id}`} className="btn btn-sm">{can.lastRevision || can.lastCall ? "One last call or revision" : "Respond"}</Link>
         </>
       ),
     });
@@ -115,7 +113,7 @@ export function StudentDashboard({ name }: { name: string; viewerId: string }) {
       icon: ICONS.video,
       title: open ? <>Your call with {c.withName} is open</> : <>Your call with {c.withName} starts {fmtWhen(c.startTime)}</>,
       sub: `${open ? "Join now" : `Join opens ${JOIN_OPENS_MINUTES_BEFORE} minutes before`} · ${c.kind === "INTRO" ? "Free intro call" : c.title}`,
-      actions: <Link href={`/calls/${c.id}`} className={`btn btn-sm ${open ? "btn-deep" : ""}`}>{open ? "Join call" : "Call page"}</Link>,
+      actions: <Link href={`/calls/${c.id}`} className={`btn btn-sm ${open ? "btn-primary" : ""}`}>{open ? "Join call" : "Call page"}</Link>,
     });
   }
   let packageUnread = 0;
@@ -169,22 +167,20 @@ export function StudentDashboard({ name }: { name: string; viewerId: string }) {
   }
 
   return (
-    <div className="page stack-lg" style={{ gap: 20, maxWidth: 1180 }}>
+    <div className="page stack-lg" style={{ gap: 20 }}>
       {dialog}
-      <div className="between" style={{ flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
-        <div className="stack-sm">
-          <h1 className="page-title">Hi{firstName ? `, ${firstName}` : ""}</h1>
-          <p className="lede">Your packages, calls and messages in one place.</p>
-        </div>
-        <span className="text-muted small">{new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</span>
-      </div>
+      <PageHeader
+        title={`Hi${firstName ? `, ${firstName}` : ""}`}
+        lede="Your packages, calls and messages in one place."
+        actions={<span className="text-muted small">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</span>}
+      />
 
-      {error && <div role="alert" className="alert alert-danger">{error}</div>}
+      {error && <Alert tone="danger">{error}</Alert>}
 
       {packages !== null && next.length > 0 && (
         <section className="whats-next" aria-label="What's next">
           <div className="mentor-box-head">
-            <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 400, fontSize: 22 }}>What&apos;s next</h2>
+            <h2 className="block-title">What&apos;s next</h2>
             <span className="text-muted small">{next.length} {next.length === 1 ? "thing" : "things"}</span>
           </div>
           {next.map((n) => (
@@ -206,37 +202,29 @@ export function StudentDashboard({ name }: { name: string; viewerId: string }) {
             <h2>Your packages</h2>
             {all.length > 0 && <Link href="/orders" className="link small">All {all.length}</Link>}
           </div>
-          {packages === null && <span className="text-muted">Loading…</span>}
+          {packages === null && <LoadingBlock title={false} lines={3} />}
           {packages !== null && active.length === 0 && (
             <div className="stack-sm" style={{ alignItems: "flex-start", padding: "12px 0" }}>
-              <b style={{ fontFamily: "var(--font-display)", fontWeight: 400, fontSize: 22 }}>{all.length ? "No active packages" : "Find your first mentor"}</b>
+              <b className="block-title">{all.length ? "No active packages" : "Find your first mentor"}</b>
               <span className="text-secondary small">Message a mentor or book a free 15-minute intro call, then buy hours from their profile.</span>
               <Link href="/mentors" className="btn btn-primary btn-sm">Browse mentors</Link>
             </div>
           )}
           {active.map((p) => {
             const h = hoursSummary(p);
-            const phase = finishPhase(p);
             return (
-              <div key={p.id} className="mentor-row" style={{ flexWrap: "wrap", alignItems: "flex-start" }}>
-                <MentorAvatar person={p.seller} />
-                <div className="grow stack-sm" style={{ gap: 6, minWidth: 220 }}>
-                  <div className="between" style={{ alignItems: "flex-start", gap: 8 }}>
-                    <Link href={`/orders?id=${p.id}`} className="stack-sm" style={{ gap: 0, minWidth: 0 }}>
-                      <b style={{ fontSize: 15 }}>{p.title}</b>
-                      <span className="text-muted small">{p.seller?.name}</span>
-                    </Link>
-                    {showLowHours(p) ? <LowHoursBadge order={p} /> : <PackageBadge order={p} />}
-                  </div>
-                  <HoursBar order={p} thin />
-                  <span className="small"><b>{shortHours(h.left)}</b> <span className="text-secondary">left of {shortHours(h.purchased)}</span></span>
-                  <div className="row-wrap" style={{ gap: 6 }}>
-                    {phase === "WORKING" && <button className="btn btn-sm btn-primary" disabled={h.left < 30} onClick={() => setBooking(p)}>Book a call</button>}
-                    <Link href={`/orders/${p.id}#messages`} className="btn btn-sm">Message{p.newMessages ? ` (${p.newMessages} new)` : ""}</Link>
+              <PackageRow
+                key={p.id}
+                p={p}
+                audience="student"
+                actions={
+                  <>
+                    {finishPhase(p) === "WORKING" && <button className="btn btn-sm btn-primary" disabled={h.left < 30} onClick={() => setBooking(p)}>Book a call</button>}
+                    <Link href={`/orders/${p.id}#messages`} className="btn btn-sm">Message</Link>
                     {showLowHours(p) && <button className="btn btn-sm" onClick={() => setAdding({ order: p })}>Add hours</button>}
-                  </div>
-                </div>
-              </div>
+                  </>
+                }
+              />
             );
           })}
         </section>
@@ -254,12 +242,12 @@ export function StudentDashboard({ name }: { name: string; viewerId: string }) {
               return (
                 <Link key={c.id} href={`/calls/${c.id}`} className="mentor-row">
                   <span className="cal-date" style={{ minWidth: 52, padding: "6px 4px" }} aria-hidden="true">
-                    <span className="small text-secondary">{d.toLocaleDateString(undefined, { weekday: "short" })}</span>
+                    <span className="small text-secondary">{d.toLocaleDateString("en-US", { weekday: "short" })}</span>
                     <b style={{ fontSize: 18 }}>{d.getDate()}</b>
                   </span>
                   <div className="grow stack-sm" style={{ gap: 0, minWidth: 0 }}>
                     <b className="small">{c.withName} · {mins} min</b>
-                    <span className="text-muted small">{d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })} · {c.kind === "INTRO" ? "Free intro call" : c.title}</span>
+                    <span className="text-muted small">{fmtTime(d)} · {c.kind === "INTRO" ? "Free intro call" : c.title}</span>
                   </div>
                 </Link>
               );

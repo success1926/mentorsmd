@@ -8,15 +8,14 @@ import { CompareTick, HeroGlow, useCompareFooter } from "../../components/brand"
 import { liveCache } from "../../components/find";
 import { usePaySheet } from "../../components/shared";
 import { useSafetySheet } from "../../components/safety";
-import { Btn, Card, Chip, Chips, Eyebrow, Hdr, Icon, Link, Loading, Note, SchoolList, SchoolLogo, Screen, Small, SS, Stars, TT } from "../../components/ui";
+import { Btn, Card, Chip, Chips, Eyebrow, Hdr, Icon, Link, Loading, Note, ReadMore, SchoolList, SchoolLogo, Screen, Small, SS, Stars, TT } from "../../components/ui";
 import { api, dollars, errorText, useApi } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
-import { useOverlay } from "../../lib/demo";
-import { liveProfile, SITE, useLoad, type LiveOffer, type LiveReview } from "../../lib/live";
+import { useOverlay } from "../../lib/overlay";
+import { type LiveOffer, liveProfile, type LiveReview, type Mentor, SITE, useLoad } from "../../lib/live";
 import { useCompare } from "../../lib/match";
-import { fmtWhen } from "../../lib/orders";
-import { first, money, type Mentor } from "../../lib/sample";
 import { fonts, useColors } from "../../lib/theme";
+import { firstName, fmtDateTime, money } from "../../lib/format";
 
 // A mentor's profile (Nov 2026, the website's sticky-sidebar profile as it
 // looks on a phone): the card with photo, school, who they're best for,
@@ -65,7 +64,7 @@ function ProfileView({ m, liveReviews, offers, seller }: { m: Mentor; liveReview
   const safety = useSafetySheet();
   const footer = useCompareFooter();
   const cmp = useCompare();
-  const name1 = first(m.name);
+  const name1 = firstName(m.name);
   const onSite = () => WebBrowser.openBrowserAsync(`${SITE}/mentors/${m.id}`);
   const isStudent = user?.role === "BUYER";
   const isMe = !!user && user.id === m.id;
@@ -378,18 +377,6 @@ function Label({ children }: { children: ReactNode }) {
   return <Text style={{ fontFamily: fonts.mono, fontSize: 10.5, letterSpacing: 1.3, textTransform: "uppercase", color: c.faint }}>{children}</Text>;
 }
 
-function ReadMore({ text }: { text: string }) {
-  const c = useColors();
-  const [open, setOpen] = useState(false);
-  const long = text.length > 420;
-  return (
-    <View style={{ gap: 6 }}>
-      <Text numberOfLines={open || !long ? undefined : 6} style={{ fontFamily: fonts.body, fontSize: 15, lineHeight: 23, color: c.muted }}>{text}</Text>
-      {long ? <Pressable accessibilityRole="button" onPress={() => setOpen((o) => !o)} hitSlop={8}><Text style={{ fontFamily: fonts.bodySemi, fontSize: 14, color: c.link }}>{open ? "Show less" : "Read more"}</Text></Pressable> : null}
-    </View>
-  );
-}
-
 function UnlockNote({ unlock, first, blockedNote, adultsOnly }: { unlock: Unlock | null; first: string; blockedNote: string; adultsOnly: boolean }) {
   if (blockedNote) return <Small style={{ textAlign: "center" }}>{blockedNote}</Small>;
   if (adultsOnly) return <Small style={{ textAlign: "center" }}>{first} works with students 18 and over. Please choose another mentor.</Small>;
@@ -399,7 +386,7 @@ function UnlockNote({ unlock, first, blockedNote, adultsOnly }: { unlock: Unlock
   return (
     <Small style={{ textAlign: "center" }}>
       {intro && intro.status === "BOOKED"
-        ? `Intro call booked for ${fmtWhen(intro.startTime)}. Buying unlocks once it’s held, or when ${first} replies to a message.`
+        ? `Intro call booked for ${fmtDateTime(intro.startTime)}. Buying unlocks once it’s held, or when ${first} replies to a message.`
         : unlock.messaged
           ? `Waiting for ${first} to reply. Buying unlocks once they do, or after an intro call.`
           : `Buying unlocks once ${first} replies to a message, or after your intro call.`}

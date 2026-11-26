@@ -3,18 +3,18 @@ import { adminCan } from "@/lib/adminTeam";
 import { ORDER_VIEW_PERMISSIONS } from "@/lib/adminPermissions";
 import { prisma } from "@/lib/prisma";
 import { hasAvailability } from "@/lib/schedule";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 
 // A single order, for the order detail page. Previously that page fetched
 // EVERY order the user had and searched for one client-side, which also
 // meant admins (who aren't the buyer or seller) couldn't open a disputed
 // order at all.
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
 
-  const userId = (session.user as any).id;
-  const role = (session.user as any).role;
+  const userId = me.id;
+  const role = me.role;
 
   const order = await prisma.order.findUnique({
     where: { id: params.id },
@@ -73,6 +73,6 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   };
   return NextResponse.json({
     order: safe,
-    viewer: { id: userId, role, name: session.user.name ?? "", email: session.user.email ?? "" },
+    viewer: { id: userId, role, name: me.name ?? "", email: me.email ?? "" },
   });
 }

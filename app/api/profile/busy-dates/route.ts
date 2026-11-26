@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { dueDayOf, isValidBusyRange } from "@/lib/schedule";
-import { getSession } from "@/lib/session";
+import { getSession, sessionUser } from "@/lib/session";
 
 // Mentor-only: busy dates (exams, rotations, travel). The note is private
 // to the mentor. "No deadlines" stops students picking a due date in the
 // range; "No deadlines and no calls" also blocks call slots.
 async function requireMentor() {
-  const session = await getSession();
-  if (!session?.user || (session.user as any).role !== "SELLER") return null;
-  return session.user as any;
+  const me = sessionUser(await getSession());
+  if (!me || me.role !== "SELLER") return null;
+  return me as any;
 }
 
 async function list(userId: string) {

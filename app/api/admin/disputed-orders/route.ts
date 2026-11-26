@@ -30,7 +30,7 @@ export async function GET() {
 
   const [open, resolved] = await Promise.all([
     prisma.order.findMany({
-      where: { disputed: true, disputeResolvedAt: null, status: { in: ["IN_ESCROW", "COMPLETED"] } },
+      where: { disputed: true, disputeResolvedAt: null, kind: { not: null }, status: { in: ["IN_ESCROW", "COMPLETED"] } },
       include,
       orderBy: { createdAt: "desc" },
     }),
@@ -43,7 +43,6 @@ export async function GET() {
   ]);
 
   const shape = (o: (typeof open)[number]) => {
-    if (!o.kind) return o;
     const h = hoursSummary(o);
     const topUpCents = o.topUps.reduce((s, t) => s + t.amountCents, 0);
     return {

@@ -3,8 +3,8 @@
 import { useCallback, useRef, useState } from "react";
 import { Modal } from "@/components/Modal";
 
-// Admin pop-ups in place of the browser's own confirm() / prompt() /
-// alert() boxes. A page calls useAdminDialog(), puts {dialog} somewhere in
+// The site's own pop-ups (student, mentor and admin pages) in place of the browser's own confirm() / prompt() /
+// alert() boxes. A page calls useConfirm(), puts {dialog} somewhere in
 // what it renders, then awaits:
 //   - confirm({ title, body })            -> true / false
 //   - ask({ title, reason: {...} })       -> the typed reason, or null if cancelled
@@ -29,7 +29,7 @@ export type DialogOptions = {
 
 type Pending = { opts: DialogOptions; resolve: (v: string | null) => void; id: number };
 
-export function useAdminDialog() {
+export function useConfirm() {
   const [pending, setPending] = useState<Pending | null>(null);
   const counter = useRef(0);
 
@@ -50,11 +50,11 @@ export function useAdminDialog() {
     pending?.resolve(v);
     setPending(null);
   };
-  const dialog = pending ? <AdminDialog key={pending.id} opts={pending.opts} onDone={finish} /> : null;
+  const dialog = pending ? <ConfirmDialog key={pending.id} opts={pending.opts} onDone={finish} /> : null;
   return { ask, confirm, notify, dialog };
 }
 
-function AdminDialog({ opts, onDone }: { opts: DialogOptions; onDone: (v: string | null) => void }) {
+function ConfirmDialog({ opts, onDone }: { opts: DialogOptions; onDone: (v: string | null) => void }) {
   const [reason, setReason] = useState(opts.reason?.initial ?? "");
   const [typed, setTyped] = useState("");
   const [error, setError] = useState("");
@@ -85,9 +85,9 @@ function AdminDialog({ opts, onDone }: { opts: DialogOptions; onDone: (v: string
   const cancel = () => !busy && onDone(null);
   return (
     <Modal open onClose={cancel} label={opts.title} dismissable={!busy}>
-      <form className="stack-sm adm-dialog" onSubmit={submit}>
-        <h2 className="adm-dialog-title">{opts.title}</h2>
-        {opts.body && <div className="text-secondary adm-dialog-body">{opts.body}</div>}
+      <form className="stack-sm confirm-dialog" onSubmit={submit}>
+        <h2 className="modal-title">{opts.title}</h2>
+        {opts.body && <div className="text-secondary confirm-dialog-body">{opts.body}</div>}
         {opts.reason && (
           <label className="stack-sm" style={{ gap: 4 }}>
             <span className="field-label">{opts.reason.label}</span>
@@ -128,7 +128,7 @@ function AdminDialog({ opts, onDone }: { opts: DialogOptions; onDone: (v: string
           </label>
         )}
         {error && <div role="alert" className="alert alert-danger small">{error}</div>}
-        <div className="adm-dialog-actions">
+        <div className="confirm-dialog-actions">
           {opts.cancelLabel !== null && (
             <button type="button" className="btn" onClick={cancel} disabled={busy}>
               {opts.cancelLabel ?? "Cancel"}

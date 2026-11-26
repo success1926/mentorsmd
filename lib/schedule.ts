@@ -63,13 +63,6 @@ export function isBusyDay(day: string, ranges: BusyRange[], _forCalls = false) {
   return ranges.some((r) => day >= r.startDay && day <= r.endDay);
 }
 
-// The first day on/after `day` that isn't a busy (no-deadline) day.
-export function nextFreeDay(day: string, ranges: BusyRange[]) {
-  let d = day;
-  for (let i = 0; i < 400 && isBusyDay(d, ranges); i++) d = addDays(d, 1);
-  return d;
-}
-
 export function isValidBusyRange(startDay: unknown, endDay: unknown) {
   return isDayString(startDay) && isDayString(endDay) && startDay <= endDay;
 }
@@ -79,10 +72,6 @@ export function isValidBusyRange(startDay: unknown, endDay: unknown) {
 // The calendar day of a stored due date (due dates are saved as midnight UTC).
 export function dueDayOf(d: Date | string) {
   return new Date(d).toISOString().slice(0, 10);
-}
-
-export function dayToDueDate(day: string) {
-  return new Date(`${day}T00:00:00.000Z`);
 }
 
 // ---------- Slots ----------

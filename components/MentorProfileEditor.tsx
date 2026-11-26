@@ -12,11 +12,13 @@ import {
 } from "@/lib/options";
 import { languagesOf, rolesOf, type AdmissionsRole, type Language } from "@/lib/profileCompleteness";
 import { MedicalSchoolPicker } from "@/components/MedicalSchoolPicker";
+import { SaveStatus } from "@/components/ui";
 
-// Steps 2 to 9 of "My profile" (/dashboard/profile, mentor area v2, Oct
+// Steps 2 to 10 of "My profile" (/dashboard/profile, mentor area v2, Oct
 // 2026; docs/redesign-2026-10.md section 2): bio, admissions experience,
 // clinical & research, who you're best for, credentials & highlights, known
-// for, languages and a fun fact. Each is a numbered step that folds open
+// for, languages and a fun fact, then the optional schools your students
+// got into. Each is a numbered step that folds open
 // (ProfileStep). Every step has its own Save button, and each one saves the
 // whole editor, so nothing typed elsewhere is lost. The page passes in which
 // step is open and the checklist (lib/profileCompleteness.ts) for each
@@ -75,8 +77,10 @@ export type StepStatus = { done: boolean; hint: string };
 
 const NEW_ROLE: AdmissionsRole = { type: "INTERVIEWER", place: "", years: "", former: false };
 
-// One numbered step that folds open and shut. `status` comes from the
-// checklist (what's saved), so it changes after Save.
+// One numbered step that folds open and shut (one open at a time, opened
+// from the link's #anchor). `status` comes from the checklist (what's
+// saved), so it changes after Save. The chevron is the shared one
+// (.toggle-btn), the same as every other section that opens and closes.
 export function ProfileStep({ id, num, title, help, status, open, onToggle, children, onSave, saving, msg, nextLabel, doneLabel }: {
   id: string;
   num: number;
@@ -95,17 +99,16 @@ export function ProfileStep({ id, num, title, help, status, open, onToggle, chil
   const done = !!status?.done;
   return (
     <section id={id} className="profile-step" data-open={open} aria-labelledby={`${id}-title`}>
-      <button type="button" className="profile-step-head" aria-expanded={open} aria-controls={`${id}-body`} onClick={onToggle}>
+      <button type="button" className="profile-step-head toggle-btn" aria-expanded={open} aria-controls={`${id}-body`} onClick={onToggle}>
         <span className={`profile-step-num ${done ? "done" : ""}`} aria-hidden="true">{done ? "✓" : num}</span>
         <span className="grow stack-sm" style={{ gap: 0 }}>
-          <b id={`${id}-title`} style={{ fontSize: 16 }}>
+          <b id={`${id}-title`}>
             <span className="sr-only">Step {num}: </span>
             {title}
           </b>
           {!open && <span className="small" style={{ color: done ? "var(--success-fg)" : "var(--muted)" }}>{done ? doneLabel || "Done" : status?.hint || "Not done"}</span>}
         </span>
         {open && <span className={`badge ${done ? "badge-success" : "badge-warning"}`}>{done ? "Done" : "Not done"}</span>}
-        <span aria-hidden="true" className="text-muted">{open ? "▾" : "▸"}</span>
       </button>
       {open && (
         <div id={`${id}-body`} className="profile-step-body">
@@ -113,9 +116,9 @@ export function ProfileStep({ id, num, title, help, status, open, onToggle, chil
           {children}
           {onSave && (
             <div className="row-wrap">
-              <button type="button" className="btn btn-primary" disabled={saving} onClick={onSave}>{saving ? "Saving…" : nextLabel ? "Save and continue" : "Save"}</button>
+              <button type="button" className="btn btn-primary" disabled={saving} onClick={onSave}>{saving ? "Saving…" : nextLabel ? "Save and continue" : "Save changes"}</button>
               {nextLabel && <span className="text-muted small">Next: {nextLabel}</span>}
-              {msg && <span role="status" className="small" style={{ color: msg.ok ? "var(--success-fg)" : "var(--danger)" }}>{msg.text}</span>}
+              {msg && <SaveStatus state={msg.ok ? "saved" : "error"} error={msg.text} />}
             </div>
           )}
         </div>

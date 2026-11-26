@@ -2,16 +2,14 @@
 // MentorsMD, built from what's already in the database. Server only.
 //
 // Two kinds of payment:
-//   - an order: an hours package, hour bundle, hourly, pay-per-call, or an
-//     order from before the hourly redesign (Order.amount is the full
-//     price; creditAppliedCents of it was paid with MentorsMD credit, the
-//     rest by card through Stripe). Order.stripePaymentIntentId holds the
+//   - an order: an hours package, hour bundle, hourly or pay-per-call
+//     (Order.amount is the full price; creditAppliedCents of it was paid
+//     with MentorsMD credit, the rest by card through Stripe). Order.stripePaymentIntentId holds the
 //     Stripe Checkout Session id ("cs_...") for website purchases, or the
 //     PaymentIntent id ("pi_...") for phone app purchases.
 //   - "Add hours" on a package (HourTopUp, status PAID).
-// Refunds: orders from before the redesign could be refunded to the card
-// (status REFUNDED); hours packages are only ever refunded as MentorsMD
-// credit (CreditEntry DISPUTE_REFUND on the order).
+// Refunds: packages are only ever refunded as MentorsMD credit (CreditEntry
+// DISPUTE_REFUND on the order), never to the card (refundedToCardCents is 0).
 //
 // Stripe's own receipt (receipt_url on the charge) isn't stored: it's
 // looked up when the student asks for it (stripeReceiptUrl).
@@ -109,7 +107,6 @@ function fromOrder(o: OrderRow): Receipt[] {
       : `${kind}: ${hoursLabel(minutes)}${o.rateCents ? ` at ${money(o.rateCents)}/hr` : ""}`
     : "Package";
   const chargedCents = Math.max(0, o.amount - o.creditAppliedCents);
-  const refundedToCardCents = !o.kind && o.status === "REFUNDED" ? chargedCents : 0;
   // A dispute refund can cover the package and its added hours: it's shown
   // on the package receipt first, then on each top-up, never more than
   // what that receipt was for.
@@ -131,7 +128,7 @@ function fromOrder(o: OrderRow): Receipt[] {
     totalCents: o.amount,
     creditAppliedCents: o.creditAppliedCents,
     chargedCents,
-    refundedToCardCents,
+    refundedToCardCents: 0,
     refundedAsCreditCents,
     status: "",
     stripeRef: chargedCents > 0 ? o.stripePaymentIntentId : null,

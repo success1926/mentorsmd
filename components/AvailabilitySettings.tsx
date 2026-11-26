@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Icon, ICONS } from "@/components/ui";
+import { Alert, Collapsible, Icon, ICONS, SaveStatus } from "@/components/ui";
+import { SettingsSection } from "@/components/SettingsSection";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { fmtDateTime } from "@/lib/format";
 import { BOOKING_WINDOW_OPTIONS, BUFFER_OPTIONS, NOTICE_OPTIONS, WEEKDAY_NAMES, WeeklyHours, bookingWindowFor, bookingWindowLabel } from "@/lib/schedule";
 import { CANCEL_CUTOFF_HOURS } from "@/lib/calls";
 import { browserTimeZone, dayInZone, fmtDayLabel, timeZoneList } from "@/lib/tz";
@@ -15,11 +18,6 @@ import { browserTimeZone, dayInZone, fmtDayLabel, timeZoneList } from "@/lib/tz"
 const GOOGLE_CONNECT_ON = process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_CONNECT === "true";
 
 type Msg = { ok: boolean; text: string } | null;
-
-function Note({ m }: { m: Msg }) {
-  if (!m) return null;
-  return <div role="status" className={`alert ${m.ok ? "alert-success" : "alert-danger"}`}>{m.text}</div>;
-}
 
 const zoneLabel = (z: string) => z.replace(/_/g, " ");
 
@@ -41,13 +39,13 @@ export function TimeZoneSelect({ value, onChange, id }: { value: string; onChang
 // Everyone: the time zone used for reminders and emails.
 export function TimeZoneCard({ initial, onSaved }: { initial: string | null; onSaved?: () => void }) {
   const [tz, setTz] = useState(initial || "");
-  const [msg, setMsg] = useState<Msg>(null);
+  const [save_, setSave] = useState<{ state: "idle" | "saving" | "saved" | "error"; error?: string }>({ state: "idle" });
   const detected = browserTimeZone();
   async function save(value: string) {
-    setMsg(null);
+    setSave({ state: "saving" });
     const res = await fetch("/api/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ timeZone: value }) });
     const d = await res.json().catch(() => ({}));
-    setMsg(res.ok ? { ok: true, text: "Time zone saved." } : { ok: false, text: d.error || "Couldn't save" });
+    setSave(res.ok ? { state: "saved" } : { state: "error", error: d.error || "Couldn't save" });
     if (res.ok) onSaved?.();
   }
   return (
@@ -55,13 +53,13 @@ export function TimeZoneCard({ initial, onSaved }: { initial: string | null; onS
       <label className="field-label" htmlFor="tz-select">Your time zone</label>
       <span className="text-secondary small">Used for call reminders (8am on the day of a call) and the times in our emails. The site itself shows times in your device&apos;s time zone.</span>
       <div className="row-wrap">
-        <TimeZoneSelect id="tz-select" value={tz} onChange={setTz} />
-        <button className="btn btn-primary btn-sm" disabled={!tz || tz === initial} onClick={() => save(tz)}>Save</button>
+        <TimeZoneSelect id="tz-select" value={tz} onChange={(v) => { setTz(v); setSave({ state: "idle" }); }} />
+        <button className="btn btn-primary btn-sm" disabled={!tz || tz === initial || save_.state === "saving"} onClick={() => save(tz)}>Save changes</button>
         {detected && detected !== tz && (
           <button className="btn btn-ghost btn-sm" onClick={() => { setTz(detected); save(detected); }}>Use {zoneLabel(detected)}</button>
         )}
+        <SaveStatus state={save_.state} error={save_.error} />
       </div>
-      <Note m={msg} />
     </div>
   );
 }
@@ -107,12 +105,12 @@ export function CallHoursCard({ profile, onSaved }: { profile: any; onSaved?: ()
   }
 
   return (
-    <section id="call-hours" className="card stack" style={{ scrollMarginTop: 100, gap: 18 }}>
+    <SettingsSection
+      id="call-hours"
+      title="Call hours"
+      description="When students can book calls with you: free 15-minute intro calls, and calls that use the hours in their packages. Every call happens in a private MentorsMD video room."
+    >
       <div className="stack-sm">
-        <h2 style={{ fontSize: 26 }}>Call hours</h2>
-        <span className="text-secondary">
-          When students can book calls with you: free 15-minute intro calls, and calls that use the hours in their packages. Every call happens in a private MentorsMD video room.
-        </span>
         <div className="alert alert-blue small stack-sm" style={{ gap: 4 }}>
           <b>How booking works</b>
           <span>Students only see times inside your weekly hours, from your minimum notice ({notice} hours) up to {bookingWindowLabel(windowDays)} ahead, with your break kept free around each call.</span>
@@ -208,12 +206,11 @@ export function CallHoursCard({ profile, onSaved }: { profile: any; onSaved?: ()
         )}
       </div>
 
-      <div className="row-wrap">
-        <button className="btn btn-primary" disabled={saving} onClick={save}>{saving ? "Saving…" : "Save availability"}</button>
-        <Link href="/calendar" className="btn">Month view</Link>
+      <div className="settings-save">
+        <button className="btn btn-primary" disabled={saving} onClick={save}>{saving ? "Saving…" : "Save changes"}</button>
       </div>
-      <Note m={msg} />
-    </section>
+      {msg && <Alert tone={msg.ok ? "success" : "danger"}>{msg.text}</Alert>}
+    </SettingsSection>
   );
 }
 
@@ -226,7 +223,7 @@ export function BusyDatesCard() {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<Msg>(null);
-  const [clashes, setClashes] = useState<{ deadlines: any[]; calls: any[] } | null>(null);
+  const [clashes, setClashes] = useState<{ calls: any[] } | null>(null);
   // Today on this device, not in UTC (only rendered in the browser).
   const today = dayInZone(new Date(), browserTimeZone() || "UTC");
 
@@ -250,7 +247,7 @@ export function BusyDatesCard() {
     setStart("");
     setEnd("");
     setNote("");
-    if (d.clashes?.deadlines?.length || d.clashes?.calls?.length) setClashes(d.clashes);
+    if (d.clashes?.calls?.length) setClashes({ calls: d.clashes.calls });
     else setMsg({ ok: true, text: "Busy dates added." });
   }
 
@@ -261,13 +258,11 @@ export function BusyDatesCard() {
   }
 
   return (
-    <section id="busy-dates" className="card stack" style={{ scrollMarginTop: 100 }}>
-      <div className="stack-sm">
-        <h2 style={{ fontSize: 26 }}>Busy dates</h2>
-        <span className="text-secondary">
-          Exams, rotations, travel? Students can&apos;t book calls on these days. Your note is private: students only see that the times aren&apos;t available. Calls already booked stay booked.
-        </span>
-      </div>
+    <SettingsSection
+      id="busy-dates"
+      title="Busy dates"
+      description={<>Exams, rotations, travel? Students can&apos;t book calls on these days. Your note is private: students only see that the times aren&apos;t available. Calls already booked stay booked.</>}
+    >
       <div className="grid-2">
         <label className="field" style={{ marginBottom: 0 }}>
           <span className="field-label">From</span>
@@ -283,18 +278,13 @@ export function BusyDatesCard() {
         <input className="input" maxLength={200} placeholder="e.g. Step 1 exam week" value={note} onChange={(e) => setNote(e.target.value)} />
       </label>
       <button className="btn btn-primary" style={{ alignSelf: "flex-start" }} disabled={!start || saving} onClick={add}>{saving ? "Adding…" : "Add busy dates"}</button>
-      <Note m={msg} />
+      {msg && <Alert tone={msg.ok ? "success" : "danger"}>{msg.text}</Alert>}
       {clashes && (
         <div role="alert" className="alert alert-warning stack-sm">
           <b>Saved, but you already have calls on these days:</b>
-          {clashes.deadlines.map((c: any) => (
-            <Link key={`d${c.orderId}`} href={`/orders/${c.orderId}`} className="link small">
-              {c.gigTitle} for {c.studentName} is due {fmtDayLabel(c.dueDay)}
-            </Link>
-          ))}
           {clashes.calls.map((c: any, i: number) => (
             <Link key={`c${i}`} href={`/orders/${c.orderId}`} className="link small">
-              Call with {c.studentName} on {new Date(c.startTime).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+              Call with {c.studentName} on {fmtDateTime(c.startTime)}
             </Link>
           ))}
           <span className="small">Those stay booked. Move them from the package page (until {CANCEL_CUTOFF_HOURS} hours before), or message the student.</span>
@@ -314,7 +304,7 @@ export function BusyDatesCard() {
           ))}
         </div>
       )}
-    </section>
+    </SettingsSection>
   );
 }
 
@@ -331,14 +321,18 @@ const GCAL_FLAGS: Record<string, Msg> = {
   error: { ok: false, text: "Couldn't connect Google Calendar. Please try again." },
 };
 
-const shortTime = (d: string | Date) => new Date(d).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+const shortTime = (d: string | Date) => fmtDateTime(d);
 
 export function ExternalCalendarCard({ profile, onChanged }: { profile: any; onChanged?: () => void }) {
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<Msg>(null);
   const connected = profile.externalCal;
+  // Stays open once a link has been connected, so disconnecting doesn't fold it away mid-task.
+  const [everConnected, setEverConnected] = useState(!!connected);
+  useEffect(() => { if (connected) setEverConnected(true); }, [connected]);
   const google = profile.googleCal as { email: string | null; connectedAt: string } | null;
+  const { confirm, dialog } = useConfirm();
 
   // Coming back from Google: show the result once, then tidy the address.
   useEffect(() => {
@@ -371,7 +365,7 @@ export function ExternalCalendarCard({ profile, onChanged }: { profile: any; onC
   }
 
   async function disconnectGoogle() {
-    if (!confirm("Disconnect Google Calendar? Your busy times will no longer be hidden from students.")) return;
+    if (!(await confirm({ title: "Disconnect Google Calendar?", body: "Your busy times will no longer be hidden from students.", confirmLabel: "Disconnect", danger: true }))) return;
     setBusy(true);
     setMsg(null);
     const res = await fetch("/api/calendar/google/disconnect", { method: "POST" });
@@ -382,6 +376,7 @@ export function ExternalCalendarCard({ profile, onChanged }: { profile: any; onC
 
   return (
     <div className="card card-tint stack" style={{ padding: 20 }}>
+      {dialog}
       <div className="between" style={{ flexWrap: "wrap", gap: 8 }}>
         <b className="row"><Icon d={ICONS.calendar} size={18} /> Block busy times from your own calendar</b>
         {google || connected ? <span className="badge badge-success">Connected</span> : <span className="badge">Not connected</span>}
@@ -409,9 +404,11 @@ export function ExternalCalendarCard({ profile, onChanged }: { profile: any; onC
       ) : null}
       {profile.externalCalError && (google || connected) && <span className="alert alert-warning small">Last check failed: {profile.externalCalError}</span>}
 
-      <details className="collapse" open={!!connected || (!GOOGLE_CONNECT_ON && !google)}>
-        <summary style={{ fontSize: 15 }}>{GOOGLE_CONNECT_ON || google ? "Using Apple or Outlook? Paste a calendar link instead" : "Paste your calendar link (Google, Apple or Outlook)"}</summary>
-        <div className="collapse-body stack-sm">
+      <Collapsible
+        variant="inline"
+        defaultOpen={everConnected || (!GOOGLE_CONNECT_ON && !google)}
+        title={GOOGLE_CONNECT_ON || google ? "Using Apple or Outlook? Paste a calendar link instead" : "Paste your calendar link (Google, Apple or Outlook)"}
+      >
           <span className="text-secondary small">
             Paste your calendar&apos;s secret address.{google ? " Busy times from it are added to the ones from Google Calendar." : ""}
           </span>
@@ -427,7 +424,7 @@ export function ExternalCalendarCard({ profile, onChanged }: { profile: any; onC
               <div className="row-wrap">
                 <button className="btn btn-sm" disabled={busy} onClick={() => call("POST", { refresh: true })}>Check now</button>
                 <button className="btn btn-ghost btn-sm" style={{ color: "var(--danger)" }} disabled={busy}
-                  onClick={() => confirm("Stop blocking times from this calendar link?") && call("DELETE", undefined, "Disconnected.")}>
+                  onClick={async () => (await confirm({ title: "Disconnect this calendar link?", body: "Times from it will no longer be hidden from students.", confirmLabel: "Disconnect", danger: true })) && call("DELETE", undefined, "Disconnected.")}>
                   Disconnect
                 </button>
               </div>
@@ -437,9 +434,8 @@ export function ExternalCalendarCard({ profile, onChanged }: { profile: any; onC
             <input className="input grow" style={{ marginBottom: 0 }} placeholder={connected ? "Paste a new secret address to replace it" : "webcal://… or https://…"} value={url} onChange={(e) => setUrl(e.target.value)} aria-label="Secret calendar address" />
             <button className="btn btn-primary btn-sm" disabled={!url.trim() || busy} onClick={() => call("POST", { url })}>{busy ? "Checking…" : "Connect"}</button>
           </div>
-        </div>
-      </details>
-      <Note m={msg} />
+      </Collapsible>
+      {msg && <Alert tone={msg.ok ? "success" : "danger"}>{msg.text}</Alert>}
     </div>
   );
 }

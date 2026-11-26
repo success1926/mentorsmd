@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { ALL_PERMISSIONS, can, type PermissionCheck } from "@/lib/adminPermissions";
-import { getSession } from "@/lib/session";
+import { getSession, sessionUser } from "@/lib/session";
 
 // The admin team (#114-#118).
 //
@@ -40,10 +40,10 @@ export type CurrentAdmin = {
 // permission key (or a list meaning "any of these"), also null when their
 // role doesn't include it. Every admin page and /api/admin route calls this.
 export async function currentAdmin(perm?: PermissionCheck): Promise<CurrentAdmin | null> {
-  const session = await getSession();
-  if (!session?.user || (session.user as any).role !== "ADMIN") return null;
+  const me = sessionUser(await getSession());
+  if (!me || me.role !== "ADMIN") return null;
   const u = await prisma.user.findUnique({
-    where: { id: (session.user as any).id },
+    where: { id: me.id },
     select: {
       id: true, name: true, email: true, role: true, adminRole: true, adminDisabledAt: true, removedByAdmin: true,
       adminCustomRole: { select: { id: true, name: true, permissions: true } },

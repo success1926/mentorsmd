@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { paragraphs } from "@/lib/siteContent";
+import { SectionHead } from "@/components/ui";
 import type { PageValues } from "@/lib/siteContent";
 
 // "Every mentor, vetted": a dark purple band with the heading and text on
@@ -11,16 +12,15 @@ type Vet = Pick<PageValues<"home">, "vetEyebrow" | "vetTitle" | "vetText" | "vet
 
 export function VettingSection({ c, id }: { c: Vet; id?: string }) {
   return (
-    <section id={id} className="vet-band" style={{ scrollMarginTop: 150 }}>
+    <section id={id} className="vet-band anchor-target">
       <div className="wrap vet-grid">
-        <div className="stack" style={{ gap: 18 }}>
-          {c.vetEyebrow && <span className="eyebrow">{c.vetEyebrow}</span>}
-          <h2 className="section-head">{c.vetTitle}</h2>
+        <div className="stack vet-text">
+          <SectionHead eyebrow={c.vetEyebrow} title={c.vetTitle} />
           {paragraphs(c.vetText).map((t, i) => (
             <p key={i} className="lede">{t}</p>
           ))}
           {c.vetLink && (
-            <Link href="/senior-team" className="link" style={{ marginTop: 8 }}>
+            <Link href="/senior-team" className="link">
               {c.vetLink}
             </Link>
           )}

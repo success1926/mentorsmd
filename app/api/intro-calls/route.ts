@@ -3,16 +3,16 @@ import { parseDate } from "@/lib/validate";
 import { CallError } from "@/lib/callBooking";
 import { bookIntroCall } from "@/lib/introCalls";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
-import { getSession } from "@/lib/session";
+import { getSession, sessionUser } from "@/lib/session";
 
 // Books the student's free 15-minute intro call with a mentor
 // (lib/introCalls.ts): { mentorId, startTime }. One per student and mentor.
 export async function POST(req: Request) {
-  const session = await getSession();
-  if (!session?.user || (session.user as any).role !== "BUYER") {
+  const me = sessionUser(await getSession());
+  if (!me || me.role !== "BUYER") {
     return NextResponse.json({ error: "Only student accounts can book an intro call" }, { status: 403 });
   }
-  const studentId = (session.user as any).id;
+  const studentId = me.id;
   const r = await rateLimit(RATE_LIMITS.messagesPerMinute, `intro:${studentId}`);
   if (!r.ok) return tooMany(r.retryAfterSec, "Please wait a moment and try again.");
 

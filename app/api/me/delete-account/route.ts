@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/session";
+import { requireRole } from "@/lib/session";
 import { deleteAccount, deletionCheck } from "@/lib/accountDeletion";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
 
@@ -13,24 +13,20 @@ export const dynamic = "force-dynamic";
 // An account with a password must type it again, so someone using a
 // browser left logged in can't delete it. Only for someone fully logged in
 // (not halfway through 2-step).
-async function me() {
-  const session = await getSession();
-  const u = session?.user as any;
-  if (!u?.id || !["ADMIN", "SELLER", "BUYER"].includes(u.role)) return null;
-  return u.id as string;
-}
 
 export async function GET() {
-  const userId = await me();
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const me = await requireRole("ADMIN", "SELLER", "BUYER");
+  if (me instanceof NextResponse) return me;
+  const userId = me.id;
   const check = await deletionCheck(userId);
   if (!check) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   return NextResponse.json(check);
 }
 
 export async function POST(req: Request) {
-  const userId = await me();
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const me = await requireRole("ADMIN", "SELLER", "BUYER");
+  if (me instanceof NextResponse) return me;
+  const userId = me.id;
   const body = await req.json().catch(() => ({}));
   if (String(body.confirm || "").trim().toUpperCase() !== "DELETE") {
     return NextResponse.json({ error: "Type DELETE to confirm." }, { status: 400 });

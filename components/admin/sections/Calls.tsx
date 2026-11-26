@@ -5,14 +5,16 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Attendance, Recordings } from "@/components/Calls";
 import { NEEDS_ADMIN, outcomeLabel } from "@/lib/callOutcomes";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { Collapsible, EmptyState } from "@/components/ui";
+import { fmtDateTime } from "@/lib/format";
 
 // The admin's choices for a past call (see /api/admin/calls/[id]/outcome).
 const OVERRIDES = [
-  { outcome: "HELD", label: "Count as Held", title: "Count this call as held?", confirm: "It's used up, and nobody is emailed." },
-  { outcome: "FREE_REBOOK", label: "Give a Free Rebook", title: "Give a free rebook?", confirm: "The call no longer counts, so the student can book another. Nobody is emailed, so tell them yourself." },
-  { outcome: "STUDENT_NO_SHOW", label: "Mark Student No-Show", title: "Mark as a student no-show?", confirm: "The call counts as used, and both get the no-show email." },
-  { outcome: "MENTOR_NO_SHOW", label: "Mark Mentor No-Show", title: "Mark as a mentor no-show?", confirm: "The call's time goes back to the student's hours (a free rebook), and both get the no-show email." },
+  { outcome: "HELD", label: "Count as held", title: "Count this call as held?", confirm: "It's used up, and nobody is emailed." },
+  { outcome: "FREE_REBOOK", label: "Give a free rebook", title: "Give a free rebook?", confirm: "The call no longer counts, so the student can book another. Nobody is emailed, so tell them yourself." },
+  { outcome: "STUDENT_NO_SHOW", label: "Mark student no-show", title: "Mark as a student no-show?", confirm: "The call counts as used, and both get the no-show email." },
+  { outcome: "MENTOR_NO_SHOW", label: "Mark mentor no-show", title: "Mark as a mentor no-show?", confirm: "The call's time goes back to the student's hours (a free rebook), and both get the no-show email." },
 ];
 
 // Filter tabs for the past calls, each with how many it holds.
@@ -48,7 +50,7 @@ export function CallsAdmin() {
   const [busy, setBusy] = useState<string | null>(null);
   const [outcomeMsg, setOutcomeMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pastFilter, setPastFilter] = useState("ALL");
-  const { ask, dialog } = useAdminDialog();
+  const { ask, dialog } = useConfirm();
   const load = () =>
     fetch("/api/admin/calls").then((r) => r.json()).then((d) => setData({ calls: d.calls || [], setup: d.setup || {} })).catch(() => setData({ calls: [], setup: {} }));
   useEffect(() => {
@@ -104,7 +106,6 @@ export function CallsAdmin() {
   return (
     <section className="stack-sm" id="calls">
       {dialog}
-      <h2 style={{ fontSize: 30 }}>Calls &amp; recordings</h2>
       {data && (
         <div className="row-wrap small">
           <span className={`badge ${setup.video ? "badge-success" : "badge-danger"}`}>{setup.video ? "Video on" : "Video off: set DAILY_API_KEY"}</span>
@@ -129,24 +130,19 @@ export function CallsAdmin() {
       </span>
       {undecided > 0 && <div className="alert alert-warning">{undecided} past call{undecided === 1 ? " needs" : "s need"} a decision: open &quot;Past 60 days&quot; below.</div>}
       {outcomeMsg && <div role="status" className={`alert ${outcomeMsg.ok ? "alert-success" : "alert-danger"}`}>{outcomeMsg.text}</div>}
-      <details className="collapse" open={upcoming.some((c) => c.id === openId) || undefined}>
-        <summary><span className="row" style={{ gap: 8 }}>Upcoming <span className="tab-count">{upcoming.length}</span></span></summary>
-        <div className="collapse-body" style={{ gap: 0 }}>
-          {upcoming.length === 0 && <span className="text-muted">Nothing here yet.</span>}
+      <Collapsible title="Upcoming" count={upcoming.length} defaultOpen={upcoming.some((c) => c.id === openId)} bodyClassName="adm-collapse-list">
+          {upcoming.length === 0 && <EmptyState>Nothing here yet.</EmptyState>}
           {upcoming.map((c) => (
             <div key={c.id} id={`call-${c.id}`} className="list-row" style={{ flexWrap: "wrap", ...mark(c.id) }}>
               <div className="grow stack-sm" style={{ gap: 2 }}>
-                <b style={{ fontSize: 15 }}>{new Date(c.startTime).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</b>
+                <b>{fmtDateTime(c.startTime)}</b>
                 <span className="text-muted">{c.label} · {c.studentName} (student) with {c.mentorName} (mentor)</span>
               </div>
               {c.intro ? <span className="badge badge-blue">INTRO</span> : <Link href={`/orders/${c.order.id}`} className="btn btn-sm">Open package</Link>}
             </div>
           ))}
-        </div>
-      </details>
-      <details className="collapse" open={past.some((c) => c.id === openId) || undefined}>
-        <summary><span className="row" style={{ gap: 8 }}>Past 60 days <span className="tab-count">{past.length}</span></span></summary>
-        <div className="collapse-body" style={{ gap: 0 }}>
+      </Collapsible>
+      <Collapsible title="Past 60 days" count={past.length} defaultOpen={past.some((c) => c.id === openId)} bodyClassName="adm-collapse-list">
           {past.length > 0 && (
             <div className="tabs" role="tablist" aria-label="Filter past calls" style={{ marginBottom: 8 }}>
               {PAST_FILTERS.map((f) => (
@@ -156,18 +152,18 @@ export function CallsAdmin() {
               ))}
             </div>
           )}
-          {past.length === 0 && <span className="text-muted">Nothing here yet.</span>}
+          {past.length === 0 && <EmptyState>Nothing here yet.</EmptyState>}
           {past.length > 0 && shownPast.length === 0 && (
             <div className="row-wrap">
               <span className="text-muted">No calls match this filter.</span>
-              <button type="button" className="btn btn-sm" onClick={() => setPastFilter("ALL")}>Clear Filters</button>
+              <button type="button" className="btn btn-sm" onClick={() => setPastFilter("ALL")}>Clear filters</button>
             </div>
           )}
           {shownPast.map((c) => (
             <div key={c.id} id={`call-${c.id}`} className="list-row" style={{ display: "block", ...mark(c.id) }}>
               <div className="between" style={{ flexWrap: "wrap", gap: 8 }}>
                 <span className="stack-sm" style={{ gap: 2 }}>
-                  <b style={{ fontSize: 15 }}>{new Date(c.startTime).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</b>
+                  <b>{fmtDateTime(c.startTime)}</b>
                   <span className="text-muted">{c.label} · {c.studentName} (student) with {c.mentorName} (mentor)</span>
                 </span>
                 <span className="row" style={{ gap: 6, flexWrap: "wrap" }}>
@@ -188,8 +184,7 @@ export function CallsAdmin() {
               </div>
             </div>
           ))}
-        </div>
-      </details>
+      </Collapsible>
     </section>
   );
 }

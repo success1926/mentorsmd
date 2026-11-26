@@ -18,11 +18,12 @@
 //   4. If the Stripe page expires, the student cancels it or closes the
 //      app's payment sheet (or leaves it for an hour), the order / top-up
 //      is cancelled and the credit given back (once).
+import crypto from "crypto";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { siteUrl } from "@/lib/siteUrl";
-import { money } from "@/lib/options";
+import { firstName, money } from "@/lib/format";
 import { hoursLabel, offerMinutes, offerRate, priceFor } from "@/lib/pricing";
 import { hoursSummary, isBlockMinutes, LOW_HOURS_MINUTES, splitCredit, TOP_UP_HOURS } from "@/lib/hours";
 import { finishPhase } from "@/lib/finishing";
@@ -49,14 +50,13 @@ export class CheckoutError extends Error {
 }
 
 type Buyer = { id: string; email?: string | null };
-const first = (name: string) => name.split(" ")[0];
 
 // ---------- Who can buy ----------
 
 // The same rules as the profile's Buy buttons: a student, a listed mentor
 // with payouts set up, the account gate (date of birth, legal, parental
 // consent), the under-18 rule, no block, and the mentor is unlocked.
-export async function assertCanBuy(studentId: string, mentorId: string) {
+async function assertCanBuy(studentId: string, mentorId: string) {
   const [student, mentor] = await Promise.all([
     prisma.user.findUnique({ where: { id: studentId }, select: { role: true, minorStatus: true, safetyHoldAt: true } }),
     prisma.user.findUnique({ where: { id: mentorId } }),
@@ -233,7 +233,7 @@ async function createOrderCheckout(o: NewOrder): Promise<{ url: string; orderId:
       // Stripe fills in {CHECKOUT_SESSION_ID}: the order page uses it as a
       // back-up if the webhook is slow (confirmOrderFromSession).
       successUrl: `${siteUrl()}/orders/${order.id}?success=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${siteUrl()}/api/checkout/cancel?orderId=${order.id}`,
+      cancelUrl: `${siteUrl()}/api/checkout/cancel?orderId=${order.id}&k=${cancelKey(order.id)}`,
     });
     await prisma.order.update({ where: { id: order.id }, data: { stripePaymentIntentId: session.id } });
     return { url: session.url!, orderId: order.id };
@@ -338,7 +338,7 @@ async function payPerCallOrder(student: Buyer, mentorId: string, start: Date, mi
     // Just "30-minute call": emails and pages already add "with <name>",
     // and the Stripe page shows the description below.
     title: label,
-    description: `One ${label} on ${first(mentor.name)}'s calendar, at their hourly rate.`,
+    description: `One ${label} on ${firstName(mentor.name)}'s calendar, at their hourly rate.`,
     requestedCallStart: start,
   };
 }
@@ -477,7 +477,7 @@ export async function startTopUpCheckout(student: Buyer, orderId: string, hours:
       email: student.email,
       metadata: { topUpId: topUp.id, orderId },
       successUrl: `${siteUrl()}/orders/${orderId}?hours_added=1`,
-      cancelUrl: `${siteUrl()}/api/checkout/cancel?topUpId=${topUp.id}`,
+      cancelUrl: `${siteUrl()}/api/checkout/cancel?topUpId=${topUp.id}&k=${cancelKey(topUp.id)}`,
     });
     await prisma.hourTopUp.update({ where: { id: topUp.id }, data: { stripeSessionId: session.id } });
     return { url: session.url! };
@@ -593,9 +593,20 @@ export async function cancelUnpaid(target: { orderId?: string; topUpId?: string 
   return false;
 }
 
+// The key on a Stripe page's "back" link, so only that link (not a link
+// on another site) can cancel the checkout.
+const cancelKey = (id: string) =>
+  crypto.createHmac("sha256", `${process.env.NEXTAUTH_SECRET || "mentorsmd"}:checkout-cancel`).update(id).digest("hex").slice(0, 32);
+function cancelKeyOk(id: string, key: string | undefined) {
+  const want = cancelKey(id);
+  return !!key && key.length === want.length && crypto.timingSafeEqual(Buffer.from(key), Buffer.from(want));
+}
+
 // The student clicked "back" on Stripe: expire that page first (so it can't
 // be paid any more), then cancel. If it was already paid, nothing changes.
-export async function cancelFromStripePage(studentId: string, target: { orderId?: string; topUpId?: string }) {
+// Only a website checkout (a Stripe page, "cs_..." id) is cancelled here: an
+// app payment sheet ("pi_...") is closed through /api/app/checkout/cancel.
+export async function cancelFromStripePage(studentId: string, target: { orderId?: string; topUpId?: string }, key?: string) {
   let sessionId: string | null = null;
   let back = "/orders";
   if (target.topUpId) {
@@ -604,25 +615,27 @@ export async function cancelFromStripePage(studentId: string, target: { orderId?
     sessionId = t.stripeSessionId;
     back = `/orders/${t.orderId}?topup=cancelled`;
     if (t.status !== "PENDING") return back;
+    if (!cancelKeyOk(t.id, key)) return back;
   } else if (target.orderId) {
     const o = await prisma.order.findUnique({ where: { id: target.orderId } });
     if (!o || o.buyerId !== studentId) return back;
     sessionId = o.stripePaymentIntentId;
     back = `/mentors/${o.sellerId}?checkout=cancelled`;
     if (o.status !== "PENDING_PAYMENT" || !o.kind) return o.status === "IN_ESCROW" ? `/orders/${o.id}` : back;
+    if (!cancelKeyOk(o.id, key)) return back;
   } else {
     return back;
   }
-  if (sessionId) {
-    try {
-      const s = await stripe.checkout.sessions.retrieve(sessionId);
-      if (s.status === "complete") return back; // paid after all: the webhook handles it
-      if (s.status === "open") await stripe.checkout.sessions.expire(sessionId);
-    } catch (err) {
-      // Can't confirm it's closed: leave it for the "expired" webhook.
-      console.error("Couldn't expire the checkout page", err);
-      return back;
-    }
+  // Not a Stripe page (an app payment sheet, or no page yet): leave it.
+  if (!sessionId?.startsWith("cs_")) return back;
+  try {
+    const s = await stripe.checkout.sessions.retrieve(sessionId);
+    if (s.status === "complete") return back; // paid after all: the webhook handles it
+    if (s.status === "open") await stripe.checkout.sessions.expire(sessionId);
+  } catch (err) {
+    // Can't confirm it's closed: leave it for the "expired" webhook.
+    console.error("Couldn't expire the checkout page", err);
+    return back;
   }
   await cancelUnpaid(target);
   return back;

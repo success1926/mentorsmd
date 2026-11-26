@@ -24,7 +24,7 @@
 // unpaid, MentorsMD covers the difference. A refund of everything the
 // student paid marks the package Refunded and nothing more is paid on it.
 // The hours log itself isn't changed (it stays a true record of the work).
-import { PLATFORM_FEE_PERCENT } from "@/lib/fee";
+import { feeOf, mentorShare } from "@/lib/fee";
 import { priceFor } from "@/lib/pricing";
 
 type DateLike = string | Date;
@@ -75,6 +75,9 @@ const PAYABLE_STATUSES = ["IN_ESCROW", "COMPLETED"];
 // (or it's held by an open dispute: see heldCents).
 export function orderPayoutLine(o: PayoutOrderLike, cutoff: Date): PayoutLine | null {
   if (!o.kind || !PAYABLE_STATUSES.includes(o.status) || openDispute(o)) return null;
+  // The final line (unused hours) was already claimed: everything bought was
+  // paid then, so an entry logged afterwards is never paid again.
+  if (o.unusedMinutesPaid != null) return null;
   const rate = o.rateCents || 0;
   const live = o.hourEntries.filter((e) => !e.voidedAt);
   const approvedAt = ms(o.approvedAt);
@@ -93,7 +96,7 @@ export function orderPayoutLine(o: PayoutOrderLike, cutoff: Date): PayoutLine | 
 
 // The value (gross, at the package rate) held back by an open dispute.
 export function heldCents(o: PayoutOrderLike) {
-  if (!o.kind || !PAYABLE_STATUSES.includes(o.status) || !openDispute(o)) return 0;
+  if (!o.kind || !PAYABLE_STATUSES.includes(o.status) || !openDispute(o) || o.unusedMinutesPaid != null) return 0;
   const live = o.hourEntries.filter((e) => !e.voidedAt);
   const unpaid = live.filter((e) => !e.payoutId).reduce((s, e) => s + e.minutes, 0);
   const unused = Math.max(0, (o.minutesPurchased || 0) - live.reduce((s, e) => s + e.minutes, 0));
@@ -115,9 +118,6 @@ export function unpaidValueCents(o: {
   const paid = o.hourEntries.filter((e) => !e.voidedAt && e.payoutId).reduce((s, e) => s + e.minutes, 0) + (o.unusedMinutesPaid ?? 0);
   return Math.max(0, priceFor(Math.max(0, (o.minutesPurchased || 0) - paid), o.rateCents || 0) - (o.refundedCreditCents || 0));
 }
-
-export const feeOf = (grossCents: number) => Math.round((grossCents * PLATFORM_FEE_PERCENT) / 100);
-export const mentorShare = (grossCents: number) => grossCents - feeOf(grossCents);
 
 // One mentor's payout from their packages' lines.
 export function payoutTotals(lines: PayoutLine[]) {
