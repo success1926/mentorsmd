@@ -27,7 +27,7 @@ type Gate = {
   blocked: boolean;
 };
 
-const fmt = (d: string | null) => (d ? new Date(d).toLocaleDateString(undefined, { month: "long", day: "numeric" }) : "");
+const fmt = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-US", { month: "long", day: "numeric" }) : "");
 
 export function AccountGate() {
   const { data: session, status } = useSession();
@@ -71,7 +71,7 @@ export function AccountGate() {
     return (
       <Modal open onClose={() => {}} label="Account closed" dismissable={false}>
         <div className="stack" style={{ gap: 14 }}>
-          <h2 style={{ fontSize: 26 }}>Sorry</h2>
+          <h2 className="modal-title">Sorry</h2>
           <p className="text-secondary">{UNDER_13_MESSAGE} Your account has been closed.</p>
           <button className="btn btn-primary" onClick={() => logOut("/")}>OK</button>
         </div>
@@ -122,7 +122,7 @@ function DobForm({ onDone }: { onDone: (g: Gate | "under13") => void }) {
     <Modal open onClose={() => {}} label="One more step" dismissable={false}>
       <div className="stack" style={{ gap: 14 }}>
         <div className="stack-sm">
-          <h2 style={{ fontSize: 28 }}>One more step</h2>
+          <h2 className="modal-title">One more step</h2>
           <p className="text-secondary">We ask every student for their date of birth. Students under 18 need a parent or guardian&apos;s consent to use MentorsMD.</p>
         </div>
         <label className="field" style={{ marginBottom: 0 }}>
@@ -163,7 +163,7 @@ function AcceptForm({ gate, onDone }: { gate: Gate; onDone: (g: Gate) => void })
     <Modal open onClose={() => {}} label="Please review our updated terms" dismissable={false}>
       <div className="stack" style={{ gap: 14 }}>
         <div className="stack-sm">
-          <h2 style={{ fontSize: 28 }}>{updated ? "We've updated our terms" : "Please review our terms"}</h2>
+          <h2 className="modal-title">{updated ? "We've updated our terms" : "Please review our terms"}</h2>
           <p className="text-secondary">To keep using MentorsMD, please read and accept:</p>
         </div>
         <div className="stack-sm">

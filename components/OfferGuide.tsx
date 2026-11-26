@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Modal } from "@/components/Modal";
+import { LoadingBlock } from "@/components/ui";
 import { PLATFORM_FEE_PERCENT, feeOf, mentorShare } from "@/lib/fee";
 import { FORMATS, PACKAGE_MAX_MINUTES, PACKAGE_MIN_MINUTES, labelFor, money } from "@/lib/options";
 import { hoursLabel, priceFor, priceMath } from "@/lib/pricing";
@@ -183,7 +184,7 @@ export function OfferGuideButton({ rateCents, tab = "packages", className = "btn
             <button type="button" className="btn btn-sm" style={{ alignSelf: "flex-start" }} onClick={load}>Try again</button>
           </div>
         ) : (
-          <span className="text-muted">Loading…</span>
+          <LoadingBlock lines={4} />
         )}
       </Modal>
     </>
