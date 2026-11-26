@@ -57,7 +57,7 @@ const pct = (n: number, d: number) => (d > 0 ? n / d : null);
 
 export type Range = { from: string; to: string; tz: string; start: Date; end: Date; days: number; bucket: "day" | "week" | "month" };
 
-export function parseRange(sp: URLSearchParams, now = new Date()): Range {
+function parseRange(sp: URLSearchParams, now = new Date()): Range {
   const tz = isValidTimeZone(sp.get("tz")) ? (sp.get("tz") as string) : DEFAULT_TIME_ZONE;
   const today = dayInZone(now, tz);
   let to = isDayString(sp.get("to")) ? (sp.get("to") as string) : today;
@@ -120,8 +120,6 @@ function series(r: Range, key: string, title: string, kind: Chart["kind"], items
 // ---------------- Shared lookups ----------------
 
 const paidDate = (o: { paidAt: Date | null; createdAt: Date }) => o.paidAt ?? o.createdAt;
-const refundDate = (o: { refundedAt: Date | null; disputeResolvedAt: Date | null; paidAt: Date | null; createdAt: Date }) =>
-  o.refundedAt ?? o.disputeResolvedAt ?? o.paidAt ?? o.createdAt;
 
 function paidInRange(r: Range): Prisma.OrderWhereInput {
   return { status: PAID, OR: [{ paidAt: inRange(r) }, { paidAt: null, createdAt: inRange(r) }] };

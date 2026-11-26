@@ -17,7 +17,7 @@ import { isSitePageKey, resolveValues, type PageValues, type SitePageKey } from 
 //  - If the database can't be read (or the SiteContent table doesn't exist
 //    yet) the built-in defaults are shown, so the site never breaks.
 
-export const SITE_CONTENT_TAG = "site-content";
+const SITE_CONTENT_TAG = "site-content";
 export const PREVIEW_PAGE_COOKIE = "mmd_site_preview_page";
 
 const liveRows = unstable_cache(

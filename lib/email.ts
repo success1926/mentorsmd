@@ -12,7 +12,7 @@ import { firstName, money } from "@/lib/format";
 // is missing, which would otherwise crash every route that imports this
 // file (messaging, orders, webhooks) - not just the email sends.
 let _resend: Resend | null = null;
-export const resend = {
+const resend = {
   emails: {
     // Resend returns { error } instead of throwing when a send fails, so
     // every try/catch around an email send used to silently "succeed".
@@ -146,40 +146,12 @@ export async function sendOrderPaidEmail(sellerEmail: string, gigTitle: string, 
   await sendTemplate("new_order", sellerEmail, { studentName: buyerName, packageTitle: gigTitle, orderLink: orderUrl });
 }
 
-export async function sendOrderReleasedEmail(sellerEmail: string, gigTitle: string, amountCents: number, orderUrl: string) {
-  await sendTemplate("payment_released", sellerEmail, { packageTitle: gigTitle, amount: money(amountCents), orderLink: orderUrl });
-}
-
-export async function sendRevisionRequestedEmail(sellerEmail: string, gigTitle: string, note: string, orderUrl: string) {
-  await sendTemplate("revision_requested", sellerEmail, { packageTitle: gigTitle, note, orderLink: orderUrl });
-}
-
 export async function sendDisputeOpenedEmail(adminEmail: string, gigTitle: string, reason: string, orderUrl: string) {
   await sendTemplate("dispute_opened", adminEmail, { packageTitle: gigTitle, reason, orderLink: orderUrl });
 }
 
 export async function sendReviewReceivedEmail(sellerEmail: string, rating: number, gigTitle: string, profileUrl: string) {
   await sendTemplate("review_received", sellerEmail, { rating: String(rating), packageTitle: gigTitle, profileLink: profileUrl });
-}
-
-// Sent to the student the moment the mentor marks work complete - starts
-// the 96-hour window they have to review before payment releases
-// automatically. Includes the mentor's delivery note and file names.
-export async function sendWorkCompleteEmail(
-  buyerEmail: string,
-  gigTitle: string,
-  orderUrl: string,
-  delivery?: { number: number; description: string; files: { name: string }[] }
-) {
-  const files = delivery?.files || [];
-  await sendTemplate("work_delivered", buyerEmail, {
-    packageTitle: gigTitle,
-    deliveryLabel: delivery && delivery.number > 1 ? ` (delivery ${delivery.number})` : "",
-    deliveryNote: delivery ? blocks.deliveryNote(delivery.description) : "",
-    fileCount: files.length ? `${files.length} file${files.length === 1 ? "" : "s"}` : "",
-    fileNames: files.map((f) => f.name).join(", "),
-    orderLink: orderUrl,
-  });
 }
 
 // Sent whenever someone posts in a dispute thread - to whoever DIDN'T

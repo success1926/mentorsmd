@@ -35,7 +35,7 @@ export function clearLegalCache() {
   cache = null;
 }
 
-export async function publishedDocs(): Promise<Map<LegalKind, PublishedDoc>> {
+async function publishedDocs(): Promise<Map<LegalKind, PublishedDoc>> {
   if (cache && Date.now() - cache.at < CACHE_MS) return cache.docs;
   const rows = await prisma.legalDocument.findMany({
     where: { status: "PUBLISHED", version: { not: null } },

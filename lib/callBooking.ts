@@ -94,7 +94,7 @@ export async function externalBusyFor(mentor: MentorForSchedule, force = false):
 
 // ---------- Busy dates ----------
 
-export async function busyRangesFor(mentorId: string, fromDay?: string): Promise<BusyRange[]> {
+async function busyRangesFor(mentorId: string, fromDay?: string): Promise<BusyRange[]> {
   const rows = await prisma.busyDate.findMany({
     where: { userId: mentorId, ...(fromDay ? { endDay: { gte: fromDay } } : {}) },
     select: { startDay: true, endDay: true, kind: true },
@@ -119,7 +119,7 @@ export function busyCallsWhere(mentorId: string, studentId: string): Prisma.Call
 
 // Calls already booked by the mentor (any order, or an intro call) or by
 // this student, as busy intervals.
-export async function bookedIntervals(mentorId: string, studentId: string, excludeBookingId?: string): Promise<Interval[]> {
+async function bookedIntervals(mentorId: string, studentId: string, excludeBookingId?: string): Promise<Interval[]> {
   const rows = await prisma.callBooking.findMany({
     where: {
       status: "BOOKED",

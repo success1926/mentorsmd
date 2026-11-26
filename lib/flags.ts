@@ -17,8 +17,8 @@ import { involvesMinor } from "@/lib/minorCheck";
 // the same person within 90 days pauses their account automatically,
 // pending review.
 
-export const AUTO_PAUSE_UPHELD = 3;
-export const AUTO_PAUSE_DAYS = 90;
+const AUTO_PAUSE_UPHELD = 3;
+const AUTO_PAUSE_DAYS = 90;
 
 export type FlagSource = "USER" | "AUTO" | "AI" | "CRON" | "SYSTEM";
 
@@ -131,7 +131,7 @@ export async function placeSafetyHold(userId: string, reason: string, adminId: s
 }
 
 // 3 upheld flags in 90 days -> paused automatically, pending review.
-export async function checkAutoPause(userId: string | null | undefined) {
+async function checkAutoPause(userId: string | null | undefined) {
   if (!userId) return false;
   const since = new Date(Date.now() - AUTO_PAUSE_DAYS * 86400_000);
   const upheld = await prisma.flag.count({ where: { subjectUserId: userId, status: "UPHELD", resolvedAt: { gte: since } } });

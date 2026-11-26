@@ -44,7 +44,7 @@ export function newPath(folder: Folder, fileName: string, ownerId?: string) {
 }
 
 // The folder prefix a path must start with, e.g. "live/attachments/<userId>/".
-export const pathPrefix = (folder: Folder, ownerId?: string) => [ENV_TAG, folder, ownerId].filter(Boolean).join("/") + "/";
+const pathPrefix = (folder: Folder, ownerId?: string) => [ENV_TAG, folder, ownerId].filter(Boolean).join("/") + "/";
 
 // Is this a path we would have handed out for this folder (and person)?
 export function isOurPath(value: unknown, folder: Folder, ownerId?: string): value is string {
@@ -59,7 +59,7 @@ export function isOurPath(value: unknown, folder: Folder, ownerId?: string): val
 }
 
 // A one-time link the browser uploads one file to (lib/upload.ts).
-export async function createUploadLink(bucket: Bucket, path: string): Promise<{ path: string; signedUrl: string } | { error: string }> {
+async function createUploadLink(bucket: Bucket, path: string): Promise<{ path: string; signedUrl: string } | { error: string }> {
   const sb = supabaseAdmin();
   if (!sb) return { error: NOT_SET_UP };
   const { data, error } = await sb.storage.from(bucket).createSignedUploadUrl(path);

@@ -56,7 +56,7 @@ type Buyer = { id: string; email?: string | null };
 // The same rules as the profile's Buy buttons: a student, a listed mentor
 // with payouts set up, the account gate (date of birth, legal, parental
 // consent), the under-18 rule, no block, and the mentor is unlocked.
-export async function assertCanBuy(studentId: string, mentorId: string) {
+async function assertCanBuy(studentId: string, mentorId: string) {
   const [student, mentor] = await Promise.all([
     prisma.user.findUnique({ where: { id: studentId }, select: { role: true, minorStatus: true, safetyHoldAt: true } }),
     prisma.user.findUnique({ where: { id: mentorId } }),

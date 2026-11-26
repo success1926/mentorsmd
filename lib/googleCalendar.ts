@@ -16,7 +16,7 @@ import { siteUrl } from "@/lib/siteUrl";
 // Google Calendars you have access to". The FreeBusy API accepts it; it
 // can't read event titles, guests or descriptions. "openid email" only
 // tells us which Google account was connected, to show on Account.
-export const GOOGLE_CAL_SCOPE = "https://www.googleapis.com/auth/calendar.freebusy";
+const GOOGLE_CAL_SCOPE = "https://www.googleapis.com/auth/calendar.freebusy";
 const SCOPES = ["openid", "email", GOOGLE_CAL_SCOPE];
 
 export const GOOGLE_CAL_STATE_COOKIE = "mmd_gcal_state";
@@ -28,7 +28,7 @@ export function googleCalConfigured() {
 }
 
 // Must exactly match an "Authorized redirect URI" on the Google OAuth client.
-export function googleCalRedirectUri() {
+function googleCalRedirectUri() {
   return `${siteUrl()}/api/calendar/google/callback`;
 }
 
@@ -49,7 +49,7 @@ export function encryptToken(token: string): string {
   return ["v1", iv.toString("base64"), cipher.getAuthTag().toString("base64"), enc.toString("base64")].join(":");
 }
 
-export function decryptToken(stored: string | null | undefined): string | null {
+function decryptToken(stored: string | null | undefined): string | null {
   if (!stored) return null;
   try {
     const [v, iv, tag, data] = stored.split(":");
@@ -106,7 +106,7 @@ export function googleConsentUrl(state: string) {
 
 // ---- Talking to Google ----
 
-export class GoogleCalError extends Error {}
+class GoogleCalError extends Error {}
 
 async function postForm(url: string, body: Record<string, string>, signal?: AbortSignal) {
   const res = await fetch(url, {

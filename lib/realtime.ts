@@ -19,9 +19,9 @@ import { fetchWithTimeout } from "@/lib/request";
 // If Supabase isn't set up (or is down), nothing breaks: pages still load
 // everything when opened, and the unread badge still refreshes every minute.
 
-export const userTopic = (userId: string) => `${ENV_TAG}:user:${userId}`;
+const userTopic = (userId: string) => `${ENV_TAG}:user:${userId}`;
 
-export const REALTIME_TOKEN_SECONDS = 60 * 60;
+const REALTIME_TOKEN_SECONDS = 60 * 60;
 
 const b64url = (input: Buffer | string) => Buffer.from(input).toString("base64url");
 

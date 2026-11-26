@@ -24,7 +24,7 @@
 // unpaid, MentorsMD covers the difference. A refund of everything the
 // student paid marks the package Refunded and nothing more is paid on it.
 // The hours log itself isn't changed (it stays a true record of the work).
-import { PLATFORM_FEE_PERCENT, feeOf, mentorShare } from "@/lib/fee";
+import { feeOf, mentorShare } from "@/lib/fee";
 import { priceFor } from "@/lib/pricing";
 
 type DateLike = string | Date;
@@ -118,8 +118,6 @@ export function unpaidValueCents(o: {
   const paid = o.hourEntries.filter((e) => !e.voidedAt && e.payoutId).reduce((s, e) => s + e.minutes, 0) + (o.unusedMinutesPaid ?? 0);
   return Math.max(0, priceFor(Math.max(0, (o.minutesPurchased || 0) - paid), o.rateCents || 0) - (o.refundedCreditCents || 0));
 }
-
-export { feeOf, mentorShare };
 
 // One mentor's payout from their packages' lines.
 export function payoutTotals(lines: PayoutLine[]) {

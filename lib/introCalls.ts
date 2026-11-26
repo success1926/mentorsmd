@@ -21,7 +21,7 @@ import { isEmailConfirmed } from "@/lib/emailVerification";
 
 export const INTRO_TITLE = "Free 15-minute intro call";
 
-export const introKeyFor = (studentId: string, mentorId: string) => `${studentId}:${mentorId}`;
+const introKeyFor = (studentId: string, mentorId: string) => `${studentId}:${mentorId}`;
 
 // The student's intro call with this mentor that still counts (booked,
 // or already happened), or null if they can book one.

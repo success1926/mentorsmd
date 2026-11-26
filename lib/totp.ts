@@ -7,7 +7,7 @@ import crypto from "crypto";
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 const STEP_SEC = 30;
 
-export function base32Encode(buf: Buffer): string {
+function base32Encode(buf: Buffer): string {
   let bits = 0;
   let value = 0;
   let out = "";
@@ -23,7 +23,7 @@ export function base32Encode(buf: Buffer): string {
   return out;
 }
 
-export function base32Decode(text: string): Buffer {
+function base32Decode(text: string): Buffer {
   const clean = text.toUpperCase().replace(/[^A-Z2-7]/g, "");
   let bits = 0;
   let value = 0;

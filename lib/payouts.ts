@@ -65,7 +65,7 @@ const orderSelect = {
 } as const;
 
 // A mentor's packages that can still have something to pay.
-export async function payableOrders(mentorId: string, db: Db = prisma): Promise<PayoutOrderLike[]> {
+async function payableOrders(mentorId: string, db: Db = prisma): Promise<PayoutOrderLike[]> {
   const rows = await db.order.findMany({
     where: { sellerId: mentorId, kind: { not: null }, status: { in: ["IN_ESCROW", "COMPLETED"] } },
     select: orderSelect,

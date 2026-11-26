@@ -14,7 +14,7 @@ export type ActivityKind = "VISIT" | "PROFILE_VIEW" | "SEARCH" | "SIGNUP";
 const DEDUPE_MINUTES: Record<ActivityKind, number> = { VISIT: 30, PROFILE_VIEW: 30, SEARCH: 10, SIGNUP: 0 };
 
 // Old events are deleted by the daily cron after this many days.
-export const ACTIVITY_KEEP_DAYS = 400;
+const ACTIVITY_KEEP_DAYS = 400;
 
 const BOT_UA = /bot|crawl|spider|slurp|preview|facebookexternalhit|headless|lighthouse|pingdom|uptime|monitor|curl|wget|python|axios|node-fetch|vercel/i;
 export function isBotUserAgent(ua: string | null | undefined) {

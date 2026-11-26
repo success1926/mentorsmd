@@ -9,8 +9,8 @@ import { dayInZone, tzOrDefault, zonedToUtc } from "@/lib/tz";
 // clears them so they're sent again for the new time; cancelled calls are
 // skipped. Meant to run every 15 minutes (see /api/cron/call-reminders).
 // Free intro calls (no order) get the same reminders, with their own email.
-export const MORNING_REMINDER_TIME = "08:00";
-export const HOUR_REMINDER_MINUTES = 60;
+const MORNING_REMINDER_TIME = "08:00";
+const HOUR_REMINDER_MINUTES = 60;
 
 export async function runCallReminders(now: Date = new Date()) {
   const results = { morning: 0, hour: 0, skipped: 0, errors: 0 };

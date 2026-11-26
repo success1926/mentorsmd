@@ -14,10 +14,6 @@ const hoursInclude = {
   callBookings: { select: { id: true, startTime: true, endTime: true, status: true, outcome: true, kind: true } },
 } as const;
 
-export function loadOrderHours(orderId: string) {
-  return prisma.order.findUnique({ where: { id: orderId }, include: hoursInclude });
-}
-
 // After a call's outcome is set (by the cron or an admin): a held call, or
 // one the student didn't join, uses its booked time (a CALL entry); a
 // mentor no-show, a free rebook or "nobody joined" uses nothing (any entry
