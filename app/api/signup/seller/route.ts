@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { prisma } from "@/lib/prisma";
-import { LIMITS, isNonEmptyString, normalizeEmail } from "@/lib/validate";
+import { LIMITS, isNonEmptyString, normalizeEmail, isValidNewPassword, PASSWORD_RULE } from "@/lib/validate";
 import { isValidTimeZone } from "@/lib/tz";
 import { isBot } from "@/lib/honeypot";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
@@ -36,9 +36,7 @@ export async function POST(req: Request) {
   if (typeof code !== "string" || !email || !isNonEmptyString(name, LIMITS.name)) {
     return NextResponse.json({ error: "Invite code, name, email, and password are required" }, { status: 400 });
   }
-  if (typeof password !== "string" || password.length < 8 || password.length > 200) {
-    return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
-  }
+  if (!isValidNewPassword(password)) return NextResponse.json({ error: PASSWORD_RULE }, { status: 400 });
   if (isReservedName(name)) return NextResponse.json({ error: RESERVED_NAME_ERROR }, { status: 400 });
   if (!acceptedAgreement(body.agreement)) {
     return NextResponse.json({ error: "Please read and accept the Mentor Agreement and the Terms of Service" }, { status: 400 });

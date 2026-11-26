@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { LIMITS, isNonEmptyString, normalizeEmail } from "@/lib/validate";
+import { LIMITS, isNonEmptyString, normalizeEmail, isValidNewPassword, PASSWORD_RULE } from "@/lib/validate";
 import { isValidTimeZone } from "@/lib/tz";
 import { isBot } from "@/lib/honeypot";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
@@ -45,9 +45,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Enter your name" }, { status: 400 });
   }
   if (isReservedName(name)) return NextResponse.json({ error: RESERVED_NAME_ERROR }, { status: 400 });
-  if (typeof password !== "string" || password.length < 8 || password.length > 200) {
-    return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
-  }
+  if (!isValidNewPassword(password)) return NextResponse.json({ error: PASSWORD_RULE }, { status: 400 });
 
   if (body.agreed !== true) {
     return NextResponse.json({ error: "Please agree to the Terms of Service, Privacy Policy and Community Guidelines" }, { status: 400 });
