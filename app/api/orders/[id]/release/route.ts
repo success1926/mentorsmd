@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { logAdminAction } from "@/lib/adminLog";
 import { closeDisputeFlag } from "@/lib/flags";
 import { FinishError, adminApprove, studentResponds } from "@/lib/orderFinish";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 
 // Approving a package for the mentor. Two ways a human reaches this:
 //   1. The student approves once the mentor marked the work complete.
@@ -14,14 +14,14 @@ import { getSession } from "@/lib/session";
 // context. It's runAutoApprovals() in lib/orderFinish.ts, run every 15
 // minutes by /api/cron/call-reminders.
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
 
   const order = await prisma.order.findUnique({ where: { id: params.id } });
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
-  const userId = (session.user as any).id;
-  const role = (session.user as any).role;
+  const userId = me.id;
+  const role = me.role;
   const isBuyer = order.buyerId === userId;
   // Admins release money only with the Orders permission (lib/adminPermissions.ts).
   const isAdmin = role === "ADMIN" && (await adminCan("orders"));

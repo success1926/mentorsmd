@@ -10,7 +10,7 @@ import { runAfterResponse } from "@/lib/request";
 import { finishPhase } from "@/lib/finishing";
 import { hoursSummary, TOP_UP_HOURS } from "@/lib/hours";
 import { hoursLabel } from "@/lib/pricing";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 
 // The mentor suggests the student adds hours to a package: { hours: one of
 // TOP_UP_HOURS, note?, acknowledgeWarnings? }. Posts a message in the
@@ -22,9 +22,9 @@ const COOLDOWN_HOURS = 6;
 const SUGGESTION_PREFIX = "Suggested adding";
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  const mentorId = (session.user as any).id;
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
+  const mentorId = me.id;
   const body = await req.json().catch(() => ({}));
   const hours = Number(body.hours);
   if (!TOP_UP_HOURS.includes(hours)) return NextResponse.json({ error: "Pick how many hours to suggest" }, { status: 400 });

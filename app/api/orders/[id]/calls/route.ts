@@ -11,7 +11,7 @@ import { gateBlockReason } from "@/lib/gate";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
 import { aiCheckAndFlag, checkOutgoingMessage, flagSavedMessage } from "@/lib/messageSafety";
 import { runAfterResponse } from "@/lib/request";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 
 // Calls on one order (built-in calendar):
 //   POST   { startTime }            book a call (student: an open slot; mentor: any agreed time)
@@ -22,9 +22,8 @@ import { getSession } from "@/lib/session";
 // A call is booked on a paid package as { startTime, minutes: 30 | 60 },
 // and has to fit in the hours left.
 async function load(params: { id: string }) {
-  const session = await getSession();
-  if (!session?.user) return { error: NextResponse.json({ error: "Not authenticated" }, { status: 401 }) };
-  const user = session.user as any;
+  const user = await requireUser();
+  if (user instanceof NextResponse) return { error: user };
   const order = await prisma.order.findUnique({ where: { id: params.id }, include: orderForCallsInclude });
   const isAdmin = user.role === "ADMIN" && (await adminCan("calls"));
   if (!order || (order.buyerId !== user.id && order.sellerId !== user.id && !isAdmin)) {

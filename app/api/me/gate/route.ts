@@ -7,13 +7,12 @@ import { parseDob } from "@/lib/legalKinds";
 import { cleanParentInfo, resendParentConsent, startParentConsent } from "@/lib/minors";
 import { SIGNUP_COOKIE, applyDobAndAgreement, decodeSignupIntent } from "@/lib/signupFlow";
 import { RATE_LIMITS, rateLimit, tooMany } from "@/lib/rateLimit";
-import { getSession } from "@/lib/session";
+import { getSession, sessionUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 async function me() {
-  const session = await getSession();
-  const id = (session?.user as any)?.id;
+  const id = sessionUser(await getSession())?.id;
   if (!id) return null;
   return prisma.user.findUnique({ where: { id }, select: { id: true, email: true, name: true, role: true, dateOfBirth: true, minorStatus: true } });
 }

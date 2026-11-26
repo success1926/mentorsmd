@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendReviewReceivedEmail, SITE_URL } from "@/lib/email";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
 
   const order = await prisma.order.findUnique({
     where: { id: params.id },
@@ -13,7 +13,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   });
   if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
-  const userId = (session.user as any).id;
+  const userId = me.id;
   if (order.buyerId !== userId) {
     return NextResponse.json({ error: "Only the student on this order can review it" }, { status: 403 });
   }

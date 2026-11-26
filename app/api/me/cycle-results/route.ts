@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { CYCLE_RESULTS_ON } from "@/lib/cycleResults";
 import { ResultError, deleteResult, mentorsForStudent, resultsForStudent, saveResult } from "@/lib/cycleResultsStore";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -9,11 +9,10 @@ export const dynamic = "force-dynamic";
 // Refused while NEXT_PUBLIC_CYCLE_RESULTS isn't 1.
 async function student() {
   if (!CYCLE_RESULTS_ON) return { error: NextResponse.json({ error: "Not found" }, { status: 404 }) };
-  const session = await getSession();
-  const user = session?.user as any;
-  if (!user) return { error: NextResponse.json({ error: "Not authenticated" }, { status: 401 }) };
+  const user = await requireUser();
+  if (user instanceof NextResponse) return { error: user };
   if (user.role !== "BUYER") return { error: NextResponse.json({ error: "Cycle results are for student accounts" }, { status: 403 }) };
-  return { id: user.id as string };
+  return { id: user.id };
 }
 
 function fail(err: unknown) {

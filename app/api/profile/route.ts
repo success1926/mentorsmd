@@ -11,7 +11,7 @@ import { hasAvailability } from "@/lib/schedule";
 import { isValidTimeZone } from "@/lib/tz";
 import { RESERVED_NAME_ERROR, isReservedName } from "@/lib/reservedNames";
 import { normalizeMedicalSchool } from "@/lib/medicalSchools";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 
 function safeHost(url: string) {
   try {
@@ -26,11 +26,11 @@ function safeHost(url: string) {
 // The photo is set separately by /api/profile/photo (it's a file upload).
 
 export async function GET() {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const signedIn = await requireUser();
+  if (signedIn instanceof NextResponse) return signedIn;
 
   const user = await prisma.user.findUnique({
-    where: { id: (session.user as any).id },
+    where: { id: signedIn.id },
     select: {
       id: true, name: true, email: true, role: true, credential: true, bio: true, photoUrl: true, passwordHash: true,
       mentorStage: true, schoolType: true, medicalSchool: true, undergradSchool: true,
@@ -67,11 +67,11 @@ export async function GET() {
 }
 
 export async function PATCH(req: Request) {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const signedIn = await requireUser();
+  if (signedIn instanceof NextResponse) return signedIn;
 
-  const userId = (session.user as any).id;
-  const isSeller = (session.user as any).role === "SELLER";
+  const userId = signedIn.id;
+  const isSeller = signedIn.role === "SELLER";
   const body = await req.json().catch(() => ({}));
   const data: {
     name?: string;
@@ -103,7 +103,7 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: `Name is required (max ${LIMITS.name} characters)` }, { status: 400 });
     }
     // Admins may use any name; nobody else can pose as staff.
-    if ((session.user as any).role !== "ADMIN" && isReservedName(body.name)) {
+    if (signedIn.role !== "ADMIN" && isReservedName(body.name)) {
       return NextResponse.json({ error: RESERVED_NAME_ERROR }, { status: 400 });
     }
     data.name = body.name.trim();

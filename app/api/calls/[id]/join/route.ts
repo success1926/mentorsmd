@@ -4,7 +4,7 @@ import { joinState, JOIN_CLOSES_MINUTES_AFTER, JOIN_OPENS_MINUTES_BEFORE } from 
 import { createMeetingToken, dailyConfigured, ensureRoom } from "@/lib/daily";
 import { blockBetween } from "@/lib/blocks";
 import { callGateReason } from "@/lib/gate";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 
 // The Join button. Calls happen in a private Daily room; each person gets
 // their own meeting token (with their name), and only:
@@ -13,9 +13,9 @@ import { getSession } from "@/lib/session";
 //   - from 10 minutes before the start until 30 minutes after the end.
 // The token itself also stops working shortly after the call.
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  const userId = (session.user as any).id;
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
+  const userId = me.id;
 
   const booking = await prisma.callBooking.findUnique({
     where: { id: params.id },

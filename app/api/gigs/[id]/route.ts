@@ -7,7 +7,7 @@ import { acceptedAgreement } from "@/lib/agreement";
 import { mentorAgreementLabel } from "@/lib/legal";
 import { checkText } from "@/lib/moderation";
 import { createFlagsForFindings } from "@/lib/flags";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 
 // Public: a single package, used by the checkout page (which previously
 // downloaded every gig on the site just to find this one).
@@ -20,7 +20,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   return NextResponse.json({ gig });
 }
 
-// Ownership check pattern: fetch the gig, confirm session.user.id === gig.sellerId,
+// Ownership check pattern: fetch the gig, confirm the signed-in user is gig.sellerId,
 // only then allow the mutation. This is what stops one coach from editing
 // or deleting another coach's packages.
 async function assertOwnsGig(gigId: string, userId: string) {
@@ -32,10 +32,10 @@ async function assertOwnsGig(gigId: string, userId: string) {
 // Edits an hour bundle or a specialized package. Its price follows from
 // the new hours and rate; existing orders keep what they paid.
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
 
-  const gig = await assertOwnsGig(params.id, (session.user as any).id);
+  const gig = await assertOwnsGig(params.id, me.id);
   if (!gig || !gig.active) return NextResponse.json({ error: "Package not found or not yours" }, { status: 404 });
   if (gig.kind !== "BUNDLE" && gig.kind !== "SPECIALIZED") {
     return NextResponse.json(
@@ -86,10 +86,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
 
-  const gig = await assertOwnsGig(params.id, (session.user as any).id);
+  const gig = await assertOwnsGig(params.id, me.id);
   if (!gig) return NextResponse.json({ error: "Package not found or not yours" }, { status: 404 });
 
   // The Hourly offer is switched off instead (Rate & offers page).

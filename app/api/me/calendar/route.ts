@@ -2,17 +2,17 @@ import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { dueDayOf } from "@/lib/schedule";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 // "My calendar": the logged-in person's upcoming and recent calls, and for
 // mentors their order due dates and busy dates.
 export async function GET() {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  const userId = (session.user as any).id;
-  const role = (session.user as any).role;
+  const signedIn = await requireUser();
+  if (signedIn instanceof NextResponse) return signedIn;
+  const userId = signedIn.id;
+  const role = signedIn.role;
   const isMentor = role === "SELLER";
   const now = new Date();
   const since = new Date(now.getTime() - 60 * 24 * 3600_000);

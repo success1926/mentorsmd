@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { getSession, sessionUser } from "@/lib/session";
 import { activeAppSessions, endAppSession } from "@/lib/appAuth";
 
 export const dynamic = "force-dynamic";
@@ -12,9 +12,9 @@ const FULL_ROLES = ["ADMIN", "SELLER", "BUYER"];
 
 async function me() {
   const session = await getSession();
-  const u = session?.user as any;
-  if (!u?.id || !FULL_ROLES.includes(u.role)) return null;
-  return { id: u.id as string, appSessionId: (session as any).appSessionId as string | undefined };
+  const u = sessionUser(session);
+  if (!u || !FULL_ROLES.includes(u.role)) return null;
+  return { id: u.id, appSessionId: (session as { appSessionId?: string } | null)?.appSessionId };
 }
 
 export async function GET() {

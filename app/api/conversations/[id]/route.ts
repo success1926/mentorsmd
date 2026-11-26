@@ -2,15 +2,15 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { blockBetween } from "@/lib/blocks";
 import { isEmailConfirmed } from "@/lib/emailVerification";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 
 // One conversation plus the orders between these two people, for the
 // side panel on the message thread (order status, and "Book a call" when
 // a paid package includes one).
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  const userId = (session.user as any).id;
+  const signedIn = await requireUser();
+  if (signedIn instanceof NextResponse) return signedIn;
+  const userId = signedIn.id;
 
   const conversation = await prisma.conversation.findUnique({
     where: { id: params.id },
@@ -45,6 +45,6 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     conversation,
     safety: { ...blocks, emailConfirmed, onHold: !!me?.safetyHoldAt && me.role === "BUYER" },
     orders,
-    viewer: { id: userId, name: session.user.name ?? "", email: session.user.email ?? "" },
+    viewer: { id: userId, name: signedIn.name ?? "", email: signedIn.email ?? "" },
   });
 }

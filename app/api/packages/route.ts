@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { packagesFor } from "@/lib/packageViews";
-import { getSession } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 // The viewer's hours packages, for My packages and the dashboards.
 export async function GET() {
-  const session = await getSession();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  const user = session.user as any;
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
+  const user = me;
   return NextResponse.json({ packages: await packagesFor(user.id, user.role) });
 }
