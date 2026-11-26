@@ -392,7 +392,7 @@ export async function rescheduleCall(order: OrderForCalls, bookingId: string, st
   return saved;
 }
 
-export async function cancelCall(order: OrderForCalls, bookingId: string, by: { id: string; name: string }) {
+export async function cancelCall(order: OrderForCalls, bookingId: string, by: { id: string | null; name: string }) {
   const res = await prisma.callBooking.updateMany({
     where: { id: bookingId, orderId: order.id, status: "BOOKED" },
     data: { status: "CANCELLED", cancelledAt: new Date(), cancelledById: by.id, icsSequence: { increment: 1 } },
@@ -402,4 +402,24 @@ export async function cancelCall(order: OrderForCalls, bookingId: string, by: { 
   await deleteRoom(booking.roomName).catch(() => {});
   await emailBoth(order, booking, "cancelled", by.name);
   return booking;
+}
+
+// A package that's no longer active (approved, or refunded as credit)
+// keeps no future calls: each is cancelled the normal way (Daily room
+// closed, both people emailed), so its time is free again. Never throws.
+export async function cancelFutureCalls(orderId: string, by: { id: string | null; name: string }) {
+  try {
+    const order = await prisma.order.findUnique({ where: { id: orderId }, include: orderForCallsInclude });
+    if (!order) return 0;
+    const now = Date.now();
+    let cancelled = 0;
+    for (const b of order.callBookings) {
+      if (b.status !== "BOOKED" || b.startTime.getTime() <= now) continue;
+      await cancelCall(order, b.id, by).then(() => cancelled++, (err) => console.error("Couldn't cancel a call on a closed package", b.id, err));
+    }
+    return cancelled;
+  } catch (err) {
+    console.error("Couldn't cancel the calls on a closed package", orderId, err);
+    return 0;
+  }
 }

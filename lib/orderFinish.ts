@@ -4,6 +4,7 @@
 import { prisma } from "@/lib/prisma";
 import { StudentAction, autoApprovePatch, markCompleteBlocker, markCompletePatch, studentActionPatch } from "@/lib/finishing";
 import { SITE_URL, sendLastRequestEmail, sendPackageApprovedEmail, sendWorkMarkedCompleteEmail } from "@/lib/email";
+import { cancelFutureCalls } from "@/lib/callBooking";
 
 export class FinishError extends Error {
   constructor(message: string, public status = 400) {
@@ -62,6 +63,7 @@ export async function studentResponds(orderId: string, studentId: string, action
   const res = await prisma.order.updateMany({ where: unchanged(order), data: result.patch });
   if (!res.count) throw new FinishError("This package just changed. Refresh the page.", 409);
   if (result.approved) {
+    await cancelFutureCalls(order.id, { id: studentId, name: order.buyer.name });
     await approvedEmails(order, false);
   } else {
     await sendLastRequestEmail(order.seller.email, {
@@ -98,6 +100,7 @@ export async function adminApprove(orderId: string) {
     },
   });
   if (!res.count) throw new FinishError("This package just changed. Refresh the page.", 409);
+  await cancelFutureCalls(order.id, { id: null, name: "The MentorsMD team" });
   await approvedEmails(order, false);
   return order;
 }
@@ -117,6 +120,7 @@ export async function runAutoApprovals(now: Date = new Date()) {
       const res = await prisma.order.updateMany({ where: { ...unchanged(o), responseDeadline: { lte: now } }, data: autoApprovePatch(now) });
       if (!res.count) continue;
       results.approved++;
+      await cancelFutureCalls(o.id, { id: null, name: "MentorsMD" });
       await approvedEmails(o, true);
     } catch (err) {
       console.error("Auto-approve failed", o.id, err);
