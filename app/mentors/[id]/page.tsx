@@ -21,14 +21,14 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const data = await cachedPublicProfile(params.id).catch(() => null);
   const s = data?.seller;
-  if (!s || s.role !== "SELLER") return { title: "Mentor Profile" };
+  if (!s || s.role !== "SELLER") return { title: "Mentor profile" };
   const listed = isMentorListed({
     profileStatus: s.profileStatus,
     pausedUntil: s.pausedUntil && toDate(s.pausedUntil),
     safetyHoldAt: s.safetyHoldAt && toDate(s.safetyHoldAt),
     profileCompleteAt: s.profileCompleteAt && toDate(s.profileCompleteAt),
   });
-  if (!listed) return { title: "Mentor Profile", robots: { index: false } };
+  if (!listed) return { title: "Mentor profile", robots: { index: false } };
   const title = s.credential ? `${s.name}, ${s.credential}` : s.name;
   const bio = (s.bio || "").replace(/\s+/g, " ").trim();
   const description = bio

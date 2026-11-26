@@ -5,6 +5,7 @@ import { getSiteContent } from "@/lib/siteContentStore";
 import { currentAdmin } from "@/lib/adminTeam";
 import { stripFocus } from "@/lib/imageFocus";
 import { PageSections } from "@/components/website/PageSections";
+import { Alert, Callout, EmptyState, Icon, SectionHead } from "@/components/ui";
 
 export const dynamic = "force-dynamic"; // who's looking decides whether the page exists
 
@@ -33,10 +34,7 @@ export default async function PressPage() {
   // Sections by id (lib/pageLayout.ts), in the order set in Admin -> Website -> Layout.
   const sections: Record<string, React.ReactNode> = {
     intro: (
-      <div className="stack" style={{ gap: 14, maxWidth: 760 }}>
-        <h1 className="page-title">{c.title}</h1>
-        {c.intro && <p className="lede">{c.intro}</p>}
-      </div>
+      <SectionHead as="h1" titleClassName="page-title" title={c.title} lede={c.intro} />
     ),
     items: c.items.length ? (
       <div className="grid-2">
@@ -56,7 +54,11 @@ export default async function PressPage() {
               {paragraphs(p.quote).map((q, j) => (
                 <blockquote key={j} className="press-quote">{q}</blockquote>
               ))}
-              {href && <span className="press-more">Read the piece ↗</span>}
+              {href && (
+                <span className="press-more">
+                  Read the piece <Icon d="M7 17L17 7M9 7h8v8" size={14} stroke={2.2} />
+                </span>
+              )}
             </>
           );
           return href ? (
@@ -69,24 +71,22 @@ export default async function PressPage() {
         })}
       </div>
     ) : (
-      c.emptyText && <div className="empty">{c.emptyText}</div>
+      c.emptyText && <EmptyState>{c.emptyText}</EmptyState>
     ),
     contact: (c.contactTitle || c.contactText) && (
-      <div className="card card-tint stack" style={{ gap: 10, alignItems: "flex-start" }}>
-        {c.contactTitle && <h2 style={{ fontSize: 24 }}>{c.contactTitle}</h2>}
-        {c.contactText && <p className="text-secondary">{c.contactText}</p>}
-        {contact.email && <a className="link" href={`mailto:${contact.email}`}>{contact.email}</a>}
-      </div>
+      <Callout title={c.contactTitle || undefined} action={contact.email ? <a className="link" href={`mailto:${contact.email}`}>{contact.email}</a> : undefined}>
+        {c.contactText}
+      </Callout>
     ),
   };
 
   return (
     <div className="page">
-      <div className="stack-lg" style={{ gap: 48 }}>
+      <div className="stack-lg public-stack">
         {!visible && (
-          <div role="status" className="alert alert-warning">
+          <Alert tone="warning">
             <b>Only admins can see this page.</b> Visitors get “page not found” until you switch on “Press page” in Admin → Website → Site settings.
-          </div>
+          </Alert>
         )}
         <PageSections page="press" layout={c.layout} sections={sections} contained unit={24} />
       </div>

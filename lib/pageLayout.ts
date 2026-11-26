@@ -96,8 +96,9 @@ export const PAGE_SECTIONS: Record<string, BuiltinSection[]> = {
     { id: "intro", label: "Intro", fields: ["title", "intro", "applyButton"] },
     MENTOR_SCHOOLS_STRIP,
     { id: "perks", label: "Perks", fields: ["perks"] },
-    { id: "how", label: "How to join", fields: ["howTitle", "steps", "inviteNote"] },
-    { id: "apply", label: "Application form", fields: ["applyTitle", "applyText"], keepVisible: true },
+    // "How to join" (was its own box, id "how") is the top of the
+    // application section since Nov 2026; a saved "how" entry is dropped.
+    { id: "apply", label: "How to join and the application form", fields: ["applyTitle", "applyText", "howTitle", "steps", "inviteNote"], keepVisible: true },
   ],
   reviews: [
     { id: "intro", label: "Intro and rating summary", fields: ["title", "intro"] },

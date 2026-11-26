@@ -16,7 +16,7 @@ export function IntegrityBanner() {
       <Icon d={ICONS.shield} size={18} />
       <span>
         <b>Keep it honest and on MentorsMD.</b> Mentors give feedback, never write your essays or applications. Keep payments, calls and files here, so
-        your payment stays protected. Never share passwords. <Link href="/community-guidelines" className="link">Community Guidelines</Link>
+        your payment stays protected. Never share passwords. <Link href="/community-guidelines" className="link">community guidelines</Link>
       </span>
     </div>
   );
@@ -156,14 +156,14 @@ export function ReportDialog({
     <Modal open={open} onClose={close} label={`Report ${subject.name}`}>
       {done ? (
         <div className="stack">
-          <h2 style={{ fontSize: 26 }}>Thanks for telling us</h2>
+          <h2 className="modal-title">Thanks for telling us</h2>
           <p className="text-secondary">Our team reviews every report, usually within a day. {first} isn&apos;t told who reported them.{block ? ` You've also blocked ${first}.` : ""}</p>
           <p className="text-secondary small">If you&apos;re in danger, contact local emergency services first. Read our <Link href="/safety" className="link">safety tips</Link>.</p>
           <button className="btn btn-primary" onClick={close}>Done</button>
         </div>
       ) : (
         <div className="stack" style={{ gap: 12 }}>
-          <h2 style={{ fontSize: 26 }}>Report {first}</h2>
+          <h2 className="modal-title">Report {first}</h2>
           <span className="text-secondary small">{messageId ? "This message is attached to your report." : "Tell us what happened. Reports are private."}</span>
           <div className="stack-sm" role="radiogroup" aria-label="Reason">
             {REPORT_REASONS.map((r) => (

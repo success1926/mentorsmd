@@ -1,10 +1,11 @@
-import { Icon, ICONS, Vetted } from "@/components/ui";
+import { Callout, Icon, ICONS, SectionHead, Vetted } from "@/components/ui";
+import { Steps } from "@/components/Steps";
 import { MentorApplicationForm } from "@/components/MentorApplicationForm";
 import { getSiteContent } from "@/lib/siteContentStore";
 import { PageSections } from "@/components/website/PageSections";
 import { SchoolMarquee } from "@/components/SchoolMarquee";
 
-export const metadata = { alternates: { canonical: "/become-a-mentor" }, title: "Become a Mentor", description: "Med students, residents, gap-year students and BS/MD undergrads: mentor the next class of doctors on MentorsMD. Set your own hourly rate; every mentor is interviewed by our senior team." };
+export const metadata = { alternates: { canonical: "/become-a-mentor" }, title: "Become a mentor", description: "Med students, residents, gap-year students and BS/MD undergrads: mentor the next class of doctors on MentorsMD. Set your own hourly rate; every mentor is interviewed by our senior team." };
 
 const PERK_ICONS = [ICONS.pen, ICONS.lock, ICONS.calendar];
 
@@ -16,10 +17,9 @@ export default async function BecomeMentorPage() {
   // Sections by id (lib/pageLayout.ts), in the order set in Admin -> Website -> Layout.
   const sections: Record<string, React.ReactNode> = {
     intro: (
-      <div className="stack" style={{ gap: 18 }}>
-        {c.eyebrow ? <span className="eyebrow">{c.eyebrow}</span> : <Vetted />}
-        <h1 className="page-title">{c.title}</h1>
-        {c.intro && <p className="lede">{c.intro}</p>}
+      <div className="stack become-intro">
+        {!c.eyebrow && <Vetted />}
+        <SectionHead as="h1" titleClassName="page-title" eyebrow={c.eyebrow} title={c.title} lede={c.intro} />
         <div className="row-wrap">
           <a href="#apply" className="btn btn-primary btn-lg">{c.applyButton} <span className="cue-arrow" aria-hidden="true">↓</span></a>
         </div>
@@ -30,33 +30,33 @@ export default async function BecomeMentorPage() {
     perks: (
       <div className="grid-3">
         {c.perks.map((p, i) => (
-          <div key={i} className="card card-tint stack-sm" style={{ gap: 10 }}>
-            <span className="icon-dot" style={{ background: "#fff" }}><Icon d={PERK_ICONS[i % PERK_ICONS.length]} /></span>
-            <b style={{ fontSize: 18 }}>{p.title}</b>
-            <span className="text-secondary">{p.body}</span>
-          </div>
+          <Callout
+            key={i}
+            title={
+              <span className="perk-title">
+                <span className="icon-dot icon-dot-white"><Icon d={PERK_ICONS[i % PERK_ICONS.length]} /></span>
+                {p.title}
+              </span>
+            }
+          >
+            {p.body}
+          </Callout>
         ))}
       </div>
     ),
-    how: (
-      <div className="card stack" style={{ gap: 14 }}>
-        <h2 style={{ fontSize: 30 }}>{c.howTitle}</h2>
-        {c.steps.length > 0 && (
-          <ol className="stack-sm" style={{ margin: 0, paddingLeft: 20, fontSize: 16, lineHeight: 1.6 }}>
-            {c.steps.map((step, i) => (
-              <li key={i}>{step}</li>
-            ))}
-          </ol>
-        )}
-        {/* One "Apply to Mentor" button (in the intro); the form follows right after this box. */}
-        {c.inviteNote && <span className="text-secondary">{c.inviteNote}</span>}
-      </div>
-    ),
+    // How to join + the form (Nov 2026: the "how" box is now the top of
+    // this section, so the steps sit right above the form they lead to).
     apply: (
-      <section id="apply" className="stack" style={{ gap: 14, scrollMarginTop: 150 }}>
-        <h2 style={{ fontSize: 36 }}>{c.applyTitle}</h2>
-        {c.applyText && <p className="lede">{c.applyText}</p>}
-        <div style={{ maxWidth: 720, width: "100%" }}>
+      <section id="apply" className="stack apply-section anchor-target">
+        <SectionHead title={c.applyTitle} lede={c.applyText} />
+        {c.steps.length > 0 && (
+          <div className="stack-sm apply-how">
+            {c.howTitle && <h3 className="card-title">{c.howTitle}</h3>}
+            <Steps steps={c.steps} variant="list" />
+            {c.inviteNote && <span className="text-secondary">{c.inviteNote}</span>}
+          </div>
+        )}
+        <div className="apply-form">
           <MentorApplicationForm />
         </div>
       </section>

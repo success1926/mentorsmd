@@ -75,7 +75,7 @@ function OnboardCoachForm() {
     return (
       <div className="page-narrow">
         <div className="card-narrow stack">
-          <h1 className="page-title" style={{ fontSize: 34 }}>You&apos;re already logged in</h1>
+          <h1 className="page-title">You&apos;re already logged in</h1>
           <p className="text-secondary">
             You&apos;re logged in as <b>{session?.user?.name || session?.user?.email}</b>
             {session?.user?.email ? ` (${session.user.email})` : ""}. Log out to accept this mentor invite
@@ -93,7 +93,7 @@ function OnboardCoachForm() {
     return (
       <div className="page-narrow">
         <div className="card-narrow stack">
-          <h1 className="page-title" style={{ fontSize: 34 }}>Missing invite link</h1>
+          <h1 className="page-title">Missing invite link</h1>
           <p className="text-secondary">This page only works from the invite email our team sends you. Open the link in that email to set up your profile.</p>
           <p className="text-secondary">
             Looking for help with your own application? <Link href="/signup" className="link">Create a student account</Link>
@@ -146,7 +146,7 @@ function OnboardCoachForm() {
       <div className="stack" style={{ gap: 14 }}>
         <MentorWelcome />
         <div className="stack-sm">
-          <h1 className="page-title" style={{ fontSize: 38 }}>Set up your mentor profile</h1>
+          <h1 className="page-title">Set up your mentor profile</h1>
           <span className="badge badge-brand" style={{ alignSelf: "flex-start" }}>Invite for {email}</span>
         </div>
         <form onSubmit={handleSubmit} className="stack" style={{ gap: 0 }}>

@@ -105,3 +105,57 @@
 .browse-page { padding-top: 8px; }
 .browse-results-for { margin-bottom: 16px; }
 .browse-empty-waitlist { width: 100%; display: flex; justify-content: center; margin: 8px 0; }
+
+/* How it works page (app/how-it-works) and the vetting band. */
+.vet-text { gap: 18px; }
+.vet-text .link { margin-top: 8px; }
+.hiw-intro { padding-bottom: 72px; }
+.hiw-para { display: block; }
+.hiw-para + .hiw-para { margin-top: 12px; }
+.hiw-steps { padding-top: 0; }
+.hiw-more { margin-top: 32px; font-size: 16px; }
+.hiw-cta-btns { justify-content: center; gap: 12px; }
+.icon-dot-44 { width: 44px; height: 44px; }
+
+/* Narrow public pages (press, senior team, become a mentor, reviews): one gap between sections. */
+.public-stack { gap: 48px; }
+
+/* /reviews */
+.reviews-page { padding-top: 64px; min-height: 60vh; }
+.reviews-stack { gap: 56px; }
+.reviews-lede { max-width: 760px; font-size: 21px; }
+.review-summary-text { gap: 2px; align-items: flex-start; }
+.reviews-wall { gap: 32px; }
+.reviews-more { align-self: center; }
+.reviews-more > summary { margin: 0 auto; }
+.reviews-more[open] { align-self: stretch; }
+.reviews-cta { display: flex; justify-content: center; }
+
+/* /become-a-mentor */
+.become-intro { gap: 18px; }
+.perk-title { display: inline-flex; align-items: center; gap: 12px; }
+.apply-section { gap: 20px; }
+.apply-how { gap: 12px; max-width: 720px; }
+.apply-form { max-width: 720px; width: 100%; }
+
+/* /safety (short summary) and /community-guidelines */
+.safety-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+.safety-list li { display: flex; gap: 14px; align-items: flex-start; line-height: 1.6; }
+.safety-list .icon-dot { flex-shrink: 0; }
+.guide-points { padding-left: 20px; line-height: 1.6; }
+.guide-text { line-height: 1.6; }
+.legal-h { margin-top: 8px; font-size: 22px; }
+
+/* /about-you */
+.about-you-page { gap: 24px; }
+.about-you-card { gap: 18px; }
+.about-you-card > .field { margin-bottom: 0; }
+
+/* 404 page (app/not-found.tsx) */
+.notfound { position: relative; overflow: hidden; }
+.notfound-in { position: relative; }
+.notfound-in .center-head { padding: 72px 0 56px; }
+.notfound-btns { justify-content: center; }
+.notfound-blob-1 { left: -140px; top: 160px; width: 460px; height: 240px; background: color-mix(in srgb, var(--blue) 90%, transparent); filter: blur(50px); }
+.notfound-blob-2 { right: -100px; top: 60px; width: 480px; height: 260px; background: color-mix(in srgb, var(--pink) 45%, transparent); filter: blur(60px); }
+.notfound-blob-3 { left: 30%; top: 0; width: 460px; height: 180px; background: color-mix(in srgb, var(--tint-3) 45%, transparent); filter: blur(60px); }

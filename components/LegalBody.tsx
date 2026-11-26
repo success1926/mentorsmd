@@ -1,3 +1,5 @@
+import { fmtDay } from "@/lib/format";
+
 // Shows the text of a legal document written in Admin -> Legal. The
 // format is deliberately simple (no HTML, so nothing can be injected):
 //   ## Heading      a section heading (# works too)
@@ -30,7 +32,7 @@ export function LegalBody({ body }: { body: string }) {
         .filter((b) => b.lines.length)
         .map((b, i) =>
           b.type === "h" ? (
-            <h2 key={i} style={{ fontSize: 22, marginTop: 8 }}>{b.lines[0]}</h2>
+            <h2 key={i} className="block-title legal-h">{b.lines[0]}</h2>
           ) : b.type === "ul" ? (
             <ul key={i} className="stack-sm text-secondary" style={{ paddingLeft: 20, lineHeight: 1.6, margin: 0 }}>
               {b.lines.map((l, j) => <li key={j}>{l}</li>)}
@@ -47,11 +49,11 @@ export function LegalHeader({ title, version, publishedAt, eyebrow = "Legal" }: 
   return (
     <div className="stack-sm" style={{ marginBottom: 24 }}>
       <span className="eyebrow">{eyebrow}</span>
-      <h1 className="page-title" style={{ textAlign: "left" }}>{title}</h1>
+      <h1 className="page-title">{title}</h1>
       {version > 0 && (
         <span className="text-muted">
           Version {version}
-          {publishedAt ? ` · last updated ${new Date(publishedAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}` : ""}
+          {publishedAt ? ` · last updated ${fmtDay(publishedAt)}` : ""}
         </span>
       )}
     </div>

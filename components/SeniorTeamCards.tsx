@@ -42,7 +42,7 @@ export function SeniorTeamCards({ people }: { people: SeniorPerson[] }) {
             <span className="lead-photo" aria-hidden="true">
               {person.photo && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={person.photo} alt={`${person.name}, ${person.title || "MentorsMD senior team"}`} style={{ objectPosition: person.photoPosition }} />
+                <img src={person.photo} alt={`${person.name}, ${person.title || "MentorsMD senior team"}`} loading="lazy" decoding="async" style={{ objectPosition: person.photoPosition }} />
               )}
             </span>
             <span className="lead-body">
@@ -67,7 +67,7 @@ export function SeniorTeamCards({ people }: { people: SeniorPerson[] }) {
             )}
             <div className="stack" style={{ gap: 14, minWidth: 0 }}>
               <div className="stack" style={{ gap: 4, paddingRight: 32 }}>
-                <h2 style={{ fontSize: 32 }}>{p.name}</h2>
+                <h2 className="block-title">{p.name}</h2>
                 {p.title && <span className="lead-title">{p.title}</span>}
                 {p.creds && <span className="lead-creds">{p.creds}</span>}
               </div>

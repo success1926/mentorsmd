@@ -45,21 +45,21 @@ type MainLink = NavLink & { midHide?: boolean; reviews?: boolean };
 // "Reviews" shows only when showReviews is on (root layout: once the review wall has enough to show).
 const LOGGED_OUT_LINKS: MainLink[] = [
   { label: "Home", href: "/", midHide: true },
-  { label: "Browse mentors", href: "/mentors" },
-  { label: "How it works", href: "/how-it-works" },
-  { label: "Senior team", href: "/senior-team", midHide: true },
+  { label: "Browse Mentors", href: "/mentors" },
+  { label: "How It Works", href: "/how-it-works" },
+  { label: "Senior Team", href: "/senior-team", midHide: true },
   { label: "Reviews", href: "/reviews", reviews: true },
-  { label: "Become a mentor", href: "/become-a-mentor" },
+  { label: "Become a Mentor", href: "/become-a-mentor" },
 ];
 // Logged-in students: the pages for finding a mentor. Their own pages
 // (packages, messages, calendar...) are in the student area sidebar,
 // reached from the "Dashboard" button on the right.
 const STUDENT_LINKS: MainLink[] = [
-  { label: "Browse mentors", href: "/mentors" },
-  { label: "How it works", href: "/how-it-works" },
+  { label: "Browse Mentors", href: "/mentors" },
+  { label: "How It Works", href: "/how-it-works" },
   { label: "Reviews", href: "/reviews", reviews: true },
 ];
-const OTHER_LINKS: MainLink[] = [{ label: "Browse mentors", href: "/mentors" }];
+const OTHER_LINKS: MainLink[] = [{ label: "Browse Mentors", href: "/mentors" }];
 
 const RIGHT_LINKS: Record<string, NavLink[]> = {
   // Students and mentors: one "Dashboard" button (drawn as a pill below);
@@ -75,9 +75,9 @@ const RIGHT_LINKS: Record<string, NavLink[]> = {
 
 const MENU: Record<string, NavLink[]> = {
   // The student area's pages (the same list as its sidebar, lib/studentNav.ts).
-  BUYER: [...STUDENT_NAV.map((n) => ({ label: n.label, href: n.href })), { label: "Contact us", href: "/contact" }],
+  BUYER: [...STUDENT_NAV.map((n) => ({ label: n.label, href: n.href })), { label: "Contact Us", href: "/contact" }],
   // The mentor area's pages (the same list as its sidebar).
-  SELLER: [...MENTOR_NAV.map((n) => ({ label: n.label, href: n.href })), { label: "Contact us", href: "/contact" }],
+  SELLER: [...MENTOR_NAV.map((n) => ({ label: n.label, href: n.href })), { label: "Contact Us", href: "/contact" }],
   ADMIN: [
     { label: "Admin", href: "/admin" },
     { label: "Team", href: "/admin/team" },
