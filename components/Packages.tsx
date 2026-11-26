@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Modal } from "@/components/Modal";
 import { Booker } from "@/components/Booker";
-import { Icon, ICONS, StaffBadge, StatusBadge } from "@/components/ui";
+import { Icon, ICONS, StaffBadge } from "@/components/ui";
 import { MessageText, SendWarnings, type SendWarning } from "@/components/Safety";
 import { useConversation, SendError } from "@/lib/hooks/useConversation";
 import { hoursSummary, isLowOnHours, shortHours, splitCredit, TOP_UP_HOURS } from "@/lib/hours";
@@ -19,7 +19,6 @@ import { money } from "@/lib/options";
 import { uploadFile } from "@/lib/upload";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { fmtDateTime, fmtDay, firstName } from "@/lib/format";
-import type { StatusAudience } from "@/lib/statusLabels";
 
 export async function postJson(url: string, body?: any): Promise<{ ok: boolean; data: any }> {
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
@@ -27,10 +26,6 @@ export async function postJson(url: string, body?: any): Promise<{ ok: boolean; 
   return { ok: res.ok, data };
 }
 
-// A package's status badge, worded for who is looking (lib/statusLabels.ts).
-export function PackageBadge({ order, audience = "student" }: { order: any; audience?: StatusAudience }) {
-  return <StatusBadge order={order} audience={audience} />;
-}
 
 // Running low while the work is still going (not after "Mark work complete").
 export const showLowHours = (order: any) => finishPhase(order) === "WORKING" && isLowOnHours(order);

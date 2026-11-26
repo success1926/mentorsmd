@@ -39,10 +39,6 @@ import { hoursLabel, offerRate, parseRateDollars, priceFor, priceMath } from "@/
 
 type Offers = { hourlyRateCents: number | null; hourly: any | null; bundles: any[]; packages: any[] };
 
-// A form's result line, shown with the shared <Alert>.
-function Msg({ m }: { m: { ok: boolean; text: string } | null }) {
-  return m ? <Alert tone={m.ok ? "success" : "danger"}>{m.text}</Alert> : null;
-}
 
 function Seg({ options, value, onChange, label }: { options: { value: string; label: string }[]; value: string; onChange: (v: string) => void; label: string }) {
   return (
@@ -191,7 +187,7 @@ function RateCard({ rate, onSaved }: { rate: number | null; onSaved: () => void 
       <span className="field-help" style={{ color: bad ? "var(--danger)" : undefined }}>
         {bad ? RATE_RULE : cents ? `Students pay ${money(cents)} for 1 hour and ${money(priceFor(180, cents))} for 3 hours. You earn ${money(mentorShare(cents))} an hour.` : "Changing your rate later never changes what an existing order paid."}
       </span>
-      <Msg m={msg} />
+      {msg && <Alert tone={msg.ok ? "success" : "danger"}>{msg.text}</Alert>}
     </section>
   );
 }

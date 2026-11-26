@@ -57,9 +57,9 @@ export function OfferGuideBody({ values, rateCents, tab, onTab }: { values: Guid
         <span className="text-secondary">{values.intro}</span>
       </div>
 
-      <div className="seg" role="group" aria-label="Guide sections">
+      <div className="tabs" role="tablist" aria-label="Guide sections">
         {TABS.map((t) => (
-          <button type="button" key={t.value} className="seg-opt" aria-pressed={tab === t.value} onClick={() => onTab(t.value)}>
+          <button type="button" role="tab" key={t.value} className="tab" aria-selected={tab === t.value} onClick={() => onTab(t.value)}>
             {t.label}
           </button>
         ))}

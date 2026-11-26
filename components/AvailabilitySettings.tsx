@@ -17,9 +17,7 @@ import { browserTimeZone, dayInZone, fmtDayLabel, timeZoneList } from "@/lib/tz"
 // anyone already connected keeps their connection and Disconnect button.
 const GOOGLE_CONNECT_ON = process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_CONNECT === "true";
 
-// A result line under a form: shown with the shared <Alert>.
 type Msg = { ok: boolean; text: string } | null;
-const Note = ({ m }: { m: Msg }) => (m ? <Alert tone={m.ok ? "success" : "danger"}>{m.text}</Alert> : null);
 
 const zoneLabel = (z: string) => z.replace(/_/g, " ");
 
@@ -211,7 +209,7 @@ export function CallHoursCard({ profile, onSaved }: { profile: any; onSaved?: ()
       <div className="settings-save">
         <button className="btn btn-primary" disabled={saving} onClick={save}>{saving ? "Saving…" : "Save changes"}</button>
       </div>
-      <Note m={msg} />
+      {msg && <Alert tone={msg.ok ? "success" : "danger"}>{msg.text}</Alert>}
     </SettingsSection>
   );
 }
@@ -280,7 +278,7 @@ export function BusyDatesCard() {
         <input className="input" maxLength={200} placeholder="e.g. Step 1 exam week" value={note} onChange={(e) => setNote(e.target.value)} />
       </label>
       <button className="btn btn-primary" style={{ alignSelf: "flex-start" }} disabled={!start || saving} onClick={add}>{saving ? "Adding…" : "Add busy dates"}</button>
-      <Note m={msg} />
+      {msg && <Alert tone={msg.ok ? "success" : "danger"}>{msg.text}</Alert>}
       {clashes && (
         <div role="alert" className="alert alert-warning stack-sm">
           <b>Saved, but you already have calls on these days:</b>
@@ -434,7 +432,7 @@ export function ExternalCalendarCard({ profile, onChanged }: { profile: any; onC
             <button className="btn btn-primary btn-sm" disabled={!url.trim() || busy} onClick={() => call("POST", { url })}>{busy ? "Checking…" : "Connect"}</button>
           </div>
       </Collapsible>
-      <Note m={msg} />
+      {msg && <Alert tone={msg.ok ? "success" : "danger"}>{msg.text}</Alert>}
     </div>
   );
 }
