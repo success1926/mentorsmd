@@ -3,6 +3,7 @@ import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useSafetySheet } from "../../../components/safety";
+import { useConfirm } from "../../../components/mentorSheets";
 import { CallCard, LoadError, MoveSheet, useRefresh, usePaySheet, type CalCall } from "../../../components/shared";
 import { Bar, Btn, Btns2, Card, Chip, Eyebrow, Field, H, Half, Hdr, KV, Link, Loading, Note, RowV, Screen, Sec, SecH, Small, SS, Stat3, StatusBadge, TT } from "../../../components/ui";
 import { api, dollars, errorText, SITE, useApi } from "../../../lib/api";
@@ -189,66 +190,73 @@ export default function Package() {
 function Decision({ order, onChanged }: { order: Pkg; onChanged: () => void }) {
   const c = useColors();
   const router = useRouter();
-  const { openSheet, closeSheet, toast } = useOverlay();
-  const [mode, setMode] = useState<"" | "LAST_CALL" | "LAST_REVISION">("");
-  const [note, setNote] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { openSheet, toast } = useOverlay();
+  const confirm = useConfirm();
   const left = hoursToRespond(order);
   const extra = lastRequestAvailable(order);
   const mf = firstName(order.seller?.name) || "Your mentor";
-  const send = async (action: string, done: string) => {
-    setBusy(true);
-    setError(null);
-    try {
-      await api(`/api/orders/${order.id}/finish`, { body: { action, note } });
-      setMode("");
-      setNote("");
-      toast(done);
-      onChanged();
-    } catch (e) {
-      setError(errorText(e));
-    } finally {
-      setBusy(false);
-    }
-  };
   const approve = () =>
-    openSheet(() => (
-      <>
-        <H>Approve {pkgTitle(order)}?</H>
-        <Note>{mf} is paid for the hours, including any unused ones.</Note>
-        <Btn kind="dark" label="Approve" onPress={() => { closeSheet(); send("APPROVE", "Approved. Thanks for working with MentorsMD."); }} />
-        <Btn kind="line" label="Not yet" onPress={closeSheet} />
-      </>
-    ));
+    confirm({
+      title: `Approve ${pkgTitle(order)}?`,
+      body: `${mf} is paid for the hours, including any unused ones.`,
+      confirmLabel: "Approve",
+      cancelLabel: "Not yet",
+      onConfirm: async () => {
+        await api(`/api/orders/${order.id}/finish`, { body: { action: "APPROVE", note: "" } });
+        toast("Approved. Thanks for working with MentorsMD.");
+        onChanged();
+      },
+    });
+  const ask = (mode: LastRequest) => openSheet(() => <LastRequestSheet order={order} mode={mode} onDone={onChanged} />);
   return (
     <Card tone="warn">
       <TT>{mf} marked this package complete</TT>
       <Note style={{ color: c.warnFg }}>
         You have {left} hours to respond. If you don’t, it’s approved automatically.{extra ? " You can ask for one last call or one last revision (once)." : ""} Any unused hours aren’t refunded (mentors aren’t penalised for finishing efficiently). If something isn’t right, open a dispute.
       </Note>
-      {error ? <Small style={{ color: c.danger }}>{error}</Small> : null}
-      {mode ? (
-        <>
-          <Field label={mode === "LAST_CALL" ? "What would you like to cover in the last call?" : "What would you like changed?"} value={note} onChange={setNote} multiline />
-          <Btn label={mode === "LAST_CALL" ? "Request one last call" : "Request one last revision"} disabled={busy || !note.trim()}
-            onPress={() => send(mode, mode === "LAST_CALL" ? "Asked for one last call. Book it from this page." : "Asked for one last revision")} />
-          <Link label="Back" onPress={() => setMode("")} />
-          {mode === "LAST_CALL" ? <Small>Then book the call from this page. It uses the package’s hours; if none are left, add hours first.</Small> : null}
-        </>
-      ) : (
-        <>
-          <Btn label="Approve" disabled={busy} onPress={approve} />
-          {extra ? (
-            <Btns2>
-              <Half><Btn kind="line" label="One last call" onPress={() => setMode("LAST_CALL")} /></Half>
-              <Half><Btn kind="line" label="One last revision" onPress={() => setMode("LAST_REVISION")} /></Half>
-            </Btns2>
-          ) : null}
-          <Link red label="Something’s wrong? Open a dispute" onPress={() => router.push(`/student/dispute/${order.id}`)} />
-        </>
-      )}
+      <Btn label="Approve" onPress={approve} />
+      {extra ? (
+        <Btns2>
+          <Half><Btn kind="line" label="One last call" onPress={() => ask("LAST_CALL")} /></Half>
+          <Half><Btn kind="line" label="One last revision" onPress={() => ask("LAST_REVISION")} /></Half>
+        </Btns2>
+      ) : null}
+      <Link red label="Something’s wrong? Open a dispute" onPress={() => router.push(`/student/dispute/${order.id}`)} />
     </Card>
+  );
+}
+
+// One last call or revision: a short note to the mentor, in a sheet.
+type LastRequest = "LAST_CALL" | "LAST_REVISION";
+function LastRequestSheet({ order, mode, onDone }: { order: Pkg; mode: LastRequest; onDone: () => void }) {
+  const c = useColors();
+  const { closeSheet, toast } = useOverlay();
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const call = mode === "LAST_CALL";
+  const send = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/api/orders/${order.id}/finish`, { body: { action: mode, note } });
+      closeSheet();
+      toast(call ? "Asked for one last call. Book it from this page." : "Asked for one last revision");
+      onDone();
+    } catch (e) {
+      setError(errorText(e));
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <H>{call ? "One Last Call" : "One Last Revision"}</H>
+      <Field label={call ? "What would you like to cover in the last call?" : "What would you like changed?"} value={note} onChange={setNote} multiline />
+      {call ? <Small>Then book the call from this page. It uses the package’s hours; if none are left, add hours first.</Small> : null}
+      {error ? <Small style={{ color: c.danger }}>{error}</Small> : null}
+      <Btn kind="dark" label={busy ? "Sending…" : call ? "Request one last call" : "Request one last revision"} disabled={busy || !note.trim()} onPress={send} />
+      <Btn kind="line" label="Cancel" onPress={closeSheet} />
+    </>
   );
 }
 
