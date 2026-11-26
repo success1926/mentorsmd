@@ -8,7 +8,7 @@ import { acceptedAgreement } from "@/lib/agreement";
 import { mentorAgreementLabel } from "@/lib/legal";
 import { checkText } from "@/lib/moderation";
 import { createFlagsForFindings } from "@/lib/flags";
-import { getSession } from "@/lib/session";
+import { getSession, sessionUser } from "@/lib/session";
 
 // Public: anyone (even logged out) can browse gigs.
 //   ?mine=true      (mentor session) the mentor's own offers, including the
@@ -20,11 +20,11 @@ export async function GET(req: Request) {
 
   let sellerId: string | undefined = searchParams.get("sellerId") || undefined;
   if (mine) {
-    const session = await getSession();
-    if (!session?.user || (session.user as any).role !== "SELLER") {
+    const viewer = sessionUser(await getSession());
+    if (!viewer || viewer.role !== "SELLER") {
       return NextResponse.json({ error: "Only mentor accounts have packages" }, { status: 403 });
     }
-    sellerId = (session.user as any).id;
+    sellerId = viewer.id;
   }
 
   const gigs = await prisma.gig.findMany({
@@ -43,11 +43,11 @@ export async function GET(req: Request) {
 // package (lib/offerInput.ts); its price is hours x rate. The Hourly offer
 // itself is switched on/off on /api/offers.
 export async function POST(req: Request) {
-  const session = await getSession();
-  if (!session?.user || (session.user as any).role !== "SELLER") {
+  const viewer = sessionUser(await getSession());
+  if (!viewer || viewer.role !== "SELLER") {
     return NextResponse.json({ error: "Only mentor accounts can create packages" }, { status: 403 });
   }
-  const sellerId = (session.user as any).id;
+  const sellerId = viewer.id;
 
   const body = await req.json().catch(() => ({}));
   if (!acceptedAgreement(body.agreement)) {

@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { BOOKING_WINDOW_OPTIONS, BUFFER_OPTIONS, NOTICE_OPTIONS, hasAvailability, parseWeeklyHours } from "@/lib/schedule";
 import { isDayString, isValidTimeZone } from "@/lib/tz";
-import { getSession } from "@/lib/session";
+import { getSession, sessionUser } from "@/lib/session";
 
 // Mentor-only: call availability for the built-in calendar.
 // Body: { weeklyHours, timeZone, bufferMinutes, minNoticeHours, bookingWindowDays, daysOff }
 export async function PUT(req: Request) {
-  const session = await getSession();
-  if (!session?.user || (session.user as any).role !== "SELLER") {
+  const me = sessionUser(await getSession());
+  if (!me || me.role !== "SELLER") {
     return NextResponse.json({ error: "Mentor accounts only" }, { status: 403 });
   }
   const body = await req.json().catch(() => ({}));
@@ -29,7 +29,7 @@ export async function PUT(req: Request) {
   const today = new Date(Date.now() - 2 * 24 * 3600_000).toISOString().slice(0, 10);
 
   const user = await prisma.user.update({
-    where: { id: (session.user as any).id },
+    where: { id: me.id },
     data: {
       weeklyHours,
       timeZone: body.timeZone,

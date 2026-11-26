@@ -4,7 +4,7 @@ import { FORMATS, RATE_RULE, isValue } from "@/lib/options";
 import { parseRateDollars } from "@/lib/pricing";
 import { ensureHourlyOffer, offersFor, syncOfferPrices } from "@/lib/offers";
 import { syncProfileComplete } from "@/lib/profileSync";
-import { getSession } from "@/lib/session";
+import { getSession, sessionUser } from "@/lib/session";
 
 // The mentor's "Rate & offers" page (docs/redesign-2026-10.md section 3).
 //   GET                                    hourly rate + every offer
@@ -13,9 +13,9 @@ import { getSession } from "@/lib/session";
 // Bundles and specialized packages are saved through /api/gigs. Changing a
 // rate re-prices the offers that use it; existing orders keep what they paid.
 async function mentorId() {
-  const session = await getSession();
-  if (!session?.user || (session.user as any).role !== "SELLER") return null;
-  return (session.user as any).id as string;
+  const me = sessionUser(await getSession());
+  if (!me || me.role !== "SELLER") return null;
+  return me.id as string;
 }
 
 async function payload(id: string) {

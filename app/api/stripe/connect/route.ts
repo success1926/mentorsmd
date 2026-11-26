@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { siteUrl } from "@/lib/siteUrl";
-import { getSession } from "@/lib/session";
+import { getSession, sessionUser } from "@/lib/session";
 
 // Called when a seller clicks "Connect bank account" in their dashboard.
 // Creates a connected Stripe account (if they don't have one yet) and
@@ -39,12 +39,12 @@ async function stripeV2Request(path: string, body: object) {
 }
 
 export async function POST() {
-  const session = await getSession();
-  if (!session?.user || (session.user as any).role !== "SELLER") {
+  const me = sessionUser(await getSession());
+  if (!me || me.role !== "SELLER") {
     return NextResponse.json({ error: "Only mentor accounts can connect payouts" }, { status: 403 });
   }
 
-  const userId = (session.user as any).id;
+  const userId = me.id;
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 

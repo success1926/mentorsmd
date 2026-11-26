@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cancelFromStripePage } from "@/lib/hourCheckout";
 import { siteUrl } from "@/lib/siteUrl";
-import { getSession } from "@/lib/session";
+import { getSession, sessionUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +13,8 @@ export const dynamic = "force-dynamic";
 // changes.
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const session = await getSession();
-  const studentId = (session?.user as any)?.id;
+  const me = sessionUser(await getSession());
+  const studentId = me.id;
   let back = "/orders";
   if (studentId) {
     back = await cancelFromStripePage(studentId, {

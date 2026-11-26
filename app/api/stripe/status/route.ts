@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { payoutAccountStatus } from "@/lib/stripeAccountStatus";
-import { getSession } from "@/lib/session";
+import { getSession, sessionUser } from "@/lib/session";
 
 // A user having a stripeAccountId saved doesn't mean onboarding was
 // actually finished - the account is created BEFORE the redirect to
@@ -10,12 +10,12 @@ import { getSession } from "@/lib/session";
 // (lib/stripeAccountStatus.ts): connected only when the account can
 // receive transfers. Checkout and payouts use the same check.
 export async function GET() {
-  const session = await getSession();
-  if (!session?.user || (session.user as any).role !== "SELLER") {
+  const me = sessionUser(await getSession());
+  if (!me || me.role !== "SELLER") {
     return NextResponse.json({ error: "Only mentor accounts have payouts" }, { status: 403 });
   }
 
-  const userId = (session.user as any).id;
+  const userId = me.id;
   const user = await prisma.user.findUnique({ where: { id: userId } });
 
   if (!user?.stripeAccountId) {
