@@ -14,8 +14,10 @@ import {
   countWords,
   resumeExtension,
 } from "@/lib/applicationRules";
-import { useRecaptcha, RecaptchaNotice } from "@/components/FormGuards";
+import { Honeypot, useRecaptcha, RecaptchaNotice } from "@/components/FormGuards";
 import { MedicalSchoolPicker } from "@/components/MedicalSchoolPicker";
+import { Alert, Field } from "@/components/ui";
+import { firstName } from "@/lib/format";
 
 // The public "Apply to mentor" form. The resume goes straight to private
 // storage first (upload link from /api/applications/resume, lib/upload.ts),
@@ -105,8 +107,8 @@ export function MentorApplicationForm() {
   if (status === "done") {
     return (
       <div ref={doneRef} className="card stack" style={{ gap: 14, scrollMarginTop: 150 }}>
-        <h2 style={{ fontSize: 30 }}>Thank you, {form.name.trim().split(" ")[0]}!</h2>
-        <p className="text-secondary" style={{ lineHeight: 1.6 }}>
+        <h2 className="block-title">Thank you, {firstName(form.name)}!</h2>
+        <p className="text-secondary">
           Your application is in. We&apos;ve sent a confirmation to <b>{form.email.trim()}</b>. Our senior team reviews every application and usually replies within a few days. If you&apos;re a fit, you&apos;ll get a one-time invite link to set up your mentor profile.
         </p>
         <div className="row-wrap">
@@ -128,15 +130,19 @@ export function MentorApplicationForm() {
         </div>
       </div>
       <div className="grid-2" style={{ gap: "0 20px" }}>
-        <label className="field"><span className="field-label">Full name</span>
-          <input className="input" autoComplete="name" maxLength={L.name} value={form.name} onChange={set("name")} required /></label>
-        <label className="field"><span className="field-label">Email</span>
-          <input className="input" type="email" autoComplete="email" maxLength={L.email} value={form.email} onChange={set("email")} required /></label>
-        <label className="field"><span className="field-label">Phone</span>
-          <input className="input" type="tel" autoComplete="tel" maxLength={L.phone} value={form.phone} onChange={set("phone")} required /></label>
+        <Field id="apply-name" label="Full name">
+          <input className="input" autoComplete="name" maxLength={L.name} value={form.name} onChange={set("name")} required />
+        </Field>
+        <Field id="apply-email" label="Email">
+          <input className="input" type="email" autoComplete="email" maxLength={L.email} value={form.email} onChange={set("email")} required />
+        </Field>
+        <Field id="apply-phone" label="Phone">
+          <input className="input" type="tel" autoComplete="tel" maxLength={L.phone} value={form.phone} onChange={set("phone")} required />
+        </Field>
         {undergrad ? (
-          <label className="field"><span className="field-label">{stage === "OTHER" ? "School or organization" : "Undergraduate school"}</span>
-            <input className="input" maxLength={L.undergradSchool} placeholder={stage === "OTHER" ? "e.g. Johns Hopkins University" : "e.g. Brown University"} value={form.undergradSchool} onChange={set("undergradSchool")} required /></label>
+          <Field id="apply-undergrad" label={stage === "OTHER" ? "School or organization" : "Undergraduate school"}>
+            <input className="input" maxLength={L.undergradSchool} placeholder={stage === "OTHER" ? "e.g. Johns Hopkins University" : "e.g. Brown University"} value={form.undergradSchool} onChange={set("undergradSchool")} required />
+          </Field>
         ) : (
           <MedicalSchoolPicker value={form.medicalSchool} onChange={(v) => setForm({ ...form, medicalSchool: v })} help="" />
         )}
@@ -144,19 +150,22 @@ export function MentorApplicationForm() {
       {undergrad ? (
         <MedicalSchoolPicker label="Medical school (optional)" value={form.medicalSchool} onChange={(v) => setForm({ ...form, medicalSchool: v })} help={stage === "GAP_YEAR" ? "If you've been accepted." : stage === "OTHER" ? "If you have one." : "The medical school your BS/MD program leads to."} />
       ) : (
-        <label className="field"><span className="field-label">Residency (optional)</span>
-          <input className="input" maxLength={L.residency} placeholder="e.g. Internal Medicine, PGY-2" value={form.residency} onChange={set("residency")} /></label>
+        <Field id="apply-residency" label="Residency" optional>
+          <input className="input" maxLength={L.residency} placeholder="e.g. Internal Medicine, PGY-2" value={form.residency} onChange={set("residency")} />
+        </Field>
       )}
 
-      <label className="field">
-        <span className="field-label">About you</span>
+      {/* The word count turns into the error line (red) once it's too long. */}
+      <Field
+        id="apply-blurb"
+        label="About you"
+        help={words > BLURB_MAX_WORDS ? undefined : <span aria-live="polite">{words} / {BLURB_MAX_WORDS} words{words < BLURB_MIN_WORDS ? ` (at least ${BLURB_MIN_WORDS})` : ""}</span>}
+        error={words > BLURB_MAX_WORDS ? <span aria-live="polite">{words} / {BLURB_MAX_WORDS} words</span> : undefined}
+      >
         <textarea className="input" rows={5} maxLength={L.blurbChars} value={form.blurb} onChange={set("blurb")}
           placeholder="Your path into medicine, what you'd like to help students with, and any admissions experience (interviewing, essay review, tutoring…)."
-          aria-invalid={words > BLURB_MAX_WORDS} aria-describedby="blurb-count" required />
-        <span id="blurb-count" className="field-help" aria-live="polite" style={words > BLURB_MAX_WORDS ? { color: "var(--danger)" } : undefined}>
-          {words} / {BLURB_MAX_WORDS} words{words < BLURB_MIN_WORDS ? ` (at least ${BLURB_MIN_WORDS})` : ""}
-        </span>
-      </label>
+          required />
+      </Field>
 
       <div className="field">
         <span className="field-label">Resume</span>
@@ -174,11 +183,9 @@ export function MentorApplicationForm() {
       </div>
 
       {/* Hidden from people; only bots fill this in. */}
-      <div aria-hidden="true" style={{ position: "absolute", left: -10000, top: "auto", width: 1, height: 1, overflow: "hidden" }}>
-        <label>Website<input type="text" name={HONEYPOT_FIELD} tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} /></label>
-      </div>
+      <Honeypot value={honeypot} onChange={setHoneypot} />
 
-      {error && <div role="alert" className="alert alert-danger" style={{ marginBottom: 14 }}>{error}</div>}
+      {error && <Alert tone="danger" style={{ marginBottom: 14 }}>{error}</Alert>}
       <button className="btn btn-primary btn-lg btn-block" disabled={!ready || busy}>
         {status === "uploading" ? "Uploading resume…" : status === "sending" ? "Sending…" : "Submit application"}
       </button>

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Honeypot, useRecaptcha, RecaptchaNotice } from "@/components/FormGuards";
-import { money } from "@/lib/options";
+import { money } from "@/lib/format";
+import { Alert, Field } from "@/components/ui";
 import { GIFT_MAX_CENTS, GIFT_MIN_CENTS, GIFT_NOTE_MAX, GIFT_PRESETS_CENTS, parseGiftDollars } from "@/lib/giftOptions";
 
 export type GiftOffer = { id: string; title: string; mentorName: string; mentorId: string; hours: string; priceCents: number };
@@ -55,9 +56,9 @@ export function GiftForm({ offer }: { offer: GiftOffer | null }) {
   }
 
   return (
-    <form onSubmit={submit} className="card stack" style={{ gap: 18 }}>
+    <form onSubmit={submit} className="card stack fields-tight" style={{ gap: 18 }}>
       {offer ? (
-        <div className="alert alert-blue stack-sm">
+        <Alert tone="blue" className="stack-sm">
           <b>{offer.title}</b>
           <span className="small">
             {offer.hours} with <Link href={`/mentors/${offer.mentorId}`} className="link">{offer.mentorName}</Link> · {money(offer.priceCents)}
@@ -65,7 +66,7 @@ export function GiftForm({ offer }: { offer: GiftOffer | null }) {
           <span className="small">
             Tip: it&apos;s best if your student has messaged {offer.mentorName.split(" ")[0]} or had a free intro call first, so they know it&apos;s a good fit. Not sure? <Link href="/gift" className="link">Give credit instead</Link>.
           </span>
-        </div>
+        </Alert>
       ) : (
         <fieldset className="stack-sm" style={{ border: "none", padding: 0, margin: 0 }}>
           <legend className="field-label">Amount of credit</legend>
@@ -76,40 +77,38 @@ export function GiftForm({ offer }: { offer: GiftOffer | null }) {
             <button type="button" className="seg-opt" aria-pressed={preset === "custom"} onClick={() => setPreset("custom")}>Other amount</button>
           </div>
           {preset === "custom" && (
-            <label className="field" style={{ marginBottom: 0, maxWidth: 220 }}>
-              <span className="field-label">Amount in dollars</span>
-              <input className="input" inputMode="numeric" placeholder="e.g. 150" value={custom} onChange={(e) => setCustom(e.target.value)} />
-              <span className="field-help">{money(GIFT_MIN_CENTS).replace(".00", "")} to {money(GIFT_MAX_CENTS).replace(".00", "")}, whole dollars.</span>
-            </label>
+            <div style={{ maxWidth: 220 }}>
+              <Field id="gift-amount" label="Amount in dollars" help={`${money(GIFT_MIN_CENTS).replace(".00", "")} to ${money(GIFT_MAX_CENTS).replace(".00", "")}, whole dollars.`}>
+                <input className="input" inputMode="numeric" placeholder="e.g. 150" value={custom} onChange={(e) => setCustom(e.target.value)} />
+              </Field>
+            </div>
           )}
         </fieldset>
       )}
 
       <div className="stack-sm">
         <b>You</b>
-        <label className="field" style={{ marginBottom: 6 }}>
-          <span className="field-label">Your full name</span>
+        <Field id="gift-parent-name" label="Your full name">
           <input className="input" autoComplete="name" value={f.parentName} onChange={set("parentName")} required maxLength={100} />
-        </label>
-        <label className="field" style={{ marginBottom: 0 }}>
-          <span className="field-label">Your email</span>
+        </Field>
+        <Field id="gift-parent-email" label="Your email" help="Your receipt and your private gift page go here.">
           <input className="input" type="email" autoComplete="email" value={f.parentEmail} onChange={set("parentEmail")} required maxLength={254} />
-          <span className="field-help">Your receipt and your private gift page go here.</span>
-        </label>
+        </Field>
       </div>
 
       <div className="stack-sm">
         <b>Your student</b>
-        <label className="field" style={{ marginBottom: 6 }}>
-          <span className="field-label">Their full name</span>
+        <Field id="gift-student-name" label="Their full name">
           <input className="input" autoComplete="off" value={f.studentName} onChange={set("studentName")} required maxLength={100} />
-        </label>
-        <label className="field" style={{ marginBottom: 6 }}>
-          <span className="field-label">Their email</span>
+        </Field>
+        <Field
+          id="gift-student-email"
+          label="Their email"
+          help="The email they use (or will use) to log in to MentorsMD. If they already have an account, use that email."
+          error={sameEmail ? "Use your student's own email address, not yours." : undefined}
+        >
           <input className="input" type="email" autoComplete="off" value={f.studentEmail} onChange={set("studentEmail")} required maxLength={254} />
-          <span className="field-help">The email they use (or will use) to log in to MentorsMD. If they already have an account, use that email.</span>
-        </label>
-        {sameEmail && <div role="alert" className="alert alert-danger">Use your student&apos;s own email address, not yours.</div>}
+        </Field>
         <fieldset className="stack-sm" style={{ border: "none", padding: 0, margin: 0 }}>
           <legend className="field-label">Is your student under 18?</legend>
           <div className="seg">
@@ -122,15 +121,13 @@ export function GiftForm({ offer }: { offer: GiftOffer | null }) {
             </span>
           )}
         </fieldset>
-        <label className="field" style={{ marginBottom: 0 }}>
-          <span className="field-label">A note to your student (optional)</span>
+        <Field id="gift-note" label="A note to your student" optional help="Included in the email we send them.">
           <textarea className="input" rows={3} maxLength={GIFT_NOTE_MAX} value={f.note} onChange={set("note")} placeholder="Good luck this cycle!" />
-          <span className="field-help">Included in the email we send them.</span>
-        </label>
+        </Field>
       </div>
 
       <Honeypot value={trap} onChange={setTrap} />
-      {error && <div role="alert" className="alert alert-danger">{error}</div>}
+      {error && <Alert tone="danger">{error}</Alert>}
       <button className="btn btn-primary btn-lg" style={{ alignSelf: "flex-start" }} disabled={busy}>
         {busy ? "Opening checkout…" : amountCents ? `Continue to payment: ${money(amountCents)}` : "Continue to payment"}
       </button>

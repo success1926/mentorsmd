@@ -9,10 +9,10 @@ export function AuthShell({ children, title, body }: { children: React.ReactNode
   return (
     <div className="auth-wrap">
       <div className="auth-art">
-        <div className="auth-blob" style={{ left: -80, top: 60, width: 360, height: 220, background: "rgba(245,185,205,0.55)" }} aria-hidden="true" />
-        <div className="auth-blob" style={{ right: -60, top: 220, width: 320, height: 240, background: "rgba(228,238,255,0.5)" }} aria-hidden="true" />
+        <div className="auth-blob auth-blob-pink" aria-hidden="true" />
+        <div className="auth-blob auth-blob-blue" aria-hidden="true" />
         <span className="auth-eyebrow">MentorsMD</span>
-        <p className="auth-art-title">{title || "Your White Coat Starts Here"}</p>
+        <p className="auth-art-title">{title || "Your white coat starts here"}</p>
         <p className="auth-art-body">
           {body || "One-on-one help from med students, residents, gap-year students and more, every one vetted by our senior team. Book a free intro call, then pay by the hour."}
         </p>
@@ -35,7 +35,7 @@ export function AuthShell({ children, title, body }: { children: React.ReactNode
 
 export function GoogleButton({ onClick, label = "Continue with Google" }: { onClick: () => void; label?: string }) {
   return (
-    <button type="button" onClick={onClick} className="btn btn-block btn-lg" style={{ fontWeight: 600 }}>
+    <button type="button" onClick={onClick} className="btn btn-block btn-lg btn-google">
       <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
         <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
         <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />

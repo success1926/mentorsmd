@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 // The page itself is a client component, so its title and description live here.
 export const metadata: Metadata = { alternates: { canonical: "/signup" },
-  title: "Sign Up",
+  title: "Sign up",
   description: "Create a free MentorsMD account to message vetted medical school admissions mentors and book help.",
 };
 
