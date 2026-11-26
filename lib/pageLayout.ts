@@ -32,7 +32,9 @@ export const SPACE_OPTIONS: { id: "" | Space; label: string }[] = [
 export type AddonType = "text" | "mediaText" | "faq" | "cta" | "video" | "logos";
 export type LayoutItem = { id: string; type?: AddonType; hidden?: boolean; space?: Space; data?: Record<string, any> };
 // keepVisible: can be moved but not hidden (other pages link to it).
-export type BuiltinSection = { id: string; label: string; fields: string[]; editOn?: { page: string; section: string; label: string }; keepVisible?: boolean };
+// hiddenByDefault: starts hidden (until the owner turns it on in the
+// Layout tab), e.g. a section another page already shows in full.
+export type BuiltinSection = { id: string; label: string; fields: string[]; editOn?: { page: string; section: string; label: string }; keepVisible?: boolean; hiddenByDefault?: boolean };
 
 const HOME_FIELDS = {
   hero: ["heroTitle", "heroSub", "searchPlaceholder", "quickTopics", "schoolsLabel", "schools"],
@@ -65,12 +67,15 @@ export const PAGE_SECTIONS: Record<string, BuiltinSection[]> = {
     // then where students got in, testimonials, and how we vet mentors near
     // the bottom.
     { id: "paths", label: "Getting into med school is hard", fields: ["pathsTitle", "pathsText", "paths"] },
-    { id: "features", label: "How it works (rows with a picture)", fields: ["featuresTitle", "features", "featuresButton"] },
+    { id: "features", label: "How it works (rows with a picture)", fields: ["featuresTitle", "features", "featuresButton", "featuresMoreLink"] },
     { id: "featured", label: "Featured mentors", fields: ["featuredTitle", "featuredLink"] },
     ACCEPTED_STRIP,
     { id: "testimonials", label: "Testimonials", fields: ["testimonialsEyebrow", "testimonialsTitle", "testimonials"] },
-    { id: "vetting", label: "How we vet mentors", fields: HOME_FIELDS.vetting },
-    { id: "faq", label: "Frequently asked questions", fields: HOME_FIELDS.faq },
+    // Vetting and questions are shown in full on How it works; the
+    // homepage links there from the How it works rows instead (Nov 2026
+    // streamlining). Both can be turned back on in the Layout tab.
+    { id: "vetting", label: "How we vet mentors", fields: HOME_FIELDS.vetting, hiddenByDefault: true },
+    { id: "faq", label: "Frequently asked questions", fields: HOME_FIELDS.faq, hiddenByDefault: true },
     { id: "cta", label: "Final call to action", fields: ["ctaTitle", "ctaText", "ctaButton"] },
   ],
   howItWorks: [
@@ -108,14 +113,16 @@ export const PAGE_SECTIONS: Record<string, BuiltinSection[]> = {
     { id: "intro", label: "Intro", fields: ["title", "intro", "mentorTitle", "mentorIntro"] },
     { id: "details", label: "Email and phone", fields: ["email", "phone"] },
     { id: "form", label: "Message form", fields: ["formTitle", "formIntro", "formSuccess"] },
-    { id: "orderBox", label: "Problem with an order? box", fields: ["orderTitle", "orderText"] },
-    { id: "mentorBox", label: "Want to become a mentor? box", fields: ["mentorBoxTitle", "mentorBoxBefore", "mentorBoxLink", "mentorBoxAfter"] },
+    // One "Other questions" box under the form (Nov 2026; it was two boxes,
+    // "orderBox" and "mentorBox": a saved "mentorBox" entry is simply dropped).
+    { id: "orderBox", label: "Other questions box (order help, mentor applications)", fields: ["orderTitle", "orderText", "mentorBoxTitle", "mentorBoxBefore", "mentorBoxLink", "mentorBoxAfter"] },
   ],
 };
 
 export const sectionsFor = (page: string): BuiltinSection[] => (Object.prototype.hasOwnProperty.call(PAGE_SECTIONS, page) ? PAGE_SECTIONS[page] : []);
 export const hasLayout = (page: string) => sectionsFor(page).length > 0;
-export const defaultLayout = (page: string): LayoutItem[] => sectionsFor(page).map((s) => ({ id: s.id }));
+export const defaultItem = (s: BuiltinSection): LayoutItem => (s.hiddenByDefault ? { id: s.id, hidden: true } : { id: s.id });
+export const defaultLayout = (page: string): LayoutItem[] => sectionsFor(page).map(defaultItem);
 
 // Added sections: at most this many per page; ids look like "x-k3j9a2".
 export const MAX_ADDONS = 20;

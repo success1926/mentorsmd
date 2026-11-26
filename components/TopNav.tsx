@@ -9,6 +9,8 @@ import { MENTOR_QUICK_LINKS, quickLinkHref } from "@/lib/options";
 import { useNavStatus } from "@/components/NavStatus";
 import { MENTOR_NAV, previewHref } from "@/lib/mentorNav";
 import { STUDENT_NAV } from "@/lib/studentNav";
+import { initialsOf } from "@/lib/format";
+import { useFocusTrap } from "@/components/useFocusTrap";
 
 // The brand mark: a graduation cap whose tassel is a stethoscope.
 // Same drawing as app/icon.svg (browser tab) - keep the two in step.
@@ -43,21 +45,21 @@ type MainLink = NavLink & { midHide?: boolean; reviews?: boolean };
 // "Reviews" shows only when showReviews is on (root layout: once the review wall has enough to show).
 const LOGGED_OUT_LINKS: MainLink[] = [
   { label: "Home", href: "/", midHide: true },
-  { label: "Browse Mentors", href: "/mentors" },
-  { label: "How It Works", href: "/how-it-works" },
-  { label: "Senior Team", href: "/senior-team", midHide: true },
+  { label: "Browse mentors", href: "/mentors" },
+  { label: "How it works", href: "/how-it-works" },
+  { label: "Senior team", href: "/senior-team", midHide: true },
   { label: "Reviews", href: "/reviews", reviews: true },
-  { label: "Become a Mentor", href: "/become-a-mentor" },
+  { label: "Become a mentor", href: "/become-a-mentor" },
 ];
 // Logged-in students: the pages for finding a mentor. Their own pages
 // (packages, messages, calendar...) are in the student area sidebar,
 // reached from the "Dashboard" button on the right.
 const STUDENT_LINKS: MainLink[] = [
-  { label: "Browse Mentors", href: "/mentors" },
-  { label: "How It Works", href: "/how-it-works" },
+  { label: "Browse mentors", href: "/mentors" },
+  { label: "How it works", href: "/how-it-works" },
   { label: "Reviews", href: "/reviews", reviews: true },
 ];
-const OTHER_LINKS: MainLink[] = [{ label: "Browse Mentors", href: "/mentors" }];
+const OTHER_LINKS: MainLink[] = [{ label: "Browse mentors", href: "/mentors" }];
 
 const RIGHT_LINKS: Record<string, NavLink[]> = {
   // Students and mentors: one "Dashboard" button (drawn as a pill below);
@@ -73,9 +75,9 @@ const RIGHT_LINKS: Record<string, NavLink[]> = {
 
 const MENU: Record<string, NavLink[]> = {
   // The student area's pages (the same list as its sidebar, lib/studentNav.ts).
-  BUYER: [...STUDENT_NAV.map((n) => ({ label: n.label, href: n.href })), { label: "Contact Us", href: "/contact" }],
+  BUYER: [...STUDENT_NAV.map((n) => ({ label: n.label, href: n.href })), { label: "Contact us", href: "/contact" }],
   // The mentor area's pages (the same list as its sidebar).
-  SELLER: [...MENTOR_NAV.map((n) => ({ label: n.label, href: n.href })), { label: "Contact Us", href: "/contact" }],
+  SELLER: [...MENTOR_NAV.map((n) => ({ label: n.label, href: n.href })), { label: "Contact us", href: "/contact" }],
   ADMIN: [
     { label: "Admin", href: "/admin" },
     { label: "Team", href: "/admin/team" },
@@ -94,15 +96,6 @@ const ROLE_LABEL: Record<string, string> = {
   SELLER_2FA: "Mentor account (verification needed)",
   BUYER_2FA: "Student account (verification needed)",
 };
-
-function initials(name: string) {
-  return (name || "?")
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
 
 function LogoutIcon() {
   return (
@@ -138,6 +131,9 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  // Phone menu: focus stays inside, Esc closes, the page behind doesn't scroll.
+  useFocusTrap(drawerRef, drawerOpen, () => setDrawerOpen(false));
   const [scrolled, setScrolled] = useState(false);
   // Unread badge (components/NavStatus.tsx, shared with the sidebars).
   const navInfo = { unread: useNavStatus()?.unread ?? 0 };
@@ -177,8 +173,9 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
 
   const isHome = pathname === "/";
   const marketing = !session || role === "BUYER";
-  // Quick links only on the pages where students are looking for a mentor.
-  const showQuick = scrolled && marketing && (isHome || pathname.startsWith("/mentors"));
+  // Quick links only on the homepage: /mentors has the same links as its own
+  // filter row, so they aren't repeated up here.
+  const showQuick = scrolled && marketing && isHome;
   const userId: string | undefined = (session?.user as any)?.id;
   const right = role ? RIGHT_LINKS[role] || [] : [];
   // Mentors: a simple bar (logo, View my public profile, account menu).
@@ -233,12 +230,12 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
               the sign-in check runs, so the bar doesn't jump when they appear. */}
           {!session && (
             <>
-              <Link href="/login" className="btn hide-tablet" aria-hidden={status === "loading" || undefined} tabIndex={status === "loading" ? -1 : undefined} style={{ padding: "13px 22px", fontSize: 16, visibility: status === "loading" ? "hidden" : undefined }}>Log In</Link>
-              <Link href="/signup" className="btn btn-primary hide-tablet" aria-hidden={status === "loading" || undefined} tabIndex={status === "loading" ? -1 : undefined} style={{ padding: "14px 26px", fontSize: 16, visibility: status === "loading" ? "hidden" : undefined }}>
-                Get Started
+              <Link href="/login" className="btn btn-lg hide-tablet" aria-hidden={status === "loading" || undefined} tabIndex={status === "loading" ? -1 : undefined} style={status === "loading" ? { visibility: "hidden" } : undefined}>Log in</Link>
+              <Link href="/signup" className="btn btn-primary btn-lg hide-tablet" aria-hidden={status === "loading" || undefined} tabIndex={status === "loading" ? -1 : undefined} style={status === "loading" ? { visibility: "hidden" } : undefined}>
+                Get started
               </Link>
               {status !== "loading" && pathname !== "/signup" && (
-                <Link href="/signup" className="btn btn-primary nav-cta-phone">Get Started</Link>
+                <Link href="/signup" className="btn btn-primary btn-sm nav-cta-phone">Get started</Link>
               )}
             </>
           )}
@@ -246,7 +243,7 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
           {session && (
             <div ref={menuRef} style={{ position: "relative" }} className="hide-tablet">
               <button className="acct-btn" aria-label="Account menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
-                <span className="avatar" style={{ background: role === "SELLER" ? "var(--pink-soft)" : "var(--tint-2)" }}>{initials(name)}</span>
+                <span className="avatar" style={{ background: role === "SELLER" ? "var(--pink-soft)" : "var(--tint-2)" }}>{initialsOf(name || "?")}</span>
                 <Chevron />
               </button>
               {menuOpen && (
@@ -286,7 +283,7 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
       )}
 
       {drawerOpen && (
-        <div className="nav-drawer" role="dialog" aria-modal="true" aria-label="Menu">
+        <div ref={drawerRef} className="nav-drawer" role="dialog" aria-modal="true" aria-label="Menu">
           <div className="between" style={{ marginBottom: 12 }}>
             <Logo />
             <button className="nav-burger" aria-label="Close menu" onClick={() => setDrawerOpen(false)} style={{ display: "inline-flex" }}>
@@ -305,8 +302,8 @@ export function TopNav({ showReviews = false }: { showReviews?: boolean }) {
             .map((m) => <Link key={"m" + m.href + m.label} href={m.href}>{m.label}</Link>)}
           {!session ? (
             <div className="stack" style={{ marginTop: 24 }}>
-              <Link href="/signup" className="btn btn-primary btn-lg" style={{ borderBottom: "none" }}>Get Started</Link>
-              <Link href="/login" className="btn btn-lg" style={{ borderBottom: "1px solid var(--line)" }}>Log In</Link>
+              <Link href="/signup" className="btn btn-primary btn-lg">Get started</Link>
+              <Link href="/login" className="btn btn-lg">Log in</Link>
             </div>
           ) : (
             <button className="drawer-link" onClick={() => logOut()} style={{ color: "var(--danger)", fontWeight: 600, display: "flex", alignItems: "center", gap: 10 }}>
