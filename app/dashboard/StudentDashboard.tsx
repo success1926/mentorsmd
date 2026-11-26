@@ -115,7 +115,7 @@ export function StudentDashboard({ name }: { name: string; viewerId: string }) {
       icon: ICONS.video,
       title: open ? <>Your call with {c.withName} is open</> : <>Your call with {c.withName} starts {fmtWhen(c.startTime)}</>,
       sub: `${open ? "Join now" : `Join opens ${JOIN_OPENS_MINUTES_BEFORE} minutes before`} · ${c.kind === "INTRO" ? "Free intro call" : c.title}`,
-      actions: <Link href={`/calls/${c.id}`} className={`btn btn-sm ${open ? "btn-deep" : ""}`}>{open ? "Join call" : "Call page"}</Link>,
+      actions: <Link href={`/calls/${c.id}`} className={`btn btn-sm ${open ? "btn-primary" : ""}`}>{open ? "Join call" : "Call page"}</Link>,
     });
   }
   let packageUnread = 0;

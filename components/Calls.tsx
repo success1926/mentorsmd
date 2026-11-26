@@ -217,7 +217,7 @@ export function CallRow({
         {state !== "ended" && (
           <div className="row-wrap" style={{ gap: 8 }}>
             {canManage && (
-              <Link className={`btn btn-sm ${state === "open" ? "btn-deep" : ""}`} href={`/calls/${booking.id}`}>
+              <Link className={`btn btn-sm ${state === "open" ? "btn-primary" : ""}`} href={`/calls/${booking.id}`}>
                 {state === "open" ? "Join" : "Call page"}
               </Link>
             )}

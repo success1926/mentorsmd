@@ -107,7 +107,7 @@ function UpcomingCall({ c, now, onChanged }: { c: any; now: Date; onChanged: () 
         {err && <div role="alert" className="alert alert-danger small">{err}</div>}
       </div>
       <div className="row-wrap" style={{ gap: 6 }}>
-        <Link href={`/calls/${c.id}`} className={`btn btn-sm ${state === "open" ? "btn-deep" : ""}`}>{state === "open" ? "Join call" : "Call page"}</Link>
+        <Link href={`/calls/${c.id}`} className={`btn btn-sm ${state === "open" ? "btn-primary" : ""}`}>{state === "open" ? "Join call" : "Call page"}</Link>
         {(changeable || late) && !intro && !c.disputed && c.orderId && (
           <button className="btn btn-sm" aria-expanded={moving} onClick={() => setMoving((m) => !m)}>Reschedule</button>
         )}

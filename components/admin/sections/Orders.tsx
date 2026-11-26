@@ -150,7 +150,7 @@ export function Orders() {
           <h2 style={{ fontSize: 30 }}>Monthly payouts</h2>
           <div className="row-wrap">
             {plist.length > 0 && <button className="btn btn-sm" onClick={exportPayouts}>Download CSV</button>}
-            {payouts?.isOwner && <button className="btn btn-sm btn-deep" disabled={busy === "run"} onClick={runNow}>{busy === "run" ? "Running…" : "Run payouts now"}</button>}
+            {payouts?.isOwner && <button className="btn btn-sm btn-primary" disabled={busy === "run"} onClick={runNow}>{busy === "run" ? "Running…" : "Run payouts now"}</button>}
           </div>
         </div>
         <span className="text-muted small">

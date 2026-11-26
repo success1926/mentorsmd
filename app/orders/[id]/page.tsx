@@ -470,7 +470,7 @@ export default function OrderDetailPage() {
           {/* Mentor actions */}
           {isSeller && order.status === "IN_ESCROW" && !order.disputed && (
             <div className="card stack-sm">
-              <button className="btn btn-deep btn-block" disabled={!calls.satisfied}
+              <button className="btn btn-primary btn-block" disabled={!calls.satisfied}
                 onClick={() => { setActionError(""); setShowDeliver(true); }}>
                 Mark work as complete
               </button>

@@ -576,7 +576,7 @@ export function LogWrittenWork({ order, onLogged }: { order: any; onLogged: () =
       <div className="row-wrap">
         <input type="file" ref={fileRef} style={{ display: "none" }} accept=".pdf,.doc,.docx" onChange={(e) => setFile(e.target.files?.[0] || null)} />
         <button className="btn btn-sm btn-ghost" onClick={() => fileRef.current?.click()}>📎 {file ? file.name : "Attach a file (optional)"}</button>
-        <button className="btn btn-sm btn-deep" disabled={busy || note.trim().length < 3 || minutes > left} onClick={save}>{busy ? "Saving…" : `Log ${minutes} minutes`}</button>
+        <button className="btn btn-sm btn-primary" disabled={busy || note.trim().length < 3 || minutes > left} onClick={save}>{busy ? "Saving…" : `Log ${minutes} minutes`}</button>
       </div>
       {error && <div role="alert" className="alert alert-danger">{error}</div>}
       <span className="text-muted small">{shortHours(left)} left to log (booked calls count as used). The student gets an email.</span>

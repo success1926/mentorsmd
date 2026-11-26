@@ -387,7 +387,7 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
 
           {isSeller && phase === "WORKING" && (
             <div className="card stack-sm">
-              <button className="btn btn-deep btn-block" disabled={!!blocker || busy} onClick={markComplete}>Mark work complete</button>
+              <button className="btn btn-primary btn-block" disabled={!!blocker || busy} onClick={markComplete}>Mark work complete</button>
               <span className="text-muted small">{blocker || "When you're done (any time). The student then has 48 hours to approve, or to ask for one last call or revision."}</span>
             </div>
           )}

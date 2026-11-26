@@ -1,3 +1,4 @@
+import { orderStatus } from "./statusLabels";
 // Finishing an order (redesign Oct 2026, docs/redesign-2026-10.md section 5).
 // Pure functions, safe to import from both server and client code.
 //
@@ -99,14 +100,9 @@ export function studentActionPatch(o: FinishOrderLike, action: StudentAction, no
 
 export const autoApprovePatch = (now: Date = new Date()) => ({ status: "COMPLETED" as const, approvedAt: now, completedAt: now, autoApproved: true, responseDeadline: null as Date | null });
 
-// Status badge text for new orders (My packages, dashboard).
-export function packageStatus(o: FinishOrderLike, now: Date = new Date()): { label: string; tone: "" | "brand" | "warning" | "danger" | "success" | "blue" } {
-  const phase = finishPhase(o);
-  if (phase === "PAYING") return { label: "Awaiting payment", tone: "" };
-  if (phase === "DISPUTED") return { label: "Disputed", tone: "danger" };
-  if (phase === "APPROVED") return { label: "Completed", tone: "success" };
-  if (phase === "CLOSED") return { label: o.status === "REFUNDED" ? "Refunded" : "Cancelled", tone: "" };
-  if (phase === "AWAITING_STUDENT") return { label: `Respond in ${hoursToRespond(o, now)} h`, tone: "warning" };
-  if (o.lastCallUsedAt || o.lastRevisionUsedAt) return { label: o.lastCallUsedAt ? "Last call requested" : "Last revision requested", tone: "blue" };
-  return { label: "Active", tone: "brand" };
+// Status badge text for new orders (My packages, dashboard). Same wording
+// and colours as everywhere else: lib/statusLabels.ts.
+export function packageStatus(o: FinishOrderLike, now: Date = new Date()): { label: string; tone: "" | "brand" | "warning" | "danger" | "success" | "blue" | "pink" } {
+  const st = orderStatus(o, "student", now);
+  return { label: st.label, tone: st.tone === "neutral" ? "" : st.tone };
 }

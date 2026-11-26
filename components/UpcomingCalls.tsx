@@ -38,7 +38,7 @@ export function UpcomingCalls({ calls, days = 14, empty }: { calls: any[] | null
                 {start.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })} · {c.title}
               </span>
             </div>
-            <Link href={`/calls/${c.id}`} className={`btn btn-sm ${open ? "btn-deep" : "btn-soft"}`}>{open ? "Join" : "Call page"}</Link>
+            <Link href={`/calls/${c.id}`} className={`btn btn-sm ${open ? "btn-primary" : "btn-soft"}`}>{open ? "Join" : "Call page"}</Link>
           </div>
         );
       })}

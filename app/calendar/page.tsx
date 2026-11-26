@@ -72,7 +72,7 @@ export default function MyCalendarPage() {
               </span>
             </div>
             <div className="row" style={{ gap: 6 }}>
-              <Link href={`/calls/${c.id}`} className={`btn btn-sm ${open ? "btn-deep" : ""}`}>{open ? "Join" : "Call page"}</Link>
+              <Link href={`/calls/${c.id}`} className={`btn btn-sm ${open ? "btn-primary" : ""}`}>{open ? "Join" : "Call page"}</Link>
               {c.orderId && <Link href={`/orders/${c.orderId}`} className="btn btn-sm">Order</Link>}
             </div>
           </div>

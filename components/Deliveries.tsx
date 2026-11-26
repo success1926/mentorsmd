@@ -150,7 +150,7 @@ export function DeliverWorkModal({
         </div>
         {error && <div role="alert" className="alert alert-danger">{error}</div>}
         <div className="row">
-          <button type="button" className="btn btn-deep" disabled={!ok || busy} onClick={submit}>
+          <button type="button" className="btn btn-primary" disabled={!ok || busy} onClick={submit}>
             {busy ? (files.length ? "Uploading…" : "Delivering…") : "Deliver work"}
           </button>
           <button type="button" className="btn btn-ghost" disabled={busy} onClick={onClose}>Cancel</button>

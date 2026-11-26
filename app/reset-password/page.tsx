@@ -35,7 +35,7 @@ function ResetPasswordForm() {
     return (
       <>
         <p className="text-secondary" style={{ fontSize: 15 }}>This link is missing its reset code. Request a new one.</p>
-        <Link href="/forgot-password" className="btn btn-solid" style={{ width: "100%" }}>Request a new link</Link>
+        <Link href="/forgot-password" className="btn btn-primary" style={{ width: "100%" }}>Request a new link</Link>
       </>
     );
   }
@@ -44,7 +44,7 @@ function ResetPasswordForm() {
     return (
       <>
         <p className="text-secondary" style={{ fontSize: 15, lineHeight: 1.6 }}>Your password has been changed. You can log in with it now.</p>
-        <Link href="/login" className="btn btn-solid" style={{ width: "100%" }}>Log in</Link>
+        <Link href="/login" className="btn btn-primary" style={{ width: "100%" }}>Log in</Link>
       </>
     );
   }

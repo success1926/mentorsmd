@@ -187,12 +187,12 @@ function DisputeCard({ order, onResolved }: { order: any; onResolved: () => void
         {canMoveMoney && order.kind ? (
           <span style={{ marginLeft: "auto" }} className="row-wrap">
             <CreditRefund order={order} onDone={onResolved} />
-            <button onClick={() => resolve("release")} disabled={busy} className="btn btn-sm btn-deep">Approve for the mentor</button>
+            <button onClick={() => resolve("release")} disabled={busy} className="btn btn-sm btn-primary">Approve for the mentor</button>
           </span>
         ) : canMoveMoney ? (
           <span style={{ marginLeft: "auto" }} className="row">
             <button onClick={() => resolve("refund")} disabled={busy} className="btn btn-sm btn-danger">Refund student</button>
-            <button onClick={() => resolve("release")} disabled={busy} className="btn btn-sm btn-deep">Release to mentor</button>
+            <button onClick={() => resolve("release")} disabled={busy} className="btn btn-sm btn-primary">Release to mentor</button>
           </span>
         ) : (
           <span style={{ marginLeft: "auto" }} className="text-muted small">Refunds and releases need the Orders permission.</span>
