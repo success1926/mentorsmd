@@ -12,13 +12,14 @@ import { Booker } from "@/components/Booker";
 import { CalendarSync } from "@/components/CalendarSync";
 import { LateReasonField, useMoveCall } from "@/components/Calls";
 import { notifyPackagesChanged } from "@/components/StudentShell";
-import { CANCEL_CUTOFF_HOURS, JOIN_OPENS_MINUTES_BEFORE, RECORDING_NOTICE, canChangeOnline, fmtDateTime, isLateChange, joinState } from "@/lib/calls";
+import { CANCEL_CUTOFF_HOURS, JOIN_OPENS_MINUTES_BEFORE, RECORDING_NOTICE, canChangeOnline, isLateChange, joinState } from "@/lib/calls";
 import { browserTimeZone } from "@/lib/tz";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { DateBadge } from "@/components/DateBadge";
+import { Alert, Collapsible, EmptyState, LoadingBlock, PageHeader } from "@/components/ui";
+import { firstName, fmtDateTime, fmtTime } from "@/lib/format";
 
-const fmtTime = (d: string | Date, zone = false) => new Date(d).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", ...(zone ? { timeZoneName: "short" } : {}) });
 const minutesOf = (c: any) => Math.round((new Date(c.endTime).getTime() - new Date(c.startTime).getTime()) / 60_000);
-const isToday = (d: Date) => d.toDateString() === new Date().toDateString();
 
 function useNow() {
   const [now, setNow] = useState(() => new Date());
@@ -29,14 +30,23 @@ function useNow() {
   return now;
 }
 
-function DateBadge({ d }: { d: Date }) {
-  return (
-    <span className="cal-date" aria-hidden="true">
-      <span className="small text-secondary">{isToday(d) ? "Today" : d.toLocaleDateString(undefined, { weekday: "short" })}</span>
-      <b>{d.getDate()}</b>
-      <span className="small text-muted">{d.toLocaleDateString(undefined, { month: "short" })}</span>
-    </span>
-  );
+// Loads the calendar (/api/me/calendar) and shows it.
+export function StudentCalendarPage() {
+  const [data, setData] = useState<any>(null);
+  const [error, setError] = useState("");
+  function load() {
+    fetch("/api/me/calendar")
+      .then(async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) setError(d.error || "Couldn't load your calendar");
+        else setData(d);
+      })
+      .catch(() => setError("Couldn't load your calendar"));
+  }
+  useEffect(load, []);
+  if (error) return <div className="page"><Alert tone="danger">{error}</Alert></div>;
+  if (!data) return <div className="page"><LoadingBlock lines={3} cards={2} /></div>;
+  return <StudentCalendar data={data} reload={load} />;
 }
 
 function UpcomingCall({ c, now, onChanged }: { c: any; now: Date; onChanged: () => void }) {
@@ -51,8 +61,8 @@ function UpcomingCall({ c, now, onChanged }: { c: any; now: Date; onChanged: () 
   const late = !intro && isLateChange(c, now);
   const changeUntil = new Date(start.getTime() - CANCEL_CUTOFF_HOURS * 3600_000);
   const mins = minutesOf(c);
-  const first = (c.withName || "your mentor").split(" ")[0];
-  const { confirm, dialog } = useAdminDialog();
+  const first = firstName(c.withName) || "your mentor";
+  const { confirm, dialog } = useConfirm();
 
   async function cancel() {
     const ok = await confirm({
@@ -90,7 +100,7 @@ function UpcomingCall({ c, now, onChanged }: { c: any; now: Date; onChanged: () 
           {intro && <span className="badge badge-blue">Free intro call</span>}
         </span>
         <span className="text-secondary small">
-          {fmtTime(c.startTime)} to {fmtTime(c.endTime, true)} · {intro ? "No package yet" : c.title}
+          {fmtTime(c.startTime)} to {fmtTime(c.endTime, { zone: true })} · {intro ? "No package yet" : c.title}
         </span>
         <span className={`small ${state === "open" ? "" : "text-muted"}`} style={state === "open" ? { color: "var(--success-fg)", fontWeight: 600 } : undefined}>
           {state === "open"
@@ -104,19 +114,19 @@ function UpcomingCall({ c, now, onChanged }: { c: any; now: Date; onChanged: () 
               : `Less than ${CANCEL_CUTOFF_HOURS} hours to go: message ${first} if something comes up.`}
           </span>
         )}
-        {err && <div role="alert" className="alert alert-danger small">{err}</div>}
+        {err && <Alert tone="danger" className="small">{err}</Alert>}
       </div>
       <div className="row-wrap" style={{ gap: 6 }}>
         <Link href={`/calls/${c.id}`} className={`btn btn-sm ${state === "open" ? "btn-primary" : ""}`}>{state === "open" ? "Join call" : "Call page"}</Link>
         {(changeable || late) && !intro && !c.disputed && c.orderId && (
-          <button className="btn btn-sm" aria-expanded={moving} onClick={() => setMoving((m) => !m)}>Reschedule</button>
+          <button className="btn btn-sm toggle-btn" aria-expanded={moving} aria-controls={`move-${c.id}`} onClick={() => setMoving((m) => !m)}>Reschedule</button>
         )}
         {changeable && (
           <button className="btn btn-sm btn-ghost" style={{ color: "var(--danger)" }} disabled={busy} onClick={cancel}>Cancel</button>
         )}
       </div>
       {moving && (
-        <div className="stack" style={{ flexBasis: "100%" }}>
+        <div id={`move-${c.id}`} className="stack" style={{ flexBasis: "100%" }}>
           {late && <LateReasonField otherFirst={first} reason={mover.reason} setReason={mover.setReason} />}
           <Booker
             framed
@@ -146,53 +156,50 @@ export function StudentCalendar({ data, reload }: { data: any; reload: () => voi
   }, []);
 
   return (
-    <div className="page stack-lg" style={{ gap: 24, maxWidth: 1180 }}>
-      <div className="stack-sm">
-        <h1 className="page-title">Calendar</h1>
-        <p className="lede">Your calls with mentors.{tz ? ` Times are in ${tz.replace(/_/g, " ")}.` : ""}</p>
-      </div>
+    <div className="page stack-lg" style={{ gap: 24 }}>
+      <PageHeader title="Calendar" lede={`Your calls with mentors.${tz ? ` Times are in ${tz.replace(/_/g, " ")}.` : ""}`} />
 
       <div className="mentor-home-grid student-cal-grid">
         <div className="stack" style={{ gap: 20, minWidth: 0 }}>
           <section className="mentor-box">
             <div className="mentor-box-head" style={{ flexWrap: "wrap" }}>
-              <h2>Upcoming · {upcoming.length}</h2>
+              <h2>Upcoming <span className="tab-count">{upcoming.length}</span></h2>
               <span className="text-muted small">Reschedule or cancel up to {CANCEL_CUTOFF_HOURS} hours before a call. After that, moving it needs a short reason.</span>
             </div>
             {upcoming.length === 0 ? (
-              <div className="stack-sm" style={{ padding: "8px 0" }}>
-                <b>Nothing coming up.</b>
-                <span className="text-muted small">Calls you book from a package, and free intro calls, show here.</span>
-                <span className="row-wrap">
-                  <Link href="/orders" className="btn btn-sm">My packages</Link>
-                  <Link href="/mentors" className="btn btn-sm btn-ghost">Find a mentor</Link>
-                </span>
-              </div>
+              <EmptyState
+                title="Nothing coming up"
+                action={
+                  <span className="row-wrap" style={{ justifyContent: "center" }}>
+                    <Link href="/orders" className="btn btn-sm">My packages</Link>
+                    <Link href="/mentors" className="btn btn-sm btn-ghost">Find a mentor</Link>
+                  </span>
+                }
+              >
+                Calls you book from a package, and free intro calls, show here.
+              </EmptyState>
             ) : (
               upcoming.map((c) => <UpcomingCall key={c.id} c={c} now={now} onChanged={reload} />)
             )}
           </section>
 
           {past.length > 0 && (
-            <details className="collapse">
-              <summary>Past calls <span className="tab-count" style={{ marginRight: "auto", marginLeft: 8 }}>{past.length}</span></summary>
-              <div className="collapse-body" style={{ gap: 0 }}>
-                {past.map((c: any) => (
-                  <Link key={c.id} href={c.orderId ? `/orders/${c.orderId}` : `/calls/${c.id}`} className="list-row">
-                    <span className="grow">
-                      <b style={{ fontSize: 15 }}>{c.kind === "INTRO" ? "Intro call" : "Call"} with {c.withName}</b>
-                      <span className="text-muted small" style={{ display: "block" }}>{fmtDateTime(c.startTime)} · {c.title}</span>
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </details>
+            <Collapsible title="Past calls" count={past.length} bodyClassName="past-calls">
+              {past.map((c: any) => (
+                <Link key={c.id} href={c.orderId ? `/orders/${c.orderId}` : `/calls/${c.id}`} className="list-row">
+                  <span className="grow stack-sm" style={{ gap: 0 }}>
+                    <b>{c.kind === "INTRO" ? "Intro call" : "Call"} with {c.withName}</b>
+                    <span className="text-muted small">{fmtDateTime(c.startTime)} · {c.title}</span>
+                  </span>
+                </Link>
+              ))}
+            </Collapsible>
           )}
         </div>
 
         <div className="stack" style={{ gap: 20, minWidth: 0 }}>
           <section id="calendar-sync" className="mentor-box" style={{ scrollMarginTop: 100 }}>
-            <CalendarSync isMentor={false} />
+            <CalendarSync />
           </section>
           <section className="mentor-box" style={{ gap: 6 }}>
             <div className="mentor-box-head"><h2>Reminders</h2></div>

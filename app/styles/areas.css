@@ -26,3 +26,5 @@ a.pkg-entry:hover .pkg-entry-name { color: var(--primary-deep); }
 .settings-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px 12px; border-top: 1px solid var(--line); padding-top: 14px; }
 .settings-save { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .settings-links .link-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; }
+.connected-cal-sync { border-top: 1px solid var(--line); padding-top: 16px; scroll-margin-top: 100px; }
+details.collapse > .collapse-body.past-calls { gap: 0; }

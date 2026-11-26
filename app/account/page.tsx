@@ -155,7 +155,7 @@ function AccountSettings({ profile, isStudent, onReload }: { profile: any; isStu
 
       {!isStudent && (
         <SettingsSection id="calendar" title="Calendar sync" description="Add your MentorsMD calls to the calendar you already use.">
-          <CalendarSync isMentor={false} />
+          <CalendarSync showTitle={false} />
         </SettingsSection>
       )}
 
