@@ -8,11 +8,15 @@ import { firstAdminPage } from "@/lib/adminNav";
 import { NEEDS_ADMIN } from "@/lib/callOutcomes";
 import { LEAD_KIND_LABEL } from "@/lib/leadOptions";
 import { money } from "@/lib/options";
+import { EmptyState, PageHeader } from "@/components/ui";
+import { firstName, fmtDateTime } from "@/lib/format";
 
 export const metadata = { title: "Overview" };
 export const dynamic = "force-dynamic";
 
-const fmtWhen = (d: Date) => d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
+// The page is built on the server, so times are shown in the team's own
+// zone (US Eastern, with its abbreviation) rather than the server's.
+const fmtWhen = (d: Date) => fmtDateTime(d, { timeZone: "America/New_York", zone: true });
 const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : many);
 
 // Admin -> Overview: the first screen after logging in. A greeting, what
@@ -147,32 +151,32 @@ export default async function AdminOverviewPage() {
 
   // Shortcuts to the most common jobs, each only if the role includes it.
   const quick = [
-    { label: "Invite a Mentor", href: "/admin/mentors", perm: "mentors" },
-    { label: "Edit the Website", href: "/admin/website", perm: "website" },
-    { label: "Open Leads", href: "/admin/leads", perm: "leads" },
+    { label: "Invite a mentor", href: "/admin/mentors", perm: "mentors" },
+    { label: "Edit the website", href: "/admin/website", perm: "website" },
+    { label: "Open leads", href: "/admin/leads", perm: "leads" },
   ].filter((q) => can(admin, q.perm as AdminPermission));
   const showActivity = can(admin, ["leads", "applications", "orders"]);
-  const first = (admin.name || "").trim().split(/\s+/)[0];
+  const first = firstName(admin.name);
 
   return (
     <div className="page stack-lg adm-dash" style={{ gap: 28 }}>
-      <div className="adm-dash-head">
-        <div className="stack-sm" style={{ gap: 4 }}>
-          <h1 className="page-title">{first ? `Hi, ${first}` : "Welcome"}</h1>
-          <p className="text-secondary">What needs attention right now. Everything else is in the menu.</p>
-        </div>
-        <div className="row-wrap" style={{ gap: 8 }}>
-          {quick.map((q) => (
-            <Link key={q.href} href={q.href} className="btn btn-soft btn-sm">{q.label}</Link>
-          ))}
-          <a href="/" target="_blank" rel="noopener noreferrer" className="btn btn-sm">
-            View the Website <span aria-hidden="true">↗</span>
-          </a>
-        </div>
-      </div>
+      <PageHeader
+        title={first ? `Hi, ${first}` : "Welcome"}
+        lede="What needs attention right now. Everything else is in the menu."
+        actions={
+          <>
+            {quick.map((q) => (
+              <Link key={q.href} href={q.href} className="btn btn-soft btn-sm">{q.label}</Link>
+            ))}
+            <a href="/" target="_blank" rel="noopener noreferrer" className="btn btn-sm">
+              View the website <span aria-hidden="true">↗</span>
+            </a>
+          </>
+        }
+      />
 
       <section className="card adm-dash-card" aria-labelledby="dash-todo">
-        <h2 id="dash-todo" className="adm-card-title">Needs Attention</h2>
+        <h2 id="dash-todo" className="adm-card-title">Needs attention</h2>
         {todo.length === 0 ? (
           <p className="text-muted">All caught up. Nothing is waiting for you.</p>
         ) : (
@@ -193,9 +197,9 @@ export default async function AdminOverviewPage() {
       <div className="adm-dash-grid">
         {showActivity && (
           <section className="card adm-dash-card" aria-labelledby="dash-recent">
-            <h2 id="dash-recent" className="adm-card-title">Latest Activity</h2>
+            <h2 id="dash-recent" className="adm-card-title">Latest activity</h2>
             {activity.length === 0 ? (
-              <p className="text-muted">Nothing here yet. New leads, applications and packages show up here.</p>
+              <EmptyState>Nothing here yet. New leads, applications and packages show up here.</EmptyState>
             ) : (
               <ul className="adm-feed">
                 {activity.map((a) => (
@@ -215,7 +219,7 @@ export default async function AdminOverviewPage() {
         )}
 
         <section className="card adm-dash-card" aria-labelledby="dash-glance">
-          <h2 id="dash-glance" className="adm-card-title">At a Glance</h2>
+          <h2 id="dash-glance" className="adm-card-title">At a glance</h2>
           <dl className="adm-glance">
             {glance.map((g) => (
               <div key={g.label}>

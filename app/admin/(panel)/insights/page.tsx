@@ -5,6 +5,8 @@ import { useSession } from "next-auth/react";
 import { AdminGuard } from "@/components/admin/AdminNav";
 import { BarChart, DataTable, Funnel, StatCards, type CardData, type ChartData, type FunnelData, type TableData } from "@/components/admin/Insights";
 import { browserTimeZone } from "@/lib/tz";
+import { LoadingBlock, PageHeader } from "@/components/ui";
+import { fmtDay as fmtDate } from "@/lib/format";
 
 // Admin -> Insights (#77-#86): sales and fees, mentor leaderboard,
 // breakdowns, activity, funnels, student demand, students and the private
@@ -113,14 +115,11 @@ export default function InsightsPage() {
 
   return (
     <div className="page stack-lg" style={{ gap: 28 }}>
-      <div className="stack-sm">
-        <h1 className="page-title">Insights</h1>
-        <p className="lede">How MentorsMD is doing: money, mentors, students and what people look for.</p>
-      </div>
+      <PageHeader title="Insights" lede="How MentorsMD is doing: money, mentors, students and what people look for." />
 
       <div className="tabs" role="tablist" aria-label="Insights sections" style={{ marginBottom: 0 }}>
         {TABS.map((t) => (
-          <button key={t.key} role="tab" className="tab" aria-selected={tab === t.key} onClick={() => pickTab(t.key)}>
+          <button key={t.key} type="button" role="tab" className="tab" aria-selected={tab === t.key} onClick={() => pickTab(t.key)}>
             {t.label}
           </button>
         ))}
@@ -192,12 +191,12 @@ export default function InsightsPage() {
             ]}
           />
           <label className="field"><span className="field-label">Name, email or search words</span>
-            <input className="input" value={filters.who || ""} onChange={(e) => setFilter("who", e.target.value)} placeholder="Filter the log" /></label>
+            <input className="input" type="search" value={filters.who || ""} onChange={(e) => setFilter("who", e.target.value)} placeholder="Filter the log" /></label>
         </div>
       )}
 
       {data?.error && <div className="alert alert-danger">{data.error}</div>}
-      {!data && <p className="text-muted">Loading…</p>}
+      {!data && <LoadingBlock lines={3} cards={3} title={false} />}
 
       {data && !data.error && (
         <div className="stack-lg" style={{ gap: 32, opacity: loading ? 0.6 : 1 }}>
@@ -216,9 +215,8 @@ export default function InsightsPage() {
   );
 }
 
-function fmtDay(d: string) {
-  return new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-}
+// A picked date ("2026-11-24"), shown as the same calendar day everywhere.
+const fmtDay = (d: string) => fmtDate(`${d}T12:00:00Z`, { timeZone: "UTC" });
 
 function Select({ label, value, onChange, options, empty = "All" }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; empty?: string }) {
   return (

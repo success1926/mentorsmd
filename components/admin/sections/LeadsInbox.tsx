@@ -3,8 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAdminCan } from "@/components/admin/AdminShell";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { CopyLink } from "@/components/admin/CopyLink";
+import { RowTitle } from "@/components/admin/RowTitle";
+import { Collapsible, EmptyState, LoadingBlock, PageHeader } from "@/components/ui";
+import { fmtDateTime, fmtDay } from "@/lib/format";
 import {
   APPLICATION_STATUS_LABEL,
   LEAD_KIND_LABEL,
@@ -55,8 +58,6 @@ type Row = {
 };
 type Data = { rows: Row[]; admins: { id: string; name: string }[]; me: string; counts: Record<LeadKind, number>; toNotify: number };
 
-const fmtDay = (d: string) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-const fmtWhen = (d: string) => new Date(d).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 const isKind = (v: string | null): v is LeadKind => v === "APPLICATION" || v === "CONTACT" || v === "WAITLIST";
 const stageBadge: Record<string, string> = { NEW: "badge badge-brand", IN_PROGRESS: "badge badge-warning", DONE: "badge" };
 // `link`: a mentor invite link to copy, when its email failed.
@@ -135,14 +136,11 @@ export function LeadsInbox() {
 
   return (
     <div className="page stack-lg" style={{ gap: 28 }}>
-      <div className="stack-sm">
-        <h1 className="page-title">Leads</h1>
-        <p className="lede">Mentor applications, messages from the Contact page and waitlist signups. Assign each one to someone on the team, keep notes, and mark it done.</p>
-      </div>
+      <PageHeader title="Leads" lede="Mentor applications, messages from the Contact page and waitlist signups. Assign each one to someone on the team, keep notes, and mark it done." />
 
-      <div className="tabs" role="tablist">
+      <div className="tabs" role="tablist" aria-label="Leads">
         {kinds.map((k) => (
-          <button key={k} role="tab" className="tab" aria-selected={tab === k} onClick={() => pickTab(k)}>
+          <button key={k} type="button" role="tab" className="tab" aria-selected={tab === k} onClick={() => pickTab(k)}>
             {LEAD_KIND_LABEL[k]}
             {data && data.counts[k] > 0 && <span className="tab-count" title="New">{data.counts[k]} new</span>}
           </button>
@@ -187,22 +185,22 @@ export function LeadsInbox() {
         <p className="text-muted small">Pending applications are New until someone is assigned (then In progress). Invite or Decline marks them Done; Decline sends no email.</p>
       )}
 
-      <div className="card" style={{ padding: "4px 20px" }}>
-        {!data && !error && <p className="text-muted" style={{ padding: 12 }}>Loading…</p>}
-        {data && rows.length === 0 &&
-          (filtered && data.rows.length > 0 ? (
-            <div className="row-wrap" style={{ padding: 12 }}>
-              <span className="text-muted">No {LEAD_KIND_LABEL[tab].toLowerCase()} match these filters.</span>
-              <button type="button" className="btn btn-sm" onClick={clearFilters}>Clear Filters</button>
-            </div>
-          ) : (
-            <p className="text-muted" style={{ padding: 12 }}>Nothing here yet.</p>
-          ))}
-        {data &&
-          rows.map((r) => (
+      {!data && !error && <LoadingBlock lines={5} title={false} />}
+      {data && rows.length === 0 &&
+        (filtered && data.rows.length > 0 ? (
+          <EmptyState action={<button type="button" className="btn btn-sm" onClick={clearFilters}>Clear filters</button>}>
+            No {LEAD_KIND_LABEL[tab].toLowerCase()} match these filters.
+          </EmptyState>
+        ) : (
+          <EmptyState>Nothing here yet.</EmptyState>
+        ))}
+      {data && rows.length > 0 && (
+        <div className="card" style={{ padding: "4px 20px" }}>
+          {rows.map((r) => (
             <LeadRow key={r.id} row={r} admins={data.admins} defaultOpen={r.id === openId} onChange={(c) => patchRow(r.id, c)} reload={load} setNotice={setNotice} />
           ))}
-      </div>
+        </div>
+      )}
       {data && data.rows.length >= 500 && <p className="text-muted small">Showing the newest 500. Download the CSV for the full list.</p>}
     </div>
   );
@@ -225,7 +223,7 @@ function LeadRow({
 }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
-  const { confirm, dialog } = useAdminDialog();
+  const { confirm, dialog } = useConfirm();
   const title = r.kind === "WAITLIST" ? r.email : r.name || r.email;
   const sub =
     r.kind === "APPLICATION"
@@ -268,7 +266,7 @@ function LeadRow({
 
   // The existing mentor application actions (same API as before).
   async function appAction(action: "invite" | "decline" | "reopen") {
-    if (action === "invite" && !(await confirm({ title: `Send a mentor invite to ${r.email}?`, body: "They get a one-time link to join (valid 7 days).", confirmLabel: "Send Invite" }))) return;
+    if (action === "invite" && !(await confirm({ title: `Send a mentor invite to ${r.email}?`, body: "They get a one-time link to join (valid 7 days).", confirmLabel: "Send invite" }))) return;
     if (action === "decline" && !(await confirm({ title: `Decline ${r.name}'s application?`, body: "No email is sent. You can move it back to pending later.", confirmLabel: "Decline", danger: true }))) return;
     setBusy(true);
     const res = await fetch(`/api/admin/applications/${r.id}`, {
@@ -286,13 +284,14 @@ function LeadRow({
   }
 
   return (
-    <details id={`lead-${r.id}`} className="list-row" style={{ display: "block", scrollMarginTop: 100 }} open={defaultOpen || undefined}>
-      <summary className="between" style={{ cursor: "pointer", flexWrap: "wrap", gap: 8 }}>
-        <span className="stack-sm" style={{ gap: 2, minWidth: 0 }}>
-          <b style={{ fontSize: 15, overflowWrap: "anywhere" }}>{title}</b>
-          <span className="text-muted">{sub}</span>
-        </span>
-        <span className="row-wrap" style={{ gap: 6 }}>
+    <Collapsible
+      id={`lead-${r.id}`}
+      variant="row"
+      className="adm-row"
+      defaultOpen={defaultOpen}
+      title={<RowTitle title={title} sub={sub} />}
+      meta={
+        <>
           {r.assignedTo && <span className="badge">{r.assignedTo.name}</span>}
           {r.notes.length > 0 && <span className="badge">{r.notes.length} note{r.notes.length === 1 ? "" : "s"}</span>}
           {r.kind === "APPLICATION" && r.status !== "PENDING" && (
@@ -302,10 +301,10 @@ function LeadRow({
           )}
           {r.kind === "WAITLIST" && r.notifiedAt && <span className="badge badge-success">Emailed {fmtDay(r.notifiedAt)}</span>}
           <span className={stageBadge[r.stage] || "badge"}>{leadStatusLabel(r.stage)}</span>
-        </span>
-      </summary>
-
-      <div className="stack-sm small" style={{ padding: "10px 0 6px", gap: 12 }}>
+        </>
+      }
+    >
+      <div className="stack-sm small" style={{ gap: 12 }}>
         {dialog}
         <span>
           <b>Email:</b> <a className="link" href={`mailto:${r.email}`}>{r.email}</a>
@@ -353,23 +352,30 @@ function LeadRow({
           {r.notes.length === 0 && <span className="text-muted">No notes yet. Only the admin team sees these.</span>}
           {r.notes.map((n) => (
             <div key={n.id} className="card card-tint" style={{ padding: "10px 14px" }}>
-              <span className="text-muted">{n.author?.name || "Former team member"} · {fmtWhen(n.createdAt)}</span>
+              <span className="text-muted">{n.author?.name || "Former team member"} · {fmtDateTime(n.createdAt)}</span>
               <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.5, marginTop: 4, overflowWrap: "anywhere" }}>{n.body}</p>
             </div>
           ))}
           <textarea className="input" rows={2} maxLength={NOTE_MAX} placeholder="Add a note for the team" value={note} onChange={(e) => setNote(e.target.value)} aria-label="New note" />
-          <button className="btn btn-sm" style={{ alignSelf: "flex-start" }} disabled={busy || !note.trim()} onClick={addNote}>Add note</button>
+          <button type="button" className="btn btn-sm" style={{ alignSelf: "flex-start" }} disabled={busy || !note.trim()} onClick={addNote}>Add note</button>
         </div>
       </div>
-    </details>
+    </Collapsible>
   );
 }
 
 // "Email everyone on the waitlist": confirm with the count, then send in
 // small batches (one request each) until everyone has had it.
 function NotifyWaitlist({ toNotify, onDone, setNotice }: { toNotify: number; onDone: () => void; setNotice: (n: Notice) => void }) {
-  const [step, setStep] = useState<"idle" | "confirm" | "sending">("idle");
+  const [step, setStep] = useState<"idle" | "sending">("idle");
   const [progress, setProgress] = useState({ sent: 0, failed: 0 });
+  const { confirm, dialog } = useConfirm();
+
+  async function start() {
+    const people = `${toNotify} ${toNotify === 1 ? "person" : "people"}`;
+    if (!(await confirm({ title: `Email ${people} on the waitlist?`, body: "It goes out in small batches (about 2 a second); keep this page open until it finishes. Each person only ever gets it once.", confirmLabel: `Send to ${toNotify}` }))) return;
+    run();
+  }
 
   async function run() {
     setStep("sending");
@@ -406,25 +412,15 @@ function NotifyWaitlist({ toNotify, onDone, setNotice }: { toNotify: number; onD
   return (
     <div className="card card-tint stack-sm">
       <b>Email everyone on the waitlist</b>
+      {dialog}
       {step === "idle" && (
         <>
           <span className="text-secondary">
             Sends the &ldquo;Mentors are now available on MentorsMD&rdquo; email (edit it in Admin → Emails) to everyone who hasn&apos;t had it yet, with a link to /mentors and a link to leave the waitlist.
           </span>
-          <button className="btn btn-primary btn-sm" style={{ alignSelf: "flex-start" }} disabled={toNotify === 0} onClick={() => setStep("confirm")}>
+          <button type="button" className="btn btn-primary btn-sm" style={{ alignSelf: "flex-start" }} disabled={toNotify === 0} onClick={start}>
             {toNotify === 0 ? "Everyone has been emailed" : `Email ${toNotify} ${toNotify === 1 ? "person" : "people"}…`}
           </button>
-        </>
-      )}
-      {step === "confirm" && (
-        <>
-          <span className="text-secondary">
-            Send the email to <b>{toNotify}</b> {toNotify === 1 ? "person" : "people"} now? It goes out in small batches (about 2 a second); keep this page open until it finishes. Each person only ever gets it once.
-          </span>
-          <div className="row-wrap">
-            <button className="btn btn-primary btn-sm" onClick={run}>Yes, send to {toNotify}</button>
-            <button className="btn btn-sm" onClick={() => setStep("idle")}>Cancel</button>
-          </div>
         </>
       )}
       {step === "sending" && (

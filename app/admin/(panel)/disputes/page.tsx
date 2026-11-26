@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { FlagsAdmin } from "@/components/admin/Flags";
 import { Disputes } from "@/components/admin/sections/Disputes";
 import { useAdminCan } from "@/components/admin/AdminShell";
+import { PageHeader } from "@/components/ui";
 
 // Admin -> Disputes & flags. Each half shows if the role includes it.
 export default function AdminDisputesPage() {
@@ -27,10 +28,7 @@ export default function AdminDisputesPage() {
 
   return (
     <div className="page stack-lg" style={{ gap: 36 }}>
-      <div className="stack-sm">
-        <h1 className="page-title">Disputes &amp; flags</h1>
-        <p className="lede">Reports, automatic flags and disputes. Payment on a disputed order stays held until someone decides.</p>
-      </div>
+      <PageHeader title="Disputes & flags" lede="Reports, automatic flags and disputes. Payment on a disputed order stays held until someone decides." />
       {canFlags && <FlagsAdmin onChanged={changed} />}
       {canDisputes && <Disputes disputes={disputes} onResolved={changed} />}
     </div>

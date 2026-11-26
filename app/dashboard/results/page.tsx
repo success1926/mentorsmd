@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { CYCLE_RESULTS_ON } from "@/lib/cycleResults";
 import { ResultsEditor } from "./ResultsEditor";
+import { PageHeader } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Cycle results", robots: { index: false } };
@@ -16,10 +17,7 @@ export default async function CycleResultsPage() {
   if ((session?.user as any)?.role !== "BUYER") notFound();
   return (
     <div className="page-mid stack-lg" style={{ gap: 24 }}>
-      <div className="stack-sm">
-        <h1 className="page-title">Cycle results</h1>
-        <p className="lede">Keep track of every school you applied to this cycle, and which MentorsMD mentors helped. Only you and the MentorsMD team can see this.</p>
-      </div>
+      <PageHeader title="Cycle results" lede="Keep track of every school you applied to this cycle, and which MentorsMD mentors helped. Only you and the MentorsMD team can see this." />
       <ResultsEditor />
     </div>
   );

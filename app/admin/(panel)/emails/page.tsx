@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { EmailTabs } from "@/components/admin/AdminTabs";
 import { GROUP_LABELS, GROUP_ORDER, type EmailGroup } from "@/lib/emailTemplates";
+import { LoadingBlock, PageHeader } from "@/components/ui";
+import { fmtDay } from "@/lib/format";
 
 type Row = {
   key: string;
@@ -17,8 +19,6 @@ type Row = {
   updatedBy: string | null;
   reminder: { enabled: boolean; timing: string } | null; // reminder emails sent by the daily cron
 };
-
-const fmtDay = (d: string) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 
 // Admin -> Emails: every automatic email the site sends, grouped by who
 // receives it. Click one to change its wording.
@@ -36,33 +36,30 @@ export default function AdminEmailsPage() {
       .catch(() => setError("Couldn't load the emails."));
   }, [isAdmin]);
 
-  if (status === "loading") return <div className="page text-muted">Loading…</div>;
+  if (status === "loading") return <div className="page"><LoadingBlock lines={5} /></div>;
   if (!isAdmin) return <div className="page-narrow"><div className="alert alert-danger">Admin access required.</div></div>;
 
   const editedCount = rows?.filter((r) => r.edited).length || 0;
 
   return (
     <div className="page-mid stack-lg" style={{ gap: 32 }}>
-      <div className="stack-sm">
-        <h1 className="page-title">Emails</h1>
-        <p className="lede">
-          The wording of every automatic email. Change a subject or text, preview it with sample data, and send yourself a test.
-          Emails you haven&apos;t edited use the standard wording.
-        </p>
-      </div>
+      <PageHeader
+        title="Emails"
+        lede="The wording of every automatic email. Change a subject or text, preview it with sample data, and send yourself a test. Emails you haven't edited use the standard wording."
+      />
       <div className="stack-sm">
         <EmailTabs />
         {rows && <span className="text-muted">{rows.length} emails · {editedCount} edited</span>}
       </div>
       {error && <div className="alert alert-danger">{error}</div>}
-      {!rows && !error && <p className="text-muted">Loading…</p>}
+      {!rows && !error && <LoadingBlock lines={3} cards={2} title={false} />}
       {rows &&
         GROUP_ORDER.map((g) => {
           const list = rows.filter((r) => r.group === g);
           if (!list.length) return null;
           return (
             <section key={g} className="stack-sm">
-              <h2 style={{ fontSize: 26 }}>{GROUP_LABELS[g]}</h2>
+              <h2 className="block-title">{GROUP_LABELS[g]}</h2>
               <div className="card" style={{ padding: "4px 20px" }}>
                 {list.map((r) => (
                   <Link key={r.key} href={`/admin/emails/${r.key}`} className="list-row" style={{ color: "inherit", textDecoration: "none", flexWrap: "wrap" }}>

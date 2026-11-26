@@ -3,55 +3,63 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useDisputeThread } from "@/lib/hooks/useDisputeThread";
-import { StaffBadge } from "@/components/ui";
+import { Collapsible, EmptyState, Field, LoadingBlock, StaffBadge } from "@/components/ui";
+import { Modal } from "@/components/Modal";
+import { fmtDay } from "@/lib/format";
 import { DeliveryCard } from "@/components/Deliveries";
 import { money } from "@/lib/options";
 import { shortHours } from "@/lib/hours";
 import { useAdminCan } from "@/components/admin/AdminShell";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 // Admin -> Disputes & flags: open and resolved disputes. Refunding or
 // releasing moves money, so those buttons need the Orders permission.
 // Hours packages (redesign Oct 2026) are refunded as MentorsMD credit (full
 // or partial), never to the card; their hours are held back from the
 // mentor's monthly payout until the dispute is decided.
-const fmtDay = (d: string) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-
 export function Disputes({ disputes, onResolved }: { disputes: { open: any[]; resolved: any[] }; onResolved: () => void }) {
+  // Same control as Flags above it: tabs with a count on each.
+  const [view, setView] = useState<"open" | "resolved">("open");
   return (
     <section className="stack-sm" id="disputes">
-      <h2 style={{ fontSize: 30 }}>Disputes</h2>
-      <details className="collapse" open={disputes.open.length > 0}>
-        <summary>
-          <span className="row" style={{ gap: 8 }}>Pending <span className="tab-count">{disputes.open.length}</span></span>
-        </summary>
-        <div className="collapse-body">
-          {disputes.open.length === 0 && <span className="text-muted">No open disputes.</span>}
+      <h2 className="block-title">Disputes</h2>
+      <div className="tabs adm-tabs-inline" role="tablist" aria-label="Disputes">
+        <button type="button" role="tab" className="tab" aria-selected={view === "open"} onClick={() => setView("open")}>
+          Pending <span className="tab-count">{disputes.open.length}</span>
+        </button>
+        <button type="button" role="tab" className="tab" aria-selected={view === "resolved"} onClick={() => setView("resolved")}>
+          Resolved <span className="tab-count">{disputes.resolved.length}</span>
+        </button>
+      </div>
+      {view === "open" && (
+        <>
+          {disputes.open.length === 0 && <EmptyState>No open disputes.</EmptyState>}
           {disputes.open.map((o) => (
             <DisputeCard key={o.id} order={o} onResolved={onResolved} />
           ))}
-        </div>
-      </details>
-      <details className="collapse">
-        <summary>
-          <span className="row" style={{ gap: 8 }}>Resolved <span className="tab-count">{disputes.resolved.length}</span></span>
-        </summary>
-        <div className="collapse-body" style={{ gap: 0 }}>
-          {disputes.resolved.length === 0 && <span className="text-muted">Nothing resolved yet.</span>}
-          {disputes.resolved.map((o) => (
-            <div key={o.id} className="list-row" style={{ flexWrap: "wrap" }}>
-              <div className="grow stack-sm" style={{ gap: 2 }}>
-                <b>{o.title || o.gig.title}</b>
-                <span className="text-muted">{o.buyer.name} vs. {o.seller.name} · {money(o.paidCents ?? o.amount)}</span>
-              </div>
-              <ResolutionBadge o={o} />
-              {o.disputeResolvedAt && <span className="text-muted">{fmtDay(o.disputeResolvedAt)}</span>}
-              <Link href={`/orders/${o.id}`} className="btn btn-sm">View</Link>
+        </>
+      )}
+      {view === "resolved" && (
+        <>
+          {disputes.resolved.length === 0 && <EmptyState>Nothing resolved yet.</EmptyState>}
+          {disputes.resolved.length > 0 && (
+            <div className="card" style={{ padding: "6px 20px" }}>
+              {disputes.resolved.map((o) => (
+                <div key={o.id} className="list-row" style={{ flexWrap: "wrap" }}>
+                  <div className="grow stack-sm" style={{ gap: 2 }}>
+                    <b>{o.title || o.gig.title}</b>
+                    <span className="text-muted">{o.buyer.name} vs. {o.seller.name} · {money(o.paidCents ?? o.amount)}</span>
+                  </div>
+                  <ResolutionBadge o={o} />
+                  {o.disputeResolvedAt && <span className="text-muted">{fmtDay(o.disputeResolvedAt)}</span>}
+                  <Link href={`/orders/${o.id}`} className="btn btn-sm">View</Link>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </details>
-      </section>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 
@@ -63,56 +71,55 @@ function ResolutionBadge({ o }: { o: any }) {
   return <span className="badge badge-success">{o.kind ? "Approved for the mentor" : "Released to mentor"}</span>;
 }
 
-// Hours packages: refund as credit, full or partial.
+// Hours packages: refund as credit, full or partial, in a pop-up.
 function CreditRefund({ order, onDone }: { order: any; onDone: () => void }) {
   const [open, setOpen] = useState(false);
   const [dollars, setDollars] = useState(((order.refundableCents || 0) / 100).toFixed(2));
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const { confirm, dialog } = useAdminDialog();
   const cents = Math.round(Number(dollars) * 100);
   const full = cents === order.refundableCents;
 
-  async function submit() {
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
     setError("");
     if (!Number.isFinite(cents) || cents < 1) return setError("Enter an amount.");
     if (cents > order.refundableCents) return setError(`At most ${money(order.refundableCents)}.`);
-    const text = full
-      ? `Refund ${money(cents)} (everything they paid) to ${order.buyer.name} as MentorsMD credit? The package is marked Refunded and nothing more is paid to ${order.seller.name}.`
-      : `Refund ${money(cents)} to ${order.buyer.name} as MentorsMD credit? The package is approved, and ${money(cents)} is taken off what ${order.seller.name} is still owed for it.`;
-    if (!(await confirm({ title: "Refund as MentorsMD credit?", body: text, confirmLabel: `Refund ${money(cents)}`, danger: true }))) return;
     setBusy(true);
     const res = await fetch(`/api/orders/${order.id}/credit-refund`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amountCents: cents, note }) });
     setBusy(false);
     if (!res.ok) return setError((await res.json().catch(() => ({}))).error || "That didn't work");
+    setOpen(false);
     onDone();
   }
 
-  if (!open) return <button onClick={() => setOpen(true)} className="btn btn-sm btn-danger">Refund as credit</button>;
   return (
-    <div className="card stack-sm" style={{ padding: 14, width: "100%" }}>
-      {dialog}
-      <b className="small">Refund as MentorsMD credit</b>
-      <label className="small">
-        Amount (up to {money(order.refundableCents)}: the price plus added hours, including any credit they used)
-        <input className="input" inputMode="decimal" value={dollars} onChange={(e) => setDollars(e.target.value.replace(/[^0-9.]/g, ""))} style={{ marginBottom: 0, maxWidth: 160 }} />
-      </label>
-      <label className="small">
-        Note to the student (optional, in their email)
-        <input className="input" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} placeholder="Refunded as credit to settle your dispute." style={{ marginBottom: 0 }} />
-      </label>
-      <span className="text-muted small">
-        {full
-          ? "Full refund: the package is marked Refunded, its calls are cancelled, and nothing more is paid to the mentor."
-          : "Partial refund: the package is approved and closed; the mentor's last payout for it is their unpaid and unused hours minus this refund (hours already paid in earlier months aren't taken back)."}
-      </span>
-      {error && <div role="alert" className="alert alert-danger small">{error}</div>}
-      <div className="row">
-        <button className="btn btn-sm btn-danger" disabled={busy} onClick={submit}>Refund {Number.isFinite(cents) && cents > 0 ? money(cents) : ""} as credit</button>
-        <button className="btn btn-sm" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
-      </div>
-    </div>
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="btn btn-sm btn-danger">Refund as credit</button>
+      <Modal open={open} onClose={() => setOpen(false)} label="Refund as MentorsMD credit" dismissable={!busy}>
+        <form className="stack-sm" onSubmit={submit}>
+          <h2 className="modal-title">Refund as MentorsMD credit?</h2>
+          <p className="text-secondary small">{order.title || order.gig.title}: {order.buyer.name} (student) and {order.seller.name} (mentor).</p>
+          <Field id={`refund-amount-${order.id}`} label="Amount" help={`Up to ${money(order.refundableCents)}: the price plus added hours, including any credit they used.`}>
+            <input id={`refund-amount-${order.id}`} className="input" inputMode="decimal" value={dollars} onChange={(e) => setDollars(e.target.value.replace(/[^0-9.]/g, ""))} style={{ marginBottom: 0, maxWidth: 160 }} />
+          </Field>
+          <Field id={`refund-note-${order.id}`} label="Note to the student" optional help="In their email.">
+            <input id={`refund-note-${order.id}`} className="input" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} placeholder="Refunded as credit to settle your dispute." style={{ marginBottom: 0 }} />
+          </Field>
+          <span className="text-muted small">
+            {full
+              ? `Full refund: everything they paid goes back to ${order.buyer.name} as credit. The package is marked Refunded, its calls are cancelled, and nothing more is paid to ${order.seller.name}.`
+              : `Partial refund: the package is approved and closed; ${order.seller.name}'s last payout for it is their unpaid and unused hours minus this refund (hours already paid in earlier months aren't taken back).`}
+          </span>
+          {error && <div role="alert" className="alert alert-danger small">{error}</div>}
+          <div className="confirm-dialog-actions">
+            <button type="button" className="btn" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
+            <button type="submit" className="btn btn-danger" disabled={busy}>{busy ? "Working…" : `Refund ${Number.isFinite(cents) && cents > 0 ? money(cents) : ""} as credit`}</button>
+          </div>
+        </form>
+      </Modal>
+    </>
   );
 }
 
@@ -123,7 +130,7 @@ function DisputeCard({ order, onResolved }: { order: any; onResolved: () => void
   const { messages, sendMessage } = useDisputeThread(expanded ? order.id : "");
   const [draft, setDraft] = useState("");
   const canMoveMoney = useAdminCan("orders");
-  const { ask, dialog } = useAdminDialog();
+  const { ask, dialog } = useConfirm();
 
   async function resolve(kind: "refund" | "release") {
     const text =
@@ -168,21 +175,16 @@ function DisputeCard({ order, onResolved }: { order: any; onResolved: () => void
           <span className="text-muted">The hours are held back from the mentor&apos;s payout until you decide.</span>
         </div>
       ) : (order.deliveries || []).length > 0 ? (
-        <details className="collapse">
-          <summary>
-            <span className="row" style={{ gap: 8 }}>What the mentor delivered <span className="tab-count">{order.deliveries.length}</span></span>
-          </summary>
-          <div className="collapse-body">
-            {order.deliveries.map((d: any, i: number) => (
-              <DeliveryCard key={d.id} delivery={d} latest={i === order.deliveries.length - 1 && order.deliveries.length > 1} />
-            ))}
-          </div>
-        </details>
+        <Collapsible title="What the mentor delivered" count={order.deliveries.length}>
+          {order.deliveries.map((d: any, i: number) => (
+            <DeliveryCard key={d.id} delivery={d} latest={i === order.deliveries.length - 1 && order.deliveries.length > 1} />
+          ))}
+        </Collapsible>
       ) : (
         <span className="text-muted small">Nothing delivered through the site yet.</span>
       )}
       <div className="row-wrap">
-        <button onClick={() => setExpanded((e) => !e)} className="btn btn-sm">{expanded ? "Hide conversation" : "Respond / ask for details"}</button>
+        <button type="button" onClick={() => setExpanded((e) => !e)} className="btn btn-sm toggle-btn" aria-expanded={expanded} aria-controls={`dispute-thread-${order.id}`}>{expanded ? "Hide conversation" : "Show conversation"}</button>
         <Link href={`/orders/${order.id}`} className="btn btn-sm">Open order</Link>
         {canMoveMoney && order.kind ? (
           <span style={{ marginLeft: "auto" }} className="row-wrap">
@@ -199,8 +201,8 @@ function DisputeCard({ order, onResolved }: { order: any; onResolved: () => void
         )}
       </div>
       {expanded && (
-        <div className="msg-thread">
-          {messages.length === 0 && <p className="text-muted">Loading…</p>}
+        <div id={`dispute-thread-${order.id}`} className="msg-thread">
+          {messages.length === 0 && <LoadingBlock lines={2} title={false} />}
           {messages.map((m: any) => (
             <div key={m.id} className={`msg-bubble ${m.sender?.role === "ADMIN" ? "msg-mine" : "msg-theirs"}`}>
               <div style={{ fontSize: 11, opacity: 0.85, marginBottom: 2 }}>{m.sender?.name} {m.sender?.role === "ADMIN" ? <StaffBadge /> : `(${m.sender?.role === "SELLER" ? "mentor" : "student"})`}</div>

@@ -5,13 +5,15 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { EmailTabs } from "@/components/admin/AdminTabs";
 import { EMAILS, EMAIL_LIST, GROUP_LABELS, GROUP_ORDER } from "@/lib/emailTemplates";
+import { ShowMore } from "@/components/admin/ShowMore";
+import { LoadingBlock, PageHeader } from "@/components/ui";
+import { fmtDateTime } from "@/lib/format";
 
 type Row = { id: string; createdAt: string; templateKey: string; toEmail: string; subject: string; status: string; providerId: string | null; error: string | null };
 
-const fmtWhen = (d: string) => new Date(d).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
-
 // Admin -> Emails -> Sent log: every email the site tried to send in the last 90
 // days (who, which email, subject, sent or failed). Bodies aren't kept.
+// "Show more" adds the next page of older ones under the list.
 export default function AdminEmailLogPage() {
   const { data: session, status } = useSession();
   const isAdmin = (session?.user as any)?.role === "ADMIN";
@@ -22,6 +24,7 @@ export default function AdminEmailLogPage() {
   const [page, setPage] = useState(1);
   const [data, setData] = useState<{ total: number; pageSize: number; rows: Row[] } | null>(null);
   const [error, setError] = useState("");
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const params = useCallback(
     (extra: Record<string, string> = {}) => {
@@ -38,23 +41,24 @@ export default function AdminEmailLogPage() {
   useEffect(() => {
     if (!isAdmin) return;
     setError("");
+    if (page > 1) setLoadingMore(true);
     fetch(`/api/admin/emails/log?${params({ page: String(page) })}`)
       .then((r) => r.json())
-      .then((d) => (d.rows ? setData(d) : setError(d.error || "Couldn't load the log.")))
-      .catch(() => setError("Couldn't load the log."));
+      .then((d) => {
+        if (!d.rows) return setError(d.error || "Couldn't load the log.");
+        // Page 1 replaces the list (new search or filter); later pages add to it.
+        setData((prev) => (page > 1 && prev ? { ...d, rows: [...prev.rows, ...d.rows] } : d));
+      })
+      .catch(() => setError("Couldn't load the log."))
+      .finally(() => setLoadingMore(false));
   }, [isAdmin, params, page]);
 
-  if (status === "loading") return <div className="page text-muted">Loading…</div>;
+  if (status === "loading") return <div className="page"><LoadingBlock lines={5} /></div>;
   if (!isAdmin) return <div className="page-narrow"><div className="alert alert-danger">Admin access required.</div></div>;
-
-  const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
   return (
     <div className="page stack-lg" style={{ gap: 28 }}>
-      <div className="stack-sm">
-        <h1 className="page-title">Emails</h1>
-        <p className="lede">Every email the site tried to send in the last 90 days, newest first. The text of each email isn&apos;t kept, only who it went to, which email and whether it was sent.</p>
-      </div>
+      <PageHeader title="Emails" lede="Every email the site tried to send in the last 90 days, newest first. The text of each email isn't kept, only who it went to, which email and whether it was sent." />
       <EmailTabs />
 
       <form
@@ -93,7 +97,7 @@ export default function AdminEmailLogPage() {
       </form>
 
       {error && <div className="alert alert-danger">{error}</div>}
-      {!data && !error && <p className="text-muted">Loading…</p>}
+      {!data && !error && <LoadingBlock lines={6} title={false} />}
       {data && (
         <div className="stack-sm">
           <span className="text-muted">{data.total.toLocaleString()} email{data.total === 1 ? "" : "s"}</span>
@@ -108,7 +112,7 @@ export default function AdminEmailLogPage() {
                 )}
                 {data.rows.map((r) => (
                   <tr key={r.id}>
-                    <td>{fmtWhen(r.createdAt)}</td>
+                    <td>{fmtDateTime(r.createdAt)}</td>
                     <td>{r.toEmail}</td>
                     <td>{EMAILS[r.templateKey] ? <Link href={`/admin/emails/${r.templateKey}`}>{EMAILS[r.templateKey].name}</Link> : r.templateKey}</td>
                     <td className="wrap-cell">{r.subject}</td>
@@ -121,13 +125,7 @@ export default function AdminEmailLogPage() {
               </tbody>
             </table>
           </div>
-          {pages > 1 && (
-            <div className="row-wrap">
-              <button className="btn btn-sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Newer</button>
-              <span className="text-muted">Page {page} of {pages}</span>
-              <button className="btn btn-sm" disabled={page >= pages} onClick={() => setPage(page + 1)}>Older</button>
-            </div>
-          )}
+          {data.rows.length < data.total && <ShowMore busy={loadingMore} onClick={() => setPage(page + 1)} />}
         </div>
       )}
     </div>

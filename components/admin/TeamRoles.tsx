@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState } from "react";
 import { ADMIN_PERMISSIONS, ADMIN_PERMISSION_GROUPS } from "@/lib/adminPermissions";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 // Admin -> Team & roles -> Roles: a tick-box matrix of admin areas (rows)
 // by role (columns). Owner and Admin always have everything. Only the
@@ -26,7 +26,7 @@ export function TeamRoles({ roles, isOwner, onChanged, setNotice }: { roles: Cus
   const [draft, setDraft] = useState<Record<string, string[]>>({});
   const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
-  const { ask, confirm, dialog } = useAdminDialog();
+  const { ask, confirm, dialog } = useConfirm();
   useEffect(() => setDraft({}), [roles]);
 
   const permsOf = (r: CustomRole) => draft[r.id] ?? r.permissions;
@@ -64,13 +64,13 @@ export function TeamRoles({ roles, isOwner, onChanged, setNotice }: { roles: Cus
       setNotice({ ok: false, text: `"${r.name}" is in use. Give its members another role (or cancel the invite) first.` });
       return;
     }
-    if (await confirm({ title: `Delete the role "${r.name}"?`, body: "Nobody uses it, so nothing else changes.", confirmLabel: "Delete Role", danger: true })) call(`/api/admin/team/roles/${r.id}`, "DELETE", undefined, "Role deleted.");
+    if (await confirm({ title: `Delete the role "${r.name}"?`, body: "Nobody uses it, so nothing else changes.", confirmLabel: "Delete role", danger: true })) call(`/api/admin/team/roles/${r.id}`, "DELETE", undefined, "Role deleted.");
   }
 
   return (
     <section className="stack-sm" id="roles">
       {dialog}
-      <h2 style={{ fontSize: 30 }}>Roles</h2>
+      <h2 className="block-title">Roles</h2>
       <span className="text-secondary">
         What each role can open in Admin. Owner and Admin always have everything.{" "}
         {isOwner ? "Add a role for someone who only needs part of Admin, tick its areas and Save. Changes apply on their next click." : "Only the Owner can change roles."}

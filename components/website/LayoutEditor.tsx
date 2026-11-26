@@ -4,7 +4,8 @@ import { useState } from "react";
 import type { ListDef, ScalarDef } from "@/lib/siteContent";
 import { ADDON_TYPES, MAX_ADDONS, SPACE_OPTIONS, isAddonType, newAddonId, sectionLabel, sectionsFor, type AddonType, type LayoutItem } from "@/lib/pageLayout";
 import { ChangedTag, ListEditor, ScalarEditor, same } from "@/components/website/FieldEditors";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { Collapsible } from "@/components/ui";
 
 // Admin -> Website -> (page) -> Layout tab: the page's sections top to
 // bottom. Move them, hide/show them, choose the space above, add sections
@@ -23,7 +24,7 @@ export function LayoutEditor({
 }) {
   const builtins = sectionsFor(page);
   const [adding, setAdding] = useState<AddonType>("text");
-  const { confirm: confirmDialog, dialog } = useAdminDialog();
+  const { confirm: confirmDialog, dialog } = useConfirm();
   const addons = value.filter((i) => !builtins.some((b) => b.id === i.id)).length;
 
   const update = (i: number, patch: Partial<LayoutItem>) =>
@@ -129,9 +130,7 @@ export function LayoutEditor({
           return (
             <li key={it.id} className={`ws-layout-item${changed ? " ws-changed" : ""}`}>
               {row}
-              <details id={`ws-lay-${it.id}`} className="ws-layout-fields">
-                <summary>Edit this section</summary>
-                <div className="stack" style={{ gap: 14, paddingTop: 14 }}>
+              <Collapsible id={`ws-lay-${it.id}`} variant="inline" title="Edit this section" className="ws-layout-fields" bodyClassName="ws-layout-fields-body">
                   <span className="field-help">{def.help}</span>
                   {Object.entries(def.fields).map(([k, f]) =>
                     f.type === "list" ? (
@@ -140,8 +139,7 @@ export function LayoutEditor({
                       <ScalarEditor key={k} def={f as ScalarDef} value={data[k]} compact changed={!!liveData && !same(data[k], liveData[k])} onChange={(v) => setField(k, v)} />
                     ),
                   )}
-                </div>
-              </details>
+              </Collapsible>
             </li>
           );
         })}

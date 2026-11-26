@@ -3,9 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { AdminGuard } from "@/components/admin/AdminNav";
+import { RowTitle } from "@/components/admin/RowTitle";
+import { Collapsible, EmptyState, LoadingBlock, PageHeader } from "@/components/ui";
+import { fmtDateTime, fmtDay } from "@/lib/format";
 
-const fmtDay = (d: string) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-const fmtTime = (d: string) => new Date(d).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+// Birth dates (and the 18th birthday) are date-only, so they're shown in UTC.
+const fmtDate = (d: string) => fmtDay(d, { timeZone: "UTC" });
 
 const STATUS: Record<string, { label: string; cls: string }> = {
   PENDING: { label: "Waiting for consent", cls: "badge-warning" },
@@ -61,33 +64,33 @@ export default function AdminMinorsPage() {
 
   return (
     <div className="page stack-lg" style={{ gap: 32 }}>
-      <div className="stack-sm">
-        <h1 className="page-title">Students under 18</h1>
-        <p className="lede">Accounts for students aged 13 to 17, their parent or guardian, and the consent records.</p>
-      </div>
+      <PageHeader title="Students under 18" lede="Accounts for students aged 13 to 17, their parent or guardian, and the consent records." />
       {notice && <div role="status" className={`alert ${notice.ok ? "alert-success" : "alert-danger"}`}>{notice.text}</div>}
-      <div className="tabs" role="tablist">
-        <button role="tab" className="tab" aria-selected={tab === "current"} onClick={() => setTab("current")}>Under 18 {users && <span className="tab-count">{current.length}</span>}</button>
-        <button role="tab" className="tab" aria-selected={tab === "adult"} onClick={() => setTab("adult")}>Turned 18 / closed {users && <span className="tab-count">{adults.length}</span>}</button>
+      <div className="tabs" role="tablist" aria-label="Students under 18">
+        <button type="button" role="tab" className="tab" aria-selected={tab === "current"} onClick={() => setTab("current")}>Under 18 {users && <span className="tab-count">{current.length}</span>}</button>
+        <button type="button" role="tab" className="tab" aria-selected={tab === "adult"} onClick={() => setTab("adult")}>Turned 18 / closed {users && <span className="tab-count">{adults.length}</span>}</button>
       </div>
+      {users === null && <LoadingBlock lines={4} title={false} />}
+      {users && list.length === 0 && <EmptyState>Nobody here yet.</EmptyState>}
+      {list.length > 0 && (
       <div className="card" style={{ padding: "4px 20px" }}>
-        {users === null && <p className="text-muted" style={{ padding: 12 }}>Loading…</p>}
-        {users && list.length === 0 && <p className="text-muted" style={{ padding: 12 }}>Nobody here yet.</p>}
         {list.map((u) => {
           const s = u.minorStatus ? STATUS[u.minorStatus] : null;
           const age = ageOf(u.dateOfBirth);
           return (
-            <details key={u.id} className="list-row" style={{ display: "block" }}>
-              <summary className="between" style={{ cursor: "pointer", flexWrap: "wrap", gap: 8 }}>
-                <span className="stack-sm" style={{ gap: 2 }}>
-                  <b style={{ fontSize: 15 }}>{u.name}</b>
-                  <span className="text-muted">
-                    {u.email}{age !== null ? ` · age ${age}` : ""}{u.dateOfBirth ? ` (born ${fmtDay(u.dateOfBirth)})` : ""} · joined {fmtDay(u.createdAt)} · {u._count.buyerOrders} order{u._count.buyerOrders === 1 ? "" : "s"}
-                  </span>
-                </span>
-                {s ? <span className={`badge ${s.cls}`}>{s.label}</span> : u.becameAdultAt ? <span className="badge">Turned 18 on {fmtDay(u.becameAdultAt)}</span> : null}
-              </summary>
-              <div className="stack-sm small" style={{ padding: "10px 0 6px" }}>
+            <Collapsible
+              key={u.id}
+              variant="row"
+              className="adm-row"
+              title={
+                <RowTitle
+                  title={u.name}
+                  sub={`${u.email}${age !== null ? ` · age ${age}` : ""}${u.dateOfBirth ? ` (born ${fmtDate(u.dateOfBirth)})` : ""} · joined ${fmtDay(u.createdAt)} · ${u._count.buyerOrders} order${u._count.buyerOrders === 1 ? "" : "s"}`}
+                />
+              }
+              meta={s ? <span className={`badge ${s.cls}`}>{s.label}</span> : u.becameAdultAt ? <span className="badge">Turned 18 on {fmtDate(u.becameAdultAt)}</span> : null}
+            >
+              <div className="stack-sm small">
                 {u.parentConsents.length === 0 && <span className="text-muted">No consent requests on file.</span>}
                 {u.parentConsents.map((c: any) => (
                   <div key={c.id} className="card card-tint stack-sm" style={{ padding: 14 }}>
@@ -97,28 +100,29 @@ export default function AdminMinorsPage() {
                     </div>
                     <span><a className="link" href={`mailto:${c.parentEmail}`}>{c.parentEmail}</a> · {c.parentPhone}</span>
                     <span className="text-muted">
-                      Requested {fmtTime(c.createdAt)}{c.lastSentAt ? ` · last emailed ${fmtTime(c.lastSentAt)}` : ""} · {c.remindersSent} reminder{c.remindersSent === 1 ? "" : "s"} · link expires {fmtTime(c.expiresAt)}
+                      Requested {fmtDateTime(c.createdAt)}{c.lastSentAt ? ` · last emailed ${fmtDateTime(c.lastSentAt)}` : ""} · {c.remindersSent} reminder{c.remindersSent === 1 ? "" : "s"} · link expires {fmtDateTime(c.expiresAt)}
                     </span>
                     {c.consentedAt && (
                       <div className="kv-grid">
                         <div><span>Signed (typed name)</span>{c.signatureName}</div>
-                        <div><span>Consented at</span>{fmtTime(c.consentedAt)}</div>
+                        <div><span>Consented at</span>{fmtDateTime(c.consentedAt)}</div>
                         <div><span>IP address</span>{c.ip || "-"}</div>
                         <div><span>Versions</span>Terms {c.termsVersion === 0 ? "built-in" : `v${c.termsVersion}`} · form {c.consentFormVersion === 0 ? "built-in" : `v${c.consentFormVersion}`}</div>
                         <div style={{ gridColumn: "1 / -1" }}><span>Browser</span>{c.userAgent || "-"}</div>
                       </div>
                     )}
-                    {c.withdrawnAt && <span className="text-secondary">{c.status === "DECLINED" ? "Declined" : "Withdrawn"} {fmtTime(c.withdrawnAt)}</span>}
+                    {c.withdrawnAt && <span className="text-secondary">{c.status === "DECLINED" ? "Declined" : "Withdrawn"} {fmtDateTime(c.withdrawnAt)}</span>}
                   </div>
                 ))}
                 {u.minorStatus && u.minorStatus !== "CONSENTED" && (
-                  <button className="btn btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => resend(u)}>Email the parent a new link</button>
+                  <button type="button" className="btn btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => resend(u)}>Email the parent a new link</button>
                 )}
               </div>
-            </details>
+            </Collapsible>
           );
         })}
       </div>
+      )}
       <span className="text-muted small">Accounts convert to regular accounts automatically on the 18th birthday (checked every morning). The parent&apos;s link then stops working.</span>
     </div>
   );

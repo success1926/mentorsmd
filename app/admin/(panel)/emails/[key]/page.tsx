@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { LoadingBlock, PageHeader } from "@/components/ui";
+import { fmtDateTime } from "@/lib/format";
 import { GROUP_LABELS, parseTiming, renderEmail, sampleValues, validateTemplate, waitLabel, type EmailDef, type EmailVar } from "@/lib/emailTemplates";
 
 type Saved = { subject: string; body: string; updatedAt: string; updatedBy: string | null } | null;
@@ -16,12 +18,12 @@ function ReminderSettings({ def, schedule, onSaved }: { def: EmailDef; schedule:
   const [timing, setTiming] = useState(schedule.timing);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
-  const { confirm, dialog } = useAdminDialog();
+  const { confirm, dialog } = useConfirm();
   const parsed = parseTiming(timing);
   const dirty = enabled !== schedule.enabled || timing.trim() !== schedule.timing;
 
   async function save() {
-    if (enabled && !schedule.enabled && !(await confirm({ title: `Turn on "${def.name}"?`, body: "It starts going out with the next daily run.", confirmLabel: "Turn On" }))) return;
+    if (enabled && !schedule.enabled && !(await confirm({ title: `Turn on "${def.name}"?`, body: "It starts going out with the next daily run.", confirmLabel: "Turn on" }))) return;
     setBusy(true);
     setNotice(null);
     const res = await fetch(`/api/admin/emails/${def.key}/schedule`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled, timing }) });
@@ -55,15 +57,13 @@ function ReminderSettings({ def, schedule, onSaved }: { def: EmailDef; schedule:
       </div>
       {notice && <div role="status" className={`alert ${notice.ok ? "alert-success" : "alert-danger"}`}>{notice.text}</div>}
       <div className="row-wrap">
-        <button className="btn btn-primary" disabled={busy || !!parsed.error || !dirty} onClick={save}>{busy ? "Saving…" : "Save timing"}</button>
+        <button type="button" className="btn btn-primary" disabled={busy || !!parsed.error || !dirty} onClick={save}>{busy ? "Saving…" : "Save timing"}</button>
         <Link href="/admin/outbox" className="btn btn-ghost">See who&apos;s due</Link>
-        {schedule.updatedAt && <span className="text-muted">Changed {fmtWhen(schedule.updatedAt)}{schedule.updatedBy ? ` by ${schedule.updatedBy}` : ""}</span>}
+        {schedule.updatedAt && <span className="text-muted">Changed {fmtDateTime(schedule.updatedAt)}{schedule.updatedBy ? ` by ${schedule.updatedBy}` : ""}</span>}
       </div>
     </div>
   );
 }
-
-const fmtWhen = (d: string) => new Date(d).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 
 // What the editor puts in when a variable is clicked.
 function snippet(v: EmailVar, inSubject: boolean) {
@@ -86,7 +86,7 @@ export default function EditEmailPage({ params }: { params: { key: string } }) {
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState<"" | "save" | "reset" | "test">("");
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
-  const { confirm, dialog } = useAdminDialog();
+  const { confirm, dialog } = useConfirm();
   const subjectRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const lastField = useRef<"subject" | "body">("body");
@@ -115,10 +115,10 @@ export default function EditEmailPage({ params }: { params: { key: string } }) {
   const dirty = !!current && (subject !== current.subject || body !== current.body);
   const isDefault = !!def && subject.trim() === def.subject && body.trim() === def.body;
 
-  if (status === "loading") return <div className="page text-muted">Loading…</div>;
+  if (status === "loading") return <div className="page"><LoadingBlock lines={6} /></div>;
   if (!isAdmin) return <div className="page-narrow"><div className="alert alert-danger">Admin access required.</div></div>;
   if (loadError) return <div className="page-narrow stack"><Link href="/admin/emails" className="text-secondary">← Emails</Link><div className="alert alert-danger">{loadError}</div></div>;
-  if (!def || !preview) return <div className="page text-muted">Loading…</div>;
+  if (!def || !preview) return <div className="page"><LoadingBlock lines={6} /></div>;
 
   function insert(v: EmailVar) {
     const inSubject = lastField.current === "subject";
@@ -149,7 +149,7 @@ export default function EditEmailPage({ params }: { params: { key: string } }) {
   }
 
   async function reset() {
-    if (!(await confirm({ title: "Go back to the standard wording for this email?", body: "Your edited version will be deleted.", confirmLabel: "Use Standard Wording", danger: true }))) return;
+    if (!(await confirm({ title: "Go back to the standard wording for this email?", body: "Your edited version will be deleted.", confirmLabel: "Use standard wording", danger: true }))) return;
     setBusy("reset");
     setNotice(null);
     const res = await fetch(`/api/admin/emails/${def!.key}`, { method: "DELETE" });
@@ -176,15 +176,10 @@ export default function EditEmailPage({ params }: { params: { key: string } }) {
     <div className="page stack-lg" style={{ gap: 28 }}>
       {dialog}
       <div className="stack-sm">
-        <div className="row-wrap">
-          <span className="text-muted">/</span>
-          <Link href="/admin/emails" className="text-secondary">Emails</Link>
-        </div>
-        <h1 className="page-title" style={{ fontSize: "clamp(30px, 3.4vw, 42px)" }}>{def.name}</h1>
-        <p className="lede">{def.description}</p>
+        <PageHeader back={{ href: "/admin/emails", label: "Emails" }} title={def.name} lede={def.description} />
         <div className="row-wrap">
           <span className="badge">To: {GROUP_LABELS[def.group]}</span>
-          {saved ? <span className="badge badge-brand">Edited {fmtWhen(saved.updatedAt)}{saved.updatedBy ? ` by ${saved.updatedBy}` : ""}</span> : <span className="badge">Standard wording</span>}
+          {saved ? <span className="badge badge-brand">Edited {fmtDateTime(saved.updatedAt)}{saved.updatedBy ? ` by ${saved.updatedBy}` : ""}</span> : <span className="badge">Standard wording</span>}
           {dirty && <span className="badge badge-warning">Unsaved changes</span>}
         </div>
       </div>
