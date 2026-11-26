@@ -16,3 +16,13 @@ a.pkg-entry:hover .pkg-entry-name { color: var(--primary-deep); }
 .pkg-entry-list { display: flex; flex-direction: column; }
 .card.pkg-entry-list { padding-top: 6px; padding-bottom: 6px; }
 .dispute-card { border-color: var(--danger-bg); }
+
+/* Settings sections (components/SettingsSection.tsx). */
+.settings-section { display: flex; flex-direction: column; gap: 14px; scroll-margin-top: 100px; }
+.settings-section-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.settings-section-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.settings-section-text .block-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.settings-section-aside { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.settings-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px 12px; border-top: 1px solid var(--line); padding-top: 14px; }
+.settings-save { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.settings-links .link-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; }
