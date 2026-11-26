@@ -7,22 +7,24 @@ import { Avatar } from "@/components/Avatar";
 import { MedicalSchoolPicker } from "@/components/MedicalSchoolPicker";
 import { EDITOR_STEPS, MentorProfileEditor, ProfileStep, type EditorState } from "@/components/MentorProfileEditor";
 import { PreviewProfileButton, notifyProfileChanged, useMentorStatus } from "@/components/MentorShell";
+import { LoadingBlock, PageHeader } from "@/components/ui";
 import { OfferGuideButton } from "@/components/OfferGuide";
 import { ProfilePhoto } from "@/components/ProfilePhoto";
 import { ADMISSIONS_ROLE_TYPES, SCHOOL_TYPES, STAGES, UNDERGRAD_SCHOOL_MAX, isUndergrad, labelFor, mentorSchoolName, mentorStageTag, money, ownSchoolLabel, schoolTypeOptional, usesOwnSchool } from "@/lib/options";
 import { previewHref } from "@/lib/mentorNav";
 import type { ProfileSection } from "@/lib/profileCompleteness";
 
-// My profile (mentor area v2, Oct 2026): the 10 steps behind "Finish your
-// profile" (lib/profileCompleteness.ts) as numbered steps that fold open
-// one at a time, with a progress bar. On the right: "How students see you"
+// My profile (mentor area v2, Oct 2026): what's behind "Finish your
+// profile" (lib/profileCompleteness.ts): nine numbered steps that fold open
+// one at a time, one optional step, and a link to set the hourly rate
+// (edited in Rates & packages), with a progress bar. On the right: "How students see you"
 // (a preview card that updates as you type) and whether the profile is
 // hidden from Browse or live. This used to be on /account (old links like
 // /account#bio come here).
 
 const LIMITS = { credential: 200 };
 
-// Step anchors in order (step 1 basics, 2-9 the editor, 10 the rate).
+// Anchors in order (step 1 basics, 2-10 the editor, then the rate link).
 const STEP_IDS = ["basics", ...EDITOR_STEPS.map(([id]) => id), "rate"];
 const KEY_OF: Record<string, string> = { basics: "basics", rate: "rate", ...Object.fromEntries(EDITOR_STEPS.map(([id, key]) => [id, key])) };
 
@@ -75,8 +77,8 @@ export default function MyProfilePage() {
     notifyProfileChanged();
   }, [loadProfile]);
 
-  if (session && role !== "SELLER") return <div className="page-narrow"><div className="alert">This page is for mentor accounts. <Link href="/account" className="link">Your account</Link></div></div>;
-  if (!profile || !basics) return <div className="page text-muted">Loading…</div>;
+  if (session && role !== "SELLER") return <div className="page-mid"><div className="alert">This page is for mentor accounts. <Link href="/account" className="link">Your account</Link></div></div>;
+  if (!profile || !basics) return <div className="page-mid"><LoadingBlock lines={3} cards={4} /></div>;
 
   const progress = profile.progress as { sections: ProfileSection[]; done: number; total: number; complete: boolean };
   const statusOf = (key: string) => progress.sections.find((s) => s.key === key);
@@ -86,14 +88,12 @@ export default function MyProfilePage() {
   const left = progress.sections.filter((s) => !s.done);
 
   return (
-    <div className="page stack-lg" style={{ gap: 24, maxWidth: 1180 }}>
-      <div className="between" style={{ flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
-        <div className="stack-sm">
-          <h1 className="page-title">My profile</h1>
-          <p className="lede">Ten short steps, plus your hourly rate. Each one saves on its own.</p>
-        </div>
-        <PreviewProfileButton mentorId={profile.id} />
-      </div>
+    <div className="page stack-lg" style={{ gap: 24 }}>
+      <PageHeader
+        title="My profile"
+        lede="Nine short steps and your hourly rate, plus one optional step. Each step saves on its own."
+        actions={<PreviewProfileButton mentorId={profile.id} />}
+      />
 
       <div className="stack-sm" style={{ maxWidth: 640 }}>
         <div className="between">
@@ -130,30 +130,28 @@ export default function MyProfilePage() {
             openId={openId}
             setOpenId={setOpenId}
             firstNum={2}
-            nextAfterLast={{ id: "rate", label: "11 Hourly rate" }}
             onDraftChange={setDraft}
           />
-          <ProfileStep
-            id="rate"
-            num={11}
-            title="Hourly rate"
-            status={statusOf("rate")}
-            doneLabel={rateCents ? `${money(rateCents)}/hr` : undefined}
-            open={openId === "rate"}
-            onToggle={() => toggle("rate")}
-          >
+          {/* The rate is set in Rates & packages; here it's a link. */}
+          <section id="rate" className="card stack-sm profile-rate-card">
+            <div className="between" style={{ gap: 12, flexWrap: "wrap" }}>
+              <b>Hourly rate</b>
+              <span className={`badge ${statusOf("rate")?.done ? "badge-success" : "badge-warning"}`}>{rateCents ? `${money(rateCents)}/hr` : "Not set"}</span>
+            </div>
             <span className="text-secondary">
               {rateCents ? <>Your rate is <b>{money(rateCents)}/hr</b>. Every price on your profile is hours × rate.</> : "Set one hourly rate (at least $50). Every price on your profile is hours × rate."}
             </span>
-            <Link href="/dashboard/packages#rate" className="btn btn-primary" style={{ alignSelf: "flex-start" }}>
-              {rateCents ? "Edit in Rates & packages" : "Set your rate"}
-            </Link>
-            <OfferGuideButton rateCents={rateCents} tab="hourly" className="btn-link small">How hourly work, bundles and packages fit together</OfferGuideButton>
-          </ProfileStep>
+            <div className="row-wrap">
+              <Link href="/dashboard/packages#rate" className={`btn btn-sm ${rateCents ? "" : "btn-primary"}`}>
+                {rateCents ? "Edit in Rates & packages" : "Set your rate"}
+              </Link>
+              <OfferGuideButton rateCents={rateCents} tab="hourly" className="btn-link small">How hourly work, bundles and packages fit together</OfferGuideButton>
+            </div>
+          </section>
         </div>
 
         <aside className="profile-side">
-          <b style={{ fontSize: 15 }}>How students see you</b>
+          <b>How students see you</b>
           <PreviewCard profile={profile} basics={basics} photoUrl={photoUrl} draft={draft} rateCents={rateCents} />
           <span className="text-muted small">Updates as you edit. The roles line only shows if you answered Yes.</span>
           <div className="card stack-sm" style={{ padding: 16 }}>

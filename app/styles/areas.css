@@ -28,3 +28,9 @@ a.pkg-entry:hover .pkg-entry-name { color: var(--primary-deep); }
 .settings-links .link-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; }
 .connected-cal-sync { border-top: 1px solid var(--line); padding-top: 16px; scroll-margin-top: 100px; }
 details.collapse > .collapse-body.past-calls { gap: 0; }
+
+/* My profile: each step's chevron matches the shared collapsible one. */
+.profile-step-head.toggle-btn::after { flex-shrink: 0; width: 20px; height: 20px; background: var(--muted); -webkit-mask-size: 20px; mask-size: 20px; }
+.profile-step-head.toggle-btn:hover::after { background: var(--primary); }
+.profile-step-head b { font-size: 16px; }
+.profile-rate-card { scroll-margin-top: 100px; }
