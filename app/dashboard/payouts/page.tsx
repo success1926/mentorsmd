@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Icon, ICONS } from "@/components/ui";
-import { money } from "@/lib/options";
+import { Alert, Collapsible, Icon, ICONS, PageHeader } from "@/components/ui";
+import { fmtDay, money } from "@/lib/format";
 import { PaidTotal } from "@/components/Moments";
 import { PLATFORM_FEE_PERCENT } from "@/lib/fee";
 import { shortHours } from "@/lib/hours";
@@ -66,14 +66,11 @@ export default function PayoutsPage() {
 
   return (
     <div className="page-mid stack-lg">
-      <div className="stack-sm">
-        <h1 className="page-title">Payouts</h1>
-        <p className="lede">Paid monthly, on the 24th, for every hour you work. You keep {100 - PLATFORM_FEE_PERCENT}%; MentorsMD keeps {PLATFORM_FEE_PERCENT}%.</p>
-      </div>
+      <PageHeader title="Payouts" lede={`Paid monthly, on the 24th, for every hour you work. You keep ${100 - PLATFORM_FEE_PERCENT}%; MentorsMD keeps ${PLATFORM_FEE_PERCENT}%.`} />
 
       <div className="card stack">
         <div className="between">
-          <b style={{ fontSize: 18 }}>Bank account</b>
+          <b className="card-title">Bank account</b>
           {!checking && status?.connected && <span className="badge badge-success">✓ Connected</span>}
           {!checking && status && !status.connected && <span className="badge badge-warning">{status.started ? "Setup not finished" : "Not connected"}</span>}
         </div>
@@ -99,7 +96,7 @@ export default function PayoutsPage() {
             <button onClick={handleConnect} disabled={connecting} className="btn btn-primary" style={{ alignSelf: "flex-start" }}>
               {connecting ? "Opening Stripe…" : status?.started ? "Finish setup" : "Connect bank account"}
             </button>
-            {error && <div role="alert" className="alert alert-danger">{error}</div>}
+            {error && <Alert tone="danger">{error}</Alert>}
           </>
         )}
         {!checking && (
@@ -133,18 +130,15 @@ export default function PayoutsPage() {
       </div>
 
       {past.length > 0 && (
-        <details className="collapse" open>
-          <summary>Payout history ({past.length})</summary>
-          <div className="collapse-body">
-            {past.map((p) => (
-              <div key={p.id} className="list-row">
-                <span className="grow">{periodLabel(p.period)} · {shortHours(p.minutes)}</span>
-                <span className="text-muted">{p.paidAt ? new Date(p.paidAt).toLocaleDateString() : p.status === "FAILED" ? "Delayed, we're on it" : PAYOUT_STATUS_LABEL[p.status] || p.status}</span>
-                <b>{money(p.amountCents)}</b>
-              </div>
-            ))}
-          </div>
-        </details>
+        <Collapsible title="Payout history" count={past.length} defaultOpen>
+          {past.map((p) => (
+            <div key={p.id} className="list-row">
+              <span className="grow">{periodLabel(p.period)} · {shortHours(p.minutes)}</span>
+              <span className="text-muted">{p.paidAt ? fmtDay(p.paidAt) : p.status === "FAILED" ? "Delayed, we're on it" : PAYOUT_STATUS_LABEL[p.status] || p.status}</span>
+              <b>{money(p.amountCents)}</b>
+            </div>
+          ))}
+        </Collapsible>
       )}
     </div>
   );

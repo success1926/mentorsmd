@@ -7,7 +7,9 @@ import { MentorAgreement } from "@/components/MentorAgreement";
 import { PreviewProfileButton, notifyProfileChanged } from "@/components/MentorShell";
 import { ImageFocusEditor } from "@/components/ImageFocusEditor";
 import { OfferGuideButton } from "@/components/OfferGuide";
-import { Icon, ICONS } from "@/components/ui";
+import { Alert, Icon, ICONS, LoadingBlock, PageHeader, SaveStatus } from "@/components/ui";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { PLATFORM_FEE_PERCENT, mentorShare } from "@/lib/fee";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
 import { previewHref } from "@/lib/mentorNav";
 import {
@@ -37,9 +39,9 @@ import { hoursLabel, offerRate, parseRateDollars, priceFor, priceMath } from "@/
 
 type Offers = { hourlyRateCents: number | null; hourly: any | null; bundles: any[]; packages: any[] };
 
+// A form's result line, shown with the shared <Alert>.
 function Msg({ m }: { m: { ok: boolean; text: string } | null }) {
-  if (!m) return null;
-  return <div role="status" className={`alert ${m.ok ? "alert-success" : "alert-danger"}`}>{m.text}</div>;
+  return m ? <Alert tone={m.ok ? "success" : "danger"}>{m.text}</Alert> : null;
 }
 
 function Seg({ options, value, onChange, label }: { options: { value: string; label: string }[]; value: string; onChange: (v: string) => void; label: string }) {
@@ -88,8 +90,8 @@ export default function RateAndOffersPage() {
     fetch("/api/stripe/status").then((r) => r.json()).then((d) => setPayoutsReady(!!d.connected)).catch(() => {});
   }, [isSeller]);
 
-  if (session && !isSeller) return <div className="page-narrow"><div className="alert">Rates and offers are for mentor accounts.</div></div>;
-  if (!offers) return <div className="page-mid text-muted">Loading…</div>;
+  if (session && !isSeller) return <div className="page-mid"><div className="alert">Rates and offers are for mentor accounts.</div></div>;
+  if (!offers) return <div className="page-mid"><LoadingBlock lines={3} cards={3} /></div>;
 
   const rate = offers.hourlyRateCents;
   const offerSaved = () => {
@@ -99,17 +101,15 @@ export default function RateAndOffersPage() {
 
   return (
     <div className="page-mid stack-lg">
-      <div className="stack-sm">
-        <div className="between" style={{ flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
-          <h1 className="page-title">Rates &amp; packages</h1>
-          <PreviewProfileButton mentorId={mentorId} />
-        </div>
-        <p className="lede">Set one hourly rate. Every price on your profile is hours × rate, so students always see the math. There are no due dates: students use their hours for calls on your calendar and for written work.</p>
-      </div>
+      <PageHeader
+        title="Rates &amp; packages"
+        lede="Set one hourly rate. Every price on your profile is hours × rate, so students always see the math. There are no due dates: students use their hours for calls on your calendar and for written work."
+        actions={<PreviewProfileButton mentorId={mentorId} />}
+      />
 
       <div className="card card-tint between" style={{ flexWrap: "wrap", gap: 12, padding: 18 }}>
         <span className="stack-sm grow" style={{ gap: 2, flexBasis: 260 }}>
-          <b>Not Sure How To Structure Your Offers?</b>
+          <b>Not sure how to structure your offers?</b>
           <span className="text-secondary small">See example packages, when hourly work fits, and freelancing notes.</span>
         </span>
         <OfferGuideButton rateCents={rate} className="btn btn-sm btn-primary">Open the guide</OfferGuideButton>
@@ -178,18 +178,18 @@ function RateCard({ rate, onSaved }: { rate: number | null; onSaved: () => void 
   return (
     <section id="rate" className="card stack" style={{ scrollMarginTop: 100 }}>
       <div className="stack-sm">
-        <h2 style={{ fontSize: 26 }}>Your hourly rate</h2>
-        <span className="text-secondary">One rate for your time, in whole dollars, at least {money(RATE_MIN_CENTS)} and up to {money(RATE_MAX_CENTS)} an hour. You earn 70% of every hour; MentorsMD keeps 30%.</span>
+        <h2 className="block-title">Your hourly rate</h2>
+        <span className="text-secondary">One rate for your time, in whole dollars, at least {money(RATE_MIN_CENTS)} and up to {money(RATE_MAX_CENTS)} an hour. You earn {100 - PLATFORM_FEE_PERCENT}% of every hour; MentorsMD keeps {PLATFORM_FEE_PERCENT}%.</span>
       </div>
       <div className="row-wrap" style={{ alignItems: "flex-end" }}>
         <label className="field" style={{ marginBottom: 0, width: 200 }}>
           <span className="field-label">Rate per hour (USD)</span>
           <input className={`input ${bad ? "input-error" : ""}`} type="number" inputMode="numeric" min={RATE_MIN_CENTS / 100} max={RATE_MAX_CENTS / 100} step={1} value={text} onChange={(e) => setText(e.target.value)} placeholder="80" aria-invalid={bad} />
         </label>
-        <button className="btn btn-primary" disabled={saving || cents === null || cents === rate} onClick={save}>{saving ? "Saving…" : "Save rate"}</button>
+        <button className="btn btn-primary" disabled={saving || cents === null || cents === rate} onClick={save}>{saving ? "Saving…" : "Save changes"}</button>
       </div>
       <span className="field-help" style={{ color: bad ? "var(--danger)" : undefined }}>
-        {bad ? RATE_RULE : cents ? `Students pay ${money(cents)} for 1 hour and ${money(priceFor(180, cents))} for 3 hours. You earn ${money(Math.round(cents * 0.7))} an hour.` : "Changing your rate later never changes what an existing order paid."}
+        {bad ? RATE_RULE : cents ? `Students pay ${money(cents)} for 1 hour and ${money(priceFor(180, cents))} for 3 hours. You earn ${money(mentorShare(cents))} an hour.` : "Changing your rate later never changes what an existing order paid."}
       </span>
       <Msg m={msg} />
     </section>
@@ -201,15 +201,14 @@ function RateCard({ rate, onSaved }: { rate: number | null; onSaved: () => void 
 function HourlyCard({ rate, hourly, onSaved }: { rate: number; hourly: any | null; onSaved: () => void }) {
   const on = hourly ? !!hourly.active : true;
   const [format, setFormat] = useState<string>(hourly?.format || "WRITTEN_CALL");
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [save_, setSave] = useState<{ state: "idle" | "saving" | "saved" | "error"; error?: string }>({ state: "idle" });
+  const busy = save_.state === "saving";
 
+  // The switch and the format save as soon as they change.
   async function save(patch: { active?: boolean; format?: string }) {
-    setBusy(true);
-    setMsg(null);
+    setSave({ state: "saving" });
     const { ok, data } = await send("/api/offers", "PATCH", { hourly: patch });
-    setBusy(false);
-    setMsg(ok ? { ok: true, text: "Saved." } : { ok: false, text: data.error || "Couldn't save" });
+    setSave(ok ? { state: "saved" } : { state: "error", error: data.error || "Couldn't save" });
     if (ok) onSaved();
   }
 
@@ -217,14 +216,17 @@ function HourlyCard({ rate, hourly, onSaved }: { rate: number; hourly: any | nul
     <section className="card stack">
       <div className="between" style={{ alignItems: "flex-start", gap: 16 }}>
         <div className="stack-sm">
-          <h2 style={{ fontSize: 26 }}>Hourly</h2>
+          <h2 className="block-title">Hourly</h2>
           <span className="text-secondary">1 hour at your hourly rate ({money(rate)}). Students can buy one hour at a time and add more later.</span>
           <OfferGuideButton rateCents={rate} tab="hourly" className="btn-link small">When hourly fits</OfferGuideButton>
         </div>
-        <label className="switch" title={on ? "On" : "Off"}>
-          <input type="checkbox" checked={on} disabled={busy} aria-label="Offer single hours" onChange={() => save({ active: !on })} />
-          <span />
-        </label>
+        <span className="row" style={{ gap: 10 }}>
+          <SaveStatus state={save_.state} error={save_.error} />
+          <label className="switch" title={on ? "On" : "Off"}>
+            <input type="checkbox" checked={on} disabled={busy} aria-label="Offer single hours" onChange={() => save({ active: !on })} />
+            <span />
+          </label>
+        </span>
       </div>
       {on && (
         <div className="field" style={{ marginBottom: 0 }}>
@@ -233,7 +235,6 @@ function HourlyCard({ rate, hourly, onSaved }: { rate: number; hourly: any | nul
         </div>
       )}
       {!on && <span className="text-muted">Off: students can still book a free intro call, buy your bundles and packages, and pay per call.</span>}
-      <Msg m={msg} />
     </section>
   );
 }
@@ -242,19 +243,28 @@ function HourlyCard({ rate, hourly, onSaved }: { rate: number; hourly: any | nul
 
 function BundlesCard({ rate, bundles, onSaved }: { rate: number; bundles: any[]; onSaved: () => void }) {
   const [editing, setEditing] = useState<string | "new" | null>(null);
+  const { confirm, dialog } = useConfirm();
 
   async function remove(b: any) {
-    if (!confirm(`Remove the ${hoursLabel(b.minutes)} bundle? Existing orders aren't affected.`)) return;
-    const { ok, data } = await send(`/api/gigs/${b.id}`, "DELETE");
-    if (!ok) alert(data.error || "Couldn't remove it");
-    onSaved();
+    const ok = await confirm({
+      title: `Remove the ${hoursLabel(b.minutes)} bundle?`,
+      body: "Existing orders aren't affected.",
+      confirmLabel: "Remove",
+      danger: true,
+      run: async () => {
+        const r = await send(`/api/gigs/${b.id}`, "DELETE");
+        if (!r.ok) return r.data.error || "Couldn't remove it";
+      },
+    });
+    if (ok) onSaved();
   }
 
   return (
     <section className="card stack">
+      {dialog}
       <div className="between" style={{ alignItems: "flex-start", flexWrap: "wrap" }}>
         <div className="stack-sm">
-          <h2 style={{ fontSize: 26 }}>Hour bundles</h2>
+          <h2 className="block-title">Hour bundles</h2>
           <span className="text-secondary">A block of hours bought up front, e.g. 3, 5 or 10. Each bundle can have its own per-hour rate (for example a small discount for 10 hours). Price = hours × rate.</span>
           <OfferGuideButton rateCents={rate} tab="hourly" className="btn-link small">When a bundle fits</OfferGuideButton>
         </div>
@@ -306,7 +316,7 @@ function BundleForm({ rate, bundle, taken, onCancel, onSaved }: { rate: number; 
 
   return (
     <div className="card stack" style={{ borderColor: "var(--tint-2)", boxShadow: "var(--shadow-sm)" }}>
-      <b style={{ fontSize: 18 }}>{bundle ? "Edit bundle" : "New hour bundle"}</b>
+      <b className="card-title">{bundle ? "Edit bundle" : "New hour bundle"}</b>
       <div className="field" style={{ marginBottom: 0 }}>
         <span className="field-label">Hours</span>
         <Seg label="Hours in the bundle" options={BUNDLE_HOURS.map((h) => ({ value: String(h), label: `${h} hours` }))} value={String(hours)} onChange={(v) => setHours(Number(v))} />
@@ -334,19 +344,28 @@ const EMPTY_PKG: PkgForm = { title: "", description: "", hours: "3", format: "",
 
 function PackagesCard({ rate, packages, onSaved }: { rate: number; packages: any[]; onSaved: () => void }) {
   const [editing, setEditing] = useState<string | "new" | null>(null);
+  const { confirm, dialog } = useConfirm();
 
   async function remove(g: any) {
-    if (!confirm(`Remove "${g.title}"? It disappears from your profile. Existing orders aren't affected.`)) return;
-    const { ok, data } = await send(`/api/gigs/${g.id}`, "DELETE");
-    if (!ok) alert(data.error || "Couldn't remove the package");
-    onSaved();
+    const ok = await confirm({
+      title: `Remove "${g.title}"?`,
+      body: "It disappears from your profile. Existing orders aren't affected.",
+      confirmLabel: "Remove",
+      danger: true,
+      run: async () => {
+        const r = await send(`/api/gigs/${g.id}`, "DELETE");
+        if (!r.ok) return r.data.error || "Couldn't remove the package";
+      },
+    });
+    if (ok) onSaved();
   }
 
   return (
     <section className="card stack">
+      {dialog}
       <div className="between" style={{ alignItems: "flex-start", flexWrap: "wrap" }}>
         <div className="stack-sm">
-          <h2 style={{ fontSize: 26 }}>Specialized packages</h2>
+          <h2 className="block-title">Specialized packages</h2>
           <span className="text-secondary">A titled package with what&apos;s included and your estimate of the hours it takes. If it takes longer, the student adds hours. Price = estimated hours × rate.</span>
           <OfferGuideButton rateCents={rate} tab="packages" className="btn-link small">See example packages</OfferGuideButton>
         </div>
@@ -381,7 +400,7 @@ function PackagesCard({ rate, packages, onSaved }: { rate: number; packages: any
             )}
             <div className="stack-sm" style={{ padding: "16px 20px 20px" }}>
               <div className="between" style={{ alignItems: "flex-start" }}>
-                <b style={{ fontSize: 18 }}>{g.title}</b>
+                <b className="card-title">{g.title}</b>
                 <span className="display nowrap" style={{ fontSize: 24 }}>{money(g.price)}</span>
               </div>
               <div className="pkg-meta">
@@ -450,7 +469,7 @@ function PackageForm({ rate, initial, gigId, onCancel, onSaved }: { rate: number
 
   return (
     <div className="card stack" style={{ borderColor: "var(--tint-2)", boxShadow: "var(--shadow-sm)" }}>
-      <b style={{ fontSize: 18 }}>{gigId ? "Edit package" : "New specialized package"}</b>
+      <b className="card-title">{gigId ? "Edit package" : "New specialized package"}</b>
       <label className="field" style={{ marginBottom: 0 }}>
         <span className="field-label">Title<span className="req" aria-hidden="true"> *</span></span>
         <input className="input" maxLength={120} value={f.title} onChange={(e) => set({ title: e.target.value })} placeholder="e.g. Personal statement, start to finish" />
