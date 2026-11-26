@@ -7,7 +7,7 @@ import { dayString, dayWord, firstName, fmtDateTime, fmtDay, fmtMonth, fmtMonthD
 import { CANCEL_CUTOFF_HOURS, canChangeOnline, isLateChange, LATE_REASON_MIN } from "../lib/orders";
 import { useOverlay } from "../lib/overlay";
 import { fonts, useColors } from "../lib/theme";
-import { Btn, Card, FChip, FChipRow, H, Icon, Link, Note, RowV, Small, TT } from "./ui";
+import { Btn, Card, FChip, LoadError, Loading, FChipRow, H, Icon, Link, Note, RowV, Small, TT } from "./ui";
 
 // The mentor side of the app, against the real website (mentorsmd.com):
 // mentor-only settings and wording, and the small pieces several mentor
@@ -55,16 +55,6 @@ export function useReloadOnFocus(reload: () => void) {
 export const openSite = (path: string) => WebBrowser.openBrowserAsync(SITE + path);
 
 // ---------- small pieces ----------
-export function ErrorBox({ error, onRetry }: { error: string; onRetry?: () => void }) {
-  const c = useColors();
-  return (
-    <Card tone="danger">
-      <Note style={{ color: c.danger }}>{error}</Note>
-      {onRetry ? <Link label="Try again" onPress={onRetry} /> : null}
-    </Card>
-  );
-}
-
 export function ErrText({ children }: { children: ReactNode }) {
   const c = useColors();
   return children ? <Small style={{ color: c.danger }}>{children}</Small> : null;
@@ -277,7 +267,7 @@ export function CallSheet({ call, onChanged }: { call: CallRowData; onChanged: (
         <H>Reschedule the Call</H>
         <Note>Now: {fmtDateTime(call.startTime)}. Pick a new time; you’ll both get an email with the updated calendar invite.</Note>
         {late ? <Card tone="warn"><Note style={{ color: c.warnFg }}>Less than {CANCEL_CUTOFF_HOURS} hours to go: moving it needs a short reason that’s sent to {who}.</Note></Card> : null}
-        {slotsError ? <ErrorBox error={slotsError} onRetry={loadSlots} /> : !slots ? <Small>Loading open times…</Small> : !slots.length ? (
+        {slotsError ? <LoadError error={slotsError} onRetry={loadSlots} title="Couldn’t load open times" /> : !slots ? <Loading label="Loading open times" /> : !slots.length ? (
           <Note>No open times in your call hours right now. Change your call hours on mentorsmd.com, or agree a time with {who} in messages.</Note>
         ) : (
           <>

@@ -454,17 +454,6 @@ export function SettingsScreenBody({ role }: { role: "student" | "mentor" }) {
   );
 }
 
-// A screen's "couldn't load" card with Try again.
-export function LoadError({ error, onRetry, title = "Couldn’t load this" }: { error: string; onRetry: () => void; title?: string }) {
-  return (
-    <Card tone="warn">
-      <TT>{title}</TT>
-      <Note>{error}</Note>
-      <Btn kind="line" sm label="Try again" onPress={onRetry} />
-    </Card>
-  );
-}
-
 // Reloads a screen's data each time it comes back into view, and every
 // `everyMs` while it's on screen (e.g. the unread count, an open chat).
 export function useRefresh(reload: () => void, everyMs?: number) {

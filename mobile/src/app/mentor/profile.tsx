@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { View } from "react-native";
-import { Av, Bar, Btn, Card, Eyebrow, Grow, Icon, Loading, Note, Row, Screen, Sec, Small, SS, TT, Hdr } from "../../components/ui";
-import { ErrorBox, openSite, useReloadOnFocus } from "../../components/mentorSheets";
+import { Av, Bar, Btn, Card, Eyebrow, Grow, Hdr, Icon, LoadError, Loading, Note, Row, Screen, Sec, Small, SS, TT } from "../../components/ui";
+import { openSite, useReloadOnFocus } from "../../components/mentorSheets";
 import { useApi } from "../../lib/api";
 import { useColors } from "../../lib/theme";
 import { initialsOf } from "../../lib/format";
@@ -28,7 +28,7 @@ export default function MyProfile() {
   return (
     <Screen>
       <Hdr title="My Profile" sub={prog ? (prog.complete ? "Complete" : `${prog.done} of ${prog.total} steps done`) : undefined} />
-      {q.loading && !p ? <Loading /> : !p ? <ErrorBox error={q.error || "Couldn’t load your profile"} onRetry={q.reload} /> : (
+      {q.loading && !p ? <Loading /> : !p ? <LoadError error={q.error || "Couldn’t load your profile"} onRetry={q.reload} /> : (
         <>
           <Card row>
             <Av init={initialsOf(p.name)} photo={p.photoUrl} size={56} />

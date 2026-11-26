@@ -1,8 +1,8 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
-import { LoadError, SlotPicker, usePaySheet } from "../../components/shared";
-import { Btn, Card, Hdr, Loading, Note, Row, Screen, Seg, Small, TT } from "../../components/ui";
+import { SlotPicker, usePaySheet } from "../../components/shared";
+import { Btn, Card, Hdr, LoadError, Loading, Note, Row, Screen, Seg, Small, TT } from "../../components/ui";
 import { api, dollars, errorText, useApi } from "../../lib/api";
 import { useOverlay } from "../../lib/overlay";
 import { shortHours } from "../../lib/orders";

@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { View } from "react-native";
-import { Av, Loading, Note, Row, Screen, SS, T } from "../../../components/ui";
-import { ErrorBox, useReloadOnFocus } from "../../../components/mentorSheets";
+import { Av, EmptyState, LoadError, Loading, Row, Screen, SS, T } from "../../../components/ui";
+import { useReloadOnFocus } from "../../../components/mentorSheets";
 import { useApi } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth";
 import { useColors } from "../../../lib/theme";
@@ -30,8 +30,8 @@ export default function MentorMessages() {
   return (
     <Screen>
       <T>Messages</T>
-      {q.loading && !q.data ? <Loading /> : q.error && !q.data ? <ErrorBox error={q.error} onRetry={q.reload} /> : !list.length ? (
-        <Note>No messages yet. When a student writes to you, the conversation shows up here.</Note>
+      {q.loading && !q.data ? <Loading /> : q.error && !q.data ? <LoadError error={q.error} onRetry={q.reload} /> : !list.length ? (
+        <EmptyState title="No messages yet">When a student writes to you, the conversation shows up here.</EmptyState>
       ) : (
         <View>
           {list.map((cv, i) => {

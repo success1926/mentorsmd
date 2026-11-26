@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Av, Bar, Card, Chip, FChip, FChipRow, Grow, Loading, Note, RowV, Screen, SS, StatusBadge, T, TT } from "../../../components/ui";
-import { ErrorBox, useReloadOnFocus } from "../../../components/mentorSheets";
+import { Av, Bar, Card, Chip, EmptyState, FChip, FChipRow, Grow, LoadError, Loading, Note, RowV, Screen, SS, StatusBadge, T, TT } from "../../../components/ui";
+import { useReloadOnFocus } from "../../../components/mentorSheets";
 import { useApi } from "../../../lib/api";
 import { finishPhase, hoursSummary, isLowOnHours, shortHours } from "../../../lib/orders";
 import { initialsOf } from "../../../lib/format";
@@ -33,11 +33,13 @@ export default function Students() {
     <Screen>
       <T>Students & Packages</T>
       <Note>Every package students have bought from you, with the hours used and left.</Note>
-      {pk.loading && !pk.data ? <Loading /> : pk.error && !pk.data ? <ErrorBox error={pk.error} onRetry={reload} /> : (
+      {pk.loading && !pk.data ? <Loading /> : pk.error && !pk.data ? <LoadError error={pk.error} onRetry={reload} /> : (
         <>
           <FChipRow>{FILTERS.map(([k, l]) => <FChip key={k} label={`${l} ${count(k)}`} on={filter === k} onPress={() => setFilter(k)} />)}</FChipRow>
           {!shown.length ? (
-            <Note>{filter === "active" ? "No active packages right now. When a student buys hours or a package from you, it shows up here." : filter === "waiting" ? "Nothing is waiting on a student." : "No completed packages yet."}</Note>
+            filter === "active" ? <EmptyState title="No active packages right now">When a student buys hours or a package from you, it shows up here.</EmptyState>
+              : filter === "waiting" ? <EmptyState title="Nothing is waiting on a student" />
+              : <EmptyState title="No completed packages yet" />
           ) : shown.map((p) => {
             const h = hoursSummary(p);
             return (

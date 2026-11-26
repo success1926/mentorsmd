@@ -1,8 +1,8 @@
 import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
-import { Btn, Eyebrow, Field, H, Link, Loading, Note, Row, Screen, Sec, SecH, Seg, Small, SS, T } from "../../../components/ui";
-import { BOOKING_WINDOW_OPTIONS, CallSheet, DayGrid, ErrText, ErrorBox, openSite, useConfirm, useReloadOnFocus } from "../../../components/mentorSheets";
+import { Btn, Eyebrow, Field, H, Link, LoadError, Loading, Note, Row, Screen, Sec, SecH, Seg, Small, SS, T } from "../../../components/ui";
+import { BOOKING_WINDOW_OPTIONS, CallSheet, DayGrid, ErrText, openSite, useConfirm, useReloadOnFocus } from "../../../components/mentorSheets";
 import { api, errorText, useApi } from "../../../lib/api";
 import { useOverlay } from "../../../lib/overlay";
 import { dayString, dayWord, fmtDayString, fmtTime, minutesBetween } from "../../../lib/format";
@@ -85,7 +85,7 @@ export default function MentorCalendar() {
         <>
           <Sec>
             <Eyebrow>Upcoming calls</Eyebrow>
-            {cal.error ? <ErrorBox error={cal.error} onRetry={cal.reload} /> : upcoming.length ? (
+            {cal.error ? <LoadError error={cal.error} onRetry={cal.reload} /> : upcoming.length ? (
               <View>
                 {upcoming.map((x, i) => {
                   const open = joinState(x) === "open";
@@ -102,7 +102,7 @@ export default function MentorCalendar() {
 
           <Sec>
             <SecH><Eyebrow>Call hours</Eyebrow><Link label="Edit on mentorsmd.com" onPress={() => openSite("/dashboard/availability#call-hours")} /></SecH>
-            {prof.error ? <ErrorBox error={prof.error} onRetry={prof.reload} /> : p ? (
+            {prof.error ? <LoadError error={prof.error} onRetry={prof.reload} /> : p ? (
               <>
                 {!p.hasAvailability ? <Note>No call hours yet. Set your call hours so students can book the calls in your packages.</Note> : (
                   <View>
@@ -126,7 +126,7 @@ export default function MentorCalendar() {
 
           <Sec>
             <SecH><Eyebrow>Busy dates</Eyebrow><Link label="Add busy dates" onPress={() => openSheet(() => <AddBusySheet onAdded={(d) => busy.setData(d)} />)} /></SecH>
-            {busy.error ? <ErrorBox error={busy.error} onRetry={busy.reload} /> : busy.loading && !busy.data ? <Loading /> : busyList.length ? (
+            {busy.error ? <LoadError error={busy.error} onRetry={busy.reload} /> : busy.loading && !busy.data ? <Loading /> : busyList.length ? (
               <View>
                 {busyList.map((b, i) => (
                   <Row key={b.id} tt={`${fmtDayString(b.startDay)}${b.endDay !== b.startDay ? ` – ${fmtDayString(b.endDay)}` : ""}`} ss={b.note || undefined} rr="Remove" onPress={() => removeBusy(b)} last={i === busyList.length - 1} />

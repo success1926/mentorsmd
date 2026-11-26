@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { View } from "react-native";
-import { LoadError, useRefresh } from "../../../components/shared";
-import { Av, Btn, Card, Loading, Note, Row, Screen, Small, SS, T, TT } from "../../../components/ui";
+import { useRefresh } from "../../../components/shared";
+import { Av, EmptyState, LoadError, Loading, Row, Screen, Small, SS, T, TT } from "../../../components/ui";
 import { useApi } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth";
 import { shortHours } from "../../../lib/orders";
@@ -32,11 +32,9 @@ export default function Messages() {
       {list.loading && !list.data ? <Loading /> : null}
       {list.error && !list.data ? <LoadError error={list.error} onRetry={list.reload} title="Couldn’t load your messages" /> : null}
       {list.data && !rows.length ? (
-        <Card>
-          <TT>No messages yet</TT>
-          <Note>Messaging is free. Ask a mentor anything before you buy.</Note>
-          <Btn kind="line" sm label="Find a mentor" onPress={() => router.push("/student/find")} />
-        </Card>
+        <EmptyState title="No messages yet" action={{ label: "Find a mentor", onPress: () => router.push("/student/find") }}>
+          Messaging is free. Ask a mentor anything before you buy.
+        </EmptyState>
       ) : null}
       {rows.length ? (
         <View>

@@ -1,8 +1,8 @@
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import { View } from "react-native";
-import { Btn, Card, Chip, Collapsible, Grow, Hdr, KV, Link, Loading, Note, Screen, Small, SS, Stat, Stats, TT } from "../../components/ui";
-import { ErrText, ErrorBox, PAYOUT_STATUS_LABEL, payoutDayLabel, periodLabel, useReloadOnFocus } from "../../components/mentorSheets";
+import { Btn, Card, Chip, Collapsible, Grow, Hdr, KV, Link, LoadError, Loading, Note, Screen, Small, SS, Stat, Stats, TT } from "../../components/ui";
+import { ErrText, PAYOUT_STATUS_LABEL, payoutDayLabel, periodLabel, useReloadOnFocus } from "../../components/mentorSheets";
 import { api, dollars, errorText, SITE, useApi } from "../../lib/api";
 import { useColors } from "../../lib/theme";
 import { PLATFORM_FEE_PERCENT } from "../../lib/fee";
@@ -55,7 +55,7 @@ export default function Payouts() {
           <Grow><TT>Bank account</TT></Grow>
           {s ? <Chip label={s.connected ? "Connected" : s.started ? "Setup not finished" : "Not connected"} tone={s.connected ? "ok" : "warn"} /> : null}
         </View>
-        {st.loading && !s ? <SS>Checking status…</SS> : st.error && !s ? <ErrorBox error={st.error} onRetry={st.reload} /> : s?.connected ? (
+        {st.loading && !s ? <SS>Checking status…</SS> : st.error && !s ? <LoadError error={st.error} onRetry={st.reload} /> : s?.connected ? (
           <Note>You’re set. Your monthly payout goes to your bank automatically on the 24th.</Note>
         ) : s ? (
           <>
@@ -73,7 +73,7 @@ export default function Payouts() {
         <Link label="Refresh status" onPress={st.reload} />
       </Card>
 
-      {pay.loading && !p ? <Loading /> : !p ? <ErrorBox error={pay.error || "Couldn’t load your earnings"} onRetry={pay.reload} /> : (
+      {pay.loading && !p ? <Loading /> : !p ? <LoadError error={pay.error || "Couldn’t load your earnings"} onRetry={pay.reload} /> : (
         <>
           <Stats>
             <Stat label="Earned, not yet paid" value={dollars(p.unpaidCents)} />

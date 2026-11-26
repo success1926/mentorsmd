@@ -2,8 +2,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
 import { useSafetySheet } from "../../../components/safety";
-import { Bar, Btn, Card, Chip, Collapsible, Eyebrow, Field, H, Hdr, KV, Link, Loading, Note, Row, RowV, Screen, Sec, SecH, Seg, Small, SS, StatusBadge, TT } from "../../../components/ui";
-import { CallSheet, DayChips, ErrText, ErrorBox, WarningsCard, useConfirm, useReloadOnFocus, warningsOf, type Warning } from "../../../components/mentorSheets";
+import { Bar, Btn, Card, Chip, Collapsible, Eyebrow, Field, H, Hdr, KV, Link, LoadError, Loading, Note, Row, RowV, Screen, Sec, SecH, Seg, Small, SS, StatusBadge, TT } from "../../../components/ui";
+import { CallSheet, DayChips, ErrText, WarningsCard, useConfirm, useReloadOnFocus, warningsOf, type Warning } from "../../../components/mentorSheets";
 import { api, dollars, errorText, useApi } from "../../../lib/api";
 import { useOverlay } from "../../../lib/overlay";
 import { useColors } from "../../../lib/theme";
@@ -22,7 +22,7 @@ export default function MentorPackage() {
   useReloadOnFocus(q.reload);
   const o = q.data?.order;
   if (q.loading && !o) return <Screen><Hdr title="Package" /><Loading /></Screen>;
-  if (!o) return <Screen><Hdr title="Package" /><ErrorBox error={q.error || "Package not found"} onRetry={q.reload} /></Screen>;
+  if (!o) return <Screen><Hdr title="Package" /><LoadError error={q.error || "Package not found"} onRetry={q.reload} /></Screen>;
   return <HoursPackage o={o} reload={q.reload} />;
 }
 

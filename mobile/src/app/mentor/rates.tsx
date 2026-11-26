@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Text, View } from "react-native";
-import { Btn, Card, Eyebrow, FChip, Field, H, Hdr, Link, Loading, Note, Price, Row, RowV, Screen, Sec, SecH, Small, SS, Toggle, TT } from "../../components/ui";
-import { BUNDLE_HOURS, ErrText, ErrorBox, RATE_RULE, openSite, useConfirm, useReloadOnFocus } from "../../components/mentorSheets";
+import { Btn, Card, Eyebrow, FChip, Field, H, Hdr, Link, LoadError, Loading, Note, Price, Row, RowV, Screen, Sec, SecH, Small, SS, Toggle, TT } from "../../components/ui";
+import { BUNDLE_HOURS, ErrText, RATE_RULE, openSite, useConfirm, useReloadOnFocus } from "../../components/mentorSheets";
 import { api, dollars, errorText, useApi } from "../../lib/api";
 import { useOverlay } from "../../lib/overlay";
 import { fonts } from "../../lib/theme";
@@ -69,7 +69,7 @@ export default function Rates() {
   return (
     <Screen>
       <Hdr title="Rates & Packages" />
-      {q.loading && !d ? <Loading /> : !d ? <ErrorBox error={q.error || "Couldn’t load your offers"} onRetry={q.reload} /> : (
+      {q.loading && !d ? <Loading /> : !d ? <LoadError error={q.error || "Couldn’t load your offers"} onRetry={q.reload} /> : (
         <>
           <Card>
             <Field label="Your hourly rate (USD)" value={shown} onChange={setRate} numeric placeholder="e.g. 100" />

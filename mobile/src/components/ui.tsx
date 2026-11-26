@@ -80,6 +80,29 @@ export function Loading({ label }: { label?: string }) {
   );
 }
 
+// A list with nothing in it yet: a title, what will show here, and an
+// optional next step. The one empty-state look for the app.
+export function EmptyState({ title, children, action }: { title: string; children?: ReactNode; action?: { label: string; onPress: () => void } }) {
+  return (
+    <Card>
+      <TT>{title}</TT>
+      {children ? <Note>{children}</Note> : null}
+      {action ? <Btn kind="line" sm label={action.label} onPress={action.onPress} /> : null}
+    </Card>
+  );
+}
+
+// "Couldn't load this" with Try again: the one error card for the app.
+export function LoadError({ error, onRetry, title = "Couldn’t load this" }: { error: string; onRetry?: () => void; title?: string }) {
+  return (
+    <Card tone="warn">
+      <TT>{title}</TT>
+      <Note>{error}</Note>
+      {onRetry ? <Btn kind="line" sm label="Try again" onPress={onRetry} /> : null}
+    </Card>
+  );
+}
+
 // ---------- text ----------
 type TP = { children: ReactNode; style?: StyleProp<TextStyle>; numberOfLines?: number };
 export function T({ children, style }: TP) {

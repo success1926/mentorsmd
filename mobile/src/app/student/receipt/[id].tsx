@@ -1,7 +1,6 @@
 import { useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { LoadError } from "../../../components/shared";
-import { Btn, Card, Hdr, KV, Loading, Screen, Small } from "../../../components/ui";
+import { Btn, Card, Hdr, KV, LoadError, Loading, Screen, Small } from "../../../components/ui";
 import { dollars, SITE, useApi } from "../../../lib/api";
 import { hoursLabel, pkgTitle, type Pkg } from "../../../lib/orders";
 import { fmtDay } from "../../../lib/format";

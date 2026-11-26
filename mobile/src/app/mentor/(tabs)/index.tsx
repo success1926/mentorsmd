@@ -1,8 +1,8 @@
 import { useRouter } from "expo-router";
 import { useCallback } from "react";
 import { View } from "react-native";
-import { Bar, Btn, Card, Chip, Eyebrow, Grow, Link, Loading, Note, Row, RowV, Screen, Sec, SecH, SS, Stat, Stats, StatusBadge, T, TT } from "../../../components/ui";
-import { ErrorBox, openSite, payoutDayLabel, useReloadOnFocus } from "../../../components/mentorSheets";
+import { Bar, Btn, Card, Chip, Eyebrow, Grow, Link, LoadError, Loading, Note, Row, RowV, Screen, Sec, SecH, SS, Stat, Stats, StatusBadge, T, TT } from "../../../components/ui";
+import { openSite, payoutDayLabel, useReloadOnFocus } from "../../../components/mentorSheets";
 import { dollars, useApi } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth";
 import { PLATFORM_FEE_PERCENT } from "../../../lib/fee";
@@ -71,9 +71,9 @@ export default function MentorHome() {
         <Eyebrow>{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</Eyebrow>
         <T>Hi{first ? `, ${first}` : ""}</T>
       </View>
-      {loading ? <Loading /> : error && !nav.data ? <ErrorBox error={error} onRetry={reloadAll} /> : (
+      {loading ? <Loading /> : error && !nav.data ? <LoadError error={error} onRetry={reloadAll} /> : (
         <>
-          {error ? <ErrorBox error={error} onRetry={reloadAll} /> : null}
+          {error ? <LoadError error={error} onRetry={reloadAll} /> : null}
           <Stats>
             <Stat label="Earned this month (not yet paid)" value={pay.data ? dollars(pay.data.unpaidCents) : "…"} onPress={() => router.push("/mentor/payouts")} />
             <Stat label="Next payout" value={pay.data ? payoutDayLabel(pay.data.nextPayoutDay) : "…"} onPress={() => router.push("/mentor/payouts")} />
