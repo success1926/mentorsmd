@@ -5,10 +5,12 @@ import { CompareToggle, CompareTray, compareSnapshot, useCompare } from "@/compo
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Icon, ICONS, Rating, tintFor, initialsOf } from "@/components/ui";
+import { EmptyState, Icon, ICONS, Rating, tintFor, initialsOf } from "@/components/ui";
+import { fmtDateTime, fmtDay } from "@/lib/format";
+import { profileBasics } from "./profileData";
 import { StarsFill } from "@/components/Moments";
 import { MOMENTS } from "@/lib/moments";
-import { SchoolLogo, ClientSchools } from "@/components/SchoolLogo";
+import { SchoolLogo } from "@/components/SchoolLogo";
 import type { LogoMap } from "@/lib/schoolLogoKey";
 import { Modal } from "@/components/Modal";
 import { Rail } from "@/components/Rail";
@@ -17,27 +19,11 @@ import { Booker } from "@/components/Booker";
 import { AboutYouNudge } from "@/components/AboutYouNudge";
 import { ConfirmEmailNotice, ReportDialog, SendWarnings, setBlocked, type SendWarning } from "@/components/Safety";
 import { trackEvent } from "@/components/Tracker";
-import {
-  ADMISSIONS_ROLE_TYPES,
-  BEST_FOR,
-  FORMATS,
-  INTRO_CALL_MINUTES,
-  LANGUAGE_LEVELS,
-  SCHOOL_TYPES,
-  credentialLine,
-  mentorRank,
-  mentorSchoolName,
-  mentorStageTag,
-  specialtiesOf,
-  STRONGEST_STAGES,
-  labelFor,
-  money,
-  serviceLabel,
-} from "@/lib/options";
+import { FORMATS, INTRO_CALL_MINUTES, SCHOOL_TYPES, credentialLine, labelFor, money, serviceLabel } from "@/lib/options";
 import { hoursLabel, priceMath } from "@/lib/pricing";
 import { splitCredit } from "@/lib/hours";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
-import type { AdmissionsRole, Language } from "@/lib/profileCompleteness";
+import type { Language } from "@/lib/profileCompleteness";
 import { useAdminDialog } from "@/components/admin/AdminDialog";
 
 // A mentor's public profile (docs/redesign-2026-10.md sections 1 and 2,
@@ -48,6 +34,9 @@ import { useAdminDialog } from "@/components/admin/AdminDialog";
 // row, "Buy hours" (1 hour or a bundle) and reviews. Right: Book a free
 // 15-minute intro call / Message. Every Details / Buy /
 // intro call / message action opens as a pop-up here, never a new page.
+// The sections that don't change (About ... Fun fact, the reviews list)
+// are rendered on the server (ProfileStatic.tsx) and come in as `body`
+// and `reviewList`.
 
 export type PublicOffer = {
   id: string;
@@ -79,9 +68,9 @@ type Unlock = {
 type Dialog = null | { t: "all" } | { t: "details"; offerId: string; fromAll?: boolean } | { t: "intro" } | { t: "message" };
 
 const LOCKED_TEXT = "Message or book an intro call to unlock";
+const INTRO_TEXT = "Say hello, talk through where you are in your application, and see if you're a good fit. There's nothing to pay. One intro call per mentor.";
 
-const fmtWhen = (iso: string) =>
-  new Date(iso).toLocaleString(undefined, { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" });
+const fmtWhen = (iso: string) => fmtDateTime(iso, { zone: true });
 
 function offerLabel(o: PublicOffer) {
   if (o.kind === "HOURLY") return "1 hour";
@@ -118,7 +107,7 @@ function NotVisibleTag() {
   return <span className="preview-tag" title="Only you can see this in preview">Not visible to students</span>;
 }
 
-export function ProfileClient({ seller, offers, reviews, previewState = null, logos = {} }: { seller: any; offers: Offers; reviews: any[]; previewState?: PreviewState; logos?: LogoMap }) {
+export function ProfileClient({ seller, offers, reviews, previewState = null, logos = {}, body, reviewList }: { seller: any; offers: Offers; reviews: any[]; previewState?: PreviewState; logos?: LogoMap; body: React.ReactNode; reviewList: React.ReactNode }) {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -126,7 +115,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
   const isBuyer = role === "BUYER";
   const isSelf = (session?.user as any)?.id === seller.id;
   const preview = isSelf && previewState !== null;
-  const first = seller.name.split(" ")[0];
+  const { first, reviewCount, avg, bestFor, school, rank, clientSchools, specialties, roles, highlights, knownFor, languages, facts } = profileBasics(seller, offers, reviews);
   const loginHref = `/login?callbackUrl=${encodeURIComponent(`/mentors/${seller.id}`)}`;
 
   const [unlock, setUnlock] = useState<Unlock | null>(null);
@@ -176,37 +165,19 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const ask = useAdminDialog();
   async function toggleBlock(block: boolean) {
-    if (block && !confirm(`Block ${seller.name}? Neither of you will be able to message the other.`)) return;
+    if (block && !(await ask.confirm({ title: `Block ${seller.name}?`, body: "Neither of you will be able to message the other.", confirmLabel: "Block", cancelLabel: "Keep it", danger: true }))) return;
     try {
       await setBlocked(seller.id, block);
       setBlockedState({ iBlocked: block, theyBlocked: blocked?.theyBlocked || false });
     } catch (e: any) {
-      alert(e.message);
+      await ask.notify("Couldn't update", e.message);
     }
   }
 
-  // Count and average over all reviews (from the server); only the newest
-  // 50 are listed, so they're the fallback, not the source.
-  const reviewCount: number = typeof seller.reviewCount === "number" ? seller.reviewCount : reviews.length;
-  const avg: number | null =
-    typeof seller.avgRating === "number" ? seller.avgRating : reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : null;
-  const bestFor: string[] = [...(seller.bestFor || []).map((b: string) => labelFor(BEST_FOR, b)), ...(seller.bestForOther ? [seller.bestForOther] : [])];
   const closeDialog = () => setDialog(null);
   const current = dialog?.t === "details" ? allOffers.find((o) => o.id === dialog.offerId) : null;
-  const school = mentorSchoolName(seller);
-  const rank = mentorRank(seller.mentorStage) || mentorStageTag(seller.mentorStage);
-  const clientSchools: string[] = seller.clientSchools || [];
-  const specialties = specialtiesOf(seller.strongestStages, offers.packages.map((p) => p.service));
-  const roles: AdmissionsRole[] = seller.admissionsRoles || [];
-  // The quick facts under the header.
-  const facts: { value: string; label: string }[] = [
-    ...(typeof seller.yearsAdvising === "number" && seller.yearsAdvising > 0 ? [{ value: `${seller.yearsAdvising}+`, label: seller.yearsAdvising === 1 ? "year advising" : "years advising" }] : []),
-    ...(typeof seller.applicantsSupported === "number" && seller.applicantsSupported > 0 ? [{ value: `${seller.applicantsSupported}+`, label: "applicants helped" }] : []),
-    ...(roles.length > 0 ? [{ value: String(roles.length), label: roles.length === 1 ? "admissions role" : "admissions roles" }] : []),
-    ...(clientSchools.length > 0 ? [{ value: String(clientSchools.length), label: clientSchools.length === 1 ? "school students got into" : "schools students got into" }] : []),
-    ...(reviewCount > 0 && avg !== null ? [{ value: `${avg.toFixed(1)}★`, label: `${reviewCount} ${reviewCount === 1 ? "review" : "reviews"}` }] : []),
-  ].slice(0, 4);
   // "Buy hours": 1 hour, then each bundle.
   const hourOptions = [...(offers.hourly ? [offers.hourly] : []), ...offers.bundles];
 
@@ -277,9 +248,6 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
     );
 
   // Sections, in page order, for the menu at the top of the right column.
-  const highlights: string[] = seller.highlights || [];
-  const knownFor: string[] = seller.knownFor || [];
-  const languages: Language[] = seller.languages || [];
   const sections: { id: string; label: string }[] = [
     ...(seller.bio || facts.length || clientSchools.length ? [{ id: "about", label: "About" }] : []),
     ...(knownFor.length ? [{ id: "known", label: "Known for" }] : []),
@@ -295,9 +263,9 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
   return (
     <div className="pf">
       <section className="pf-hero">
-        <div className="blob" style={{ left: -120, top: 10, width: 520, height: 260, background: "rgba(228,238,255,0.9)", filter: "blur(50px)" }} />
-        <div className="blob" style={{ right: -80, top: -60, width: 560, height: 300, background: "rgba(245,185,205,0.45)", filter: "blur(60px)" }} />
-        <div className="blob" style={{ left: "35%", top: -80, width: 520, height: 200, background: "rgba(207,196,255,0.45)", filter: "blur(60px)" }} />
+        <div className="blob pf-blob-1" />
+        <div className="blob pf-blob-2" />
+        <div className="blob pf-blob-3" />
         <div className="pf-wrap stack" style={{ gap: 16 }}>
           {preview && previewState ? (
             <div className="preview-banner" role="note">
@@ -336,7 +304,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
               <div className="pf-photo">
                 {seller.photoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={seller.photoUrl} alt={seller.name} />
+                  <img src={seller.photoUrl} alt={seller.name} width={330} height={330} sizes="(max-width: 900px) 100vw, 330px" decoding="async" fetchPriority="high" />
                 ) : (
                   <span className="avatar" style={{ background: tintFor(seller.id) }}>{initialsOf(seller.name)}</span>
                 )}
@@ -449,7 +417,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
           <div className="pf-main">
             {!seller.available && (
               <div className="alert alert-warning" style={{ marginBottom: 16 }}>
-                <b>{first} is away{seller.pausedUntil ? ` until ${new Date(seller.pausedUntil).toLocaleDateString(undefined, { month: "long", day: "numeric", timeZone: "UTC" })}` : ""}.</b>{" "}
+                <b>{first} is away{seller.pausedUntil ? ` until ${fmtDay(seller.pausedUntil, { timeZone: "UTC" })}` : ""}.</b>{" "}
                 {seller.status === "REMOVED" ? "This profile has been removed." : seller.awayNote || "New orders are paused for now."}
               </div>
             )}
@@ -461,76 +429,14 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
 
             <SectionNav sections={sections} />
 
-            {sections.some((s) => s.id === "about") && (
-              <section id="pf-about" className="pf-sec" aria-labelledby="about-title">
-                <span className="eyebrow">About {first}</span>
-                {knownFor[0] && <h2 id="about-title" className="pf-lead-title">{knownFor[0]}<span style={{ color: "var(--primary)" }}>.</span></h2>}
-                {!knownFor[0] && <h2 id="about-title" className="sr-only">About {first}</h2>}
-                {seller.bio && <p className="pf-bio">{seller.bio}</p>}
-                {facts.length > 0 && (
-                  <ul className="profile-facts">
-                    {facts.map((f) => (
-                      <li key={f.label}>
-                        <b>{f.value}</b>
-                        <span>{f.label}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {clientSchools.length > 0 && (
-                  <div className="profile-panel">
-                    <ClientSchools schools={clientSchools} logos={logos} size={44} label={`${first}'s students got into:`} />
-                  </div>
-                )}
-              </section>
-            )}
-
-            {knownFor.length > 0 && (
-              <section id="pf-known" className="pf-sec" aria-labelledby="known-title">
-                <h2 id="known-title">What {first} is <em>known for</em></h2>
-                <div className="pf-known">
-                  {knownFor.map((t, i) => (
-                    <div key={i}>
-                      <span aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
-                      {t}
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {(specialties.length > 0 || bestFor.length > 0) && (
-              <section id="pf-specialties" className="pf-sec" aria-labelledby="specialties-title">
-                <h2 id="specialties-title">Specialties</h2>
-                <div className="pf-two">
-                  {specialties.length > 0 && (
-                    <div className="stack-sm">
-                      <span className="pf-label">What {first} helps with</span>
-                      <div className="row-wrap" style={{ gap: 8 }}>
-                        {specialties.map((t) => <span key={t} className="badge badge-brand badge-lg">{t}</span>)}
-                      </div>
-                    </div>
-                  )}
-                  {bestFor.length > 0 && (
-                    <div className="stack-sm">
-                      <span className="pf-label">Best for</span>
-                      <div className="row-wrap" style={{ gap: 6 }}>
-                        {bestFor.map((t) => <span key={t} className="badge badge-lg">{t}</span>)}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </section>
-            )}
-
-            <ProfileSections seller={seller} first={first} />
+            {body}
 
             {/* ---------- Packages ---------- */}
             {offers.packages.length > 0 && (
               <section id="pf-packages" className="pf-sec" aria-labelledby="packages-title">
                 <h2 id="packages-title">
-                  <button type="button" className="link-btn" style={{ textDecoration: "none", font: "inherit", color: "inherit" }} onClick={() => setDialog({ t: "all" })} aria-haspopup="dialog">
-                    Packages ({offers.packages.length}) <span aria-hidden="true" style={{ color: "var(--primary)" }}>→</span>
+                  <button type="button" className="link-btn pf-h-btn" onClick={() => setDialog({ t: "all" })} aria-haspopup="dialog">
+                    Packages <span className="tab-count">{offers.packages.length}</span> <span aria-hidden="true" className="pf-dot">→</span>
                   </button>
                 </h2>
                 <Rail className="pkg-row" label="Specialized packages">
@@ -539,14 +445,14 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
                       <div className={`pkg-tile-cover ${p.coverUrl ? "has-photo" : ""}`}>
                         {p.coverUrl && (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={stripFocus(p.coverUrl)} alt="" loading="lazy" style={{ objectPosition: focusPosition(p.coverUrl) }} />
+                          <img src={stripFocus(p.coverUrl)} alt="" loading="lazy" decoding="async" width={320} height={140} style={{ objectPosition: focusPosition(p.coverUrl) }} />
                         )}
                         <b>{p.title}</b>
                       </div>
                       <div className="pkg-tile-body">
                         {p.hiddenFromStudents && <NotVisibleTag />}
                         <span className="text-muted small">About {hoursLabel(p.minutes)} · {labelFor(FORMATS, p.format)}</span>
-                        <span className="display" style={{ fontSize: 26 }}>{money(p.price)}</span>
+                        <span className="display pf-tile-price">{money(p.price)}</span>
                         <button className="btn btn-sm btn-soft" style={{ marginTop: "auto", alignSelf: "flex-start" }} onClick={() => setDialog({ t: "details", offerId: p.id })} aria-haspopup="dialog">
                           Details
                         </button>
@@ -558,9 +464,10 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
             )}
 
             {allOffers.length === 0 && (
-              <div className="empty" style={{ marginTop: 24 }}>
-                {first} hasn&apos;t set up their hours yet. You can still message them.
-                {preview && <> <Link href="/dashboard/packages" className="link">Set your rate</Link></>}
+              <div className="pf-empty-offers">
+                <EmptyState action={preview ? <Link href="/dashboard/packages" className="link">Set your rate</Link> : undefined}>
+                  {first} hasn&apos;t set up their hours yet. You can still message them.
+                </EmptyState>
               </div>
             )}
 
@@ -570,18 +477,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
                 <h2 id="reviews-title">Reviews</h2>
                 {avg !== null && <ReviewSummary avg={avg} count={reviewCount} />}
               </div>
-              {reviews.length === 0 && <div className="pf-noreviews"><b>No reviews yet</b><span>{first} is new to MentorsMD.</span></div>}
-              {reviews.map((r) => (
-                <div key={r.id} className="card stack-sm">
-                  <div className="between">
-                    <b>{r.author}</b>
-                    <span className="text-muted">{new Date(r.createdAt).toLocaleDateString(undefined, { month: "short", year: "numeric", timeZone: "UTC" })}</span>
-                  </div>
-                  <span className="stars" aria-label={`${r.rating} out of 5 stars`}>{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
-                  {r.bought && <span className="text-muted small">Bought: {r.bought}</span>}
-                  {r.comment && <p style={{ lineHeight: 1.6 }}>{r.comment}</p>}
-                </div>
-              ))}
+              {reviewList}
             </section>
           </div>
         </div>
@@ -610,13 +506,12 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
       >
         {dialog?.t === "all" && (
           <div className="stack">
-            <h2 style={{ fontSize: 26, paddingRight: 36 }}>Packages ({offers.packages.length})</h2>
+            <h2 className="modal-title">Packages <span className="tab-count">{offers.packages.length}</span></h2>
             {offers.packages.map((p) => (
               <button
                 key={p.id}
                 type="button"
-                className="pkg-line"
-                style={{ border: "none", textAlign: "left", cursor: "pointer", width: "100%", font: "inherit", color: "inherit" }}
+                className="pkg-line pkg-line-btn"
                 onClick={() => setDialog({ t: "details", offerId: p.id, fromAll: true })}
               >
                 <span className="stack-sm" style={{ gap: 2, minWidth: 0 }}>
@@ -653,110 +548,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
         )}
       </Modal>
       {!preview && <CompareTray />}
-    </div>
-  );
-}
-
-// ---------------- Profile sections ----------------
-// The old "Read full bio" box, laid out as sections on the page (Nov 2026).
-
-function ProfileSections({ seller, first }: { seller: any; first: string }) {
-  const roles: AdmissionsRole[] = seller.admissionsRoles || [];
-  const languages: Language[] = seller.languages || [];
-  const stages: string[] = (seller.strongestStages || []).map((s: string) => labelFor(STRONGEST_STAGES, s));
-  const experience = [
-    ...roles.map((r) => ({ title: `${labelFor(ADMISSIONS_ROLE_TYPES, r.type)}${r.former ? " (former)" : ""}`, sub: [r.place, r.years].filter(Boolean).join(" · ") })),
-    ...(typeof seller.yearsAdvising === "number" ? [{ title: `${seller.yearsAdvising} ${seller.yearsAdvising === 1 ? "year" : "years"} advising applicants`, sub: "" }] : []),
-    ...(typeof seller.applicantsSupported === "number" ? [{ title: `About ${seller.applicantsSupported} applicants supported`, sub: "" }] : []),
-  ];
-  const highlights: string[] = seller.highlights || [];
-  return (
-    <>
-      {(experience.length > 0 || stages.length > 0) && (
-        <section id="pf-experience" className="pf-sec" aria-labelledby="experience-title">
-          <h2 id="experience-title">Admissions experience</h2>
-          {experience.length > 0 && (
-            <ul className="profile-timeline">
-              {experience.map((e, i) => (
-                <li key={i}>
-                  <b>{e.title}</b>
-                  {e.sub && <span className="text-secondary">{e.sub}</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-          {stages.length > 0 && (
-            <p className="text-secondary" style={{ marginTop: 4 }}>
-              <b style={{ color: "var(--ink)" }}>Strongest at:</b> {stages.join(", ")}
-            </p>
-          )}
-        </section>
-      )}
-
-      {highlights.length > 0 && (
-        <section id="pf-credentials" className="pf-sec" aria-labelledby="highlights-title">
-          <h2 id="highlights-title">Credentials &amp; <em>highlights</em></h2>
-          <ul className="pf-creds">
-            {highlights.map((t, i) => (
-              <li key={i}>
-                <span style={{ whiteSpace: "pre-wrap" }}>{t}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {(seller.specialtyInterest || seller.researchSummary) && (
-        <section id="pf-research" className="pf-sec" aria-labelledby="clinical-title">
-          <h2 id="clinical-title">Clinical &amp; research</h2>
-          {seller.specialtyInterest && <span className="pf-interest">Specialty interest: {seller.specialtyInterest}</span>}
-          {seller.researchSummary && <ReadMore text={seller.researchSummary} />}
-        </section>
-      )}
-
-      {(languages.length > 0 || seller.funFact) && (
-        <section id="pf-more" className="pf-sec" aria-label={languages.length && seller.funFact ? "Languages and fun fact" : languages.length ? "Languages" : "Fun fact"}>
-          <div className="pf-two">
-            {languages.length > 0 && (
-              <div className="stack" style={{ gap: 12 }}>
-                <h2>Languages</h2>
-                <div className="row-wrap" style={{ gap: 10 }}>
-                  {languages.map((l) => (
-                    <span key={l.name} className="pf-lang">
-                      <b>{l.name}</b>
-                      <small>{labelFor(LANGUAGE_LEVELS, l.level)}{l.canAdvise ? " · can advise in it" : ""}</small>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {seller.funFact && (
-              <div className="stack" style={{ gap: 12 }}>
-                <h2>Fun fact</h2>
-                <p className="pf-fun">{seller.funFact}</p>
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-    </>
-  );
-}
-
-// Long text: the first paragraph, with "Read more" for the rest.
-function ReadMore({ text }: { text: string }) {
-  const [open, setOpen] = useState(false);
-  const paras = text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
-  const long = paras.length > 1 || text.length > 700;
-  const shown = open || !long ? text : paras.length > 1 ? paras[0] : `${text.slice(0, 600).trimEnd()}…`;
-  return (
-    <div className="stack-sm">
-      <p className="text-secondary" style={{ lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{shown}</p>
-      {long && (
-        <button type="button" className="link-btn" style={{ alignSelf: "flex-start" }} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-          {open ? "Show less" : "Read more"}
-        </button>
-      )}
+      {ask.dialog}
     </div>
   );
 }
@@ -899,10 +691,10 @@ function OfferDetails({
       {fromAll && <button type="button" className="modal-back" onClick={onBack}>← All packages</button>}
       {offer.coverUrl && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={stripFocus(offer.coverUrl)} alt="" style={{ width: "100%", height: 160, objectFit: "cover", objectPosition: focusPosition(offer.coverUrl), borderRadius: 12 }} />
+        <img src={stripFocus(offer.coverUrl)} alt="" className="pf-offer-cover" width={640} height={160} decoding="async" style={{ objectPosition: focusPosition(offer.coverUrl) }} />
       )}
-      <div className="stack-sm" style={{ paddingRight: 36 }}>
-        <h2 style={{ fontSize: 26 }}>{offer.kind === "HOURLY" ? `1 hour with ${first}` : offerLabel(offer)}</h2>
+      <div className="stack-sm">
+        <h2 className="modal-title">{offer.kind === "HOURLY" ? `1 hour with ${first}` : offerLabel(offer)}</h2>
         <div className="pkg-meta">
           <span className="badge">{offer.kind === "SPECIALIZED" ? `About ${hoursLabel(offer.minutes)}` : hoursLabel(offer.minutes)}</span>
           <span className="badge badge-blue">{labelFor(FORMATS, offer.format) || "Calls + written"}</span>
@@ -998,9 +790,9 @@ function IntroCallPanel({ seller, first, unlock, unlockError, onChanged, onMessa
   }
 
   const header = (
-    <div className="stack-sm" style={{ paddingRight: 36 }}>
-      <h2 style={{ fontSize: 26 }}>Free {INTRO_CALL_MINUTES}-minute intro call with {first}</h2>
-      <span className="text-secondary">Say hello, talk through where you are in your application, and see if you&apos;re a good fit. There&apos;s nothing to pay. One intro call per mentor.</span>
+    <div className="stack-sm">
+      <h2 className="modal-title">Free {INTRO_CALL_MINUTES}-minute intro call with {first}</h2>
+      <span className="text-secondary">{INTRO_TEXT}</span>
     </div>
   );
 
@@ -1072,7 +864,7 @@ function IntroCallPanel({ seller, first, unlock, unlockError, onChanged, onMessa
       mentor={{ id: seller.id, name: seller.name, photoUrl: seller.photoUrl }}
       title="Free intro call"
       durationMinutes={INTRO_CALL_MINUTES}
-      description={<>Say hello, talk through where you are in your application, and see if you&apos;re a good fit. There&apos;s nothing to pay. One intro call per mentor.</>}
+      description={INTRO_TEXT}
       details={<AboutYouNudge />}
       confirmLabel="Confirm"
       onConfirm={confirm}
@@ -1151,7 +943,7 @@ function MessagePanel({
   if (blocked?.iBlocked || blocked?.theyBlocked) {
     return (
       <div className="stack">
-        <h2 style={{ fontSize: 24, paddingRight: 36 }}>Message {first}</h2>
+        <h2 className="modal-title">Message {first}</h2>
         <span className="text-secondary">{blocked.iBlocked ? `You blocked ${first}. Unblock them to send a message.` : `You can't message ${first}.`}</span>
       </div>
     );
@@ -1160,7 +952,7 @@ function MessagePanel({
   if (sentTo) {
     return (
       <div className="stack">
-        <h2 style={{ fontSize: 24, paddingRight: 36 }}>Message sent</h2>
+        <h2 className="modal-title">Message sent</h2>
         <div className="alert alert-success" role="status">{first} gets an email about it. You&apos;ll see the reply in Messages.</div>
         <div className="row-wrap">
           <button className="btn btn-primary" onClick={() => onOpenThread(sentTo)}>Open the conversation</button>
@@ -1172,8 +964,8 @@ function MessagePanel({
 
   return (
     <div className="stack">
-      <div className="stack-sm" style={{ paddingRight: 36 }}>
-        <h2 style={{ fontSize: 24 }}>Message {first}</h2>
+      <div className="stack-sm">
+        <h2 className="modal-title">Message {first}</h2>
         <span className="text-secondary">Ask anything before you buy. Messaging is free. Buying unlocks once {first} replies.</span>
       </div>
       <label className="field" style={{ marginBottom: 0 }}>

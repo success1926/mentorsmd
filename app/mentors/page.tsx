@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { Icon, ICONS } from "@/components/ui";
+import { EmptyState, Icon, ICONS, LoadingBlock } from "@/components/ui";
 import { getSchoolLogos } from "@/lib/schoolLogos";
 import { headers } from "next/headers";
 import { getServerSession } from "next-auth";
@@ -15,7 +15,7 @@ import { matchMentor } from "@/lib/guidedMatch";
 import { MENTOR_QUICK_LINKS as QUICK, quickLinkHref } from "@/lib/options";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Find Your Mentor", description: "Browse vetted medical school admissions mentors by specialty, who they help most and price: personal statements, secondaries, MMI and interview prep, MCAT and more." };
+export const metadata = { title: "Find your mentor", description: "Browse vetted medical school admissions mentors by specialty, who they help most and price: personal statements, secondaries, MMI and interview prep, MCAT and more." };
 
 type SP = Record<string, string | string[] | undefined>;
 
@@ -79,20 +79,11 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
 
   return (
     <div>
-      <div style={{ borderBottom: "1px solid var(--line)", background: "#fff" }}>
-        <nav aria-label="Quick filters" className="wrap row" style={{ gap: 28, overflowX: "auto", height: 56, fontSize: 15 }}>
+      {/* The one quick-filter row (the top bar doesn't repeat it on /mentors). */}
+      <div className="browse-quick">
+        <nav aria-label="Quick filters" className="wrap tabs">
           {QUICK.map((q) => (
-            <Link
-              key={q.label}
-              href={quickLinkHref(q)}
-              className="nowrap"
-              scroll={false}
-              style={{
-                padding: "16px 0",
-                borderBottom: `2px solid ${activeQuick === q.label ? "var(--primary)" : "transparent"}`,
-                fontWeight: activeQuick === q.label ? 600 : 400,
-              }}
-            >
+            <Link key={q.label} href={quickLinkHref(q)} className="tab" scroll={false} aria-current={activeQuick === q.label ? "page" : undefined}>
               {q.label}
             </Link>
           ))}
@@ -101,9 +92,9 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
 
       {/* Same gradient and blobs as the homepage hero. */}
       <section className="browse-hero">
-        <div className="blob" style={{ left: -120, top: "52%", width: 520, height: 260, background: "rgba(228,238,255,0.9)", filter: "blur(50px)" }} />
-        <div className="blob" style={{ right: -80, top: "30%", width: 560, height: 300, background: "rgba(245,185,205,0.45)", filter: "blur(60px)" }} />
-        <div className="blob" style={{ left: "35%", top: 10, width: 520, height: 200, background: "rgba(207,196,255,0.45)", filter: "blur(60px)" }} />
+        <div className="blob hero-blob-1" />
+        <div className="blob hero-blob-2" />
+        <div className="blob hero-blob-3" />
         <div className="browse-hero-in">
           <div className="stack" style={{ gap: 14, minWidth: 0 }}>
             {c.eyebrow && <span className="eyebrow">{c.eyebrow}</span>}
@@ -127,9 +118,9 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
       </section>
 
       <div className="browse-body">
-        <div className="page" style={{ paddingTop: 8 }}>
+        <div className="page browse-page">
           {filters.q && (
-            <div className="row-wrap" style={{ marginBottom: 16 }}>
+            <div className="row-wrap browse-results-for">
               <span className="text-secondary">Results for &ldquo;{filters.q}&rdquo;</span>
               <Link href={(() => { const n = new URLSearchParams(params.toString()); n.delete("q"); return `/mentors${n.toString() ? `?${n}` : ""}`; })()} className="link small" scroll={false}>
                 Clear search
@@ -137,16 +128,21 @@ export default async function BrowsePage({ searchParams }: { searchParams: SP })
             </div>
           )}
           {nothingListed ? (
-            <div className="empty stack" style={{ alignItems: "center" }}>
-              <b style={{ color: "var(--ink)", fontSize: 18 }}>{c.emptyTitle}</b>
-              {c.emptyText && <span>{c.emptyText}</span>}
-              <div style={{ width: "100%", display: "flex", justifyContent: "center", margin: "8px 0" }}>
-                <WaitlistBox title={c.waitlistTitle} text={c.waitlistText} button={c.waitlistButton} success={c.waitlistSuccess} />
-              </div>
-              {c.emptyLink && <Link href="/become-a-mentor" className="link small">{c.emptyLink}</Link>}
-            </div>
+            <EmptyState
+              title={c.emptyTitle}
+              action={
+                <>
+                  <div className="browse-empty-waitlist">
+                    <WaitlistBox title={c.waitlistTitle} text={c.waitlistText} button={c.waitlistButton} success={c.waitlistSuccess} />
+                  </div>
+                  {c.emptyLink && <Link href="/become-a-mentor" className="link small">{c.emptyLink}</Link>}
+                </>
+              }
+            >
+              {c.emptyText}
+            </EmptyState>
           ) : (
-            <Suspense fallback={null}>
+            <Suspense fallback={<LoadingBlock lines={2} cards={4} label="Loading mentors…" />}>
               <GuidedBrowse mentors={browse} logos={logos} />
             </Suspense>
           )}

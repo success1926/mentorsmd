@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { VettingSection } from "@/components/VettingSection";
 import { FaqSection } from "@/components/FaqSection";
-import { Icon, ICONS } from "@/components/ui";
+import { Icon, ICONS, SectionHead } from "@/components/ui";
+import { Steps } from "@/components/Steps";
 import { paragraphs } from "@/lib/siteContent";
 import { getSiteContent } from "@/lib/siteContentStore";
 import { PageSections } from "@/components/website/PageSections";
 
 export const metadata: Metadata = { alternates: { canonical: "/how-it-works" },
-  title: "How It Works",
+  title: "How it works",
   description: "Find a vetted mentor, message them or book a free 15-minute intro call, then buy hours at their rate. Every hour is logged.",
 };
 
@@ -25,35 +26,26 @@ export default async function HowItWorksPage() {
   // Admin -> Website -> How it works -> Layout.
   const sections: Record<string, React.ReactNode> = {
     intro: (
-      <section className="home-section" style={{ paddingBottom: 72 }}>
-        <div className="wrap center-head" style={{ gap: 16 }}>
-          {c.eyebrow && <span className="eyebrow">{c.eyebrow}</span>}
-          <h1 className="big-title">{c.title}</h1>
-          {paragraphs(c.intro).map((p, i) => (
-            <p key={i} className="lede" style={{ maxWidth: 760, marginTop: 8 }}>{p}</p>
-          ))}
+      <section className="home-section hiw-intro">
+        <div className="wrap">
+          <SectionHead
+            center
+            as="h1"
+            titleClassName="page-title"
+            eyebrow={c.eyebrow}
+            title={c.title}
+            lede={paragraphs(c.intro).length > 1 ? paragraphs(c.intro).map((p, i) => <span key={i} className="hiw-para">{p}</span>) : c.intro}
+          />
         </div>
       </section>
     ),
 
     steps: c.steps.length > 0 && (
-        <section className="home-section" style={{ paddingTop: 0 }}>
+        <section className="home-section hiw-steps">
           <div className="wrap">
-            <div className="stack" style={{ gap: 14, marginBottom: 40 }}>
-              {c.stepsEyebrow && <span className="eyebrow">{c.stepsEyebrow}</span>}
-              {c.stepsTitle && <h2 className="section-head">{c.stepsTitle}</h2>}
-            </div>
-            <ol className="step-grid">
-              {c.steps.map((s, i) => (
-                <li key={i}>
-                  <span className="vet-num">{String(i + 1).padStart(2, "0")}</span>
-                  <h3>{s.title}</h3>
-                  {s.body && <p>{s.body}</p>}
-                </li>
-              ))}
-            </ol>
-            <div className="row-wrap" style={{ marginTop: 40 }}>
-              <Link href="/mentors" className="btn btn-primary btn-lg">Browse Mentors</Link>
+            {(c.stepsEyebrow || c.stepsTitle) && <SectionHead eyebrow={c.stepsEyebrow} title={c.stepsTitle} />}
+            <div className="section-body">
+              <Steps steps={c.steps} />
             </div>
           </div>
         </section>
@@ -63,25 +55,21 @@ export default async function HowItWorksPage() {
     vetting: <VettingSection c={home} id="vetting" />,
 
     protection: (
-      <section id="protection" className="home-section" style={{ scrollMarginTop: 150 }}>
+      <section id="protection" className="home-section anchor-target">
         <div className="wrap">
-          <div className="stack" style={{ gap: 14, marginBottom: 40 }}>
-            {c.protectEyebrow && <span className="eyebrow">{c.protectEyebrow}</span>}
-            <h2 className="section-head">{c.protectTitle}</h2>
-            {c.protectText && <p className="lede" style={{ maxWidth: 760, marginTop: 4 }}>{c.protectText}</p>}
-          </div>
+          <SectionHead eyebrow={c.protectEyebrow} title={c.protectTitle} lede={c.protectText} />
           {/* Two columns for 2 or 4 points, three otherwise, so no row is left half empty. */}
-          <div className={`feature-grid${c.protectItems.length % 3 !== 0 && c.protectItems.length % 2 === 0 ? " feature-grid-2" : ""}`}>
+          <div className={`section-body feature-grid${c.protectItems.length % 3 !== 0 && c.protectItems.length % 2 === 0 ? " feature-grid-2" : ""}`}>
             {c.protectItems.map((p, i) => (
               <div key={i}>
-                <span className="icon-dot" style={{ width: 44, height: 44 }}><Icon d={PROTECT_ICONS[i % PROTECT_ICONS.length]} size={20} /></span>
+                <span className="icon-dot icon-dot-44"><Icon d={PROTECT_ICONS[i % PROTECT_ICONS.length]} size={20} /></span>
                 <h3>{p.title}</h3>
                 {p.body && <p>{p.body}</p>}
               </div>
             ))}
           </div>
-          <p className="text-secondary" style={{ marginTop: 32, fontSize: 16 }}>
-            Read our <Link href="/safety" className="link">Safety Tips</Link> and <Link href="/community-guidelines" className="link">Community Guidelines</Link>.
+          <p className="text-secondary hiw-more">
+            Read our <Link href="/community-guidelines" className="link">community guidelines</Link> and <Link href="/safety" className="link">safety summary</Link>.
           </p>
         </div>
       </section>
@@ -90,15 +78,14 @@ export default async function HowItWorksPage() {
     // Same questions as the homepage (edited there).
     faq: <FaqSection title={home.faqTitle} faq={home.faq} />,
 
+    // The one closing call to action (Browse mentors used to show twice).
     cta: (
       <section className="home-section home-cta">
-        <div className="wrap center-head" style={{ gap: 20 }}>
-          {c.ctaEyebrow && <span className="eyebrow">{c.ctaEyebrow}</span>}
-          <h2 className="big-title">{c.ctaTitle}</h2>
-          {c.ctaText && <p className="lede" style={{ maxWidth: 760 }}>{c.ctaText}</p>}
-          <div className="row-wrap" style={{ justifyContent: "center", gap: 12, marginTop: 8 }}>
-            <Link href="/mentors" className="btn btn-primary btn-lg">Browse Mentors</Link>
-            <Link href="/become-a-mentor" className="btn btn-lg">Become a Mentor</Link>
+        <div className="wrap center-head">
+          <SectionHead center eyebrow={c.ctaEyebrow} title={c.ctaTitle} lede={c.ctaText} />
+          <div className="row-wrap hiw-cta-btns">
+            <Link href="/mentors" className="btn btn-primary btn-lg">Browse mentors</Link>
+            <Link href="/become-a-mentor" className="btn btn-lg">Become a mentor</Link>
           </div>
         </div>
       </section>

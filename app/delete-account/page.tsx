@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { Alert } from "@/components/ui";
 
 export const metadata = { alternates: { canonical: "/delete-account" },
-  title: "Delete Your Account",
+  title: "Delete your account",
   description: "How to delete your MentorsMD account, and what is deleted and what is kept.",
 };
 
@@ -20,18 +21,18 @@ export default function DeleteAccountPage({ searchParams }: { searchParams: { de
   return (
     <div className="page-narrow stack-lg" style={{ gap: 24 }}>
       <div className="stack-sm">
-        <span className="eyebrow">Your Account</span>
-        <h1 className="page-title" style={{ textAlign: "left" }}>Delete Your Account</h1>
+        <span className="eyebrow">Your account</span>
+        <h1 className="page-title">Delete your account</h1>
       </div>
 
       {done && (
-        <div role="status" className="alert alert-success">
+        <Alert tone="success">
           Your account has been deleted and you&apos;ve been signed out. We&apos;ve emailed a confirmation to your old address.
-        </div>
+        </Alert>
       )}
 
       <section className="stack-sm">
-        <h2 style={{ fontSize: 22 }}>How to delete it</h2>
+        <h2 className="block-title">How to delete it</h2>
         <ol className="text-secondary" style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 6 }}>
           <li><b>On the website:</b> log in, open Settings (students: <Link href="/account" className="link">Your account</Link>; mentors: <Link href="/dashboard/settings" className="link">Settings</Link>) and choose <b>Delete my account</b>.</li>
           {APP_LIVE && <li><b>In the MentorsMD app:</b> More → Settings → <b>Delete my account</b>.</li>}
@@ -43,7 +44,7 @@ export default function DeleteAccountPage({ searchParams }: { searchParams: { de
       </section>
 
       <section className="stack-sm">
-        <h2 style={{ fontSize: 22 }}>What&apos;s deleted</h2>
+        <h2 className="block-title">What&apos;s deleted</h2>
         <ul className="text-secondary" style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 6 }}>
           <li>Your name, email address, photo and profile</li>
           <li>Your password, Google sign-in, 2-step settings and calendar connections</li>
@@ -54,7 +55,7 @@ export default function DeleteAccountPage({ searchParams }: { searchParams: { de
       </section>
 
       <section className="stack-sm">
-        <h2 style={{ fontSize: 22 }}>What&apos;s kept</h2>
+        <h2 className="block-title">What&apos;s kept</h2>
         <ul className="text-secondary" style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 6 }}>
           <li>Orders, payments, payouts and credit history, for as long as tax and accounting law requires</li>
           <li>Records of agreements you accepted and of parent consent for students under 18</li>

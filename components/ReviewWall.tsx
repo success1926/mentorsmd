@@ -1,50 +1,41 @@
-import { initialsOf } from "@/components/ui";
-import { Rail } from "@/components/Rail";
+import { initialsOf, Stars, TINTS } from "@/components/ui";
 import { RevealWall } from "@/components/RevealWall";
 import { paragraphs } from "@/lib/siteContent";
 import type { WallItem } from "@/lib/reviewWall";
 
 // The grid of review cards, used by the homepage (#reviews) and /reviews.
 // The data comes from getReviewWall() in lib/reviewWall.ts. `rail` (the
-// homepage): on phones the cards become a sideways row with arrows instead
-// of one very long column; /reviews keeps the full wall for reading.
+// homepage): on phones the same cards become a sideways row you swipe
+// (CSS only, .wall-grid-rail in app/styles/public.css) instead of one very
+// long column; /reviews keeps the full wall for reading. Rendered once.
 export function ReviewWall({ items, rail = false }: { items: WallItem[]; rail?: boolean }) {
-  const cards = items.map((t, i) => <ReviewCard key={t.key} t={t} i={i} />);
-  if (!rail) return <RevealWall>{cards}</RevealWall>;
   return (
-    <>
-      <div className="hide-mobile"><RevealWall>{cards}</RevealWall></div>
-      <div className="only-mobile">
-        <Rail className="wall-rail" label="Reviews">
-          {items.map((t, i) => (
-            <div key={t.key} role="listitem">
-              <ReviewCard t={t} i={i} />
-            </div>
-          ))}
-        </Rail>
-      </div>
-    </>
+    <RevealWall className={rail ? "wall-grid-rail" : undefined}>
+      {items.map((t, i) => (
+        <ReviewCard key={t.key} t={t} i={i} />
+      ))}
+    </RevealWall>
   );
 }
 
 function ReviewCard({ t, i }: { t: WallItem; i: number }) {
   return (
-        <div>
-          <div className="testi">
-            <div className="row" style={{ gap: 14 }}>
-              <span className="avatar" style={{ width: 54, height: 54, background: ["#FCE4EC", "#E4EEFF", "#DDD5FF", "#F5B9CD"][i % 4] }}>
-                {initialsOf(t.name)}
-              </span>
-              <span className="stack-sm" style={{ gap: 2 }}>
-                <b style={{ fontSize: 18 }}>{t.name}</b>
-                <span className="text-secondary">{t.detail}</span>
-              </span>
-            </div>
-            <span className="stars">{"★".repeat(Math.round(t.rating))}</span>
-            {(paragraphs(t.quote).length ? paragraphs(t.quote) : [""]).map((q, j) => (
-              <p key={j} style={{ fontSize: 18, lineHeight: 1.55 }}>{q}</p>
-            ))}
-          </div>
+    <div>
+      <div className="testi">
+        <div className="row testi-head">
+          <span className="avatar testi-avatar" style={{ background: TINTS[(i + 1) % TINTS.length] }}>
+            {initialsOf(t.name)}
+          </span>
+          <span className="stack-sm testi-who">
+            <b>{t.name}</b>
+            <span className="text-secondary">{t.detail}</span>
+          </span>
         </div>
+        <Stars value={t.rating} showValue={false} />
+        {(paragraphs(t.quote).length ? paragraphs(t.quote) : [""]).map((q, j) => (
+          <p key={j} className="testi-quote">{q}</p>
+        ))}
+      </div>
+    </div>
   );
 }

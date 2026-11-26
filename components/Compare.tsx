@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { tintFor, initialsOf } from "@/components/ui";
+import { Stars, tintFor, initialsOf } from "@/components/ui";
 import { ADMISSIONS_ROLE_TYPES, BEST_FOR, SERVICES, labelFor, mentorRank, mentorStageTag, money } from "@/lib/options";
 import { hasService, type MatchableMentor } from "@/lib/guidedMatch";
 
@@ -147,7 +147,7 @@ export function CompareToggle({ mentor, label = "Compare" }: { mentor: CompareMe
 function Face({ m, size }: { m: CompareMentor; size: number }) {
   return m.photoUrl ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={m.photoUrl} alt="" width={size} height={size} style={{ width: size, height: size, borderRadius: size > 40 ? 12 : "50%", objectFit: "cover", flexShrink: 0 }} />
+    <img src={m.photoUrl} alt="" width={size} height={size} loading="lazy" decoding="async" style={{ width: size, height: size, borderRadius: size > 40 ? 12 : "50%", objectFit: "cover", flexShrink: 0 }} />
   ) : (
     <span className="avatar" style={{ width: size, height: size, fontSize: size * 0.38, borderRadius: size > 40 ? 12 : "50%", background: tintFor(m.id) }}>{initialsOf(m.name)}</span>
   );
@@ -197,13 +197,13 @@ export function CompareTray({ highlight = [] }: { highlight?: string[] }) {
           </div>
           <div className="compare-acts">
             <button type="button" className="btn btn-sm compare-ghost" onClick={() => c.clear()}>Clear</button>
-            <button type="button" className="btn btn-primary btn-sm" disabled={n < 2} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+            <button type="button" className="btn btn-primary btn-sm toggle-btn" disabled={n < 2} aria-expanded={open && n > 1} aria-controls="compare-table" onClick={() => setOpen((o) => !o)}>
               {open ? "Hide comparison" : "Compare side by side"}
             </button>
           </div>
         </div>
         {open && n > 1 && (
-          <div className="compare-table">
+          <div className="compare-table" id="compare-table">
             <table>
               <thead>
                 <tr>
@@ -235,7 +235,7 @@ export function CompareTray({ highlight = [] }: { highlight?: string[] }) {
                 {row("Admissions roles", ms.map((m) => m.roles.join(" · ") || "—"))}
                 {row("Known for", ms.map((m) => (m.knownFor ? <em className="cmp-known">“{m.knownFor}”</em> : "—")))}
                 {row("Languages", ms.map((m) => m.languages.join(", ") || "—"))}
-                {row("Reviews", ms.map((m) => (m.reviewCount ? `★ ${(m.avgRating ?? 0).toFixed(1)} · ${m.reviewCount}` : "New to MentorsMD")))}
+                {row("Reviews", ms.map((m) => (m.reviewCount ? <Stars value={m.avgRating ?? 0} count={m.reviewCount} compact /> : "New to MentorsMD")))}
                 <tr>
                   <th scope="row" />
                   {ms.map((m) => (

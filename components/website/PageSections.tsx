@@ -3,6 +3,7 @@ import Link from "next/link";
 import { paragraphs, safeHref, isSafeImage } from "@/lib/siteContent";
 import { sectionLabel, sectionsFor, videoEmbedUrl, type LayoutItem, type Space } from "@/lib/pageLayout";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
+import { Faq } from "@/components/FaqSection";
 
 // Renders a page's sections in the order saved in Admin -> Website ->
 // (page) -> Layout, skipping hidden ones, with the chosen space above, and
@@ -84,7 +85,7 @@ function AddonSection({ item, contained }: { item: LayoutItem; contained: boolea
       return (
         <Band contained={contained}>
           <div className="stack" style={{ gap: 16, maxWidth: 820 }}>
-            {str(d.title) && <h2 className="addon-title">{str(d.title)}</h2>}
+            {str(d.title) && <h2 className="section-title">{str(d.title)}</h2>}
             {paragraphs(str(d.body)).map((p, i) => (
               <p key={i} className="lede">{p}</p>
             ))}
@@ -105,7 +106,7 @@ function AddonSection({ item, contained }: { item: LayoutItem; contained: boolea
               <div className="addon-media-img addon-media-empty" aria-hidden="true" />
             )}
             <div className="stack" style={{ gap: 16 }}>
-              {str(d.title) && <h2 className="addon-title">{str(d.title)}</h2>}
+              {str(d.title) && <h2 className="section-title">{str(d.title)}</h2>}
               {paragraphs(str(d.body)).map((p, i) => (
                 <p key={i} className="lede">{p}</p>
               ))}
@@ -120,25 +121,11 @@ function AddonSection({ item, contained }: { item: LayoutItem; contained: boolea
       );
     }
     case "faq": {
-      const qs = (Array.isArray(d.items) ? d.items : []).filter((q: any) => str(q?.question));
+      const qs = (Array.isArray(d.items) ? d.items : []).filter((q: any) => str(q?.question)).map((q: any) => ({ question: str(q.question), answer: str(q.answer) }));
       if (!qs.length && !str(d.title)) return null;
       return (
         <Band contained={contained}>
-          <div style={{ maxWidth: 900, margin: contained ? undefined : "0 auto" }}>
-            {str(d.title) && <h2 className="addon-title" style={{ marginBottom: 32, textAlign: contained ? undefined : "center" }}>{str(d.title)}</h2>}
-            <div>
-              {qs.map((q: any, i: number) => (
-                <details key={i} className="collapse">
-                  <summary style={{ fontSize: 18 }}>{str(q.question)}</summary>
-                  <div className="collapse-body">
-                    {paragraphs(str(q.answer)).map((a, j) => (
-                      <p key={j} className="text-secondary" style={{ fontSize: 17, lineHeight: 1.6 }}>{a}</p>
-                    ))}
-                  </div>
-                </details>
-              ))}
-            </div>
-          </div>
+          <Faq title={str(d.title) || undefined} faq={qs} center={!contained} />
         </Band>
       );
     }
@@ -148,9 +135,9 @@ function AddonSection({ item, contained }: { item: LayoutItem; contained: boolea
         <Band contained={contained}>
           <div className="addon-cta">
             <div className="stack" style={{ gap: 10, flex: 1, minWidth: 240 }}>
-              {str(d.title) && <h2 className="addon-title" style={{ color: "#fff" }}>{str(d.title)}</h2>}
+              {str(d.title) && <h2 className="section-title addon-cta-title">{str(d.title)}</h2>}
               {paragraphs(str(d.text)).map((p, i) => (
-                <p key={i} style={{ fontSize: 18, lineHeight: 1.55, color: "rgba(255,255,255,0.88)" }}>{p}</p>
+                <p key={i} className="addon-cta-text">{p}</p>
               ))}
             </div>
             {str(d.buttonLabel) && href && <Link href={safeHref(href)} className="btn btn-lg addon-cta-btn">{str(d.buttonLabel)}</Link>}
@@ -164,7 +151,7 @@ function AddonSection({ item, contained }: { item: LayoutItem; contained: boolea
       return (
         <Band contained={contained}>
           <div className="stack" style={{ gap: 20, maxWidth: 960, margin: contained ? undefined : "0 auto" }}>
-            {str(d.title) && <h2 className="addon-title">{str(d.title)}</h2>}
+            {str(d.title) && <h2 className="section-title">{str(d.title)}</h2>}
             <div className="addon-video">
               <iframe
                 src={src}

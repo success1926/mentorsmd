@@ -1,1 +1,161 @@
 /* Public (logged-out) page styles that only those pages use. Shared pieces live in globals.css. */
+
+/* Steps (components/Steps.tsx), list variant. */
+.steps-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.steps-list li { display: flex; gap: 12px; align-items: flex-start; line-height: 1.6; }
+.steps-num { flex-shrink: 0; width: 28px; height: 28px; border-radius: 999px; background: var(--tint); color: var(--primary-deep); font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; margin-top: 1px; }
+.steps-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+/* Sign-in pages (components/AuthShell.tsx, TwoStepVerify). */
+.auth-art > .auth-blob-pink { left: -80px; top: 60px; width: 360px; height: 220px; background: rgba(245,185,205,0.55); }
+.auth-art > .auth-blob-blue { right: -60px; top: 220px; width: 320px; height: 240px; background: rgba(228,238,255,0.5); }
+.btn-google { font-weight: 600; }
+.code-input { font-size: 22px; letter-spacing: 6px; max-width: 220px; }
+
+/* Forms whose fields sit in a gapped stack (GiftForm, WaitlistBox). */
+.fields-tight .field { margin-bottom: 0; }
+.waitlist-box { width: 100%; max-width: 560px; text-align: left; }
+
+/* Contact page. */
+.icon-dot.icon-dot-white { background: #fff; }
+.text-ink { color: var(--ink); }
+
+/* Mentor profile (app/mentors/[id]): hero blobs, small bits that were inline styles. */
+.pf-blob-1 { left: -120px; top: 10px; width: 520px; height: 260px; background: color-mix(in srgb, var(--blue) 90%, transparent); filter: blur(50px); }
+.pf-blob-2 { right: -80px; top: -60px; width: 560px; height: 300px; background: color-mix(in srgb, var(--pink) 45%, transparent); filter: blur(60px); }
+.pf-blob-3 { left: 35%; top: -80px; width: 520px; height: 200px; background: color-mix(in srgb, var(--tint-2) 45%, transparent); filter: blur(60px); }
+.pf-dot { color: var(--primary); }
+.pf-strong { color: var(--ink); }
+.pf-pre { white-space: pre-wrap; }
+.pf-longtext { line-height: 1.7; white-space: pre-wrap; }
+.pf-review-text { line-height: 1.6; }
+.pf-h-btn { text-decoration: none; font: inherit; color: inherit; display: inline-flex; align-items: center; gap: 8px; }
+.pf-tile-price { font-size: 26px; }
+.pf-empty-offers { margin-top: 24px; }
+.pf-offer-cover { width: 100%; height: 160px; object-fit: cover; border-radius: 12px; }
+.pkg-line-btn { border: none; text-align: left; cursor: pointer; width: 100%; font: inherit; color: inherit; }
+.pf-sec details.collapse-row { margin-top: 4px; }
+
+/* Questions (components/FaqSection.tsx): homepage, How it works, added FAQ sections. */
+.faq-section { padding-bottom: 40px; scroll-margin-top: 150px; }
+.faq { max-width: 900px; }
+.faq.is-center { margin: 0 auto; }
+.faq-title { margin-bottom: 40px; }
+.faq.is-center .faq-title { text-align: center; }
+.faq-answer { color: var(--muted); font-size: 17px; line-height: 1.6; }
+
+/* Added sections (components/website/PageSections.tsx). */
+.addon .section-title { line-height: 1.12; }
+.addon-cta-title { color: #fff; }
+.addon-cta-text { font-size: 18px; line-height: 1.55; color: rgba(255, 255, 255, 0.88); }
+
+/* Soft gradient backgrounds for pictures (homepage paths, How it works panel). */
+.soft-bg-0 { background: linear-gradient(135deg, var(--tint-2) 0%, var(--tint) 100%); }
+.soft-bg-1 { background: linear-gradient(135deg, var(--pink-soft) 0%, var(--tint) 100%); }
+.soft-bg-2 { background: linear-gradient(135deg, var(--blue) 0%, var(--tint) 100%); }
+
+/* Homepage How it works rows (components/HowItWorks.tsx): the shared row
+   collapsible, a little larger here; the list draws the lines. */
+.how-row > details.collapse.collapse-row { border-top: none; border-bottom: none; }
+.how-row > details.collapse.collapse-row > summary { padding: 22px 0; font-size: 19px; }
+.how-row > details.collapse.collapse-row > .how-body { padding: 0 0 24px; gap: 16px; align-items: flex-start; }
+
+/* Homepage + /mentors hero blobs (were inline styles). */
+.hero-blob-1 { left: -120px; top: 420px; width: 520px; height: 260px; background: color-mix(in srgb, var(--blue) 90%, transparent); filter: blur(50px); }
+.hero-blob-2 { right: -80px; top: 300px; width: 560px; height: 300px; background: color-mix(in srgb, var(--pink) 45%, transparent); filter: blur(60px); }
+.hero-blob-3 { left: 35%; top: 40px; width: 520px; height: 200px; background: color-mix(in srgb, var(--tint-3) 45%, transparent); filter: blur(60px); }
+.browse-hero .hero-blob-1 { top: 52%; }
+.browse-hero .hero-blob-2 { top: 30%; }
+.browse-hero .hero-blob-3 { top: 10px; }
+.hero-dots span:nth-child(1) { background: var(--pink); }
+.hero-dots span:nth-child(2) { background: var(--blue); }
+.hero-dots span:nth-child(3) { background: var(--tint-2); }
+.hero-dots span:nth-child(4) { background: var(--pink-soft); }
+
+/* One spacing system for public sections: a SectionHead, then the body
+   48px below it (40px on phones). */
+.section-body { margin-top: 48px; }
+@media (max-width: 700px) { .section-body { margin-top: 32px; } }
+.section-head-row { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 24px; margin-bottom: 40px; }
+.anchor-target { scroll-margin-top: 150px; }
+.mentor-tile-cred { line-height: 1.4; }
+.mentor-tile-rate { margin-top: 2px; }
+.mentor-tile-rate b { color: var(--ink); }
+.how-footer-row { gap: 20px; align-items: center; }
+
+/* Search buttons use the standard button corner (was 10px on the homepage, a pill on /mentors). */
+.hero-search .btn, .search-inline .btn { border-radius: 8px; }
+
+/* Review cards (components/ReviewWall.tsx). */
+.testi-head { gap: 14px; }
+.testi-avatar { width: 54px; height: 54px; }
+.testi-who { gap: 2px; }
+.testi-who b { font-size: 18px; }
+.testi-quote { font-size: 18px; line-height: 1.55; }
+/* Homepage: the one wall turns into a sideways row on phones. */
+@media (max-width: 640px) {
+  .wall-grid.wall-grid-rail { columns: auto; display: grid; grid-auto-flow: column; grid-auto-columns: 82%; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; align-items: start; -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }
+  .wall-grid.wall-grid-rail::-webkit-scrollbar { display: none; }
+  .wall-grid.wall-grid-rail > * { scroll-snap-align: start; }
+}
+
+/* /mentors */
+.browse-quick { border-bottom: 1px solid var(--line); background: #fff; }
+.browse-quick .tabs { margin-bottom: 0; border-bottom: none; gap: 12px; }
+.browse-page { padding-top: 8px; }
+.browse-results-for { margin-bottom: 16px; }
+.browse-empty-waitlist { width: 100%; display: flex; justify-content: center; margin: 8px 0; }
+
+/* How it works page (app/how-it-works) and the vetting band. */
+.vet-text { gap: 18px; }
+.vet-text .link { margin-top: 8px; }
+.hiw-intro { padding-bottom: 72px; }
+.hiw-para { display: block; }
+.hiw-para + .hiw-para { margin-top: 12px; }
+.hiw-steps { padding-top: 0; }
+.hiw-more { margin-top: 32px; font-size: 16px; }
+.hiw-cta-btns { justify-content: center; gap: 12px; }
+.icon-dot-44 { width: 44px; height: 44px; }
+
+/* Narrow public pages (press, senior team, become a mentor, reviews): one gap between sections. */
+.public-stack { gap: 48px; }
+
+/* /reviews */
+.reviews-page { padding-top: 64px; min-height: 60vh; }
+.reviews-stack { gap: 56px; }
+.reviews-lede { max-width: 760px; font-size: 21px; }
+.review-summary-text { gap: 2px; align-items: flex-start; }
+.reviews-wall { gap: 32px; }
+.reviews-more { align-self: center; }
+.reviews-more > summary { margin: 0 auto; }
+.reviews-more[open] { align-self: stretch; }
+.reviews-cta { display: flex; justify-content: center; }
+
+/* /become-a-mentor */
+.become-intro { gap: 18px; }
+.perk-title { display: inline-flex; align-items: center; gap: 12px; }
+.apply-section { gap: 20px; }
+.apply-how { gap: 12px; max-width: 720px; }
+.apply-form { max-width: 720px; width: 100%; }
+
+/* /safety (short summary) and /community-guidelines */
+.safety-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+.safety-list li { display: flex; gap: 14px; align-items: flex-start; line-height: 1.6; }
+.safety-list .icon-dot { flex-shrink: 0; }
+.guide-points { padding-left: 20px; line-height: 1.6; }
+.guide-text { line-height: 1.6; }
+.legal-h { margin-top: 8px; font-size: 22px; }
+
+/* /about-you */
+.about-you-page { gap: 24px; }
+.about-you-card { gap: 18px; }
+.about-you-card > .field { margin-bottom: 0; }
+
+/* 404 page (app/not-found.tsx) */
+.notfound { position: relative; overflow: hidden; }
+.notfound-in { position: relative; }
+.notfound-in .center-head { padding: 72px 0 56px; }
+.notfound-btns { justify-content: center; }
+.notfound-blob-1 { left: -140px; top: 160px; width: 460px; height: 240px; background: color-mix(in srgb, var(--blue) 90%, transparent); filter: blur(50px); }
+.notfound-blob-2 { right: -100px; top: 60px; width: 480px; height: 260px; background: color-mix(in srgb, var(--pink) 45%, transparent); filter: blur(60px); }
+.notfound-blob-3 { left: 30%; top: 0; width: 460px; height: 180px; background: color-mix(in srgb, var(--tint-3) 45%, transparent); filter: blur(60px); }

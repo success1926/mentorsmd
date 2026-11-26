@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AuthShell, GoogleButton } from "@/components/AuthShell";
+import { Alert, Field } from "@/components/ui";
 import { browserTimeZone } from "@/lib/tz";
 import { Honeypot, useRecaptcha, RecaptchaNotice } from "@/components/FormGuards";
 import { ADULT_AGE, MIN_AGE, UNDER_13_MESSAGE, ageOn, parseDob } from "@/lib/legalKinds";
@@ -94,7 +95,7 @@ export default function StudentSignupPage() {
     <AuthShell>
       <div className="stack" style={{ gap: 14 }}>
         <div className="stack-sm">
-          <h1 className="page-title" style={{ fontSize: 40 }}>Create Your Account</h1>
+          <h1 className="auth-title">Create your account</h1>
           <span className="text-secondary">Free for students. Message any vetted mentor before you book.</span>
         </div>
 
@@ -102,29 +103,23 @@ export default function StudentSignupPage() {
             and the agreement, then Create account. Google sign-up sits below
             and uses the same date of birth and agreement. */}
         <form onSubmit={handleSubmit} className="stack" style={{ gap: 0 }}>
-          <label className="field">
-            <span className="field-label">Full name</span>
+          <Field id="signup-name" label="Full name">
             <input className="input" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
-          </label>
-          <label className="field">
-            <span className="field-label">Email</span>
+          </Field>
+          <Field id="signup-email" label="Email">
             <input className="input" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </label>
-          <label className="field">
-            <span className="field-label">Password</span>
+          </Field>
+          <Field id="signup-password" label="Password" help="At least 8 characters.">
             <input className="input" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-            <span className="field-help">At least 8 characters.</span>
-          </label>
-          <label className="field">
-            <span className="field-label">Date of birth</span>
+          </Field>
+          <Field id="signup-dob" label="Date of birth" help={<>You need to be at least 13. Students under 18 need a parent or guardian&apos;s consent.</>} error={tooYoung ? UNDER_13_MESSAGE : undefined}>
             <input className="input" type="date" autoComplete="bday" value={dob} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setDob(e.target.value)} />
-            <span className="field-help">You need to be at least 13. Students under 18 need a parent or guardian&apos;s consent.</span>
-          </label>
-          {tooYoung && <div role="alert" className="alert alert-danger" style={{ marginBottom: 14 }}>{UNDER_13_MESSAGE}</div>}
+          </Field>
+          {tooYoung && <Alert tone="danger" style={{ marginBottom: 14 }}>{UNDER_13_MESSAGE}</Alert>}
           {minor && <div style={{ marginBottom: 14 }}><ParentFields value={parent} onChange={setParent} /></div>}
           <div style={{ marginBottom: 14 }}><AgreementCheckbox checked={agreed} onChange={setAgreed} /></div>
           <Honeypot value={trap} onChange={setTrap} />
-          {error && <div role="alert" className="alert alert-danger" style={{ marginBottom: 14 }}>{error}</div>}
+          {error && <Alert tone="danger" style={{ marginBottom: 14 }}>{error}</Alert>}
           <button className="btn btn-primary btn-lg btn-block" disabled={loading || !name || !email || password.length < 8 || tooYoung}>
             {loading ? "Creating account…" : "Create account"}
           </button>

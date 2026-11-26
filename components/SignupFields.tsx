@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useId } from "react";
+import { Field } from "@/components/ui";
 
 // Shared by /signup and the one-time date-of-birth form on the blocking
 // screen (components/AccountGate.tsx).
@@ -26,6 +28,7 @@ export function parentComplete(p: ParentValues) {
 }
 
 export function ParentFields({ value, onChange, intro = true }: { value: ParentValues; onChange: (v: ParentValues) => void; intro?: boolean }) {
+  const uid = useId();
   const set = (k: keyof ParentValues) => (e: React.ChangeEvent<HTMLInputElement>) => onChange({ ...value, [k]: e.target.value });
   return (
     <div className="card card-tint stack-sm" style={{ padding: 18 }}>
@@ -36,18 +39,15 @@ export function ParentFields({ value, onChange, intro = true }: { value: ParentV
           <Link href="/parental-consent" target="_blank" className="link">Parental Consent form</Link> and give consent. They also get a receipt for every order.
         </span>
       )}
-      <label className="field" style={{ marginBottom: 6 }}>
-        <span className="field-label">Their full name</span>
+      <Field id={`${uid}-name`} label="Their full name">
         <input className="input" autoComplete="off" value={value.parentName} onChange={set("parentName")} />
-      </label>
-      <label className="field" style={{ marginBottom: 6 }}>
-        <span className="field-label">Their email</span>
+      </Field>
+      <Field id={`${uid}-email`} label="Their email">
         <input className="input" type="email" autoComplete="off" value={value.parentEmail} onChange={set("parentEmail")} />
-      </label>
-      <label className="field" style={{ marginBottom: 0 }}>
-        <span className="field-label">Their phone</span>
+      </Field>
+      <Field id={`${uid}-phone`} label="Their phone">
         <input className="input" type="tel" autoComplete="off" value={value.parentPhone} onChange={set("parentPhone")} />
-      </label>
+      </Field>
     </div>
   );
 }

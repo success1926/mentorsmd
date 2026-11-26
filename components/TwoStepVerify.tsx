@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { logOut } from "@/components/TopNav";
 import { isPending2faRole } from "@/lib/sessionRules";
+import { AuthShell } from "@/components/AuthShell";
+import { Alert, Field } from "@/components/ui";
 
 // The 2-step code step at login (/admin/verify for admins, /two-step for
 // mentors and students; rules in lib/mfa.ts). Email codes are the default:
@@ -105,18 +107,16 @@ export function TwoStepVerify({ next }: { next: string }) {
   const firstTime = info && !info.method;
   const codeForm = (
     <form onSubmit={verify} className="stack-sm">
-      <label className="field" style={{ marginBottom: 0 }}>
-        <span className="field-label">6-digit code</span>
+      <Field id="two-step-code" label="6-digit code">
         <input
-          className="input"
+          className="input code-input"
           inputMode="numeric"
           autoComplete="one-time-code"
           maxLength={7}
           value={code}
           onChange={(e) => setCode(e.target.value.replace(/[^\d ]/g, ""))}
-          style={{ fontSize: 22, letterSpacing: 6, maxWidth: 220 }}
         />
-      </label>
+      </Field>
       <label className="row small" style={{ gap: 8, alignItems: "center" }}>
         <input type="checkbox" checked={trust} onChange={(e) => setTrust(e.target.checked)} />
         <span>Trust this device for 30 days (don&apos;t tick this on a shared computer)</span>
@@ -128,10 +128,10 @@ export function TwoStepVerify({ next }: { next: string }) {
   );
 
   return (
-    <div className="page-narrow">
-      <div className="card-narrow stack">
+    <AuthShell title="One more step" body="A quick code keeps your account, your messages and your payments safe.">
+      <div className="stack">
         <div className="stack-sm">
-          <h1 className="page-title" style={{ fontSize: 34 }}>2-step verification</h1>
+          <h1 className="auth-title">2-step verification</h1>
           <p className="text-secondary">
             {info?.role === "ADMIN"
               ? "Admin accounts need a second step when logging in, to keep students' details and payments safe."
@@ -177,9 +177,9 @@ export function TwoStepVerify({ next }: { next: string }) {
           </div>
         )}
 
-        {error && <div role="alert" className="alert alert-danger">{error}</div>}
+        {error && <Alert tone="danger">{error}</Alert>}
         <button className="btn btn-ghost btn-sm" style={{ alignSelf: "flex-start" }} onClick={() => logOut("/")}>Log out</button>
       </div>
-    </div>
+    </AuthShell>
   );
 }

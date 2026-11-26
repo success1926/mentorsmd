@@ -2,10 +2,13 @@ import { prisma } from "@/lib/prisma";
 import { isMentorListed } from "@/lib/mentor";
 import { hoursLabel, offerMinutes, offerRate, priceFor } from "@/lib/pricing";
 import { GiftForm, type GiftOffer } from "./GiftForm";
+import { Alert } from "@/components/ui";
+import { Steps } from "@/components/Steps";
+import { firstName } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 export const metadata = { alternates: { canonical: "/gift" },
-  title: "Gift Credit",
+  title: "Gift credit",
   description: "Buy MentorsMD credit or a mentor's package for your student. No account needed.",
 };
 
@@ -25,7 +28,7 @@ export default async function GiftPage({ searchParams }: { searchParams: { offer
     if (gig && gig.active && gig.kind && ["HOURLY", "BUNDLE", "SPECIALIZED"].includes(gig.kind) && gig.seller.role === "SELLER" && isMentorListed(gig.seller) && rate && minutes) {
       offer = {
         id: gig.id,
-        title: gig.kind === "HOURLY" ? `1 hour with ${gig.seller.name.split(" ")[0]}` : gig.title,
+        title: gig.kind === "HOURLY" ? `1 hour with ${firstName(gig.seller.name)}` : gig.title,
         mentorName: gig.seller.name,
         mentorId: gig.seller.id,
         hours: hoursLabel(minutes),
@@ -37,18 +40,18 @@ export default async function GiftPage({ searchParams }: { searchParams: { offer
   }
 
   return (
-    <div className="page-wide stack-lg">
+    <div className="page stack-lg">
       <div className="stack-sm">
         <span className="eyebrow">Gift MentorsMD</span>
-        <h1 className="page-title" style={{ textAlign: "left" }}>{offer ? "Buy This Package for Your Student" : "Give MentorsMD Credit"}</h1>
+        <h1 className="page-title">{offer ? "Buy this package for your student" : "Give MentorsMD credit"}</h1>
         <p className="lede">
           {offer
             ? "Pay as a guest: no account needed. The package goes straight to your student's account, exactly as if they'd bought it."
             : "Pay as a guest: no account needed. Credit never expires, and your student can use it with any mentor, for calls or written feedback."}
         </p>
       </div>
-      {searchParams.cancelled && <div role="status" className="alert">Checkout was closed, so nothing was charged. You can try again below.</div>}
-      {offerGone && <div role="status" className="alert">That package isn&apos;t available any more. You can give MentorsMD credit instead.</div>}
+      {searchParams.cancelled && <Alert>Checkout was closed, so nothing was charged. You can try again below.</Alert>}
+      {offerGone && <Alert>That package isn&apos;t available any more. You can give MentorsMD credit instead.</Alert>}
       {/* Desktop: the form on the left; what the student receives and how it
           works on the right. Phones: one column. */}
       <div className="gift-grid">
@@ -60,19 +63,20 @@ export default async function GiftPage({ searchParams }: { searchParams: { offer
             <span className="gift-preview-body">{offer ? "Your package is ready in your account. Book your first call or send your first draft whenever you're ready." : "Use it with any vetted mentor, for calls or written feedback. It never expires."}</span>
             <span className="gift-preview-note">Your note to them shows here.</span>
           </div>
-      <section className="card stack-sm">
-        <h2 style={{ fontSize: 22 }}>How It Works</h2>
-        <ol className="stack-sm" style={{ paddingLeft: 20, margin: 0 }}>
-          <li>You pay by card on Stripe. Stripe emails you a receipt, and we email you a private page to see what you bought.</li>
-          <li>We email your student. If they don&apos;t have a MentorsMD account yet, the email has a link to set one up.</li>
-          <li>
-            {offer
-              ? "The package shows in their account; they book calls or send work with the mentor. Your page shows the hours used and calls held (never their messages)."
-              : "The credit is applied automatically when they book with any mentor."}
-          </li>
-          <li>Students under 18 also need a parent or guardian&apos;s consent before they can use MentorsMD. We email that separately once they set up their account.</li>
-        </ol>
-      </section>
+          <section className="card stack">
+            <h2 className="block-title">How it works</h2>
+            <Steps
+              variant="list"
+              steps={[
+                "You pay by card on Stripe. Stripe emails you a receipt, and we email you a private page to see what you bought.",
+                "We email your student. If they don't have a MentorsMD account yet, the email has a link to set one up.",
+                offer
+                  ? "The package shows in their account; they book calls or send work with the mentor. Your page shows the hours used and calls held (never their messages)."
+                  : "The credit is applied automatically when they book with any mentor.",
+                "Students under 18 also need a parent or guardian's consent before they can use MentorsMD. We email that separately once they set up their account.",
+              ]}
+            />
+          </section>
         </aside>
       </div>
     </div>

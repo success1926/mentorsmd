@@ -3,6 +3,8 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { AuthShell } from "@/components/AuthShell";
+import { Alert, Field } from "@/components/ui";
 
 function ResetPasswordForm() {
   const token = useSearchParams().get("token") || "";
@@ -34,8 +36,8 @@ function ResetPasswordForm() {
   if (!token) {
     return (
       <>
-        <p className="text-secondary" style={{ fontSize: 15 }}>This link is missing its reset code. Request a new one.</p>
-        <Link href="/forgot-password" className="btn btn-primary" style={{ width: "100%" }}>Request a new link</Link>
+        <p className="text-secondary">This link is missing its reset code. Request a new one.</p>
+        <Link href="/forgot-password" className="btn btn-primary btn-block">Request a new link</Link>
       </>
     );
   }
@@ -43,27 +45,28 @@ function ResetPasswordForm() {
   if (done) {
     return (
       <>
-        <p className="text-secondary" style={{ fontSize: 15, lineHeight: 1.6 }}>Your password has been changed. You can log in with it now.</p>
-        <Link href="/login" className="btn btn-primary" style={{ width: "100%" }}>Log in</Link>
+        <p className="text-secondary">Your password has been changed. You can log in with it now.</p>
+        <Link href="/login" className="btn btn-primary btn-block">Log in</Link>
       </>
     );
   }
 
   return (
     <form onSubmit={handleSubmit}>
-      <label htmlFor="pw" className="text-secondary" style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>New password</label>
-      <input id="pw" className="input" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-      <label htmlFor="pw2" className="text-secondary" style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>Confirm new password</label>
-      <input id="pw2" className="input" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-      <p className="text-muted" style={{ marginTop: -4 }}>At least 8 characters.</p>
+      <Field id="pw" label="New password" help="At least 8 characters.">
+        <input className="input" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+      </Field>
+      <Field id="pw2" label="Confirm new password">
+        <input className="input" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+      </Field>
       {error && (
-        <div role="alert" style={{ color: "var(--danger)", fontSize: 14, marginBottom: 12 }}>
+        <Alert tone="danger" style={{ marginBottom: 12 }}>
           {error}{" "}
-          {error.includes("Request a new one") && <Link href="/forgot-password" style={{ textDecoration: "underline" }}>Request a new link</Link>}
-        </div>
+          {error.includes("Request a new one") && <Link href="/forgot-password" className="link">Request a new link</Link>}
+        </Alert>
       )}
       <button className="btn btn-primary btn-lg btn-block" disabled={loading || !password || !confirm}>
-        {loading ? "Saving..." : "Set new password"}
+        {loading ? "Saving…" : "Set new password"}
       </button>
     </form>
   );
@@ -71,12 +74,14 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="page-narrow"><div className="card-narrow stack">
-      <h1 style={{ fontSize: 28, margin: "0 0 18px" }}>Choose a new password</h1>
-      {/* useSearchParams needs a Suspense boundary in the Next.js app router */}
-      <Suspense fallback={<p className="text-secondary">Loading...</p>}>
-        <ResetPasswordForm />
-      </Suspense>
-    </div></div>
+    <AuthShell title="Almost there" body="Choose a new password and you'll be back to your messages, packages and calls.">
+      <div className="stack">
+        <h1 className="auth-title">Choose a new password</h1>
+        {/* useSearchParams needs a Suspense boundary in the Next.js app router */}
+        <Suspense fallback={<p className="text-secondary">Loading…</p>}>
+          <ResetPasswordForm />
+        </Suspense>
+      </div>
+    </AuthShell>
   );
 }

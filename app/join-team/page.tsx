@@ -44,7 +44,7 @@ function JoinTeam() {
     return (
       <div className="page-narrow">
         <div className="card-narrow stack">
-          <h1 className="page-title" style={{ fontSize: 34 }}>You&apos;re already logged in</h1>
+          <h1 className="page-title">You&apos;re already logged in</h1>
           <p className="text-secondary">You&apos;re logged in as {session?.user?.email}. Log out to accept this team invite.</p>
           <button className="btn btn-primary" style={{ alignSelf: "flex-start" }} onClick={() => logOut(window.location.pathname + window.location.search)}>Log out and continue</button>
         </div>
@@ -56,7 +56,7 @@ function JoinTeam() {
     return (
       <div className="page-narrow">
         <div className="card-narrow stack">
-          <h1 className="page-title" style={{ fontSize: 34 }}>Invite not available</h1>
+          <h1 className="page-title">Invite not available</h1>
           <p className="text-secondary">{loadError}</p>
         </div>
       </div>
@@ -86,7 +86,7 @@ function JoinTeam() {
     <AuthShell title="Welcome to the Team" body="You've been invited to help run MentorsMD. Set your password, then set up 2-step verification.">
       <div className="stack" style={{ gap: 14 }}>
         <div className="stack-sm">
-          <h1 className="page-title" style={{ fontSize: 38 }}>Join the MentorsMD team</h1>
+          <h1 className="page-title">Join the MentorsMD team</h1>
           {invite && (
             <span className="badge badge-brand" style={{ alignSelf: "flex-start" }}>
               {invite.role} · {invite.email}{invite.invitedBy ? ` · invited by ${invite.invitedBy}` : ""}

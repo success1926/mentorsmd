@@ -16,7 +16,7 @@ export default async function ClaimGiftPage({ searchParams }: { searchParams: { 
     return (
       <AuthShell>
         <div className="stack" style={{ gap: 14 }}>
-          <h1 className="page-title" style={{ fontSize: 34 }}>{found?.alreadySetUp ? "Your account is set up" : "This link isn't active"}</h1>
+          <h1 className="auth-title">{found?.alreadySetUp ? "Your account is set up" : "This link isn't active"}</h1>
           <p className="text-secondary">
             {found?.alreadySetUp
               ? "Log in with your email and password to use your gift."

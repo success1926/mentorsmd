@@ -8,6 +8,7 @@ import { ProfilePhoto } from "@/components/ProfilePhoto";
 import { notifyPackagesChanged } from "@/components/NavStatus";
 import { ABOUT_MAX, APPLY_YEARS, HELP_OPTIONS, SCHOOL_MAX, STUDENT_DEGREES, STUDENT_STAGES, type StudentProfile } from "@/lib/studentProfile";
 import type { Option } from "@/lib/options";
+import { Alert, Field, PageHeader } from "@/components/ui";
 
 // "About you" (Oct 2026): the student's optional profile for mentors
 // (lib/studentProfile.ts). Everything is optional; only mentors they've
@@ -92,16 +93,18 @@ function AboutYou() {
   const aboutLeft = ABOUT_MAX - (p.about || "").length;
 
   return (
-    <div className="page-mid stack-lg" style={{ gap: 24 }}>
-      <div className="stack-sm">
-        <h1 className="page-title">{welcome ? "Tell mentors a bit about you" : "About you"}</h1>
-        <p className="lede">
-          {welcome ? "It takes a minute, and every question is optional. " : ""}
-          Mentors you message, book or buy from see this, so they know where you are before your first call. It&apos;s never shown publicly.
-        </p>
-      </div>
+    <div className="page-mid stack-lg about-you-page">
+      <PageHeader
+        title={welcome ? "Tell mentors a bit about you" : "About you"}
+        lede={
+          <>
+            {welcome ? "It takes a minute, and every question is optional. " : ""}
+            Mentors you message, book or buy from see this, so they know where you are before your first call. It&apos;s never shown publicly.
+          </>
+        }
+      />
 
-      <section className="card stack" style={{ gap: 18 }}>
+      <section className="card stack about-you-card">
         {me.minor ? (
           <span className="text-secondary small">Students under 18 don&apos;t add a profile photo. Mentors see your initials.</span>
         ) : (
@@ -128,10 +131,9 @@ function AboutYou() {
           <Choice options={STUDENT_DEGREES} value={p.degree} onChange={(v) => set({ degree: v })} label="MD, DO or both" />
         </div>
 
-        <label className="field" style={{ marginBottom: 0 }}>
-          <span className="field-label">Undergrad school or state <span className="text-muted">(optional)</span></span>
-          <input className="input" maxLength={SCHOOL_MAX} value={p.school || ""} onChange={(e) => set({ school: e.target.value })} placeholder="e.g. UCLA, or Ohio" style={{ marginBottom: 0 }} />
-        </label>
+        <Field id="ay-school" label="Undergrad school or state" optional>
+          <input className="input" maxLength={SCHOOL_MAX} value={p.school || ""} onChange={(e) => set({ school: e.target.value })} placeholder="e.g. UCLA, or Ohio" />
+        </Field>
 
         <div className="stack-sm">
           <b>What do you want help with?</b>
@@ -148,8 +150,7 @@ function AboutYou() {
           </div>
         </div>
 
-        <label className="field" style={{ marginBottom: 0 }}>
-          <span className="field-label">A few lines about you and your goals <span className="text-muted">(optional)</span></span>
+        <Field id="ay-about" label="A few lines about you and your goals" optional help={`${aboutLeft} characters left`}>
           <textarea
             className="input"
             rows={3}
@@ -157,12 +158,10 @@ function AboutYou() {
             value={p.about || ""}
             onChange={(e) => set({ about: e.target.value })}
             placeholder="e.g. Biology major, first-gen, hoping for primary care. My personal statement draft needs a stronger story."
-            style={{ marginBottom: 0 }}
           />
-          <span className="field-help">{aboutLeft} characters left</span>
-        </label>
+        </Field>
 
-        {msg && <div role="status" className={`alert ${msg.ok ? "alert-success" : "alert-danger"}`}>{msg.text}</div>}
+        {msg && <Alert tone={msg.ok ? "success" : "danger"}>{msg.text}</Alert>}
         <div className="row-wrap">
           <button type="button" className="btn btn-primary" disabled={saving} onClick={save}>{saving ? "Saving…" : welcome ? "Save and find a mentor" : "Save"}</button>
           {welcome && <button type="button" className="btn btn-ghost" onClick={skip}>Skip for now</button>}

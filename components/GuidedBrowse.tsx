@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Rating, tintFor, initialsOf } from "@/components/ui";
+import { EmptyState, Rating, tintFor, initialsOf } from "@/components/ui";
 import { SchoolLogo, ClientSchools } from "@/components/SchoolLogo";
 import { MentorCardsMotion } from "@/components/Moments";
 import { CompareToggle, CompareTray, compareSnapshot, useCompare } from "@/components/Compare";
@@ -141,11 +141,11 @@ export function GuidedBrowse({ mentors, logos }: { mentors: BrowseMentor[]; logo
             Tell us where you are. <em>We&apos;ll narrow it down.</em>
           </h2>
           <p>Tap anything that fits. Mentors are ranked by how much they match.</p>
-          <button type="button" className="btn btn-sm guide-toggle" aria-expanded={guideOpen} onClick={() => setGuideOpen((o) => !o)}>
-            {guideOpen ? "Hide choices" : n ? `Edit your picks (${n})` : "Choose what you need"}
+          <button type="button" className="btn btn-sm guide-toggle toggle-btn" aria-expanded={guideOpen} aria-controls="guide-body" onClick={() => setGuideOpen((o) => !o)}>
+            {guideOpen ? "Hide choices" : n ? <>Edit your picks <span className="tab-count">{n}</span></> : "Choose what you need"}
           </button>
         </div>
-        <div className={`guide-body${guideOpen ? " is-open" : ""}`}>
+        <div id="guide-body" className={`guide-body${guideOpen ? " is-open" : ""}`}>
           {GUIDED_GROUPS.map((g, i) => (
             <div key={g.key} className="guide-step">
               <div className="guide-step-head">
@@ -206,11 +206,9 @@ export function GuidedBrowse({ mentors, logos }: { mentors: BrowseMentor[]; logo
         )}
 
         {mentors.length === 0 ? (
-          <div className="empty stack" style={{ alignItems: "center" }}>
-            <b style={{ color: "var(--ink)", fontSize: 18 }}>No mentors match that search.</b>
-            <span>Try a school, a topic like &quot;MMI&quot;, or browse everyone.</span>
-            <Link href="/mentors" className="btn btn-primary">Show all mentors</Link>
-          </div>
+          <EmptyState title="No mentors match that search." action={<Link href="/mentors" className="btn btn-primary">Show all mentors</Link>}>
+            Try a school, a topic like &quot;MMI&quot;, or browse everyone.
+          </EmptyState>
         ) : (
           <>
             {full.length > 0 && (
@@ -257,7 +255,7 @@ function Card({ m, r, best, picks, logos }: { m: BrowseMentor; r: MatchResult; b
       <Link href={`/mentors/${m.id}`} className="gb-photo" aria-label={`${m.name}'s profile`}>
         {m.photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={m.photoUrl} alt="" loading="lazy" />
+          <img src={m.photoUrl} alt="" loading="lazy" decoding="async" width={132} height={132} sizes="132px" />
         ) : (
           <span className="avatar" style={{ background: tintFor(m.id) }}>{initialsOf(m.name)}</span>
         )}

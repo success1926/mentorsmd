@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { MENTOR_AGREEMENT_POINTS, MENTOR_AGREEMENT_VERSION } from "@/lib/agreement";
 import { LegalBody } from "@/components/LegalBody";
+import { fmtDay } from "@/lib/format";
 
 // The mentor agreement checkbox (#94): at mentor signup and every time a
 // package is published or saved. The version date is shown and stored.
@@ -20,7 +21,7 @@ export function MentorAgreement({
   doc?: { version: number; title: string; body: string | null; publishedAt: string | null } | null;
 }) {
   const published = doc && doc.version > 0 && doc.body;
-  const date = new Date(published && doc!.publishedAt ? doc!.publishedAt : `${MENTOR_AGREEMENT_VERSION}T12:00:00Z`).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+  const date = fmtDay(published && doc!.publishedAt ? doc!.publishedAt : `${MENTOR_AGREEMENT_VERSION}T12:00:00Z`);
   return (
     <div className="card card-tint stack-sm" style={{ padding: compact ? 16 : 18, marginBottom: 14 }}>
       <b className="small">Mentor agreement ({published ? `version ${doc!.version}, ` : ""}updated {date})</b>

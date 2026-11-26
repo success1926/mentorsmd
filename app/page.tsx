@@ -7,7 +7,7 @@ import { Underline } from "@/components/Underline";
 import { ScrollCue } from "@/components/ScrollCue";
 import { Rail } from "@/components/Rail";
 import { ReviewStats } from "@/components/ReviewStats";
-import { Icon, ICONS, Rating, tintFor, initialsOf } from "@/components/ui";
+import { Icon, ICONS, Rating, SectionHead, tintFor, initialsOf } from "@/components/ui";
 import { HowItWorks } from "@/components/HowItWorks";
 import { SchoolLogo, ClientSchools } from "@/components/SchoolLogo";
 import { getSchoolLogos } from "@/lib/schoolLogos";
@@ -26,26 +26,26 @@ export const metadata = { alternates: { canonical: "/" } };
 export const dynamic = "force-dynamic"; // mentor cards and review counts read live data
 
 // Card colors follow each item's position (shown when a path card has no
-// photo); the text, links and photos are edited in Admin -> Website
+// photo; .soft-bg-N in app/styles/public.css, shared with the How it works
+// panel); the text, links and photos are edited in Admin -> Website
 // (defaults in lib/siteContent.ts).
-const PATH_BGS = [
-  "linear-gradient(135deg, #DDD5FF 0%, #F1EDFF 100%)",
-  "linear-gradient(135deg, #FCE4EC 0%, #F1EDFF 100%)",
-  "linear-gradient(135deg, #E4EEFF 0%, #F1EDFF 100%)",
-];
 
 export default async function HomePage() {
   const [mentors, stats, c, settings, logos] = await Promise.all([getFeaturedMentors(4), getReviewStats(), getSiteContent("home"), getSiteContent("siteSettings"), getSchoolLogos()]);
   const wall = await getReviewWall(c.testimonials, HOME_WALL_REVIEWS);
+  // One school strip near the top: the scrolling logo strip when it's on
+  // (Site settings has schools and the Layout doesn't hide it), otherwise
+  // the hero's plain list of names.
+  const logoStripShown = settings.mentorSchools.length > 0 && c.layout.some((l) => l.id === "schoolLogos" && !l.hidden);
 
   // Each section by its id in lib/pageLayout.ts; shown in the order (and
   // with the hidden ones and added sections) from Admin -> Website -> Layout.
   const sections: Record<string, React.ReactNode> = {
     hero: (
       <section className="home-hero">
-        <div className="blob" style={{ left: -120, top: 420, width: 520, height: 260, background: "rgba(228,238,255,0.9)", filter: "blur(50px)" }} />
-        <div className="blob" style={{ right: -80, top: 300, width: 560, height: 300, background: "rgba(245,185,205,0.45)", filter: "blur(60px)" }} />
-        <div className="blob" style={{ left: "35%", top: 40, width: 520, height: 200, background: "rgba(207,196,255,0.45)", filter: "blur(60px)" }} />
+        <div className="blob hero-blob-1" />
+        <div className="blob hero-blob-2" />
+        <div className="blob hero-blob-3" />
 
         <div className="hero-body">
           {c.heroEyebrow && <span className="eyebrow">{c.heroEyebrow}</span>}
@@ -59,7 +59,7 @@ export default async function HomePage() {
               <input name="q" aria-label="Search for help" placeholder={c.searchPlaceholder} />
             </div>
             <button type="submit" className="btn btn-primary">
-              <span className="hide-mobile">Search Mentors</span>
+              <span className="hide-mobile">Search mentors</span>
               <Icon d={ICONS.arrow} size={18} />
             </button>
           </form>
@@ -76,10 +76,10 @@ export default async function HomePage() {
           {stats.count >= 3 && stats.avg !== null && (
             <div className="hero-proof">
               <div className="hero-dots" aria-hidden="true">
-                <span style={{ background: "#F5B9CD" }} />
-                <span style={{ background: "#E4EEFF" }} />
-                <span style={{ background: "#DDD5FF" }} />
-                <span style={{ background: "#FCE4EC" }} />
+                <span />
+                <span />
+                <span />
+                <span />
               </div>
               <ReviewStats count={stats.count} avg={stats.avg} />
             </div>
@@ -88,7 +88,7 @@ export default async function HomePage() {
 
         <ScrollCue />
 
-        {c.schools.length > 0 && (
+        {c.schools.length > 0 && !logoStripShown && (
           <div className="wrap">
             <div className="school-strip">
               <span className="eyebrow">{c.schoolsLabel}</span>
@@ -109,20 +109,14 @@ export default async function HomePage() {
     paths: (
       <section className="home-section">
         <div className="wrap">
-          <div className="center-head">
-            {c.pathsEyebrow && <span className="eyebrow">{c.pathsEyebrow}</span>}
-            <h2 className="big-title">
-              <Underline text={c.pathsTitle} phrase={c.pathsUnderline} />
-            </h2>
-            {c.pathsText && <p className="lede" style={{ maxWidth: 760, marginTop: 8 }}>{c.pathsText}</p>}
-          </div>
-          <div className="grid-3" style={{ marginTop: 56 }}>
+          <SectionHead center eyebrow={c.pathsEyebrow} title={<Underline text={c.pathsTitle} phrase={c.pathsUnderline} />} lede={c.pathsText} />
+          <div className="grid-3 section-body">
             {c.paths.map((p, i) => (
               <Link key={i} href={safeHref(p.href)} className="path-card">
-                <div className="path-photo" style={{ background: PATH_BGS[i % PATH_BGS.length] }}>
+                <div className={`path-photo soft-bg-${i % 3}`}>
                   {p.photo && (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={stripFocus(p.photo)} alt="" loading="lazy" style={{ objectPosition: focusPosition(p.photo) }} />
+                    <img src={stripFocus(p.photo)} alt="" loading="lazy" decoding="async" style={{ objectPosition: focusPosition(p.photo) }} />
                   )}
                 </div>
                 <div className="path-body">
@@ -137,7 +131,7 @@ export default async function HomePage() {
       </section>
     ),
 
-    // Also on /how-it-works.
+    // Also on /how-it-works; hidden here by default (lib/pageLayout.ts).
     vetting: <VettingSection c={c} id="vetting" />,
 
     // No bottom space here: the next section brings its own, so the gap stays
@@ -145,11 +139,8 @@ export default async function HomePage() {
     featured: mentors.length > 0 && (
         <section className="home-section" style={{ paddingBottom: 0 }}>
           <div className="wrap">
-            <div className="between" style={{ alignItems: "flex-end", marginBottom: 40, flexWrap: "wrap", gap: 24 }}>
-              <div className="stack" style={{ gap: 14 }}>
-                {c.featuredEyebrow && <span className="eyebrow">{c.featuredEyebrow}</span>}
-                <h2 className="section-head">{c.featuredTitle}</h2>
-              </div>
+            <div className="section-head-row">
+              <SectionHead eyebrow={c.featuredEyebrow} title={c.featuredTitle} />
               {c.featuredLink && <Link href="/mentors" className="link">{c.featuredLink}</Link>}
             </div>
             {/* Four across on computers; a sideways row with arrows on phones. */}
@@ -159,7 +150,7 @@ export default async function HomePage() {
                   <div className="mentor-tile-photo" style={{ background: tintFor(m.id) }}>
                     {m.photoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={m.photoUrl} alt={m.name} loading="lazy" />
+                      <img src={m.photoUrl} alt={m.name} loading="lazy" decoding="async" width={320} height={320} sizes="(max-width: 700px) 80vw, 300px" />
                     ) : (
                       initialsOf(m.name)
                     )}
@@ -170,7 +161,7 @@ export default async function HomePage() {
                       {/* No "New mentor" tag on the homepage: stars only once there are reviews. */}
                       {m.reviewCount > 0 && <Rating avg={m.avgRating} count={m.reviewCount} />}
                     </div>
-                    {credentialLine(m.credential, m.mentorStage) && <span style={{ lineHeight: 1.4 }}>{credentialLine(m.credential, m.mentorStage)}</span>}
+                    {credentialLine(m.credential, m.mentorStage) && <span className="mentor-tile-cred">{credentialLine(m.credential, m.mentorStage)}</span>}
                     {(m.medicalSchool || mentorRank(m.mentorStage)) && (
                       <span className="school-line text-secondary small">
                         {m.medicalSchool && <SchoolLogo name={m.medicalSchool} logos={logos} size={24} title={false} fallback={false} />}
@@ -179,8 +170,8 @@ export default async function HomePage() {
                     )}
                     <ClientSchools schools={m.clientSchools} logos={logos} size={26} max={5} />
                     {m.fromRateCents && (
-                      <span className="text-secondary" style={{ marginTop: 2 }}>
-                        From <b style={{ color: "var(--ink)" }}>{money(m.fromRateCents)}/hr</b>
+                      <span className="text-secondary mentor-tile-rate">
+                        From <b>{money(m.fromRateCents)}/hr</b>
                       </span>
                     )}
                   </div>
@@ -192,20 +183,25 @@ export default async function HomePage() {
     ),
 
     // How it works (Nov 2026): rows that open one at a time, picture on
-    // the right (components/HowItWorks.tsx).
+    // the right (components/HowItWorks.tsx). Kept short: vetting and the
+    // questions live on /how-it-works, linked under the rows.
     features: c.features.length > 0 && (
-      <section className="home-section" id="how-it-works" style={{ scrollMarginTop: 150 }}>
+      <section className="home-section anchor-target" id="how-it-works">
         <div className="wrap">
-          <div className="center-head" style={{ marginBottom: 56, gap: 14 }}>
-            {c.featuresEyebrow && <span className="eyebrow">{c.featuresEyebrow}</span>}
-            <h2 className="big-title">
-              <Underline text={c.featuresTitle} phrase={c.featuresUnderline} />
-            </h2>
+          <SectionHead center eyebrow={c.featuresEyebrow} title={<Underline text={c.featuresTitle} phrase={c.featuresUnderline} />} />
+          <div className="section-body">
+            <HowItWorks
+              items={c.features}
+              footer={
+                c.featuresButton || c.featuresMoreLink ? (
+                  <div className="row-wrap how-footer-row">
+                    {c.featuresButton && <RoleCta href="/signup" label={c.featuresButton} className="btn btn-primary btn-lg" />}
+                    {c.featuresMoreLink && <Link href="/how-it-works" className="link">{c.featuresMoreLink}</Link>}
+                  </div>
+                ) : null
+              }
+            />
           </div>
-          <HowItWorks
-            items={c.features}
-            footer={c.featuresButton ? <RoleCta href="/signup" label={c.featuresButton} className="btn btn-primary btn-lg" /> : null}
-          />
         </div>
       </section>
     ),
@@ -214,27 +210,25 @@ export default async function HomePage() {
     accepted: settings.acceptedSchools.length > 0 && <SchoolMarquee label={settings.acceptedTitle} schools={settings.acceptedSchools} />,
 
     testimonials: wall.length >= REVIEW_WALL_MIN && (
-        <section id="reviews" className="wall" style={{ scrollMarginTop: 150 }}>
+        <section id="reviews" className="wall anchor-target">
           <div className="wrap">
-            <div className="center-head" style={{ marginBottom: 56, gap: 16 }}>
-              {c.testimonialsEyebrow && <span className="eyebrow">{c.testimonialsEyebrow}</span>}
-              <h2 className="big-title">{c.testimonialsTitle}</h2>
+            <SectionHead center eyebrow={c.testimonialsEyebrow} title={c.testimonialsTitle} />
+            <div className="section-body">
+              <ReviewWall items={wall} rail />
             </div>
-            <ReviewWall items={wall} rail />
           </div>
         </section>
     ),
 
-    // Only once questions are added in Admin -> Website; also on /how-it-works.
+    // Only once questions are added in Admin -> Website. Shown in full on
+    // /how-it-works; hidden here by default (lib/pageLayout.ts).
     faq: <FaqSection title={c.faqTitle} faq={c.faq} />,
 
     cta: (
       <section className="home-section home-cta">
-        <div className="wrap center-head" style={{ gap: 20 }}>
-          {c.ctaEyebrow && <span className="eyebrow">{c.ctaEyebrow}</span>}
-          <h2 className="big-title">{c.ctaTitle}</h2>
-          {c.ctaText && <p className="lede">{c.ctaText}</p>}
-          <RoleCta href="/mentors" label={c.ctaButton} className="btn btn-primary btn-lg" style={{ marginTop: 8 }} />
+        <div className="wrap center-head">
+          <SectionHead center eyebrow={c.ctaEyebrow} title={c.ctaTitle} lede={c.ctaText} />
+          <RoleCta href="/mentors" label={c.ctaButton} className="btn btn-primary btn-lg" />
         </div>
       </section>
     ),
