@@ -36,7 +36,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { siteUrl } from "@/lib/siteUrl";
-import { money } from "@/lib/options";
+import { firstName, money } from "@/lib/format";
 import { OFFER_KINDS, hoursLabel, offerMinutes, offerRate, priceFor } from "@/lib/pricing";
 import { isMentorListed } from "@/lib/mentor";
 import { payoutsReady } from "@/lib/stripeAccountStatus";
@@ -69,7 +69,6 @@ export class GiftError extends Error {
 const hash = (t: string) => crypto.createHash("sha256").update(t).digest("hex");
 const newToken = () => crypto.randomBytes(32).toString("hex");
 const isToken = (t: unknown): t is string => typeof t === "string" && /^[a-f0-9]{64}$/.test(t);
-const first = (name: string) => name.split(" ")[0];
 
 export const giftPageUrl = (token: string) => `${siteUrl()}/gift/${token}`;
 export const giftClaimUrl = (token: string) => `${siteUrl()}/gift/claim?token=${token}`;
@@ -140,7 +139,7 @@ async function giftableOffer(gigId: string, student: StudentRow | null, under18:
   const rateCents = offerRate(gig, mentor.hourlyRateCents);
   const minutes = offerMinutes(gig);
   if (!rateCents || !minutes) throw new GiftError("This package isn't available to buy right now.");
-  const title = gig.kind === "HOURLY" ? `Hourly package with ${first(mentor.name)}` : gig.title;
+  const title = gig.kind === "HOURLY" ? `Hourly package with ${firstName(mentor.name)}` : gig.title;
   return { gig, mentor, rateCents, minutes, title, priceCents: priceFor(minutes, rateCents) };
 }
 

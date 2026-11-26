@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PLATFORM_FEE_PERCENT } from "@/lib/stripe";
 import { DEFAULT_TIME_ZONE, addDays, dayInZone, fmtDayLabel, isDayString, isValidTimeZone, weekdayOfDay, zonedToUtc } from "@/lib/tz";
 import { FILTER_GROUPS, FORMATS, PRICE_BANDS, SCHOOL_TYPES, SERVICES, STAGES, isValue, labelFor } from "@/lib/options";
+import { money } from "@/lib/format";
 import { bookableGigWhere } from "@/lib/mentor";
 import { sourceLabel } from "@/lib/attribution";
 import { csvCell } from "@/lib/csv";
@@ -208,7 +209,7 @@ async function overview(r: Range): Promise<InsightsResult> {
     { key: "collected", label: "Money collected", value: collected, kind: "money", hint: "Packages and added hours, minus credit used" },
     { key: "sales", label: "Sales", value: sales, kind: "money", hint: `${paid.length} package${paid.length === 1 ? "" : "s"}${topUps.length ? `, ${topUps.length} top-up${topUps.length === 1 ? "" : "s"}` : ""}` },
     { key: "creditUsed", label: "Paid with credit", value: creditUsed, kind: "money" },
-    { key: "creditIssued", label: "Credit issued", value: creditIssued, kind: "money", hint: creditFromDisputes ? `${fmtMoneyHint(creditFromDisputes)} from disputes` : "Disputes refunded as credit, and additions" },
+    { key: "creditIssued", label: "Credit issued", value: creditIssued, kind: "money", hint: creditFromDisputes ? `${money(creditFromDisputes)} from disputes` : "Disputes refunded as credit, and additions" },
     { key: "aov", label: "Average package", value: paid.length ? Math.round(paid.reduce((s, o) => s + o.amount, 0) / paid.length) : null, kind: "money" },
     { key: "fee", label: `MentorsMD fee (${PLATFORM_FEE_PERCENT}%)`, value: feeSum, kind: "money", hint: "On payouts sent in this period" },
     { key: "payouts", label: "Paid to mentors", value: paidToMentors, kind: "money", hint: `${payouts.length} monthly payout${payouts.length === 1 ? "" : "s"}` },
@@ -263,7 +264,6 @@ async function overview(r: Range): Promise<InsightsResult> {
   };
 }
 
-const fmtMoneyHint = (cents: number) => `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
 // Hours packages (redesign Oct 2026).
 const HOURS_STATUS: Record<string, string> = {

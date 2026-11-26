@@ -6,6 +6,7 @@ import { isDefiniteStripeFailure } from "@/lib/orderRelease";
 import { logAdminAction } from "@/lib/adminLog";
 import { closeDisputeFlag } from "@/lib/flags";
 import { reportError } from "@/lib/sentry";
+import { money } from "@/lib/format";
 
 // Admin-only, on purpose - this is the resolution path for a dispute, and
 // giving buyers or sellers the ability to trigger it themselves would
@@ -89,7 +90,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   await logAdminAction({
     adminId,
     action: "ORDER_REFUND",
-    summary: `Refunded order ${order.id} ($${(order.amount / 100).toFixed(2)})${order.disputed ? " to resolve a dispute" : ""}`,
+    summary: `Refunded order ${order.id} (${money(order.amount)})${order.disputed ? " to resolve a dispute" : ""}`,
     targetType: "ORDER",
     targetId: order.id,
     targetUserId: order.sellerId,

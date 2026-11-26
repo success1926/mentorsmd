@@ -23,7 +23,7 @@ import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { siteUrl } from "@/lib/siteUrl";
-import { money } from "@/lib/options";
+import { firstName, money } from "@/lib/format";
 import { hoursLabel, offerMinutes, offerRate, priceFor } from "@/lib/pricing";
 import { hoursSummary, isBlockMinutes, LOW_HOURS_MINUTES, splitCredit, TOP_UP_HOURS } from "@/lib/hours";
 import { finishPhase } from "@/lib/finishing";
@@ -50,7 +50,6 @@ export class CheckoutError extends Error {
 }
 
 type Buyer = { id: string; email?: string | null };
-const first = (name: string) => name.split(" ")[0];
 
 // ---------- Who can buy ----------
 
@@ -339,7 +338,7 @@ async function payPerCallOrder(student: Buyer, mentorId: string, start: Date, mi
     // Just "30-minute call": emails and pages already add "with <name>",
     // and the Stripe page shows the description below.
     title: label,
-    description: `One ${label} on ${first(mentor.name)}'s calendar, at their hourly rate.`,
+    description: `One ${label} on ${firstName(mentor.name)}'s calendar, at their hourly rate.`,
     requestedCallStart: start,
   };
 }

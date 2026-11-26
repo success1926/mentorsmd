@@ -27,6 +27,7 @@ import { sendReminderEmail, SITE_URL } from "@/lib/email";
 import { visibleMentorWhere } from "@/lib/mentor";
 import { profileFieldsSelect, profileSections } from "@/lib/profileCompleteness";
 import { payoutsReady } from "@/lib/stripeAccountStatus";
+import { firstName } from "@/lib/format";
 
 const HOUR = 3600_000;
 // A step is still sent up to a week after it was due (a missed cron run,
@@ -120,7 +121,7 @@ export type PlannedReminder = Omit<Candidate, "values" | "start"> & {
   values: Values;
 };
 
-const first = (name: string) => name.trim().split(/\s+/)[0] || "there";
+const first = (name: string) => firstName(name) || "there";
 const isUnique = (err: unknown) => (err as { code?: string })?.code === "P2002";
 
 // Students who can get reminders.
