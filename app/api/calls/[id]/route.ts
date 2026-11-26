@@ -59,7 +59,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       // The mentor sees the student's "About you" before the call.
       studentId: isMentor ? studentId ?? null : null,
       backHref,
-      backLabel: booking.order ? "← Back to the order" : "← Back to your messages",
+      backLabel: booking.order ? "Back to the package" : "Back to your messages",
     },
   });
 }

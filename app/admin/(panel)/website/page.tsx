@@ -36,7 +36,7 @@ export default function AdminWebsitePage() {
         lede="Change the text, photos and layout of the public site. Changes save as a draft automatically; check them in the preview, then publish. Tip: while logged in, hover any section of these pages on the site and click “Edit” to jump here."
       />
       {setupNeeded && (
-        <div className="alert alert-danger">The website editor&apos;s database table isn&apos;t set up yet (prisma/website-editor-2026-10.sql). The site is showing its built-in text.</div>
+        <div className="alert alert-danger">The website editor&apos;s database table isn&apos;t set up yet (prisma/applied/website-editor-2026-10.sql). The site is showing its built-in text.</div>
       )}
       {pages === null && <LoadingBlock lines={0} cards={4} title={false} />}
       <div className="stack" style={{ gap: 12 }}>

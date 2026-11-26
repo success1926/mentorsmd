@@ -24,7 +24,7 @@ import { hoursLabel, priceMath } from "@/lib/pricing";
 import { splitCredit } from "@/lib/hours";
 import { focusPosition, stripFocus } from "@/lib/imageFocus";
 import type { Language } from "@/lib/profileCompleteness";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 // A mentor's public profile (docs/redesign-2026-10.md sections 1 and 2,
 // laid out Leland-style in Nov 2026). Left: photo, name, credential, school
@@ -165,7 +165,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const ask = useAdminDialog();
+  const ask = useConfirm();
   async function toggleBlock(block: boolean) {
     if (block && !(await ask.confirm({ title: `Block ${seller.name}?`, body: "Neither of you will be able to message the other.", confirmLabel: "Block", cancelLabel: "Keep it", danger: true }))) return;
     try {
@@ -767,7 +767,7 @@ function IntroCallPanel({ seller, first, unlock, unlockError, onChanged, onMessa
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState("");
   const intro = unlock?.introCall;
-  const { confirm: confirmBox, dialog } = useAdminDialog();
+  const { confirm: confirmBox, dialog } = useConfirm();
 
   async function confirm(startIso: string): Promise<string | null> {
     const res = await fetch("/api/intro-calls", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mentorId: seller.id, startTime: startIso }) });

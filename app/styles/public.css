@@ -83,8 +83,6 @@
 .mentor-tile-rate b { color: var(--ink); }
 .how-footer-row { gap: 20px; align-items: center; }
 
-/* Search buttons use the standard button corner (was 10px on the homepage, a pill on /mentors). */
-.hero-search .btn, .search-inline .btn { border-radius: 8px; }
 
 /* Review cards (components/ReviewWall.tsx). */
 .testi-head { gap: 14px; }

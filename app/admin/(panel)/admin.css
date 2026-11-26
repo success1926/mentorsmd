@@ -169,14 +169,13 @@ details.collapse > .collapse-body.adm-collapse-list { gap: 0; }
 /* "Show more" under a long list (components/admin/ShowMore.tsx). */
 .adm-show-more { display: flex; justify-content: center; padding: 14px 0 4px; }
 /* A message flagged by the word filter, outlined in its conversation (components/admin/Flags.tsx). */
-.adm-msg-flagged { outline: 3px solid #E3A008; outline-offset: 2px; }
+.adm-msg-flagged { outline: 3px solid var(--warning); outline-offset: 2px; }
 /* Tabs that sit in a row with a filter (Flags, Disputes): no gap under them. */
 .tabs.adm-tabs-inline { margin-bottom: 0; }
 /* Row collapsibles inside a card: the card's own edge stands in for the first and last lines. */
 .card > details.collapse.collapse-row:first-child { border-top: 0; }
 .card > details.collapse.collapse-row:last-child { border-bottom: 0; }
 /* A page header at the top of a spaced stack: the stack gap is enough. */
-.adm-main .stack-lg > .page-header { margin-bottom: 0; }
 
 /* Admin -> Everyone: a person's details in a panel from the right
    (components/admin/sections/People.tsx, inside the shared Modal). Where

@@ -540,7 +540,7 @@ export const SITE_PAGES = {
       }),
     },
   },
-  // The "How To Set Up Your Offers" pop-up in the mentor area
+  // The "How to set up your offers" pop-up in the mentor area
   // (components/OfferGuide.tsx). Not a public page: mentors see it, and
   // /dashboard/offer-guide shows it to admins for the preview.
   mentorGuide: {
