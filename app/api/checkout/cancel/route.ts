@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const me = sessionUser(await getSession());
-  const studentId = me.id;
+  const studentId = me?.id;
   let back = "/orders";
   if (studentId) {
     back = await cancelFromStripePage(studentId, {

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const me = sessionUser(await getSession());
-  const role = me.role;
+  const role = me?.role;
   if (role !== "SELLER" && role !== "ADMIN") return NextResponse.json({ error: "For mentor accounts" }, { status: 403 });
   return NextResponse.json({ guide: await getSiteContent("mentorGuide") });
 }

@@ -22,8 +22,8 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const { visitorId, source } = attributionFromCookieHeader(req.headers.get("cookie"));
   const me = sessionUser(await getSession());
-  const userId: string | null = me.id || null;
-  const role: string | null = me.role || null;
+  const userId: string | null = me?.id || null;
+  const role: string | null = me?.role || null;
   // Staff browsing the site isn't customer activity.
   if (role === "ADMIN" || role === "ADMIN_2FA") return ok;
   if (!visitorId && !userId) return ok;

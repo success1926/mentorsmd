@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 // shown to this viewer.
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const me = sessionUser(await getSession());
-  const view = await mentorProfileView(params.id, { id: me.id, role: me.role });
+  const view = await mentorProfileView(params.id, { id: me?.id, role: me?.role });
   if (!view) return NextResponse.json({ error: "Mentor not found" }, { status: 404 });
   const s: any = view.seller;
   const schoolLogos = await schoolLogosFor([s?.medicalSchool, s?.undergradSchool, ...(s?.clientSchools || [])]);
