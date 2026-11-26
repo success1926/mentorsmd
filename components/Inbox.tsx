@@ -8,12 +8,14 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useConversation, SendError } from "@/lib/hooks/useConversation";
 import { onLive } from "@/lib/realtimeClient";
-import { OrderCalls } from "@/components/Calls";
-import { Icon, ICONS, MinorBadge, StaffBadge, statusBadge, tintFor, initialsOf } from "@/components/ui";
+import { Collapsible, EmptyState, Icon, ICONS, LoadingBlock, MinorBadge, PageHeader, PersonAvatar, StaffBadge, StatusBadge } from "@/components/ui";
+import { PackageRow } from "@/components/PackageRow";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { firstName, fmtDateTime, fmtDay, fmtDayShort, fmtTime } from "@/lib/format";
 import { ConfirmEmailNotice, IntegrityBanner, MessageText, ReportDialog, SendWarnings, setBlocked, type SendWarning } from "@/components/Safety";
-import { money } from "@/lib/options";
+import { money } from "@/lib/format";
 import { MOMENTS } from "@/lib/moments";
-import { BookCallModal, HoursBar, LowHoursBadge, PackageBadge, SharedFiles } from "@/components/Packages";
+import { BookCallModal, SharedFiles } from "@/components/Packages";
 import { hoursSummary, shortHours } from "@/lib/hours";
 
 // The line under a name in the list (redesign Oct 2026): the package and
@@ -22,30 +24,16 @@ function contextLine(c: any, userId: string, role: string): { text: string; mute
   const pkg = c.context?.package;
   if (pkg) return { text: `${pkg.title} · ${shortHours(pkg.minutesLeft)} left${pkg.count > 1 ? ` (+${pkg.count - 1} more)` : ""}`, muted: false };
   const intro = c.context?.introCallAt;
-  if (intro) return { text: `No package yet · intro call booked ${new Date(intro).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}`, muted: false };
+  if (intro) return { text: `No package yet · intro call booked ${fmtDayShort(intro)}`, muted: false };
   const last = c.messages?.[0];
   if (last && last.senderId === userId) return { text: "Waiting for a reply", muted: true };
   return null;
 }
 
-function PersonAvatar({ person, size = 44 }: { person: any; size?: number }) {
-  if (!person) return null;
-  return person.photoUrl ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={person.photoUrl} alt="" className="avatar" style={{ width: size, height: size, objectFit: "cover" }} />
-  ) : (
-    <span className="avatar" style={{ width: size, height: size, fontSize: size * 0.38, background: tintFor(person.id || person.name) }}>
-      {initialsOf(person.name)}
-    </span>
-  );
-}
-
+// Today: the time; before that: the date.
 function when(d: string) {
   const date = new Date(d);
-  const today = new Date();
-  return date.toDateString() === today.toDateString()
-    ? date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
-    : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return date.toDateString() === new Date().toDateString() ? fmtTime(date) : fmtDay(date);
 }
 
 // /messages and /messages/[id]: conversation list, the open thread, and a
@@ -79,8 +67,8 @@ export function Inbox({ selectedId }: { selectedId?: string }) {
   }, [selectedId]);
 
   return (
-    <div className="page" style={{ paddingTop: 32 }}>
-      <h1 className="page-title" style={{ fontSize: 40, marginBottom: 20 }}>Messages</h1>
+    <div className="page">
+      <PageHeader title="Messages" back={selectedId ? { href: "/messages", label: "All messages" } : undefined} />
       <div className={`inbox ${selectedId ? "" : "inbox-2"}`}>
         <div className={`inbox-list ph-no-capture ${selectedId ? "has-thread" : ""}`}>
           {(conversations?.length || 0) > 0 && (
@@ -88,18 +76,12 @@ export function Inbox({ selectedId }: { selectedId?: string }) {
               <input className="input" type="search" placeholder={role === "SELLER" ? "Search students" : "Search mentors"} value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search conversations" />
             </div>
           )}
-          {conversations === null && <p className="text-muted" style={{ padding: 20 }}>Loading…</p>}
+          {conversations === null && <div style={{ padding: 20 }}><LoadingBlock title={false} lines={4} /></div>}
           {conversations?.length === 0 && (
-            <div style={{ padding: 24 }} className="stack-sm">
-              <b>No messages yet</b>
-              {role === "BUYER" ? (
-                <>
-                  <span className="text-secondary">Message any mentor for free from their profile.</span>
-                  <Link href="/mentors" className="btn btn-primary btn-sm" style={{ alignSelf: "flex-start" }}>Browse mentors</Link>
-                </>
-              ) : (
-                <span className="text-secondary">When a student messages you, it shows up here.</span>
-              )}
+            <div style={{ padding: 16 }}>
+              <EmptyState title="No messages yet" action={role === "BUYER" ? <Link href="/mentors" className="btn btn-primary btn-sm">Browse mentors</Link> : undefined}>
+                {role === "BUYER" ? "Message any mentor for free from their profile." : "When a student messages you, it shows up here."}
+              </EmptyState>
             </div>
           )}
           {conversations
@@ -117,7 +99,7 @@ export function Inbox({ selectedId }: { selectedId?: string }) {
             const unread = c.id !== selectedId ? (role === "SELLER" ? c.sellerUnread : c.buyerUnread) || 0 : 0;
             return (
               <Link key={c.id} href={`/messages/${c.id}`} className={`inbox-item ${unread ? "unread" : ""}`} aria-current={c.id === selectedId ? "true" : undefined}>
-                <PersonAvatar person={other} />
+                <PersonAvatar person={other} size={44} fontSize={17} />
                 <div className="grow stack-sm" style={{ gap: 2, minWidth: 0 }}>
                   <div className="between">
                     <span className="row" style={{ gap: 6, minWidth: 0 }}>
@@ -177,6 +159,7 @@ function Thread({ conversationId }: { conversationId: string }) {
   const [sendError, setSendError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [report, setReport] = useState<{ messageId?: string } | null>(null);
+  const { confirm, notify, dialog } = useConfirm();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const { messages, sendMessage } = useConversation(conversationId);
@@ -265,32 +248,32 @@ function Thread({ conversationId }: { conversationId: string }) {
 
   async function toggleBlock(block: boolean) {
     setMenuOpen(false);
-    if (block && !confirm(`Block ${other?.name}? Neither of you will be able to message the other. You can unblock any time.`)) return;
+    if (block && !(await confirm({ title: `Block ${other?.name}?`, body: "Neither of you will be able to message the other. You can unblock any time.", confirmLabel: "Block", danger: true }))) return;
     try {
       await setBlocked(other.id, block);
       loadCtx();
     } catch (e: any) {
-      alert(e.message);
+      await notify("That didn't work", e.message);
     }
   }
 
   const other = ctx ? (role === "SELLER" ? ctx.conversation.buyer : ctx.conversation.seller) : null;
 
   if (error) return <div className="thread" style={{ padding: 24 }}><div className="alert alert-danger">{error}</div></div>;
-  if (!ctx) return <div className="thread" style={{ padding: 24 }}><span className="text-muted">Loading…</span></div>;
+  if (!ctx) return <div className="thread" style={{ padding: 24 }}><LoadingBlock lines={4} /></div>;
 
   const convo = ctx.conversation;
   const safety = ctx.safety || {};
-  const orders: any[] = (ctx.orders || []).map((o: any) => ({ ...o, seller: convo.seller }));
+  const orders: any[] = (ctx.orders || []).map((o: any) => ({ ...o, seller: convo.seller, buyer: o.buyer || convo.buyer }));
   const activeOrders = orders.filter((o) => ["IN_ESCROW", "COMPLETED"].includes(o.status));
   const pastOrders = orders.filter((o) => !["IN_ESCROW", "COMPLETED"].includes(o.status));
 
   return (
     <>
+      {dialog}
       <div className="thread">
         <div className="thread-head">
-          <button className="btn btn-ghost btn-sm hide-desktop-back" onClick={() => router.push("/messages")} aria-label="Back to all messages">←</button>
-          <PersonAvatar person={other} size={40} />
+          <PersonAvatar person={other} size={40} fontSize={15} />
           <div className="grow stack-sm" style={{ gap: 0 }}>
             <div className="row" style={{ gap: 8 }}>
               <b>{other?.name}</b>
@@ -301,14 +284,14 @@ function Thread({ conversationId }: { conversationId: string }) {
           {isBuyer && (
             <button className="btn btn-sm btn-primary" onClick={() => setBookOpen(true)}>Book a call</button>
           )}
-          <button className="btn btn-sm" onClick={() => setShowSide((s) => !s)} aria-expanded={showSide}>
-            Package · files{activeOrders.length ? ` (${activeOrders.length})` : ""}
+          <button className="btn btn-sm toggle-btn" onClick={() => setShowSide((s) => !s)} aria-expanded={showSide} aria-controls="thread-side">
+            Package · files{activeOrders.length ? <span className="tab-count">{activeOrders.length}</span> : null}
           </button>
           <div className="menu-wrap">
             <button className="btn btn-sm btn-ghost" aria-label="Report or block" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>⋯</button>
             {menuOpen && (
               <div className="menu-pop" role="menu" onMouseLeave={() => setMenuOpen(false)}>
-                <button role="menuitem" onClick={() => { setMenuOpen(false); setReport({}); }}>Report {other?.name.split(" ")[0]}</button>
+                <button role="menuitem" onClick={() => { setMenuOpen(false); setReport({}); }}>Report {firstName(other?.name)}</button>
                 {safety.iBlocked ? (
                   <button role="menuitem" onClick={() => toggleBlock(false)}>Unblock</button>
                 ) : (
@@ -321,7 +304,7 @@ function Thread({ conversationId }: { conversationId: string }) {
         <IntegrityBanner />
         {role === "SELLER" && other?.minorStatus && (
           <div className="integrity-banner" role="note" style={{ background: "var(--pink-soft)" }}>
-            {other.name.split(" ")[0]} is under 18. Their parent or guardian gets receipts for every order. Never share phone numbers, emails, social media or outside meeting links: with a student under 18 that is a high-severity safety issue.
+            {firstName(other.name)} is under 18. Their parent or guardian gets receipts for every order. Never share phone numbers, emails, social media or outside meeting links: with a student under 18 that is a high-severity safety issue.
           </div>
         )}
 
@@ -423,7 +406,7 @@ function Thread({ conversationId }: { conversationId: string }) {
         />
       )}
 
-      <aside className={`thread-side ${showSide ? "show" : ""}`}>
+      <aside id="thread-side" className={`thread-side ${showSide ? "show" : ""}`}>
         <div className="stack-sm" style={{ alignItems: "center", textAlign: "center", paddingBottom: 12, borderBottom: "1px solid var(--line)" }}>
           <PersonAvatar person={other} size={64} />
           <b>{other?.name}</b>
@@ -436,40 +419,32 @@ function Thread({ conversationId }: { conversationId: string }) {
         {role === "SELLER" && <StudentCard key={convo.buyerId} studentId={convo.buyerId} title="About them" hideName />}
 
         {activeOrders.length > 0 && <b>Active packages</b>}
-        {activeOrders.filter((o) => o.kind).map((o) => {
-          const h = hoursSummary(o);
+        {activeOrders.map((o) => {
+          const next = hoursSummary(o).upcoming[0];
           return (
-            <div key={o.id} className="card stack-sm" style={{ padding: 16 }}>
-              <div className="between" style={{ alignItems: "flex-start", gap: 8 }}>
-                <b style={{ fontSize: 15 }}>{o.packageTitle || o.gig.title}</b>
-                <span className="row" style={{ gap: 6 }}><LowHoursBadge order={o} /><PackageBadge order={o} /></span>
-              </div>
-              <HoursBar order={o} thin />
-              <span className="text-muted small">{shortHours(h.left)} left of {shortHours(h.purchased)} · {h.callsHeld} call{h.callsHeld === 1 ? "" : "s"} held</span>
-              {h.upcoming[0] && <Link href={`/calls/${h.upcoming[0].id}`} className="link small">Next call {new Date(h.upcoming[0].startTime).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</Link>}
-              <Link href={`/orders/${o.id}`} className="btn btn-sm">Open package</Link>
-            </div>
+            <PackageRow
+              key={o.id}
+              p={o}
+              audience={role === "SELLER" ? "mentor" : "student"}
+              card
+              showCalls
+              actions={
+                <>
+                  <Link href={`/orders/${o.id}`} className="btn btn-sm">Open package</Link>
+                  {next && <Link href={`/calls/${next.id}`} className="link small">Next call {fmtDateTime(next.startTime)}</Link>}
+                </>
+              }
+            />
           );
         })}
-        {activeOrders.filter((o) => !o.kind).map((o) => (
-          <div key={o.id} className="card stack-sm" style={{ padding: 16 }}>
-            <div className="between" style={{ alignItems: "flex-start" }}>
-              <b style={{ fontSize: 15 }}>{o.gig.title}</b>
-            </div>
-            <div className="row-wrap">{statusBadge(o)}</div>
-            {o.dueDate && <span className="text-muted">Due {new Date(o.dueDate).toLocaleDateString()}</span>}
-            <OrderCalls order={o} viewer={ctx.viewer} isBuyer={isBuyer} isSeller={role === "SELLER"} onChanged={loadCtx} compact />
-            <Link href={`/orders/${o.id}`} className="btn btn-sm">Open order</Link>
-          </div>
-        ))}
 
         <b style={{ marginTop: 6 }}>Files</b>
         <SharedFiles files={messages.filter((m: any) => m.attachmentUrl).reverse()} viewerId={userId} />
 
         {isBuyer && gigs.length > 0 && (
           <>
-            <b style={{ marginTop: 6 }}>{convo.seller.name.split(" ")[0]}&apos;s packages</b>
-            {!bookable && <span className="text-muted">Booking unlocks once {convo.seller.name.split(" ")[0]} replies.</span>}
+            <b style={{ marginTop: 6 }}>{firstName(convo.seller.name)}&apos;s packages</b>
+            {!bookable && <span className="text-muted">Booking unlocks once {firstName(convo.seller.name)} replies.</span>}
             {gigs.map((g) => (
               <div key={g.id} className="card stack-sm" style={{ padding: 16 }}>
                 <div className="between" style={{ alignItems: "flex-start" }}>
@@ -486,17 +461,14 @@ function Thread({ conversationId }: { conversationId: string }) {
         )}
 
         {pastOrders.length > 0 && (
-          <details className="collapse">
-            <summary style={{ padding: "12px 16px", fontSize: 15 }}>Past orders ({pastOrders.length})</summary>
-            <div className="collapse-body" style={{ padding: "0 16px 14px" }}>
-              {pastOrders.map((o) => (
-                <Link key={o.id} href={`/orders/${o.id}`} className="between small">
-                  <span>{o.packageTitle || o.gig.title}</span>
-                  {o.kind ? <PackageBadge order={o} /> : statusBadge(o)}
-                </Link>
-              ))}
-            </div>
-          </details>
+          <Collapsible title="Past packages" count={pastOrders.length}>
+            {pastOrders.map((o) => (
+              <Link key={o.id} href={`/orders/${o.id}`} className="between small">
+                <span>{o.packageTitle || o.gig?.title}</span>
+                <StatusBadge order={o} audience={role === "SELLER" ? "mentor" : "student"} />
+              </Link>
+            ))}
+          </Collapsible>
         )}
       </aside>
     </>

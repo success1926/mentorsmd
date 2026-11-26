@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { SettingsSection } from "@/components/SettingsSection";
+import { Alert } from "@/components/ui";
 
 // "2-step verification" in Settings (mentors: /dashboard/settings,
 // students: /account; API: /api/me/two-step). Mentors always have it and
@@ -11,6 +14,7 @@ export function TwoStepSettings() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const { confirm, dialog } = useConfirm();
 
   const load = useCallback(() => {
     fetch("/api/me/two-step").then((r) => r.json()).then((d) => (d.error ? null : setInfo(d))).catch(() => {});
@@ -50,11 +54,11 @@ export function TwoStepSettings() {
     if (await post({ action: "use-email" }, turningOn ? "2-step verification is on. From your next login we'll email you a code." : "Done. From your next login we'll email you a code.")) load();
   }
   async function turnOff() {
-    if (!confirm("Turn off 2-step verification? Logging in will only need your password (or Google).")) return;
+    if (!(await confirm({ title: "Turn off 2-step verification?", body: "Logging in will only need your password (or Google).", confirmLabel: "Turn off", cancelLabel: "Keep it on", danger: true }))) return;
     if (await post({ action: "turn-off" }, "2-step verification is off.")) load();
   }
   async function forget() {
-    if (!confirm("Forget every device you trusted? Each one will need a code at the next login, this one included.")) return;
+    if (!(await confirm({ title: "Forget every trusted device?", body: "Each one will need a code at the next login, this one included.", confirmLabel: "Forget devices" }))) return;
     await post({ action: "forget-devices" }, "Done. Every device will need a code at the next login.");
   }
 
@@ -62,15 +66,16 @@ export function TwoStepSettings() {
   const on = !!info.method;
 
   return (
-    <section id="two-step" className="card stack" style={{ gap: 14, scrollMarginTop: 100 }}>
-      <div className="stack-sm">
-        <h2 style={{ fontSize: 24 }}>2-step verification</h2>
-        <span className="text-secondary">
-          {info.required
-            ? "Mentor accounts need a code at login, as well as the password. You can tick \"Trust this device for 30 days\" when you enter it."
-            : "Add a code at login, as well as your password (or Google), so nobody else can get into your account."}
-        </span>
-      </div>
+    <SettingsSection
+      id="two-step"
+      title="2-step verification"
+      description={
+        info.required
+          ? "Mentor accounts need a code at login, as well as the password. You can tick \"Trust this device for 30 days\" when you enter it."
+          : "Add a code at login, as well as your password (or Google), so nobody else can get into your account."
+      }
+    >
+      {dialog}
 
       <div className="between" style={{ gap: 12, flexWrap: "wrap" }}>
         <span>
@@ -106,7 +111,7 @@ export function TwoStepSettings() {
           Forget my trusted devices
         </button>
       )}
-      {msg && <div role={msg.ok ? "status" : "alert"} className={`alert ${msg.ok ? "alert-success" : "alert-danger"}`}>{msg.text}</div>}
-    </section>
+      {msg && <Alert tone={msg.ok ? "success" : "danger"}>{msg.text}</Alert>}
+    </SettingsSection>
   );
 }

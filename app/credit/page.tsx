@@ -4,7 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { creditBalance, creditEntries } from "@/lib/credit";
 import { CREDIT_REASON_LABEL } from "@/lib/hours";
-import { money } from "@/lib/options";
+import { fmtDay, money } from "@/lib/format";
+import { EmptyState, PageHeader } from "@/components/ui";
 import { tzOrDefault } from "@/lib/tz";
 
 export const dynamic = "force-dynamic";
@@ -30,14 +31,11 @@ export default async function CreditPage() {
     prisma.user.findUnique({ where: { id: user.id }, select: { timeZone: true } }),
   ]);
   const tz = tzOrDefault(me?.timeZone);
-  const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: tz });
+  const fmt = (d: Date) => fmtDay(d, { timeZone: tz });
 
   return (
     <div className="page-mid stack-lg" style={{ gap: 24 }}>
-      <div className="stack-sm">
-        <h1 className="page-title">MentorsMD credit</h1>
-        <p className="lede">Used automatically at checkout, with any mentor. It never expires.</p>
-      </div>
+      <PageHeader title="MentorsMD credit" lede="Used automatically at checkout, with any mentor. It never expires." />
 
       <section className="card row-wrap" style={{ background: "var(--tint-soft)", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
         <div className="stack-sm" style={{ gap: 4 }}>
@@ -48,11 +46,11 @@ export default async function CreditPage() {
       </section>
 
       <section className="stack-sm">
-        <h2 style={{ fontSize: 24 }}>History</h2>
+        <h2 className="block-title">History</h2>
         {entries.length === 0 ? (
-          <p className="text-muted">
+          <EmptyState>
             No credit yet. If a package is refunded, the refund comes back to you as MentorsMD credit and shows here, and so does credit a parent or guardian gives you from the <Link href="/gift" className="link">Gift</Link> page.
-          </p>
+          </EmptyState>
         ) : (
           <div className="card" style={{ paddingTop: 6, paddingBottom: 6 }}>
             {entries.map((e) => (

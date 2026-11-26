@@ -4,10 +4,10 @@ import { JoinCountdown } from "@/components/Moments";
 import { MOMENTS } from "@/lib/moments";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
-import { Icon, ICONS } from "@/components/ui";
+import { Alert, Icon, ICONS, LoadingBlock, PageHeader } from "@/components/ui";
+import { fmtTime } from "@/lib/format";
 import { StudentCard } from "@/components/StudentCard";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { JOIN_CLOSES_MINUTES_AFTER, JOIN_OPENS_MINUTES_BEFORE, RECORDING_NOTICE, canChangeOnline, joinState } from "@/lib/calls";
 
 // The pre-join screen: what the call is, who it's with, the recording
@@ -22,7 +22,7 @@ export default function CallPage() {
   const [joinError, setJoinError] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [now, setNow] = useState(() => new Date());
-  const { confirm, dialog } = useAdminDialog();
+  const { confirm, dialog } = useConfirm();
 
   useEffect(() => {
     fetch(`/api/calls/${id}`)
@@ -36,8 +36,8 @@ export default function CallPage() {
     return () => clearInterval(t);
   }, [id]);
 
-  if (error) return <div className="page-narrow"><div className="alert alert-danger">{error}</div></div>;
-  if (!call) return <div className="page-narrow text-muted">Loading…</div>;
+  if (error) return <div className="page-narrow"><Alert tone="danger">{error}</Alert></div>;
+  if (!call) return <div className="page-narrow"><LoadingBlock lines={4} /></div>;
 
   const state = joinState(call, now);
   const start = new Date(call.startTime);
@@ -73,18 +73,19 @@ export default function CallPage() {
   return (
     <div className="page-narrow">
       {dialog}
-      <Link href={call.backHref || `/orders/${call.orderId}`} className="link small" style={{ display: "inline-block", marginBottom: 20 }}>{call.backLabel || "← Back to the order"}</Link>
+      <PageHeader
+        back={{ href: call.backHref || `/orders/${call.orderId}`, label: String(call.backLabel || "Back to the package").replace(/^←\s*/, "") }}
+        eyebrow="Video call"
+        title={`Call with ${call.otherName}`}
+        lede={call.title}
+      />
       <div className="card-narrow stack" style={{ maxWidth: 560 }}>
-        <span className="eyebrow">Video call</span>
-        <h1 className="page-title" style={{ fontSize: 34 }}>Call with {call.otherName}</h1>
-        <span className="text-secondary">{call.title}</span>
         <div className="call-row">
           <Icon d={ICONS.calendar} />
           <div className="stack-sm" style={{ gap: 2 }}>
-            <b>{start.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</b>
+            <b>{start.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</b>
             <span className="text-secondary">
-              {start.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })} to{" "}
-              {end.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZoneName: "short" })}
+              {fmtTime(start)} to {fmtTime(end, { zone: true })}
             </span>
           </div>
         </div>
@@ -104,7 +105,7 @@ export default function CallPage() {
               <span>Use a quiet spot with good internet. Your browser will ask to use your camera and microphone; choose Allow.</span>
               <span>{RECORDING_NOTICE}</span>
             </div>
-            {joinError && <div role="alert" className="alert alert-danger">{joinError}</div>}
+            {joinError && <Alert tone="danger">{joinError}</Alert>}
             <JoinCountdown opensAt={new Date(start.getTime() - JOIN_OPENS_MINUTES_BEFORE * 60_000)} now={now} />
             <button className={`btn btn-primary btn-lg btn-block${MOMENTS.joinCountdown && state === "open" && !joining ? " mm-join-live" : ""}`} disabled={state !== "open" || joining} onClick={join}>
               <Icon d={ICONS.video} size={18} /> {joining ? "Opening…" : state === "open" ? "Join call" : `Join opens ${JOIN_OPENS_MINUTES_BEFORE} minutes before the start`}

@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { SettingsSection } from "@/components/SettingsSection";
+import { Alert } from "@/components/ui";
+import { fmtDay } from "@/lib/format";
 
 type Phone = { id: string; platform: string; deviceName: string | null; createdAt: string; lastUsedAt: string };
-
-const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 
 // "Phones signed in to the app" in Settings (students: /account, mentors:
 // /dashboard/settings, admins: Admin -> Account & Security). API:
@@ -30,24 +31,36 @@ export function AppDevices({ admin = false }: { admin?: boolean }) {
   }
 
   if (!phones || phones.length === 0) return null;
+  const list = (
+    <div className="stack-sm">
+      {phones.map((p) => (
+        <div key={p.id} className="between" style={{ gap: 12, flexWrap: "wrap" }}>
+          <span>
+            <strong>{p.deviceName || (p.platform === "IOS" ? "iPhone" : "Android phone")}</strong>
+            <span className="text-muted"> · signed in {fmtDay(p.createdAt)} · last used {fmtDay(p.lastUsedAt)}</span>
+          </span>
+          <button type="button" className="btn btn-sm" disabled={busy === p.id} onClick={() => signOut(p.id)}>
+            {busy === p.id ? "Signing out…" : "Sign out"}
+          </button>
+        </div>
+      ))}
+      {error && <Alert tone="danger" className="small">{error}</Alert>}
+    </div>
+  );
+  const description = "Lost a phone, or signed in on one you no longer use? Sign it out here.";
+  // Admin -> Account & Security keeps the admin card style.
+  if (admin) {
+    return (
+      <section className="card stack-sm">
+        <h2 className="adm-card-title">Phones signed in to the app</h2>
+        <span className="text-secondary">{description}</span>
+        {list}
+      </section>
+    );
+  }
   return (
-    <section className="card stack-sm">
-      <h2 className={admin ? "adm-card-title" : undefined} style={admin ? undefined : { fontSize: 24 }}>Phones Signed In to the App</h2>
-      <span className="text-secondary">Lost a phone, or signed in on one you no longer use? Sign it out here.</span>
-      <div className="stack-sm">
-        {phones.map((p) => (
-          <div key={p.id} className="between" style={{ gap: 12, flexWrap: "wrap" }}>
-            <span>
-              <strong>{p.deviceName || (p.platform === "IOS" ? "iPhone" : "Android phone")}</strong>
-              <span className="text-muted"> · signed in {day(p.createdAt)} · last used {day(p.lastUsedAt)}</span>
-            </span>
-            <button type="button" className="btn btn-sm" disabled={busy === p.id} onClick={() => signOut(p.id)}>
-              {busy === p.id ? "Signing Out…" : "Sign Out"}
-            </button>
-          </div>
-        ))}
-      </div>
-      {error && <div role="alert" className="alert alert-danger small">{error}</div>}
-    </section>
+    <SettingsSection title="Phones signed in to the app" description={description}>
+      {list}
+    </SettingsSection>
   );
 }
