@@ -10,7 +10,7 @@
 
 **Where:** do the money tests on the **preview** first (Stripe test mode, card `4242 4242 4242 4242`, any future date, any CVC). On the live site payments are real, and refunds are given as MentorsMD **credit**, not back to the card (if you need your own test money back, refund it in the Stripe dashboard yourself).
 
-**Before you start:** `prisma/hourly-redesign-2026-10.sql` has been run on Supabase (live and preview). Use 3 browsers (or private windows) to stay logged in as all three. If something fails, take a screenshot, note the section, keep going.
+**Before you start:** `prisma/applied/hourly-redesign-2026-10.sql` has been run on Supabase (live and preview). Use 3 browsers (or private windows) to stay logged in as all three. If something fails, take a screenshot, note the section, keep going.
 
 ---
 

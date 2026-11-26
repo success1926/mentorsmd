@@ -7,7 +7,7 @@
 -- (with IF NOT EXISTS), so it's safe to run while the current site is
 -- live, and safe to run twice. Run it BEFORE the new code goes live.
 --
--- Then run prisma/phase5-make-owner-2026-10.sql (after putting your own
+-- Then run prisma/applied/phase5-make-owner-2026-10.sql (after putting your own
 -- email in it) so your account becomes the team Owner.
 
 -- Accounts: date of birth and minor status, mentors' "work with students

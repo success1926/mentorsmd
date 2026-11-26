@@ -5,7 +5,7 @@ import { ENV_TAG, NOT_SET_UP, SUPABASE_URL, supabaseAdmin } from "@/lib/supabase
 // File storage on Supabase (replaced Vercel Blob in Oct 2026).
 //
 // Two buckets (created in the Supabase project, see
-// prisma/supabase-storage-realtime-2026-10.sql):
+// prisma/applied/supabase-storage-realtime-2026-10.sql):
 //  - private-files: message attachments, delivery files, mentor résumés.
 //    Nobody can read these directly. The database stores the file's PATH,
 //    and a download goes through one of our routes, which checks who is
