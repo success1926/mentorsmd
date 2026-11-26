@@ -75,6 +75,9 @@ const PAYABLE_STATUSES = ["IN_ESCROW", "COMPLETED"];
 // (or it's held by an open dispute: see heldCents).
 export function orderPayoutLine(o: PayoutOrderLike, cutoff: Date): PayoutLine | null {
   if (!o.kind || !PAYABLE_STATUSES.includes(o.status) || openDispute(o)) return null;
+  // The final line (unused hours) was already claimed: everything bought was
+  // paid then, so an entry logged afterwards is never paid again.
+  if (o.unusedMinutesPaid != null) return null;
   const rate = o.rateCents || 0;
   const live = o.hourEntries.filter((e) => !e.voidedAt);
   const approvedAt = ms(o.approvedAt);
@@ -93,7 +96,7 @@ export function orderPayoutLine(o: PayoutOrderLike, cutoff: Date): PayoutLine | 
 
 // The value (gross, at the package rate) held back by an open dispute.
 export function heldCents(o: PayoutOrderLike) {
-  if (!o.kind || !PAYABLE_STATUSES.includes(o.status) || !openDispute(o)) return 0;
+  if (!o.kind || !PAYABLE_STATUSES.includes(o.status) || !openDispute(o) || o.unusedMinutesPaid != null) return 0;
   const live = o.hourEntries.filter((e) => !e.voidedAt);
   const unpaid = live.filter((e) => !e.payoutId).reduce((s, e) => s + e.minutes, 0);
   const unused = Math.max(0, (o.minutesPurchased || 0) - live.reduce((s, e) => s + e.minutes, 0));
