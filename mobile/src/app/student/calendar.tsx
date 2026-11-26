@@ -1,7 +1,7 @@
 import * as WebBrowser from "expo-web-browser";
 import { View } from "react-native";
 import { CallCard, LoadError, MoveSheet, useRefresh, type CalCall } from "../../components/shared";
-import { Card, Chip, Eyebrow, Grow, Hdr, Link, Loading, Note, Row, Screen, Sec, SS, TT } from "../../components/ui";
+import { Card, Chip, Collapsible, Eyebrow, Grow, Hdr, Link, Loading, Note, Row, Screen, Sec, SS, TT } from "../../components/ui";
 import { SITE, useApi } from "../../lib/api";
 import { useOverlay } from "../../lib/overlay";
 import { callMinutes } from "../../lib/orders";
@@ -29,16 +29,15 @@ export default function Calendar() {
               <CallCard key={x.id} call={x} onMove={x.disputed ? undefined : () => openSheet(() => <MoveSheet call={x} onChanged={q.reload} />)} />
             )) : <Note>No calls booked. Book one from a package, or a free intro call from a mentor’s profile.</Note>}
           </Sec>
-          <Sec>
-            <Eyebrow>Past calls</Eyebrow>
-            {d.past.length ? (
+          {d.past.length ? (
+            <Collapsible title="Past calls" count={d.past.length}>
               <View>
                 {d.past.map((x, i) => (
                   <Row key={x.id} tt={`${x.withName} · ${x.kind === "INTRO" ? "Free intro call" : x.title}`} ss={`${fmtDay(x.startTime)} · ${fmtTime(x.startTime)} · ${callMinutes(x)} min`} chevron={false} last={i === d.past.length - 1} />
                 ))}
               </View>
-            ) : <Note>No calls in the last 60 days.</Note>}
-          </Sec>
+            </Collapsible>
+          ) : null}
           <Card tone="tint" row>
             <Grow>
               <TT>Calendar sync</TT>

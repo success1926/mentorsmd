@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
 import { useSafetySheet } from "../../../components/safety";
-import { Bar, Btn, Card, Chip, Eyebrow, Field, H, Hdr, KV, Link, Loading, Note, Row, RowV, Screen, Sec, SecH, Seg, Small, SS, StatusBadge, TT } from "../../../components/ui";
+import { Bar, Btn, Card, Chip, Collapsible, Eyebrow, Field, H, Hdr, KV, Link, Loading, Note, Row, RowV, Screen, Sec, SecH, Seg, Small, SS, StatusBadge, TT } from "../../../components/ui";
 import { CallSheet, DayChips, ErrText, ErrorBox, WarningsCard, useConfirm, useReloadOnFocus, warningsOf, type Warning } from "../../../components/mentorSheets";
 import { api, dollars, errorText, useApi } from "../../../lib/api";
 import { useOverlay } from "../../../lib/overlay";
@@ -122,9 +122,8 @@ function HoursPackage({ o, reload }: { o: any; reload: () => void }) {
         </Sec>
       ) : null}
 
-      <Sec>
-        <Eyebrow>Hours log</Eyebrow>
-        {(o.hourEntries || []).length ? (
+      {(o.hourEntries || []).length ? (
+        <Collapsible title="Hours log" count={o.hourEntries.length}>
           <View>
             {(o.hourEntries as any[]).map((e) => (
               <View key={e.id} style={{ opacity: e.voidedAt ? 0.55 : 1 }}>
@@ -134,8 +133,13 @@ function HoursPackage({ o, reload }: { o: any; reload: () => void }) {
               </View>
             ))}
           </View>
-        ) : <Note>Nothing logged yet. Held calls are added automatically; log written work here.</Note>}
-      </Sec>
+        </Collapsible>
+      ) : (
+        <Sec>
+          <Eyebrow>Hours log</Eyebrow>
+          <Note>Nothing logged yet. Held calls are added automatically; log written work here.</Note>
+        </Sec>
+      )}
 
       <Card>
         <TT>Your totals</TT>

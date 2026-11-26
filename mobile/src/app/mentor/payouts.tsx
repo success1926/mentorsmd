@@ -1,7 +1,7 @@
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import { View } from "react-native";
-import { Btn, Card, Chip, Eyebrow, Grow, Hdr, KV, Link, Loading, Note, Screen, Sec, Small, SS, Stat, Stats, TT } from "../../components/ui";
+import { Btn, Card, Chip, Collapsible, Grow, Hdr, KV, Link, Loading, Note, Screen, Small, SS, Stat, Stats, TT } from "../../components/ui";
 import { ErrText, ErrorBox, PAYOUT_STATUS_LABEL, payoutDayLabel, periodLabel, useReloadOnFocus } from "../../components/mentorSheets";
 import { api, dollars, errorText, SITE, useApi } from "../../lib/api";
 import { useColors } from "../../lib/theme";
@@ -90,15 +90,14 @@ export default function Payouts() {
           </Card>
 
           {p.past.length ? (
-            <Sec>
-              <Eyebrow>Payout history</Eyebrow>
+            <Collapsible title="Payout history" count={p.past.length} defaultOpen>
               <View>
                 {p.past.map((x) => (
                   <KV key={x.id} kInk line k={`${periodLabel(x.period)} · ${shortHours(x.minutes)}`}
                     v={`${dollars(x.amountCents)} · ${x.paidAt ? fmtDay(x.paidAt) : x.status === "FAILED" ? "Delayed, we’re on it" : PAYOUT_STATUS_LABEL[x.status] || x.status}`} />
                 ))}
               </View>
-            </Sec>
+            </Collapsible>
           ) : null}
         </>
       )}

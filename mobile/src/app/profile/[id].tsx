@@ -8,7 +8,7 @@ import { CompareTick, HeroGlow, useCompareFooter } from "../../components/brand"
 import { liveCache } from "../../components/find";
 import { usePaySheet } from "../../components/shared";
 import { useSafetySheet } from "../../components/safety";
-import { Btn, Card, Chip, Chips, Eyebrow, Hdr, Icon, Link, Loading, Note, SchoolList, SchoolLogo, Screen, Small, SS, Stars, TT } from "../../components/ui";
+import { Btn, Card, Chip, Chips, Eyebrow, Hdr, Icon, Link, Loading, Note, ReadMore, SchoolList, SchoolLogo, Screen, Small, SS, Stars, TT } from "../../components/ui";
 import { api, dollars, errorText, useApi } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { useOverlay } from "../../lib/overlay";
@@ -375,18 +375,6 @@ function SecTitle({ a, b }: { a: string; b?: string }) {
 function Label({ children }: { children: ReactNode }) {
   const c = useColors();
   return <Text style={{ fontFamily: fonts.mono, fontSize: 10.5, letterSpacing: 1.3, textTransform: "uppercase", color: c.faint }}>{children}</Text>;
-}
-
-function ReadMore({ text }: { text: string }) {
-  const c = useColors();
-  const [open, setOpen] = useState(false);
-  const long = text.length > 420;
-  return (
-    <View style={{ gap: 6 }}>
-      <Text numberOfLines={open || !long ? undefined : 6} style={{ fontFamily: fonts.body, fontSize: 15, lineHeight: 23, color: c.muted }}>{text}</Text>
-      {long ? <Pressable accessibilityRole="button" onPress={() => setOpen((o) => !o)} hitSlop={8}><Text style={{ fontFamily: fonts.bodySemi, fontSize: 14, color: c.link }}>{open ? "Show less" : "Read more"}</Text></Pressable> : null}
-    </View>
-  );
 }
 
 function UnlockNote({ unlock, first, blockedNote, adultsOnly }: { unlock: Unlock | null; first: string; blockedNote: string; adultsOnly: boolean }) {

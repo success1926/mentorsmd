@@ -119,6 +119,56 @@ export function Stars({ children }: { children: ReactNode }) {
   return <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: c.primary }}>{children}</Text>;
 }
 
+// ---------- show / hide ----------
+// The one look for anything that opens and closes (like the website's
+// Collapsible): the same chevron that turns, the same padding and type, and
+// an optional count pill. `defaultOpen` for sections that start open.
+export function CountPill({ n }: { n: number }) {
+  const c = useColors();
+  return (
+    <View style={{ minWidth: 22, height: 20, borderRadius: 10, paddingHorizontal: 7, backgroundColor: c.tint, alignItems: "center", justifyContent: "center" }}>
+      <Text style={{ fontFamily: fonts.bodySemi, fontSize: 12, color: c.deep, fontVariant: ["tabular-nums"] }}>{n}</Text>
+    </View>
+  );
+}
+function Chevron({ open, color }: { open: boolean; color?: string }) {
+  const c = useColors();
+  return <View style={{ transform: [{ rotate: open ? "180deg" : "0deg" }] }}><Feather name="chevron-down" size={18} color={color || c.muted} /></View>;
+}
+export function Collapsible({ title, count, defaultOpen = false, children }: { title: string; count?: number; defaultOpen?: boolean; children: ReactNode }) {
+  const c = useColors();
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <View style={{ gap: 10 }}>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={count != null ? `${title}, ${count}` : title} onPress={() => setOpen((o) => !o)} hitSlop={6}
+        style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4, opacity: pressed ? 0.6 : 1 })}>
+        <Text style={{ fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1.1, textTransform: "uppercase", color: c.primary }}>{title}</Text>
+        {count != null ? <CountPill n={count} /> : null}
+        <View style={{ flex: 1 }} />
+        <Chevron open={open} />
+      </Pressable>
+      {open ? children : null}
+    </View>
+  );
+}
+// Long text cut to a few lines, with "Read more" / "Show less" and the same chevron.
+export function ReadMore({ text, lines = 6, over = 420 }: { text: string; lines?: number; over?: number }) {
+  const c = useColors();
+  const [open, setOpen] = useState(false);
+  const long = text.length > over;
+  return (
+    <View style={{ gap: 6 }}>
+      <Text numberOfLines={open || !long ? undefined : lines} style={{ fontFamily: fonts.body, fontSize: 15, lineHeight: 23, color: c.muted }}>{text}</Text>
+      {long ? (
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setOpen((o) => !o)} hitSlop={8} style={{ flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start" }}>
+          <Text style={{ fontFamily: fonts.bodySemi, fontSize: 14, color: c.link }}>{open ? "Show less" : "Read more"}</Text>
+          <Chevron open={open} color={c.link} />
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 // ---------- layout ----------
 export const Sec = ({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) => <View style={[{ gap: 10 }, style]}>{children}</View>;
 export const SecH = ({ children }: { children: ReactNode }) => <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 }}>{children}</View>;

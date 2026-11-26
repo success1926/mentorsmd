@@ -5,7 +5,7 @@ import { Pressable, Text, View } from "react-native";
 import { useSafetySheet } from "../../../components/safety";
 import { useConfirm } from "../../../components/mentorSheets";
 import { CallCard, LoadError, MoveSheet, useRefresh, usePaySheet, type CalCall } from "../../../components/shared";
-import { Bar, Btn, Btns2, Card, Chip, Eyebrow, Field, H, Half, Hdr, KV, Link, Loading, Note, RowV, Screen, Sec, SecH, Small, SS, Stat3, StatusBadge, TT } from "../../../components/ui";
+import { Bar, Btn, Btns2, Card, Chip, Collapsible, Eyebrow, Field, H, Half, Hdr, KV, Link, Loading, Note, RowV, Screen, Sec, SecH, Small, SS, Stat3, StatusBadge, TT } from "../../../components/ui";
 import { api, dollars, errorText, SITE, useApi } from "../../../lib/api";
 import { useOverlay } from "../../../lib/overlay";
 import { callMinutes, finishPhase, hoursLabel, hoursSummary, hoursToRespond, joinState, lastRequestAvailable, LOW_HOURS_MINUTES, pkgTitle, priceFor, RECORDING_NOTICE, shortHours, splitCredit, TOP_UP_HOURS, type Pkg } from "../../../lib/orders";
@@ -131,19 +131,20 @@ export default function Package() {
           <Eyebrow>Calls</Eyebrow>
           {upcoming.map((b) => <CallCard key={b.id} call={asCal(b)} onMove={phase === "WORKING" ? () => openSheet(() => <MoveSheet call={asCal(b)} onChanged={q.reload} />) : undefined} />)}
           {past.length ? (
-            <View>
-              {past.map((b, i) => (
-                <KV key={b.id} k={`${fmtDateTime(b.startTime)} · ${callMinutes(b)} min`} v={OUTCOME[b.outcome || ""] || "Waiting for the outcome"} kInk line={i < past.length - 1} />
-              ))}
-            </View>
+            <Collapsible title="Past calls" count={past.length}>
+              <View>
+                {past.map((b, i) => (
+                  <KV key={b.id} k={`${fmtDateTime(b.startTime)} · ${callMinutes(b)} min`} v={OUTCOME[b.outcome || ""] || "Waiting for the outcome"} kInk line={i < past.length - 1} />
+                ))}
+              </View>
+            </Collapsible>
           ) : null}
           <Small>{RECORDING_NOTICE}</Small>
         </Sec>
       ) : null}
 
-      <Sec>
-        <Eyebrow>Hours log</Eyebrow>
-        {(o.hourEntries || []).length ? (
+      {(o.hourEntries || []).length ? (
+        <Collapsible title="Hours log" count={(o.hourEntries || []).length}>
           <View>
             {(o.hourEntries || []).map((e) => (
               <View key={e.id} style={{ paddingVertical: 10, gap: 2, opacity: e.voidedAt ? 0.55 : 1, borderBottomWidth: 1, borderColor: c.line }}>
@@ -154,8 +155,13 @@ export default function Package() {
               </View>
             ))}
           </View>
-        ) : <Note>Nothing logged yet. Held calls are added automatically; your mentor logs written work here.</Note>}
-      </Sec>
+        </Collapsible>
+      ) : (
+        <Sec>
+          <Eyebrow>Hours log</Eyebrow>
+          <Note>Nothing logged yet. Held calls are added automatically; your mentor logs written work here.</Note>
+        </Sec>
+      )}
 
       {(o.files || []).length ? (
         <Sec>
