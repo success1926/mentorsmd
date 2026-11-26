@@ -5,6 +5,8 @@ import { isMentorListed } from "@/lib/mentor";
 import { toDate } from "@/lib/publicCache";
 import { cachedPublicProfile, mentorProfileView } from "@/lib/mentorProfile";
 import { ProfileClient } from "./ProfileClient";
+import { ProfileBody, ReviewList } from "./ProfileStatic";
+import { firstName } from "@/lib/format";
 import { getSchoolLogos } from "@/lib/schoolLogos";
 import type { Metadata } from "next";
 
@@ -43,5 +45,18 @@ export default async function MentorProfilePage({ params }: { params: { id: stri
   const session = await getServerSession(authOptions);
   const [view, logos] = await Promise.all([mentorProfileView(params.id, { id: (session?.user as any)?.id, role: (session?.user as any)?.role }), getSchoolLogos()]);
   if (!view) notFound();
-  return <ProfileClient seller={view.seller} previewState={view.previewState} offers={view.offers} reviews={view.reviews} logos={logos} />;
+  // The sections that don't change are rendered here on the server
+  // (ProfileStatic.tsx); ProfileClient adds the buttons and pop-ups.
+  const first = firstName(view.seller.name) || view.seller.name;
+  return (
+    <ProfileClient
+      seller={view.seller}
+      previewState={view.previewState}
+      offers={view.offers}
+      reviews={view.reviews}
+      logos={logos}
+      body={<ProfileBody seller={view.seller} offers={view.offers} reviews={view.reviews} logos={logos} />}
+      reviewList={<ReviewList reviews={view.reviews as any} first={first} />}
+    />
+  );
 }
