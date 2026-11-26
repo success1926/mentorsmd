@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 // Admin -> Flags: one queue for reports, disputes and automatic flags.
 //   ?view=open (default)  open flags, most severe first, then newest
 //   ?view=closed          the last 150 handled flags
+// Both answer counts: open, high (severity 3), and handled (all of them).
 export async function GET(req: Request) {
   const admin = await currentAdmin("flags");
   if (!admin) {
@@ -33,13 +34,16 @@ export async function GET(req: Request) {
     : [];
   const byOrder = new Map(orders.map((o) => [o.id, o]));
 
-  const [openCount, highCount] = await Promise.all([
+  const [openCount, highCount, handledCount] = await Promise.all([
     prisma.flag.count({ where: { status: "OPEN" } }),
     prisma.flag.count({ where: { status: "OPEN", severity: { gte: 3 } } }),
+    prisma.flag.count({ where: { status: { not: "OPEN" } } }),
   ]);
 
   return NextResponse.json({
     flags: flags.map((f) => ({ ...f, order: f.orderId ? byOrder.get(f.orderId) ?? null : null })),
-    counts: { open: openCount, high: highCount },
+    counts: { open: openCount, high: highCount, handled: handledCount },
+    // Every handled flag, not just the 150 listed.
+    handledCount,
   });
 }

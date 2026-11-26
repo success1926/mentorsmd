@@ -1,19 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import { currentAdmin, type CurrentAdmin } from "@/lib/adminTeam";
-import { can } from "@/lib/adminPermissions";
 import { applicationStage, LEAD_KINDS, type LeadKind } from "@/lib/leadOptions";
 
 // Server helpers for the Admin -> Leads APIs.
 
 export const parseKind = (v: unknown): LeadKind | null => (LEAD_KINDS as readonly string[]).includes(v as string) ? (v as LeadKind) : null;
 
-// The admin, if they may work with this kind of lead: "leads" for every
-// kind, plus "applications" for mentor applications.
+// The admin, if they may work with this kind of lead: mentor applications
+// need "applications" (with or without "leads", so the Applications page
+// can use the same list); contact messages and the waitlist need "leads".
 export async function leadsAdmin(kind?: LeadKind | null): Promise<CurrentAdmin | null> {
-  const admin = await currentAdmin("leads");
-  if (!admin) return null;
-  if (kind === "APPLICATION" && !can(admin, "applications")) return null;
-  return admin;
+  if (kind === "APPLICATION") return currentAdmin("applications");
+  return currentAdmin("leads");
 }
 
 const noteSelect = { id: true, body: true, createdAt: true, author: { select: { id: true, name: true } } } as const;
