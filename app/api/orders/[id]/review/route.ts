@@ -17,8 +17,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (order.buyerId !== userId) {
     return NextResponse.json({ error: "Only the student on this order can review it" }, { status: 403 });
   }
-  // Hours packages can be reviewed once approved (paid to the mentor monthly).
-  if (order.kind ? !order.approvedAt : order.status !== "RELEASED") {
+  // Packages can be reviewed once approved (paid to the mentor monthly).
+  if (!order.kind || !order.approvedAt) {
     return NextResponse.json({ error: "You can only review an order after payment is released" }, { status: 400 });
   }
   if (order.review) {

@@ -43,7 +43,6 @@ export async function GET() {
   ]);
 
   const shape = (o: (typeof open)[number]) => {
-    if (!o.kind) return o;
     const h = hoursSummary(o);
     const topUpCents = o.topUps.reduce((s, t) => s + t.amountCents, 0);
     return {

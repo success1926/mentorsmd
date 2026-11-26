@@ -26,10 +26,9 @@
 //      Retry button (retryPayout below), which first asks Stripe whether a
 //      transfer for this payout already exists.
 import { prisma } from "@/lib/prisma";
-import { stripe } from "@/lib/stripe";
+import { stripe, isDefiniteStripeFailure } from "@/lib/stripe";
 import { payoutsReady } from "@/lib/stripeAccountStatus";
 import { reportError } from "@/lib/sentry";
-import { isDefiniteStripeFailure } from "@/lib/orderRelease";
 import { sendPayoutSentEmail } from "@/lib/email";
 import { money } from "@/lib/options";
 import { hoursLabel } from "@/lib/pricing";

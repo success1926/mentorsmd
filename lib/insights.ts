@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { KIND_LABEL as OFFER_KIND_LABEL } from "@/lib/pricing";
 import { prisma } from "@/lib/prisma";
-import { PLATFORM_FEE_PERCENT } from "@/lib/stripe";
+import { PLATFORM_FEE_PERCENT, feeOf } from "@/lib/fee";
 import { DEFAULT_TIME_ZONE, addDays, dayInZone, fmtDayLabel, isDayString, isValidTimeZone, weekdayOfDay, zonedToUtc } from "@/lib/tz";
 import { FILTER_GROUPS, FORMATS, PRICE_BANDS, SCHOOL_TYPES, SERVICES, STAGES, isValue, labelFor } from "@/lib/options";
 import { money } from "@/lib/format";
@@ -21,8 +21,7 @@ import { unpaidValueCents } from "@/lib/payoutRules";
 //    what was actually charged to cards.
 //  - Credit issued: MentorsMD credit given in the period (disputes refunded
 //    as credit, and manual additions by the team).
-//  - MentorsMD fee and Paid to mentors: monthly payouts sent in the period
-//    (plus orders from before the redesign released in the period).
+//  - MentorsMD fee and Paid to mentors: monthly payouts sent in the period.
 //  - Not yet paid out: hours bought that haven't been paid to a mentor.
 //  - Refunds: packages refunded in the period (since the redesign, always
 //    as credit).
@@ -52,7 +51,6 @@ export type Tab = (typeof TABS)[number];
 const PAID: Prisma.OrderWhereInput["status"] = { in: ["IN_ESCROW", "COMPLETED", "RELEASED", "REFUNDED"] };
 const DAY_MS = 86400_000;
 const BIG = 100_000; // safety cap on rows read for one report
-const fee = (cents: number) => Math.round((cents * PLATFORM_FEE_PERCENT) / 100);
 const pct = (n: number, d: number) => (d > 0 ? n / d : null);
 
 // ---------------- Date range ----------------
@@ -166,7 +164,7 @@ export function describeFilters(filters: unknown): string {
 // ---------------- 77. Overview ----------------
 
 async function overview(r: Range): Promise<InsightsResult> {
-  const [paid, topUps, refunded, released, payouts, credit, open, students, mentors] = await Promise.all([
+  const [paid, topUps, refunded, payouts, credit, open, students, mentors] = await Promise.all([
     prisma.order.findMany({
       where: paidInRange(r),
       select: { id: true, kind: true, amount: true, creditAppliedCents: true, status: true, paidAt: true, createdAt: true, packageTitle: true, gig: { select: { title: true } }, buyer: { select: { name: true } }, seller: { select: { name: true } } },
@@ -175,7 +173,6 @@ async function overview(r: Range): Promise<InsightsResult> {
     }),
     prisma.hourTopUp.findMany({ where: { status: "PAID", paidAt: inRange(r) }, select: { amountCents: true, creditAppliedCents: true, paidAt: true }, take: BIG }),
     prisma.order.findMany({ where: refundedInRange(r), select: { amount: true, refundedAt: true, disputeResolvedAt: true, paidAt: true, createdAt: true }, take: BIG }),
-    prisma.order.findMany({ where: { ...releasedInRange(r), kind: null }, select: { amount: true, completedAt: true }, take: BIG }),
     prisma.mentorPayout.findMany({ where: { status: "PAID", paidAt: inRange(r) }, select: { amountCents: true, grossCents: true, paidAt: true }, take: BIG }),
     prisma.creditEntry.findMany({ where: { reason: { in: ["DISPUTE_REFUND", "ADMIN_ADJUST"] }, amountCents: { gt: 0 }, createdAt: inRange(r) }, select: { amountCents: true, reason: true, createdAt: true }, take: BIG }),
     prisma.order.findMany({
@@ -195,13 +192,12 @@ async function overview(r: Range): Promise<InsightsResult> {
   const creditUsed = paid.reduce((s, o) => s + o.creditAppliedCents, 0) + topUps.reduce((s, t) => s + t.creditAppliedCents, 0);
   const collected = sales - creditUsed;
   const refunds = refunded.reduce((s, o) => s + o.amount, 0);
-  const oldReleased = released.reduce((s, o) => s + o.amount, 0);
-  const feeSum = released.reduce((s, o) => s + fee(o.amount), 0) + payouts.reduce((s, p) => s + (p.grossCents - p.amountCents), 0);
-  const paidToMentors = oldReleased - released.reduce((s, o) => s + fee(o.amount), 0) + payouts.reduce((s, p) => s + p.amountCents, 0);
+  const feeSum = payouts.reduce((s, p) => s + (p.grossCents - p.amountCents), 0);
+  const paidToMentors = payouts.reduce((s, p) => s + p.amountCents, 0);
   const creditIssued = credit.reduce((s, c) => s + c.amountCents, 0);
   const creditFromDisputes = credit.filter((c) => c.reason === "DISPUTE_REFUND").reduce((s, c) => s + c.amountCents, 0);
   const notPaidOut = open.reduce(
-    (s, o) => s + (o.kind ? unpaidValueCents({ ...o, refundedCreditCents: o.creditEntries.reduce((x, c) => x + c.amountCents, 0) }) : o.amount),
+    (s, o) => s + unpaidValueCents({ ...o, refundedCreditCents: o.creditEntries.reduce((x, c) => x + c.amountCents, 0) }),
     0
   );
 
@@ -256,7 +252,7 @@ async function overview(r: Range): Promise<InsightsResult> {
           mentor: o.seller.name,
           amount: o.amount,
           credit: o.creditAppliedCents,
-          fee: fee(o.amount),
+          fee: feeOf(o.amount),
           status: (o.kind ? HOURS_STATUS[o.status] : null) || ORDER_STATUS[o.status] || o.status,
         })),
       },
@@ -347,10 +343,9 @@ async function mentorsTab(r: Range, sp: URLSearchParams): Promise<InsightsResult
   });
   const ids = mentors.map((m) => m.id);
   const sellerIn = { sellerId: { in: ids } };
-  const [paid, refunded, released, ratings, reviewsInRange, convos, pv] = await Promise.all([
+  const [paid, refunded, ratings, reviewsInRange, convos, pv] = await Promise.all([
     prisma.order.findMany({ where: { AND: [paidInRange(r), sellerIn] }, select: { sellerId: true, amount: true, disputed: true }, take: BIG }),
     prisma.order.findMany({ where: { AND: [refundedInRange(r), sellerIn] }, select: { sellerId: true, amount: true }, take: BIG }),
-    prisma.order.findMany({ where: { AND: [releasedInRange(r), sellerIn, { kind: null }] }, select: { sellerId: true, amount: true }, take: BIG }),
     prisma.review.groupBy({ by: ["sellerId"], where: sellerIn, _avg: { rating: true }, _count: { _all: true } }),
     prisma.review.groupBy({ by: ["sellerId"], where: { ...sellerIn, createdAt: inRange(r) }, _count: { _all: true } }),
     prisma.conversation.groupBy({ by: ["sellerId"], where: { ...sellerIn, createdAt: inRange(r), messages: { some: {} } }, _count: { _all: true } }),
@@ -373,8 +368,7 @@ async function mentorsTab(r: Range, sp: URLSearchParams): Promise<InsightsResult
     a.refunds += o.amount;
     a.refundCount++;
   }
-  for (const o of released) get(o.sellerId).earned += o.amount - fee(o.amount);
-  // Monthly payouts sent in the period (hours packages).
+  // Monthly payouts sent in the period.
   const payoutsSent = await prisma.mentorPayout.findMany({ where: { mentorId: { in: ids }, status: "PAID", paidAt: inRange(r) }, select: { mentorId: true, amountCents: true }, take: BIG });
   for (const p of payoutsSent) get(p.mentorId).earned += p.amountCents;
   const rating = new Map(ratings.map((x) => [x.sellerId, x]));

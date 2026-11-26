@@ -3,7 +3,6 @@
 // calendar invites). Server only.
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { callSummary } from "@/lib/calls";
 import { callMinutes, hoursSummary, isBlockMinutes } from "@/lib/hours";
 import { finishPhase } from "@/lib/finishing";
 import { blockBetween } from "@/lib/blocks";
@@ -164,19 +163,17 @@ export async function openSlotsFor(
   });
 }
 
-// The title shown for an order: the package snapshot taken at checkout
-// (hours orders), or the package itself (orders from before the redesign).
+// The title shown for an order: the package snapshot taken at checkout,
+// or the offer's own title.
 export const orderTitle = (o: { packageTitle?: string | null; gig: { title: string } }) => o.packageTitle || o.gig.title;
 
-// Length of a call on this order: hours orders choose 30 or 60 minutes per
-// call (lengthMinutes); older packages have a fixed call length.
-function lengthFor(order: OrderForCalls, lengthMinutes?: number) {
-  if (order.kind) return isBlockMinutes(lengthMinutes) ? lengthMinutes : 60;
-  return order.gig.callLength || 30;
+// Length of a call: 30 or 60 minutes, chosen per call (60 by default).
+function lengthFor(lengthMinutes?: number) {
+  return isBlockMinutes(lengthMinutes) ? lengthMinutes : 60;
 }
 
 export async function openSlotsForOrder(order: OrderForCalls, opts: { excludeBookingId?: string; onlyDay?: string; lengthMinutes?: number; ignoreNotice?: boolean } = {}) {
-  return openSlotsFor(order.seller, order.buyerId, lengthFor(order, opts.lengthMinutes), opts);
+  return openSlotsFor(order.seller, order.buyerId, lengthFor(opts.lengthMinutes), opts);
 }
 
 // Why a call of this length can't be booked from this hours order, or null.
@@ -294,7 +291,7 @@ function assertNoClash(tx: Prisma.TransactionClient, order: OrderForCalls, start
 // notice when the student picked it; paying can take a few minutes, so it
 // isn't checked again (it must still be free and in the mentor's hours).
 export async function bookCall(order: OrderForCalls, start: Date, by: { id: string; isMentor: boolean }, lengthMinutes?: number, opts: { pickedBeforePayment?: boolean } = {}) {
-  const minutes = lengthFor(order, lengthMinutes);
+  const minutes = lengthFor(lengthMinutes);
   const length = minutes * 60_000;
   const end = new Date(start.getTime() + length);
   if (start.getTime() < Date.now() + 5 * 60_000) throw new CallError("Pick a time in the future.");
@@ -315,15 +312,11 @@ export async function bookCall(order: OrderForCalls, start: Date, by: { id: stri
     await lockMentor(tx, order.sellerId);
     // Same lock as logging written work (lib/hourLog.ts), so the two can't
     // both use the last minutes.
-    if (order.kind) await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"hours:" + order.id}))`;
-    const fresh = await tx.order.findUnique({ where: { id: order.id }, include: { gig: true, callBookings: true, hourEntries: true } });
-    if (!fresh) throw new CallError("Order not found", 404);
-    if (fresh.kind) {
-      const blocked = hoursBookingBlocker(fresh, minutes);
-      if (blocked) throw new CallError(blocked);
-    } else if (!callSummary(fresh).canBook || fresh.disputed) {
-      throw new CallError("No calls are left to book on this order.");
-    }
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"hours:" + order.id}))`;
+    const fresh = await tx.order.findUnique({ where: { id: order.id }, include: { callBookings: true, hourEntries: true } });
+    if (!fresh || !fresh.kind) throw new CallError("Order not found", 404);
+    const blocked = hoursBookingBlocker(fresh, minutes);
+    if (blocked) throw new CallError(blocked);
     await assertNoClash(tx, order, start, end, by.isMentor ? 0 : order.seller.bufferMinutes);
     const created = await tx.callBooking.create({
       data: {
@@ -338,10 +331,8 @@ export async function bookCall(order: OrderForCalls, start: Date, by: { id: stri
         bookedById: by.id,
       },
     });
-    // Due-date era fields; hours orders don't use them.
-    if (!fresh.kind) await tx.order.update({ where: { id: order.id }, data: { scheduledCallTime: start, callHoldAt: null } });
     // Pay-per-call whose first pick was taken: this is its call now.
-    else if (fresh.requestedCallStart) await tx.order.update({ where: { id: order.id }, data: { requestedCallStart: null } });
+    if (fresh.requestedCallStart) await tx.order.update({ where: { id: order.id }, data: { requestedCallStart: null } });
     return created;
   });
 
@@ -350,7 +341,7 @@ export async function bookCall(order: OrderForCalls, start: Date, by: { id: stri
     ? await prisma.callBooking.update({ where: { id: booking.id }, data: { roomName: room.name, roomUrl: room.url } })
     : booking;
   await emailBoth(order, saved, "booked");
-  if (order.kind) await maybeSendLowHours(order.id);
+  await maybeSendLowHours(order.id);
   return saved;
 }
 
@@ -359,8 +350,8 @@ export async function bookCall(order: OrderForCalls, start: Date, by: { id: stri
 export async function rescheduleCall(order: OrderForCalls, bookingId: string, start: Date, by: { id: string; isMentor: boolean; name?: string }, lateReason?: string) {
   const current = order.callBookings.find((b) => b.id === bookingId);
   if (!current || current.status !== "BOOKED") throw new CallError("Call not found", 404);
-  // A moved call keeps its length (hours orders: the 30 or 60 booked).
-  const minutes = order.kind ? callMinutes(current) : lengthFor(order);
+  // A moved call keeps its length (the 30 or 60 booked).
+  const minutes = callMinutes(current);
   const length = minutes * 60_000;
   const end = new Date(start.getTime() + length);
   if (start.getTime() < Date.now() + 5 * 60_000) throw new CallError("Pick a time in the future.");
@@ -389,7 +380,6 @@ export async function rescheduleCall(order: OrderForCalls, bookingId: string, st
       },
     });
     if (res.count === 0) throw new CallError("This call changed. Refresh the page.", 409);
-    if (!order.kind) await tx.order.update({ where: { id: order.id }, data: { scheduledCallTime: start, callHoldAt: null } });
     return tx.callBooking.findUniqueOrThrow({ where: { id: bookingId } });
   });
 

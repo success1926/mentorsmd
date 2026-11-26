@@ -22,5 +22,8 @@ export const stripe = new Proxy({} as Stripe, {
   },
 });
 
-// Your platform's cut lives in lib/fee.ts so client pages can import it too.
-export { PLATFORM_FEE_PERCENT } from "@/lib/fee";
+// True when Stripe clearly rejected the request, meaning nothing happened
+// on their side. Anything else (network errors, 5xx) is "unknown".
+export function isDefiniteStripeFailure(err: any) {
+  return ["StripeInvalidRequestError", "StripeCardError", "StripePermissionError", "StripeAuthenticationError"].includes(err?.type);
+}

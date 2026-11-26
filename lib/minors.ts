@@ -229,7 +229,7 @@ export async function sendParentReceipt(orderId: string, topUpId?: string) {
       mentorName: order.seller.name,
       amountCents: topUp ? topUp.amountCents : order.amount,
       paidAt: new Date(),
-      dueDate: order.kind ? null : order.dueDate,
+      dueDate: null,
     },
     parentUrl(consent.viewToken)
   );
