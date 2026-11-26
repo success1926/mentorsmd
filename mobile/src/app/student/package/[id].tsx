@@ -58,6 +58,7 @@ export default function Package() {
     mentorName: mentor?.name || "",
     priceCents: priceFor(hours * 60, o.rateCents || 0),
     onPaid: () => q.reload(),
+    onChecking: () => q.reload(),
   })} />);
 
   return (

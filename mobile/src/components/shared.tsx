@@ -73,22 +73,29 @@ type CheckoutStart = {
   paid: boolean; orderId: string; topUpId?: string;
   clientSecret?: string; paymentIntentId?: string; chargeCents?: number; creditCents?: number; publishableKey?: string | null;
 };
-export type CheckoutResult = { status: "paid" | "pending" | "cancelled"; orderId: string };
+// "checking": the sheet closed but we couldn't confirm the payment was
+// cancelled (no connection, or Stripe is still processing it), so it may
+// still go through.
+export type CheckoutResult = { status: "paid" | "pending" | "cancelled" | "checking"; orderId: string };
+export const CHECKING_MESSAGE = "We’re checking your payment. If it went through, your package will appear in a minute.";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // Pays through Stripe's payment sheet (card, Apple Pay, Google Pay), after
 // MentorsMD credit. Credit that covers everything needs no sheet. Closing
-// the sheet cancels the payment and gives any credit back.
+// the sheet cancels the payment and gives any credit back. We only say
+// "nothing was charged" when the website confirms the cancel
+// (/api/app/checkout/cancel answers "cancelled" | "paid" | "pending").
 export async function runCheckout(what: CheckoutWhat): Promise<CheckoutResult> {
   const r = await api<CheckoutStart>("/api/app/checkout", { body: what });
   if (r.paid) return { status: "paid", orderId: r.orderId };
   const target = r.topUpId ? { topUpId: r.topUpId } : { orderId: r.orderId };
-  const cancel = async () => {
+  // "unknown" when the cancel call itself failed (e.g. no connection).
+  const cancel = async (): Promise<string> => {
     try {
       return (await api<{ status: string }>("/api/app/checkout/cancel", { body: target })).status;
     } catch {
-      return "cancelled";
+      return "unknown";
     }
   };
   if (!r.clientSecret || !r.publishableKey) {
@@ -105,6 +112,7 @@ export async function runCheckout(what: CheckoutWhat): Promise<CheckoutResult> {
     style: "automatic",
   });
   if (init.error) {
+    // The sheet never opened, so nothing could be paid.
     await cancel();
     throw new Error(init.error.message || "Couldn't open the payment. Please try again.");
   }
@@ -113,8 +121,9 @@ export async function runCheckout(what: CheckoutWhat): Promise<CheckoutResult> {
     // Closed without paying (or it failed): cancel it, unless it went through after all.
     const s = await cancel();
     if (s === "paid") return { status: "paid", orderId: r.orderId };
+    if (s !== "cancelled") return { status: "checking", orderId: r.orderId };
     if (String(res.error.code) === "Canceled") return { status: "cancelled", orderId: r.orderId };
-    throw new Error(res.error.message || "The payment didn't go through. Nothing was charged.");
+    throw new Error(res.error.message ? `${res.error.message} Nothing was charged.` : "The payment didn't go through. Nothing was charged.");
   }
   const done = await api<{ status: string }>("/api/app/checkout/confirm", { body: target }).catch(() => ({ status: "pending" }));
   return { status: done.status === "paid" ? "paid" : "pending", orderId: r.orderId };
@@ -127,6 +136,8 @@ export type PayItem = {
   priceCents: number;
   // After paying (or "still confirming"). Defaults to opening the package.
   onPaid?: (r: CheckoutResult) => void;
+  // When we can't tell yet whether it was paid. Defaults to your packages.
+  onChecking?: () => void;
 };
 
 // Paying for an offer, a single call or more hours: what it costs, the
@@ -153,6 +164,12 @@ function PaySheet({ item }: { item: PayItem }) {
       if (split.chargeCents > 0) await wait(450);
       const r = await runCheckout(item.what);
       if (r.status === "cancelled") return toast("Payment cancelled. Nothing was charged.");
+      if (r.status === "checking") {
+        toast(CHECKING_MESSAGE);
+        if (item.onChecking) item.onChecking();
+        else router.push("/student/packages");
+        return;
+      }
       toast(r.status === "paid" ? (split.chargeCents ? "Payment received." : "Paid with your MentorsMD credit.") : "Confirming your payment with Stripe… it shows up in a few seconds.");
       if (item.onPaid) item.onPaid(r);
       else router.push(`/student/package/${r.orderId}`);
