@@ -37,7 +37,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const { url, orderId } = await startPayPerCallCheckout({ id: studentId, email: session.user.email }, params.id, start, minutes);
     return NextResponse.json({ url, orderId });
   } catch (err) {
-    if (err instanceof CallError || err instanceof CheckoutError) return NextResponse.json({ error: err.message }, { status: err.status });
+    if (err instanceof CallError || err instanceof CheckoutError) return NextResponse.json({ error: err.message, ...(err.code ? { code: err.code } : {}) }, { status: err.status });
     console.error("Booking a call failed", err);
     return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }

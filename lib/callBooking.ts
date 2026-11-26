@@ -7,6 +7,7 @@ import { callSummary } from "@/lib/calls";
 import { callMinutes, hoursSummary, isBlockMinutes } from "@/lib/hours";
 import { finishPhase } from "@/lib/finishing";
 import { blockBetween } from "@/lib/blocks";
+import { callGateReason } from "@/lib/gate";
 import { maybeSendLowHours } from "@/lib/hourLog";
 import { BusyRange, Interval, generateSlots, MAX_BOOKING_WINDOW_DAYS, bookingWindowFor } from "@/lib/schedule";
 import { addDays, dayInZone, tzOrDefault } from "@/lib/tz";
@@ -238,7 +239,7 @@ async function emailBoth(order: OrderForCalls, booking: any, kind: "booked" | "r
 // ---------- Book / move / cancel ----------
 
 export class CallError extends Error {
-  constructor(message: string, public status = 400) {
+  constructor(message: string, public status = 400, public code?: string) {
     super(message);
   }
 }
@@ -298,6 +299,13 @@ export async function bookCall(order: OrderForCalls, start: Date, by: { id: stri
   const end = new Date(start.getTime() + length);
   if (start.getTime() < Date.now() + 5 * 60_000) throw new CallError("Pick a time in the future.");
   await assertNotBlocked(order);
+  // The student's account gate (date of birth, legal documents, a parent's
+  // consent for under-18s), whoever books. Pay-per-call was checked before
+  // paying, and the paid call is booked by the webhook.
+  if (!opts.pickedBeforePayment) {
+    const gate = await callGateReason(order.buyerId, by.id);
+    if (gate) throw new CallError(gate, 403, "ACCOUNT_GATE");
+  }
   if (!by.isMentor) {
     const slots = await openSlotsForOrder(order, { onlyDay: dayInZone(start, tzOrDefault(order.seller.timeZone)), lengthMinutes: minutes, ignoreNotice: opts.pickedBeforePayment });
     if (!slots.some((s) => s.getTime() === start.getTime())) throw new CallError("That time isn't available anymore. Please pick another.", 409);

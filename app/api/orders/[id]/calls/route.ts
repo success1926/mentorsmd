@@ -35,7 +35,7 @@ async function load(params: { id: string }) {
 }
 
 function fail(err: any) {
-  if (err instanceof CallError) return NextResponse.json({ error: err.message }, { status: err.status });
+  if (err instanceof CallError) return NextResponse.json({ error: err.message, ...(err.code ? { code: err.code } : {}) }, { status: err.status });
   console.error("Call change failed", err);
   return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
 }

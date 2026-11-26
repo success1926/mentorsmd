@@ -3,7 +3,7 @@ import { pendingLegal, type PendingDoc } from "@/lib/legal";
 
 // What a student or mentor must do before using MentorsMD (shown as the
 // blocking screen in components/AccountGate.tsx, and enforced by the
-// message, conversation and checkout routes):
+// message, conversation, checkout and call routes):
 //   1. Students: give a date of birth (#104; asked once of students who
 //      signed up before it was required).
 //   2. Accept new versions of the legal documents (#101, #103).
@@ -58,6 +58,24 @@ export async function gateBlockReason(userId: string): Promise<string | null> {
   } catch (err) {
     // Never lock everyone out because of a database hiccup here.
     console.error("Couldn't check the account gate:", err);
+    return null;
+  }
+}
+
+// For calls on a package or intro call: the student must have passed the
+// gate (a student under 18 needs a parent or guardian's consent), whoever
+// books or joins, and so must the person acting. A short reason, or null.
+export async function callGateReason(studentId: string, actorId: string): Promise<string | null> {
+  if (actorId === studentId) return gateBlockReason(studentId);
+  const own = await gateBlockReason(actorId);
+  if (own) return own;
+  try {
+    const g = await accountGate(studentId);
+    if (!g || !g.blocked) return null;
+    if (g.minor && g.minor.status !== "CONSENTED") return "Calls with this student are paused until their parent or guardian gives consent.";
+    return "This student needs to finish setting up their account before calls can go ahead.";
+  } catch (err) {
+    console.error("Couldn't check the student's account gate:", err);
     return null;
   }
 }

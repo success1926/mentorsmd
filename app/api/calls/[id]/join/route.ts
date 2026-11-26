@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { joinState, JOIN_CLOSES_MINUTES_AFTER, JOIN_OPENS_MINUTES_BEFORE } from "@/lib/calls";
 import { createMeetingToken, dailyConfigured, ensureRoom } from "@/lib/daily";
 import { blockBetween } from "@/lib/blocks";
+import { callGateReason } from "@/lib/gate";
 import { getSession } from "@/lib/session";
 
 // The Join button. Calls happen in a private Daily room; each person gets
@@ -50,6 +51,10 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     where: { id: { in: [studentId!, mentorId!] }, OR: [{ safetyHoldAt: { not: null } }, { removedByAdmin: true }] },
   });
   if (held) return NextResponse.json({ error: "This call isn't available. Contact us if you need help." }, { status: 403 });
+  // The student's account gate (e.g. a parent's consent still pending or
+  // withdrawn), for both people.
+  const gate = await callGateReason(studentId!, userId);
+  if (gate) return NextResponse.json({ error: gate, code: "ACCOUNT_GATE" }, { status: 403 });
   if (!dailyConfigured()) {
     return NextResponse.json({ error: "Video isn't set up yet. Message the other person, or contact us." }, { status: 503 });
   }
