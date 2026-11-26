@@ -1,14 +1,15 @@
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import { View } from "react-native";
-import { CallCard, LoadError, MentorCard, MoveSheet, PkgCard, useCallbackAll, useRefresh, type CalCall } from "../../../components/shared";
-import { Av, Btn, Card, Eyebrow, Grow, Link, Loading, Note, RowV, Screen, Sec, SecH, SS, T, TT } from "../../../components/ui";
+import { CallCard, MentorCard, MoveSheet, PkgCard, useCallbackAll, useRefresh, type CalCall } from "../../../components/shared";
+import { Av, Btn, Card, Eyebrow, Grow, Link, LoadError, Loading, Note, RowV, Screen, Sec, SecH, SS, T, TT } from "../../../components/ui";
 import { dollars, useApi } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth";
-import { useOverlay } from "../../../lib/demo";
+import { useOverlay } from "../../../lib/overlay";
 import { searchLive, useLoad } from "../../../lib/live";
-import { finishPhase, first, hoursSummary, hoursToRespond, initials, isActive, LOW_HOURS_MINUTES, pkgTitle, shortHours, type Pkg } from "../../../lib/orders";
+import { finishPhase, hoursSummary, hoursToRespond, isActive, LOW_HOURS_MINUTES, pkgTitle, shortHours, type Pkg } from "../../../lib/orders";
 import { useColors } from "../../../lib/theme";
+import { firstName, initialsOf } from "../../../lib/format";
 
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; };
 
@@ -53,8 +54,8 @@ export default function StudentHome() {
   return (
     <Screen>
       <RowV style={{ justifyContent: "space-between" }}>
-        <View style={{ gap: 4, flex: 1 }}><Eyebrow>{greeting()}</Eyebrow><T>Hi{name ? `, ${first(name)}` : ""}</T></View>
-        <Av init={initials(name)} photo={me?.photoUrl} onPress={() => router.push("/student/settings")} />
+        <View style={{ gap: 4, flex: 1 }}><Eyebrow>{greeting()}</Eyebrow><T>Hi{name ? `, ${firstName(name)}` : ""}</T></View>
+        <Av init={initialsOf(name)} photo={me?.photoUrl} onPress={() => router.push("/student/settings")} />
       </RowV>
 
       {firstLoad ? <Loading /> : null}

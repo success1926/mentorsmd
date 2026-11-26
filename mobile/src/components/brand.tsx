@@ -2,10 +2,11 @@ import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View, useColorScheme } from "react-native";
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from "react-native-svg";
-import { first, type Mentor } from "../lib/sample";
 import { useCompare, type MatchResult } from "../lib/match";
 import { fonts, useColors } from "../lib/theme";
 import { Av, Icon } from "./ui";
+import { firstName } from "../lib/format";
+import { type Mentor } from "../lib/live";
 
 // Pieces shared by Find a Mentor, the profile and Compare (Nov 2026 Browse
 // redesign, matching the website).
@@ -148,7 +149,7 @@ export function CompareBar() {
         {cmp.items.map((m) => (
           <View key={m.id} style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(255,255,255,0.12)", borderRadius: 999, paddingLeft: 3, paddingRight: 4, paddingVertical: 3 }}>
             <Av init={m.init} photo={m.photo} size={26} />
-            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: "#FFFFFF" }}>{first(m.name)}</Text>
+            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: "#FFFFFF" }}>{firstName(m.name)}</Text>
             <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${m.name}`} onPress={() => cmp.remove(m.id)} hitSlop={6}
               style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "rgba(255,255,255,0.18)", alignItems: "center", justifyContent: "center" }}>
               <Text style={{ color: "#FFFFFF", fontSize: 12, lineHeight: 14 }}>×</Text>

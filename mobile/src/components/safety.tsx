@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { View } from "react-native";
 import { api, errorText, useApi } from "../lib/api";
-import { useOverlay } from "../lib/demo";
+import { useOverlay } from "../lib/overlay";
 import { useColors } from "../lib/theme";
 import { Btn, Field, H, Icon, Link, Note, Row, Small, Toggle } from "./ui";
 

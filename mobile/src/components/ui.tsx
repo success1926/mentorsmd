@@ -9,8 +9,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle, Path } from "react-native-svg";
 import { SITE } from "../lib/api";
-import { useOverlay } from "../lib/demo";
-import type { Status } from "../lib/sample";
+import { useOverlay } from "../lib/overlay";
+import { orderStatus, TONE_CHIP, type StatusAudience, type StatusOrderLike } from "../lib/statusLabels";
 import { fonts, useColors, type Colors } from "../lib/theme";
 
 export type IconName = ComponentProps<typeof Feather>["name"];
@@ -80,6 +80,29 @@ export function Loading({ label }: { label?: string }) {
   );
 }
 
+// A list with nothing in it yet: a title, what will show here, and an
+// optional next step. The one empty-state look for the app.
+export function EmptyState({ title, children, action }: { title: string; children?: ReactNode; action?: { label: string; onPress: () => void } }) {
+  return (
+    <Card>
+      <TT>{title}</TT>
+      {children ? <Note>{children}</Note> : null}
+      {action ? <Btn kind="line" sm label={action.label} onPress={action.onPress} /> : null}
+    </Card>
+  );
+}
+
+// "Couldn't load this" with Try again: the one error card for the app.
+export function LoadError({ error, onRetry, title = "Couldn’t load this" }: { error: string; onRetry?: () => void; title?: string }) {
+  return (
+    <Card tone="warn">
+      <TT>{title}</TT>
+      <Note>{error}</Note>
+      {onRetry ? <Btn kind="line" sm label="Try again" onPress={onRetry} /> : null}
+    </Card>
+  );
+}
+
 // ---------- text ----------
 type TP = { children: ReactNode; style?: StyleProp<TextStyle>; numberOfLines?: number };
 export function T({ children, style }: TP) {
@@ -119,12 +142,61 @@ export function Stars({ children }: { children: ReactNode }) {
   return <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: c.primary }}>{children}</Text>;
 }
 
+// ---------- show / hide ----------
+// The one look for anything that opens and closes (like the website's
+// Collapsible): the same chevron that turns, the same padding and type, and
+// an optional count pill. `defaultOpen` for sections that start open.
+export function CountPill({ n }: { n: number }) {
+  const c = useColors();
+  return (
+    <View style={{ minWidth: 22, height: 20, borderRadius: 10, paddingHorizontal: 7, backgroundColor: c.tint, alignItems: "center", justifyContent: "center" }}>
+      <Text style={{ fontFamily: fonts.bodySemi, fontSize: 12, color: c.deep, fontVariant: ["tabular-nums"] }}>{n}</Text>
+    </View>
+  );
+}
+function Chevron({ open, color }: { open: boolean; color?: string }) {
+  const c = useColors();
+  return <View style={{ transform: [{ rotate: open ? "180deg" : "0deg" }] }}><Feather name="chevron-down" size={18} color={color || c.muted} /></View>;
+}
+export function Collapsible({ title, count, defaultOpen = false, children }: { title: string; count?: number; defaultOpen?: boolean; children: ReactNode }) {
+  const c = useColors();
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <View style={{ gap: 10 }}>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={count != null ? `${title}, ${count}` : title} onPress={() => setOpen((o) => !o)} hitSlop={6}
+        style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4, opacity: pressed ? 0.6 : 1 })}>
+        <Text style={{ fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1.1, textTransform: "uppercase", color: c.primary }}>{title}</Text>
+        {count != null ? <CountPill n={count} /> : null}
+        <View style={{ flex: 1 }} />
+        <Chevron open={open} />
+      </Pressable>
+      {open ? children : null}
+    </View>
+  );
+}
+// Long text cut to a few lines, with "Read more" / "Show less" and the same chevron.
+export function ReadMore({ text, lines = 6, over = 420 }: { text: string; lines?: number; over?: number }) {
+  const c = useColors();
+  const [open, setOpen] = useState(false);
+  const long = text.length > over;
+  return (
+    <View style={{ gap: 6 }}>
+      <Text numberOfLines={open || !long ? undefined : lines} style={{ fontFamily: fonts.body, fontSize: 15, lineHeight: 23, color: c.muted }}>{text}</Text>
+      {long ? (
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setOpen((o) => !o)} hitSlop={8} style={{ flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start" }}>
+          <Text style={{ fontFamily: fonts.bodySemi, fontSize: 14, color: c.link }}>{open ? "Show less" : "Read more"}</Text>
+          <Chevron open={open} color={c.link} />
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 // ---------- layout ----------
 export const Sec = ({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) => <View style={[{ gap: 10 }, style]}>{children}</View>;
 export const SecH = ({ children }: { children: ReactNode }) => <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 }}>{children}</View>;
 export const RowV = ({ children, gap = 10, style }: { children: ReactNode; gap?: number; style?: StyleProp<ViewStyle> }) => <View style={[{ flexDirection: "row", alignItems: "center", gap }, style]}>{children}</View>;
 export const Grow = ({ children, gap = 2 }: { children: ReactNode; gap?: number }) => <View style={{ flex: 1, minWidth: 0, gap }}>{children}</View>;
-export const Spacer = () => <View style={{ flex: 1 }} />;
 
 type Tone = "plain" | "tint" | "warn" | "danger";
 function toneStyle(c: Colors, tone: Tone): ViewStyle {
@@ -175,10 +247,12 @@ export function Av({ init, photo, size = 44, pink, onPress }: { init: string; ph
   return <Pressable accessibilityRole="button" accessibilityLabel="Settings" onPress={onPress}>{body}</Pressable>;
 }
 
-type ChipTone = "plain" | "ok" | "warn" | "bad" | "gray";
+export type ChipTone = "plain" | "ok" | "warn" | "bad" | "gray" | "blue" | "pink";
 export function Chip({ label, tone = "plain" }: { label: string; tone?: ChipTone }) {
   const c = useColors();
-  const map: Record<ChipTone, [string, string]> = { plain: [c.tint, c.deep], ok: [c.okBg, c.okFg], warn: [c.warnBg, c.warnFg], bad: [c.dangerBg, c.danger], gray: [c.wash, c.muted] };
+  const map: Record<ChipTone, [string, string]> = {
+    plain: [c.tint, c.deep], ok: [c.okBg, c.okFg], warn: [c.warnBg, c.warnFg], bad: [c.dangerBg, c.danger], gray: [c.wash, c.muted], blue: [c.blue, c.blueInk], pink: [c.pinkSoft, c.pinkInk],
+  };
   const [bg, fg] = map[tone];
   return (
     <View style={{ backgroundColor: bg, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, alignSelf: "flex-start" }}>
@@ -188,16 +262,11 @@ export function Chip({ label, tone = "plain" }: { label: string; tone?: ChipTone
 }
 export const Chips = ({ children }: { children: ReactNode }) => <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>{children}</View>;
 
-const STATUS: Record<Status, [string, ChipTone]> = {
-  PENDING_PAYMENT: ["Waiting for payment", "gray"],
-  IN_ESCROW: ["In progress", "ok"],
-  COMPLETED: ["Waiting for approval", "warn"],
-  RELEASED: ["Approved", "plain"],
-  REFUNDED: ["Refunded", "bad"],
-  DISPUTE: ["Dispute", "bad"],
-  REVISION: ["Revision requested", "warn"],
-};
-export const StatusChip = ({ status }: { status: Status }) => <Chip label={STATUS[status][0]} tone={STATUS[status][1]} />;
+// An order's status badge: the same words and colour as the website (lib/statusLabels.ts).
+export function StatusBadge({ order, audience }: { order: StatusOrderLike; audience: StatusAudience }) {
+  const s = orderStatus(order, audience);
+  return <Chip label={s.label} tone={TONE_CHIP[s.tone]} />;
+}
 
 export function FChip({ label, on, onPress }: { label: string; on?: boolean; onPress?: () => void }) {
   const c = useColors();
@@ -467,7 +536,7 @@ export function SchoolList({ schools, size = 24, logos }: { schools: string[]; s
 export function Overlays() {
   const c = useColors();
   const insets = useSafeAreaInsets();
-  const { sheet: SheetBody, closeSheet, toastMsg, faceOn } = useOverlay();
+  const { sheet: SheetBody, closeSheet, toastMsg } = useOverlay();
   const Body = SheetBody;
   return (
     <>
@@ -481,14 +550,6 @@ export function Overlays() {
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
-      </Modal>
-      <Modal visible={faceOn} transparent animationType="fade">
-        <View style={{ flex: 1, backgroundColor: c.scrim, alignItems: "center", justifyContent: "center" }}>
-          <View style={{ width: 170, height: 170, borderRadius: 30, backgroundColor: c.surface, alignItems: "center", justifyContent: "center", gap: 12 }}>
-            <Feather name="smile" size={56} color={c.primary} />
-            <Text style={{ fontFamily: fonts.bodySemi, fontSize: 15, color: c.ink }}>Face ID</Text>
-          </View>
-        </View>
       </Modal>
       {toastMsg ? (
         <View pointerEvents="none" style={{ position: "absolute", left: 20, right: 20, bottom: 96 + insets.bottom, backgroundColor: c.ink, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12 }}>

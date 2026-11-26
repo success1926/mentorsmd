@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { Mentor } from "./sample";
+import type { Mentor } from "./live";
 
 // Guided match and compare, the same rules as the website's Browse page
 // (lib/guidedMatch.ts and components/Compare.tsx in the website code).

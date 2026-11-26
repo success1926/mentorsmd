@@ -3,15 +3,14 @@ import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useSafetySheet } from "../../../components/safety";
-import { CallCard, LoadError, MoveSheet, useRefresh, usePaySheet, type CalCall } from "../../../components/shared";
-import { Bar, Btn, Btns2, Card, Chip, Eyebrow, Field, H, Half, Hdr, KV, Link, Loading, Note, RowV, Screen, Sec, SecH, Small, SS, Stat3, TT } from "../../../components/ui";
+import { useConfirm } from "../../../components/mentorSheets";
+import { CallCard, MoveSheet, useRefresh, usePaySheet, type CalCall } from "../../../components/shared";
+import { Bar, Btn, Btns2, Card, Chip, Collapsible, Eyebrow, Field, H, Half, Hdr, KV, Link, LoadError, Loading, Note, RowV, Screen, Sec, SecH, Small, SS, Stat3, StatusBadge, TT } from "../../../components/ui";
 import { api, dollars, errorText, SITE, useApi } from "../../../lib/api";
-import { useOverlay } from "../../../lib/demo";
-import {
-  callMinutes, finishPhase, first, fmtDay, fmtWhen, hoursLabel, hoursSummary, hoursToRespond, joinState, lastRequestAvailable, LOW_HOURS_MINUTES,
-  packageStatus, pkgTitle, priceFor, RECORDING_NOTICE, shortHours, splitCredit, TOP_UP_HOURS, type Pkg,
-} from "../../../lib/orders";
+import { useOverlay } from "../../../lib/overlay";
+import { callMinutes, finishPhase, hoursLabel, hoursSummary, hoursToRespond, joinState, lastRequestAvailable, LOW_HOURS_MINUTES, pkgTitle, priceFor, RECORDING_NOTICE, shortHours, splitCredit, TOP_UP_HOURS, type Pkg } from "../../../lib/orders";
 import { fonts, useColors } from "../../../lib/theme";
+import { firstName, fmtDateTime, fmtDay } from "../../../lib/format";
 
 const KIND_LABEL: Record<string, string> = { HOURLY: "Hourly", BUNDLE: "Hour bundle", SPECIALIZED: "Specialized package", PAY_PER_CALL: "Pay-per-call" };
 const OUTCOME: Record<string, string> = { HELD: "Held", STUDENT_NO_SHOW: "You didn’t join (hours used)", MENTOR_NO_SHOW: "Your mentor didn’t join (no hours used)", NOBODY_JOINED: "Nobody joined", UNCLEAR: "Being checked by the MentorsMD team", FREE_REBOOK: "Free rebook (no hours used)" };
@@ -41,9 +40,8 @@ export default function Package() {
 
   const phase = finishPhase(o);
   const h = hoursSummary(o);
-  const st = packageStatus(o);
   const mentor = o.seller;
-  const mf = first(mentor?.name) || "Your mentor";
+  const mf = firstName(mentor?.name) || "Your mentor";
   const title = pkgTitle(o);
   const now = Date.now();
   const calls = (o.callBookings || []).filter((b) => b.status !== "CANCELLED");
@@ -61,17 +59,18 @@ export default function Package() {
     mentorName: mentor?.name || "",
     priceCents: priceFor(hours * 60, o.rateCents || 0),
     onPaid: () => q.reload(),
+    onChecking: () => q.reload(),
   })} />);
 
   return (
     <Screen>
       <Hdr title={title} sub={`${KIND_LABEL[o.kind || ""] || "Package"} · with ${mentor?.name || ""}`} />
-      <RowV><Chip label={st.label} tone={st.tone} /></RowV>
+      <RowV><StatusBadge order={o} audience="student" /></RowV>
 
       {phase === "PAYING" ? <Card tone="tint"><Note ink>Confirming your payment with Stripe… this page updates in a few seconds.</Note></Card> : null}
       {takenSlot ? (
         <Card tone="warn">
-          <Note style={{ color: c.warnFg }}>Your call is paid for, but the time you picked ({fmtWhen(o.requestedCallStart)}) was taken while you were paying. Please pick another time.</Note>
+          <Note style={{ color: c.warnFg }}>Your call is paid for, but the time you picked ({fmtDateTime(o.requestedCallStart)}) was taken while you were paying. Please pick another time.</Note>
           <Btn sm label="Pick a new time" onPress={() => router.push(bookHref)} />
         </Card>
       ) : null}
@@ -132,19 +131,20 @@ export default function Package() {
           <Eyebrow>Calls</Eyebrow>
           {upcoming.map((b) => <CallCard key={b.id} call={asCal(b)} onMove={phase === "WORKING" ? () => openSheet(() => <MoveSheet call={asCal(b)} onChanged={q.reload} />) : undefined} />)}
           {past.length ? (
-            <View>
-              {past.map((b, i) => (
-                <KV key={b.id} k={`${fmtWhen(b.startTime)} · ${callMinutes(b)} min`} v={OUTCOME[b.outcome || ""] || "Waiting for the outcome"} kInk line={i < past.length - 1} />
-              ))}
-            </View>
+            <Collapsible title="Past calls" count={past.length}>
+              <View>
+                {past.map((b, i) => (
+                  <KV key={b.id} k={`${fmtDateTime(b.startTime)} · ${callMinutes(b)} min`} v={OUTCOME[b.outcome || ""] || "Waiting for the outcome"} kInk line={i < past.length - 1} />
+                ))}
+              </View>
+            </Collapsible>
           ) : null}
           <Small>{RECORDING_NOTICE}</Small>
         </Sec>
       ) : null}
 
-      <Sec>
-        <Eyebrow>Hours log</Eyebrow>
-        {(o.hourEntries || []).length ? (
+      {(o.hourEntries || []).length ? (
+        <Collapsible title="Hours log" count={(o.hourEntries || []).length}>
           <View>
             {(o.hourEntries || []).map((e) => (
               <View key={e.id} style={{ paddingVertical: 10, gap: 2, opacity: e.voidedAt ? 0.55 : 1, borderBottomWidth: 1, borderColor: c.line }}>
@@ -155,8 +155,13 @@ export default function Package() {
               </View>
             ))}
           </View>
-        ) : <Note>Nothing logged yet. Held calls are added automatically; your mentor logs written work here.</Note>}
-      </Sec>
+        </Collapsible>
+      ) : (
+        <Sec>
+          <Eyebrow>Hours log</Eyebrow>
+          <Note>Nothing logged yet. Held calls are added automatically; your mentor logs written work here.</Note>
+        </Sec>
+      )}
 
       {(o.files || []).length ? (
         <Sec>
@@ -191,66 +196,73 @@ export default function Package() {
 function Decision({ order, onChanged }: { order: Pkg; onChanged: () => void }) {
   const c = useColors();
   const router = useRouter();
-  const { openSheet, closeSheet, toast } = useOverlay();
-  const [mode, setMode] = useState<"" | "LAST_CALL" | "LAST_REVISION">("");
-  const [note, setNote] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { openSheet, toast } = useOverlay();
+  const confirm = useConfirm();
   const left = hoursToRespond(order);
   const extra = lastRequestAvailable(order);
-  const mf = first(order.seller?.name) || "Your mentor";
-  const send = async (action: string, done: string) => {
-    setBusy(true);
-    setError(null);
-    try {
-      await api(`/api/orders/${order.id}/finish`, { body: { action, note } });
-      setMode("");
-      setNote("");
-      toast(done);
-      onChanged();
-    } catch (e) {
-      setError(errorText(e));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const mf = firstName(order.seller?.name) || "Your mentor";
   const approve = () =>
-    openSheet(() => (
-      <>
-        <H>Approve {pkgTitle(order)}?</H>
-        <Note>{mf} is paid for the hours, including any unused ones.</Note>
-        <Btn kind="dark" label="Approve" onPress={() => { closeSheet(); send("APPROVE", "Approved. Thanks for working with MentorsMD."); }} />
-        <Btn kind="line" label="Not yet" onPress={closeSheet} />
-      </>
-    ));
+    confirm({
+      title: `Approve ${pkgTitle(order)}?`,
+      body: `${mf} is paid for the hours, including any unused ones.`,
+      confirmLabel: "Approve",
+      cancelLabel: "Not yet",
+      onConfirm: async () => {
+        await api(`/api/orders/${order.id}/finish`, { body: { action: "APPROVE", note: "" } });
+        toast("Approved. Thanks for working with MentorsMD.");
+        onChanged();
+      },
+    });
+  const ask = (mode: LastRequest) => openSheet(() => <LastRequestSheet order={order} mode={mode} onDone={onChanged} />);
   return (
     <Card tone="warn">
       <TT>{mf} marked this package complete</TT>
       <Note style={{ color: c.warnFg }}>
         You have {left} hours to respond. If you don’t, it’s approved automatically.{extra ? " You can ask for one last call or one last revision (once)." : ""} Any unused hours aren’t refunded (mentors aren’t penalised for finishing efficiently). If something isn’t right, open a dispute.
       </Note>
-      {error ? <Small style={{ color: c.danger }}>{error}</Small> : null}
-      {mode ? (
-        <>
-          <Field label={mode === "LAST_CALL" ? "What would you like to cover in the last call?" : "What would you like changed?"} value={note} onChange={setNote} multiline />
-          <Btn label={mode === "LAST_CALL" ? "Request one last call" : "Request one last revision"} disabled={busy || !note.trim()}
-            onPress={() => send(mode, mode === "LAST_CALL" ? "Asked for one last call. Book it from this page." : "Asked for one last revision")} />
-          <Link label="Back" onPress={() => setMode("")} />
-          {mode === "LAST_CALL" ? <Small>Then book the call from this page. It uses the package’s hours; if none are left, add hours first.</Small> : null}
-        </>
-      ) : (
-        <>
-          <Btn label="Approve" disabled={busy} onPress={approve} />
-          {extra ? (
-            <Btns2>
-              <Half><Btn kind="line" label="One last call" onPress={() => setMode("LAST_CALL")} /></Half>
-              <Half><Btn kind="line" label="One last revision" onPress={() => setMode("LAST_REVISION")} /></Half>
-            </Btns2>
-          ) : null}
-          <Link red label="Something’s wrong? Open a dispute" onPress={() => router.push(`/student/dispute/${order.id}`)} />
-        </>
-      )}
+      <Btn label="Approve" onPress={approve} />
+      {extra ? (
+        <Btns2>
+          <Half><Btn kind="line" label="One last call" onPress={() => ask("LAST_CALL")} /></Half>
+          <Half><Btn kind="line" label="One last revision" onPress={() => ask("LAST_REVISION")} /></Half>
+        </Btns2>
+      ) : null}
+      <Link red label="Something’s wrong? Open a dispute" onPress={() => router.push(`/student/dispute/${order.id}`)} />
     </Card>
+  );
+}
+
+// One last call or revision: a short note to the mentor, in a sheet.
+type LastRequest = "LAST_CALL" | "LAST_REVISION";
+function LastRequestSheet({ order, mode, onDone }: { order: Pkg; mode: LastRequest; onDone: () => void }) {
+  const c = useColors();
+  const { closeSheet, toast } = useOverlay();
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const call = mode === "LAST_CALL";
+  const send = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/api/orders/${order.id}/finish`, { body: { action: mode, note } });
+      closeSheet();
+      toast(call ? "Asked for one last call. Book it from this page." : "Asked for one last revision");
+      onDone();
+    } catch (e) {
+      setError(errorText(e));
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <H>{call ? "One Last Call" : "One Last Revision"}</H>
+      <Field label={call ? "What would you like to cover in the last call?" : "What would you like changed?"} value={note} onChange={setNote} multiline />
+      {call ? <Small>Then book the call from this page. It uses the package’s hours; if none are left, add hours first.</Small> : null}
+      {error ? <Small style={{ color: c.danger }}>{error}</Small> : null}
+      <Btn kind="dark" label={busy ? "Sending…" : call ? "Request one last call" : "Request one last revision"} disabled={busy || !note.trim()} onPress={send} />
+      <Btn kind="line" label="Cancel" onPress={closeSheet} />
+    </>
   );
 }
 
@@ -276,7 +288,7 @@ function ReviewCard({ order, onDone }: { order: Pkg; onDone: () => void }) {
   };
   return (
     <Card>
-      <TT>Leave a review for {first(order.seller?.name)}</TT>
+      <TT>Leave a review for {firstName(order.seller?.name)}</TT>
       <View style={{ flexDirection: "row", gap: 6 }} accessibilityRole="radiogroup" accessibilityLabel="Rating">
         {[1, 2, 3, 4, 5].map((n) => (
           <Pressable key={n} accessibilityRole="radio" accessibilityState={{ selected: rating === n }} accessibilityLabel={`${n} star${n > 1 ? "s" : ""}`} onPress={() => setRating(n)} hitSlop={4}>

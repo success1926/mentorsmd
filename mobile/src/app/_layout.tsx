@@ -8,7 +8,7 @@ import { View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Overlays } from "../components/ui";
 import { AuthProvider } from "../lib/auth";
-import { DemoProvider, OverlayProvider } from "../lib/demo";
+import { OverlayProvider } from "../lib/overlay";
 import { useColors } from "../lib/theme";
 
 export default function RootLayout() {
@@ -22,7 +22,6 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-      <DemoProvider>
         <OverlayProvider>
           <StatusBar style="auto" />
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg } }}>
@@ -30,7 +29,6 @@ export default function RootLayout() {
           </Stack>
           <Overlays />
         </OverlayProvider>
-      </DemoProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

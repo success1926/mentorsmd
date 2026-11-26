@@ -1,12 +1,13 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
-import { LoadError, SlotPicker, usePaySheet } from "../../components/shared";
-import { Btn, Card, Hdr, Loading, Note, Row, Screen, Seg, Small, TT } from "../../components/ui";
+import { SlotPicker, usePaySheet } from "../../components/shared";
+import { Btn, Card, Hdr, LoadError, Loading, Note, Row, Screen, Seg, Small, TT } from "../../components/ui";
 import { api, dollars, errorText, useApi } from "../../lib/api";
-import { useOverlay } from "../../lib/demo";
-import { first, fmtWhen, localZone, shortHours } from "../../lib/orders";
+import { useOverlay } from "../../lib/overlay";
+import { shortHours } from "../../lib/orders";
 import { useColors } from "../../lib/theme";
+import { firstName, fmtDateTime, localZone } from "../../lib/format";
 
 type Slots = { slots: string[]; hasAvailability: boolean; bookingWindowDays?: number; timeZone: string; packages?: { id: string; title: string; left: number }[]; payPerCall?: { available: boolean; price30: number; price60: number } | null };
 
@@ -30,7 +31,7 @@ export default function Book() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mentorName = p.name || "your mentor";
-  const mf = first(p.name) || "your mentor";
+  const mf = firstName(p.name) || "your mentor";
   const url = intro
     ? `/api/mentors/${encodeURIComponent(p.m)}/intro-slots`
     : orderId
@@ -47,7 +48,7 @@ export default function Book() {
 
   const booked = (when: string) => {
     router.back();
-    toast(`${intro ? "Free intro call booked" : "Call booked"}: ${fmtWhen(when)}. You both got a calendar invite.`);
+    toast(`${intro ? "Free intro call booked" : "Call booked"}: ${fmtDateTime(when)}. You both got a calendar invite.`);
   };
   const book = async () => {
     if (!slot) return;
@@ -56,7 +57,7 @@ export default function Book() {
       if (!ppc?.available) return setError(`Buying unlocks once ${mf} replies to your message, or after your free intro call.`);
       return pay({
         what: { type: "call", mentorId: p.m, start: slot, minutes },
-        title: `${minutes === 60 ? "1-hour call" : "30-minute call"} · ${fmtWhen(slot)}`,
+        title: `${minutes === 60 ? "1-hour call" : "30-minute call"} · ${fmtDateTime(slot)}`,
         mentorName,
         priceCents: price,
         onPaid: (r) => router.replace(`/student/package/${r.orderId}`),
@@ -109,7 +110,7 @@ export default function Book() {
       {d?.slots.length ? <SlotPicker slots={d.slots} value={slot} onChange={setSlot} /> : null}
       {d?.slots.length ? <Small>Moving a call inside 24 hours needs a reason. The Join button opens 10 minutes before the start.</Small> : null}
       {error ? <Small style={{ color: c.danger }}>{error}</Small> : null}
-      <Btn kind="dark" disabled={!slot || busy || tooShort} label={busy ? "Booking…" : !slot ? "Pick a time" : payPerCall ? `Book and pay ${dollars(price)}` : `Book ${fmtWhen(slot)}`} onPress={book} />
+      <Btn kind="dark" disabled={!slot || busy || tooShort} label={busy ? "Booking…" : !slot ? "Pick a time" : payPerCall ? `Book and pay ${dollars(price)}` : `Book ${fmtDateTime(slot)}`} onPress={book} />
     </Screen>
   );
 }

@@ -1,10 +1,12 @@
 import { useRouter } from "expo-router";
 import { View } from "react-native";
-import { Av, Loading, Note, Row, Screen, SS, T } from "../../../components/ui";
-import { ErrorBox, ago, initialsOf, shortHours, useReloadOnFocus } from "../../../components/mentorSheets";
+import { Av, EmptyState, LoadError, Loading, Row, Screen, SS, T } from "../../../components/ui";
+import { useReloadOnFocus } from "../../../components/mentorSheets";
 import { useApi } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth";
 import { useColors } from "../../../lib/theme";
+import { ago, fmtDayShort, initialsOf } from "../../../lib/format";
+import { shortHours } from "../../../lib/orders";
 
 // The mentor's conversations (/api/conversations), most recent first, with
 // the same line under each name as the website's inbox.
@@ -12,7 +14,7 @@ function contextLine(cv: any, userId: string) {
   const pkg = cv.context?.package;
   if (pkg) return `${pkg.title} · ${shortHours(pkg.minutesLeft)} left${pkg.count > 1 ? ` (+${pkg.count - 1} more)` : ""}`;
   const intro = cv.context?.introCallAt;
-  if (intro) return `No package yet · intro call booked ${new Date(intro).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}`;
+  if (intro) return `No package yet · intro call booked ${fmtDayShort(intro)}`;
   const last = cv.messages?.[0];
   if (last && last.senderId === userId) return "Waiting for a reply";
   return null;
@@ -28,8 +30,8 @@ export default function MentorMessages() {
   return (
     <Screen>
       <T>Messages</T>
-      {q.loading && !q.data ? <Loading /> : q.error && !q.data ? <ErrorBox error={q.error} onRetry={q.reload} /> : !list.length ? (
-        <Note>No messages yet. When a student writes to you, the conversation shows up here.</Note>
+      {q.loading && !q.data ? <Loading /> : q.error && !q.data ? <LoadError error={q.error} onRetry={q.reload} /> : !list.length ? (
+        <EmptyState title="No messages yet">When a student writes to you, the conversation shows up here.</EmptyState>
       ) : (
         <View>
           {list.map((cv, i) => {

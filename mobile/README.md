@@ -1,20 +1,35 @@
-# MentorsMD phone app (preview)
+# MentorsMD phone app
 
-An Expo app with every screen from the MentorsMD App Clickthrough (Nov 11, 2026): student, mentor and admin areas, plus visitor browsing.
+The MentorsMD app for iPhone and Android (Expo SDK 58, expo-router). It works against the real website (mentorsmd.com) through its JSON routes; there is no sample data.
 
-- **Sample data:** sign-in isn't connected yet. Signed-in screens use invented people and numbers (`src/lib/sample.ts`), and taps change them in memory only (reloading starts over). Nothing is charged or sent.
-- **Live data:** Find a mentor ("Live on mentorsmd.com", or Visitor on the sign-in screen) and mentor profiles read the real mentors from the website's public routes `/api/mentors` and `/api/mentors/[id]` (`src/lib/live.ts`). Read-only. Buying or messaging a real mentor opens their page on the website.
+- **Visitors** browse mentors (`/api/mentors`), use the guided match and compare, and open profiles.
+- **Students and mentors** sign in with their MentorsMD account (email and password, then the 2-step code when it's on). Team (admin) accounts use the website. Sign-in tokens are kept in the phone's secure storage (`src/lib/auth.tsx`, `src/lib/api.ts`).
+- **Students:** packages and hours left, booking and moving calls, messages, disputes, receipts, credit, settings.
+- **Mentors:** home, students and packages (log written work, suggest more hours, mark complete), calendar and availability, messages, rates and bundles, payouts, settings.
+- **Payments:** Stripe's payment sheet (card, Apple Pay, Google Pay) after any MentorsMD credit (`runCheckout` in `src/components/shared.tsx`; the website's `/api/app/checkout`).
+- **Calls** open in an in-app video view (`src/app/call/[id].tsx`).
+- **Proof it's the real app:** sign-ins carry Apple App Attest on iPhone, or a Google Play Integrity token on Android, when the website asks for one (`src/lib/attest.ts`; checked by the website's `lib/appAttest.ts` and `lib/playIntegrity.ts`).
 
-## Try it in Expo Go
+Shared rules live in one file each and copy the website's file of the same name: `src/lib/orders.ts` (hours, finishing, call windows), `src/lib/statusLabels.ts` (status words and colours), `src/lib/fee.ts` (the 30% fee) and `src/lib/format.ts` (dates, money, names). Change both together.
+
+## Running it
+
+The app uses native modules (Stripe, App Attest, Play Integrity), so it needs a development build rather than Expo Go. Install one made with the `development` profile in `eas.json`, then:
 
 ```bash
 cd mobile
 npm install
-npx expo start --tunnel
+npx expo start --dev-client
 ```
 
-Scan the QR code with the iPhone camera (Expo Go installed). Shake the phone or press `r` in the terminal to reload.
+`EXPO_PUBLIC_SITE_URL` (in `mobile/.env.local`, or a profile's `env` in `eas.json`) points the app at another site; the default is `https://www.mentorsmd.com`. Check types with `npm run typecheck`.
 
-`EXPO_PUBLIC_SITE_URL` in `mobile/.env.local` points the live screens at another site (default `https://www.mentorsmd.com`).
+## Builds and release
+
+Build profiles in `eas.json`: `development` and `preview` (internal installs), `production` (www.mentorsmd.com; the build number goes up by itself), `simulator` (an iPhone simulator copy) and `android-test` (an installable Android APK).
+
+iPhone releases go through `scripts/ios-release.sh`, run from `mobile/`. It signs in to Apple with the MentorsMD App Store Connect API key kept in `~/.appstoreconnect/` (see the top of the script), builds the `production` profile on EAS and sends it to App Store Connect for TestFlight. `./scripts/ios-release.sh simulator` builds a simulator copy only. Apple Pay and App Attest are switched on by hand for `com.mentorsmd.app` on Apple's developer site.
+
+`app.json` sets `runtimeVersion` (an expo-updates setting), but expo-updates isn't installed, so there are no over-the-air updates yet: every app change reaches phones with the next store build.
 
 The website's `tsconfig.json` excludes `mobile/`, so the website build ignores this folder.

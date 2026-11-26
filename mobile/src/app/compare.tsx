@@ -4,8 +4,8 @@ import { Text, View } from "react-native";
 import { HeroGlow } from "../components/brand";
 import { Av, Btn, Card, Eyebrow, Hdr, Link, Note, Screen, Small } from "../components/ui";
 import { BEST_LABEL, SERVICE_OPTIONS, hasService, useCompare } from "../lib/match";
-import { first, money } from "../lib/sample";
 import { fonts, useColors } from "../lib/theme";
+import { firstName, money } from "../lib/format";
 
 const ROLE: Record<string, string> = { COMMITTEE: "Admissions committee", INTERVIEWER: "Interviewer", SCREENER: "Application screener" };
 
@@ -76,7 +76,7 @@ export default function Compare() {
       <View style={{ flexDirection: "row", gap: 10 }}>
         {ms.map((m) => (
           <View key={m.id} style={{ flex: 1 }}>
-            <Btn kind="dark" sm label={first(m.name)} onPress={() => router.push(`/profile/${m.id}`)} style={{ alignSelf: "stretch" }} />
+            <Btn kind="dark" sm label={firstName(m.name)} onPress={() => router.push(`/profile/${m.id}`)} style={{ alignSelf: "stretch" }} />
           </View>
         ))}
       </View>

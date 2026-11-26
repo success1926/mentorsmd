@@ -1,19 +1,18 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { initPaymentSheet, initStripe, presentPaymentSheet } from "@stripe/stripe-react-native";
-import { useOverlay } from "../lib/demo";
-import { money, type Mentor } from "../lib/sample";
+import { useOverlay } from "../lib/overlay";
 import { fonts, useColors } from "../lib/theme";
-import { Loading } from "./ui";
-import { Av, Bar, Btn, Card, Chip, Chips, DateBox, Eyebrow, Field, Grow, H, Hdr, Link, Note, Price, Row, RowV, SchoolLogo, Sec, Small, SS, Stars, TT } from "./ui";
+import { Av, Bar, Btn, Card, Chip, Chips, DateBox, Eyebrow, Field, Grow, H, Hdr, Link, Loading, Note, Price, Row, RowV, SchoolLogo, Sec, Small, SS, Stars, StatusBadge, TT } from "./ui";
 import { useCallback, useRef, useState } from "react";
 import Constants from "expo-constants";
 import * as WebBrowser from "expo-web-browser";
 import { api, dollars, errorText, SITE, useApi } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { WarningsCard, warningsOf, type Warning } from "./mentorSheets";
-import { initials } from "../lib/sample";
-import { callMinutes, canChangeOnline, dayNum, dow, fmtTime, fmtWhen, hoursSummary, JOIN_OPENS_MINUTES_BEFORE, joinState, packageStatus, pkgTitle, shortHours, splitCredit, type Pkg } from "../lib/orders";
+import { callMinutes, canChangeOnline, dayNum, dow, hoursSummary, JOIN_OPENS_MINUTES_BEFORE, joinState, pkgTitle, shortHours, splitCredit, type Pkg } from "../lib/orders";
+import { fmtDateTime, fmtDay, fmtTime, initialsOf, money } from "../lib/format";
+import { type Mentor } from "../lib/live";
 
 // A mentor in a list: photo, rank, school, specialties, "Successful clients at" logos, price and rating.
 export function MentorCard({ m }: { m: Mentor }) {
@@ -48,13 +47,12 @@ export function MentorCard({ m }: { m: Mentor }) {
 export function PkgCard({ p }: { p: Pkg }) {
   const router = useRouter();
   const h = hoursSummary(p);
-  const st = packageStatus(p);
   return (
     <Card onPress={() => router.push(`/student/package/${p.id}`)}>
       <RowV>
-        <Av init={initials(p.seller?.name || "")} photo={p.seller?.photoUrl} size={36} />
+        <Av init={initialsOf(p.seller?.name || "")} photo={p.seller?.photoUrl} size={36} />
         <Grow><TT numberOfLines={2}>{pkgTitle(p)}</TT><SS>{p.seller?.name}</SS></Grow>
-        <Chip label={st.label} tone={st.tone} />
+        <StatusBadge order={p} audience="student" />
       </RowV>
       <Bar pct={h.purchased ? ((h.purchased - h.left) / h.purchased) * 100 : 0} />
       <SS>
@@ -75,22 +73,29 @@ type CheckoutStart = {
   paid: boolean; orderId: string; topUpId?: string;
   clientSecret?: string; paymentIntentId?: string; chargeCents?: number; creditCents?: number; publishableKey?: string | null;
 };
-export type CheckoutResult = { status: "paid" | "pending" | "cancelled"; orderId: string };
+// "checking": the sheet closed but we couldn't confirm the payment was
+// cancelled (no connection, or Stripe is still processing it), so it may
+// still go through.
+export type CheckoutResult = { status: "paid" | "pending" | "cancelled" | "checking"; orderId: string };
+export const CHECKING_MESSAGE = "We’re checking your payment. If it went through, your package will appear in a minute.";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // Pays through Stripe's payment sheet (card, Apple Pay, Google Pay), after
 // MentorsMD credit. Credit that covers everything needs no sheet. Closing
-// the sheet cancels the payment and gives any credit back.
+// the sheet cancels the payment and gives any credit back. We only say
+// "nothing was charged" when the website confirms the cancel
+// (/api/app/checkout/cancel answers "cancelled" | "paid" | "pending").
 export async function runCheckout(what: CheckoutWhat): Promise<CheckoutResult> {
   const r = await api<CheckoutStart>("/api/app/checkout", { body: what });
   if (r.paid) return { status: "paid", orderId: r.orderId };
   const target = r.topUpId ? { topUpId: r.topUpId } : { orderId: r.orderId };
-  const cancel = async () => {
+  // "unknown" when the cancel call itself failed (e.g. no connection).
+  const cancel = async (): Promise<string> => {
     try {
       return (await api<{ status: string }>("/api/app/checkout/cancel", { body: target })).status;
     } catch {
-      return "cancelled";
+      return "unknown";
     }
   };
   if (!r.clientSecret || !r.publishableKey) {
@@ -107,6 +112,7 @@ export async function runCheckout(what: CheckoutWhat): Promise<CheckoutResult> {
     style: "automatic",
   });
   if (init.error) {
+    // The sheet never opened, so nothing could be paid.
     await cancel();
     throw new Error(init.error.message || "Couldn't open the payment. Please try again.");
   }
@@ -115,8 +121,9 @@ export async function runCheckout(what: CheckoutWhat): Promise<CheckoutResult> {
     // Closed without paying (or it failed): cancel it, unless it went through after all.
     const s = await cancel();
     if (s === "paid") return { status: "paid", orderId: r.orderId };
+    if (s !== "cancelled") return { status: "checking", orderId: r.orderId };
     if (String(res.error.code) === "Canceled") return { status: "cancelled", orderId: r.orderId };
-    throw new Error(res.error.message || "The payment didn't go through. Nothing was charged.");
+    throw new Error(res.error.message ? `${res.error.message} Nothing was charged.` : "The payment didn't go through. Nothing was charged.");
   }
   const done = await api<{ status: string }>("/api/app/checkout/confirm", { body: target }).catch(() => ({ status: "pending" }));
   return { status: done.status === "paid" ? "paid" : "pending", orderId: r.orderId };
@@ -129,6 +136,8 @@ export type PayItem = {
   priceCents: number;
   // After paying (or "still confirming"). Defaults to opening the package.
   onPaid?: (r: CheckoutResult) => void;
+  // When we can't tell yet whether it was paid. Defaults to your packages.
+  onChecking?: () => void;
 };
 
 // Paying for an offer, a single call or more hours: what it costs, the
@@ -155,6 +164,12 @@ function PaySheet({ item }: { item: PayItem }) {
       if (split.chargeCents > 0) await wait(450);
       const r = await runCheckout(item.what);
       if (r.status === "cancelled") return toast("Payment cancelled. Nothing was charged.");
+      if (r.status === "checking") {
+        toast(CHECKING_MESSAGE);
+        if (item.onChecking) item.onChecking();
+        else router.push("/student/packages");
+        return;
+      }
       toast(r.status === "paid" ? (split.chargeCents ? "Payment received." : "Paid with your MentorsMD credit.") : "Confirming your payment with Stripe… it shows up in a few seconds.");
       if (item.onPaid) item.onPaid(r);
       else router.push(`/student/package/${r.orderId}`);
@@ -220,7 +235,7 @@ export function SlotPicker({ slots, value, onChange }: { slots: string[]; value:
           return (
             <Pressable key={t} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => onChange(t)}
               style={[{ width: "31.5%", borderRadius: 10, paddingVertical: 10, alignItems: "center" }, pick(on)]}>
-              <Text style={{ fontFamily: fonts.bodySemi, fontSize: 14, color: on ? c.onPrimary : c.ink }}>{new Date(t).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</Text>
+              <Text style={{ fontFamily: fonts.bodySemi, fontSize: 14, color: on ? c.onPrimary : c.ink }}>{fmtTime(t)}</Text>
             </Pressable>
           );
         })}
@@ -281,7 +296,7 @@ export function MoveSheet({ call, onChanged }: { call?: MoveCall; onChanged?: ()
       await api(`/api/orders/${call.orderId}/calls`, { method: "PATCH", body: { bookingId: call.id, startTime: pick, ...(early ? {} : { reason: reason.trim(), acknowledgeWarnings: ack }) } });
       closeSheet();
       onChanged?.();
-      toast(`Call moved to ${fmtWhen(pick)}. You both got an email.`);
+      toast(`Call moved to ${fmtDateTime(pick)}. You both got an email.`);
     } catch (e) {
       const w = warningsOf(e);
       if (w) setWarnings(w);
@@ -298,7 +313,7 @@ export function MoveSheet({ call, onChanged }: { call?: MoveCall; onChanged?: ()
   return (
     <>
       <H>{intro ? "Your Intro Call" : "Move This Call"}</H>
-      <Note>{fmtWhen(call.startTime)}{call.withName ? ` · with ${call.withName}` : ""}</Note>
+      <Note>{fmtDateTime(call.startTime)}{call.withName ? ` · with ${call.withName}` : ""}</Note>
       {intro ? (
         early ? <Note>Intro calls can’t be moved. Cancel it and book a new time instead.</Note> : <Note>It’s less than 24 hours away, so it can’t be cancelled in the app. Message the other person, or contact us.</Note>
       ) : (
@@ -311,25 +326,11 @@ export function MoveSheet({ call, onChanged }: { call?: MoveCall; onChanged?: ()
           ) : null}
           {!early ? <Field label="Why do you need to move it?" value={reason} onChange={setReason} multiline /> : null}
           {warnings ? <WarningsCard warnings={warnings} busy={busy} onEdit={() => setWarnings(null)} onSendAnyway={() => move(true)} /> : null}
-          <Btn kind="dark" label={busy ? "Saving…" : pick ? `Move to ${fmtWhen(pick)}` : "Pick a new time"} disabled={busy || !pick} onPress={() => move(false)} />
+          <Btn kind="dark" label={busy ? "Saving…" : pick ? `Move to ${fmtDateTime(pick)}` : "Pick a new time"} disabled={busy || !pick} onPress={() => move(false)} />
         </>
       )}
       {error ? <Small style={{ color: c.danger }}>{error}</Small> : null}
       {early ? <Link red label={intro ? "Cancel the intro call" : "Cancel the call"} onPress={busy ? undefined : cancel} /> : !intro ? <Small>Calls can’t be cancelled in the app within 24 hours of the start.</Small> : null}
-      <Btn kind="line" label="Close" onPress={closeSheet} />
-    </>
-  );
-}
-
-export function GuideSheet() {
-  const { closeSheet } = useOverlay();
-  return (
-    <>
-      <H>Offer Guide</H>
-      <Sec><Eyebrow>When a bundle fits</Eyebrow><Note>Ongoing help across several tasks: a student who wants you for secondaries and interview prep.</Note></Sec>
-      <Sec><Eyebrow>When hourly fits</Eyebrow><Note>One-off questions, a quick essay read, a single mock interview.</Note></Sec>
-      <Sec><Eyebrow>Example packages</Eyebrow><Note>“Personal Statement, Start to Finish” · about 5 hours · 2 calls + 3 rounds of edits</Note><Note>“MMI Mock Day” · 3 stations + written feedback · 2 hours</Note></Sec>
-      <Sec><Eyebrow>Freelancing notes</Eyebrow><Note>You’re an independent mentor. Payouts come from MentorsMD through Stripe; keep records for taxes.</Note></Sec>
       <Btn kind="line" label="Close" onPress={closeSheet} />
     </>
   );
@@ -386,7 +387,6 @@ function DeleteSheet() {
 }
 
 type AppSessionRow = { id: string; platform: string; deviceName: string | null; lastUsedAt: string; current: boolean };
-const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
 // Settings for students and mentors: who's signed in, phones signed in,
 // password and 2-step (on the website), sign out, delete the account.
@@ -414,7 +414,7 @@ export function SettingsBody({ role }: { role: "student" | "mentor" }) {
   const rows = phones.data?.sessions || [];
   return (
     <>
-      <Card row><Av init={initials(name)} /><Grow><TT>{name}</TT><SS>{user?.email}</SS></Grow></Card>
+      <Card row><Av init={initialsOf(name)} /><Grow><TT>{name}</TT><SS>{user?.email}</SS></Grow></Card>
       <Sec>
         <Eyebrow>Sign-in and security</Eyebrow>
         <View>
@@ -427,7 +427,7 @@ export function SettingsBody({ role }: { role: "student" | "mentor" }) {
         {phones.loading && !phones.data ? <Loading /> : (
           <View>
             {rows.map((d, i) => (
-              <Row key={d.id} tt={d.deviceName || (d.platform === "ANDROID" ? "Android phone" : "iPhone")} ss={d.current ? "This phone" : `Last used ${shortDate(d.lastUsedAt)}`} chevron={false} last={i === rows.length - 1}
+              <Row key={d.id} tt={d.deviceName || (d.platform === "ANDROID" ? "Android phone" : "iPhone")} ss={d.current ? "This phone" : `Last used ${fmtDay(d.lastUsedAt)}`} chevron={false} last={i === rows.length - 1}
                 rr={!d.current ? <Link red label="Sign out" onPress={() => endPhone(d.id)} /> : undefined} />
             ))}
           </View>
@@ -451,17 +451,6 @@ export function SettingsScreenBody({ role }: { role: "student" | "mentor" }) {
       <Hdr title="Settings" />
       <SettingsBody role={role} />
     </>
-  );
-}
-
-// A screen's "couldn't load" card with Try again.
-export function LoadError({ error, onRetry, title = "Couldn’t load this" }: { error: string; onRetry: () => void; title?: string }) {
-  return (
-    <Card tone="warn">
-      <TT>{title}</TT>
-      <Note>{error}</Note>
-      <Btn kind="line" sm label="Try again" onPress={onRetry} />
-    </Card>
   );
 }
 
