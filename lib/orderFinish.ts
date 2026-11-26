@@ -86,6 +86,13 @@ async function approvedEmails(order: Loaded, auto: boolean) {
 // favour): no money moves now; it's paid with the monthly payout.
 export async function adminApprove(orderId: string) {
   const order = await load(orderId);
+  // Already approved but held by a dispute (e.g. a card chargeback): approving
+  // for the mentor just lifts the hold so the hours go out with the payout.
+  if (order.status === "COMPLETED" && order.disputed && !order.disputeResolvedAt) {
+    const lifted = await prisma.order.updateMany({ where: { id: order.id, status: "COMPLETED", disputeResolvedAt: null }, data: { disputeResolvedAt: new Date(), disputeResolution: "RELEASED" } });
+    if (!lifted.count) throw new FinishError("This package just changed. Refresh the page.", 409);
+    return order;
+  }
   if (order.status !== "IN_ESCROW" || order.approvedAt) throw new FinishError("This package isn't open");
   const now = new Date();
   const res = await prisma.order.updateMany({

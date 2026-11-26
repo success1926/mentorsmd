@@ -328,6 +328,9 @@ export function ExternalCalendarCard({ profile, onChanged }: { profile: any; onC
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<Msg>(null);
   const connected = profile.externalCal;
+  // Stays open once a link has been connected, so disconnecting doesn't fold it away mid-task.
+  const [everConnected, setEverConnected] = useState(!!connected);
+  useEffect(() => { if (connected) setEverConnected(true); }, [connected]);
   const google = profile.googleCal as { email: string | null; connectedAt: string } | null;
   const { confirm, dialog } = useConfirm();
 
@@ -403,7 +406,7 @@ export function ExternalCalendarCard({ profile, onChanged }: { profile: any; onC
 
       <Collapsible
         variant="inline"
-        defaultOpen={!!connected || (!GOOGLE_CONNECT_ON && !google)}
+        defaultOpen={everConnected || (!GOOGLE_CONNECT_ON && !google)}
         title={GOOGLE_CONNECT_ON || google ? "Using Apple or Outlook? Paste a calendar link instead" : "Paste your calendar link (Google, Apple or Outlook)"}
       >
           <span className="text-secondary small">
