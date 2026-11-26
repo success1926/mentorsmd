@@ -3,9 +3,11 @@ import { useCallback, useRef, useState } from "react";
 import { AppState, ScrollView, View, type ScrollViewInstance } from "react-native";
 import { useSafetySheet } from "../../../components/safety";
 import { Bubble, Card, Hdr, Link, Loading, Note, Row, RowV, Screen, Small } from "../../../components/ui";
-import { ErrText, ErrorBox, MessageBox, WarningsCard, firstName, hoursSummary, shortHours, warningsOf, type Warning } from "../../../components/mentorSheets";
+import { ErrText, ErrorBox, MessageBox, WarningsCard, warningsOf, type Warning } from "../../../components/mentorSheets";
 import { api, errorText, useApi } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth";
+import { firstName } from "../../../lib/format";
+import { hoursSummary, shortHours } from "../../../lib/orders";
 
 type Msg = { id: string; body: string; senderId: string; createdAt: string; attachmentName: string | null; attachmentUrl: string | null; orderId: string | null; sender?: { role: string; name: string } };
 type Convo = {
@@ -67,7 +69,7 @@ export default function MentorChat() {
   const student = cv?.buyer;
   const name = student?.name || "Student";
   const blocked = !!(head.data?.safety.iBlocked || head.data?.safety.theyBlocked);
-  const active = (head.data?.orders || []).filter((o) => o.kind && o.status === "IN_ESCROW");
+  const active = (head.data?.orders || []).filter((o) => o.status === "IN_ESCROW");
 
   const send = async (ack = false) => {
     const text = draft.trim();

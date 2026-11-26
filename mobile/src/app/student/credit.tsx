@@ -3,8 +3,8 @@ import { View } from "react-native";
 import { LoadError, useRefresh } from "../../components/shared";
 import { Btn, Eyebrow, Hdr, KV, Loading, Note, Screen, Sec, Small, Stat } from "../../components/ui";
 import { dollars, useApi } from "../../lib/api";
-import { fmtDayYear } from "../../lib/orders";
 import { useColors } from "../../lib/theme";
+import { fmtDay } from "../../lib/format";
 
 type Entry = { id: string; amountCents: number; reason: string; note: string | null; createdAt: string; packageTitle: string | null };
 // Same words as the website's credit page (CREDIT_REASON_LABEL).
@@ -40,7 +40,7 @@ export default function Credit() {
                 {d.entries.map((e) => (
                   <View key={e.id}>
                     <KV k={`${REASON[e.reason] || "Credit"}${e.packageTitle ? ` · ${e.packageTitle}` : ""}`} v={`${e.amountCents > 0 ? "+" : "−"}${dollars(Math.abs(e.amountCents))}`} vColor={e.amountCents > 0 ? c.okFg : undefined} kInk />
-                    <Small>{fmtDayYear(e.createdAt)}{e.note && e.reason !== "SPENT" ? ` · ${e.note}` : ""}</Small>
+                    <Small>{fmtDay(e.createdAt)}{e.note && e.reason !== "SPENT" ? ` · ${e.note}` : ""}</Small>
                   </View>
                 ))}
               </View>

@@ -1,9 +1,10 @@
 import { useRouter } from "expo-router";
 import { View } from "react-native";
 import { Av, Bar, Btn, Card, Eyebrow, Grow, Icon, Loading, Note, Row, Screen, Sec, Small, SS, TT, Hdr } from "../../components/ui";
-import { ErrorBox, initialsOf, openSite, useReloadOnFocus } from "../../components/mentorSheets";
+import { ErrorBox, openSite, useReloadOnFocus } from "../../components/mentorSheets";
 import { useApi } from "../../lib/api";
 import { useColors } from "../../lib/theme";
+import { initialsOf } from "../../lib/format";
 
 type Section = { key: string; label: string; done: boolean; hint: string; href: string };
 type Profile = {

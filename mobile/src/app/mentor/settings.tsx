@@ -3,9 +3,10 @@ import { useState } from "react";
 import { View } from "react-native";
 import { SettingsBody } from "../../components/shared";
 import { Btn, Card, Chip, Eyebrow, Field, Grow, H, Hdr, Link, Loading, Note, Screen, Sec, Small, SS, Toggle, TT } from "../../components/ui";
-import { DayGrid, ErrText, ErrorBox, dayString, fmtDayString, useReloadOnFocus } from "../../components/mentorSheets";
+import { DayGrid, ErrText, ErrorBox, useReloadOnFocus } from "../../components/mentorSheets";
 import { api, errorText, useApi } from "../../lib/api";
-import { useOverlay } from "../../lib/demo";
+import { useOverlay } from "../../lib/overlay";
+import { dayString, fmtDay, fmtDayString } from "../../lib/format";
 
 type Profile = { profileStatus: string; pausedUntil: string | null; awayNote: string | null; acceptsMinors: boolean | null; removedByAdmin?: boolean };
 
@@ -68,7 +69,7 @@ export default function MentorSettings() {
               </View>
               {pausedNow ? (
                 <Card tone="tint">
-                  <TT>{p.pausedUntil ? `Back on ${new Date(p.pausedUntil).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}` : "Paused until you switch it off"}</TT>
+                  <TT>{p.pausedUntil ? `Back on ${fmtDay(p.pausedUntil)}` : "Paused until you switch it off"}</TT>
                   {p.awayNote ? <Note ink>“{p.awayNote}”</Note> : null}
                   <Link label="Set a return date or note" onPress={() => openSheet(() => <PauseSheet p={p} onSaved={q.reload} />)} />
                   <Small>Your profile comes back automatically on the date you pick, or when you switch this off.</Small>

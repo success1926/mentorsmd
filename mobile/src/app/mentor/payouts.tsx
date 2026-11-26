@@ -2,9 +2,12 @@ import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import { View } from "react-native";
 import { Btn, Card, Chip, Eyebrow, Grow, Hdr, KV, Link, Loading, Note, Screen, Sec, Small, SS, Stat, Stats, TT } from "../../components/ui";
-import { ErrText, ErrorBox, FEE_PERCENT, PAYOUT_STATUS_LABEL, fmtDay, payoutDayLabel, periodLabel, shortHours, useReloadOnFocus } from "../../components/mentorSheets";
+import { ErrText, ErrorBox, PAYOUT_STATUS_LABEL, payoutDayLabel, periodLabel, useReloadOnFocus } from "../../components/mentorSheets";
 import { api, dollars, errorText, SITE, useApi } from "../../lib/api";
 import { useColors } from "../../lib/theme";
+import { PLATFORM_FEE_PERCENT } from "../../lib/fee";
+import { fmtDay } from "../../lib/format";
+import { shortHours } from "../../lib/orders";
 
 type Pay = { unpaidCents: number; unpaidMinutes: number; heldCents: number; nextPayoutDay: string; payoutsConnected: boolean; past: { id: string; period: string; amountCents: number; minutes: number; status: string; paidAt: string | null }[] };
 type Stripe = { connected: boolean; started: boolean; outstandingItems?: string[]; error?: string };
@@ -45,7 +48,7 @@ export default function Payouts() {
   return (
     <Screen>
       <Hdr title="Payouts" />
-      <Note>Paid monthly, on the 24th, for every hour you work. You keep {100 - FEE_PERCENT}%; MentorsMD keeps {FEE_PERCENT}%.</Note>
+      <Note>Paid monthly, on the 24th, for every hour you work. You keep {100 - PLATFORM_FEE_PERCENT}%; MentorsMD keeps {PLATFORM_FEE_PERCENT}%.</Note>
 
       <Card>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
@@ -76,12 +79,12 @@ export default function Payouts() {
             <Stat label="Earned, not yet paid" value={dollars(p.unpaidCents)} />
             <Stat label="Paid to you" value={dollars(paid.reduce((a, x) => a + x.amountCents, 0))} />
           </Stats>
-          <SS>Next payout: {payoutDayLabel(p.nextPayoutDay)}{p.heldCents > 0 ? ` · ${dollars(p.heldCents)} held by a dispute` : ""} · {paid.length} monthly payout{paid.length === 1 ? "" : "s"} so far, after the {FEE_PERCENT}% fee</SS>
+          <SS>Next payout: {payoutDayLabel(p.nextPayoutDay)}{p.heldCents > 0 ? ` · ${dollars(p.heldCents)} held by a dispute` : ""} · {paid.length} monthly payout{paid.length === 1 ? "" : "s"} so far, after the {PLATFORM_FEE_PERCENT}% fee</SS>
 
           <Card tone="tint">
             <TT>How payouts work</TT>
             <Note ink>1. Students pay MentorsMD for hours at your rate.</Note>
-            <Note ink>2. Each call held and each block of written work you log is added to your earnings ({100 - FEE_PERCENT}% of the hour).</Note>
+            <Note ink>2. Each call held and each block of written work you log is added to your earnings ({100 - PLATFORM_FEE_PERCENT}% of the hour).</Note>
             <Note ink>3. When a package is approved (by the student, or automatically after 48 hours), its unused hours are added too.</Note>
             <Note ink>4. On the 24th of each month, everything not yet paid goes to your bank in one Stripe payout. Hours on a package with an open dispute wait until it’s decided.</Note>
           </Card>

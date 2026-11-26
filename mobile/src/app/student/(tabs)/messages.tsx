@@ -4,8 +4,9 @@ import { LoadError, useRefresh } from "../../../components/shared";
 import { Av, Btn, Card, Loading, Note, Row, Screen, Small, SS, T, TT } from "../../../components/ui";
 import { useApi } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth";
-import { ago, fmtWhen, initials, shortHours } from "../../../lib/orders";
+import { shortHours } from "../../../lib/orders";
 import { useColors } from "../../../lib/theme";
+import { ago, fmtDateTime, initialsOf } from "../../../lib/format";
 
 type Convo = {
   id: string;
@@ -43,9 +44,9 @@ export default function Messages() {
             const last = cv.messages[0];
             const unread = cv.buyerUnread > 0;
             const preview = last ? `${last.senderId === user?.id ? "You: " : ""}${last.body || (last.attachmentName ? `File: ${last.attachmentName}` : "")}` : "No messages yet";
-            const ctx = cv.context.package ? `${cv.context.package.title} · ${shortHours(cv.context.package.minutesLeft)} left` : cv.context.introCallAt ? `Intro call ${fmtWhen(cv.context.introCallAt)}` : "";
+            const ctx = cv.context.package ? `${cv.context.package.title} · ${shortHours(cv.context.package.minutesLeft)} left` : cv.context.introCallAt ? `Intro call ${fmtDateTime(cv.context.introCallAt)}` : "";
             return (
-              <Row key={cv.id} left={<Av init={initials(cv.seller.name)} photo={cv.seller.photoUrl} size={40} />}
+              <Row key={cv.id} left={<Av init={initialsOf(cv.seller.name)} photo={cv.seller.photoUrl} size={40} />}
                 tt={<TT numberOfLines={1}>{cv.seller.name}</TT>}
                 ss={<View style={{ gap: 1 }}><SS numberOfLines={1} style={unread ? { color: c.ink } : undefined}>{preview}</SS>{ctx ? <Small>{ctx}</Small> : null}</View>}
                 rr={<View style={{ alignItems: "flex-end", gap: 4 }}><SS>{ago(last?.createdAt || cv.createdAt)}</SS>{unread ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.primary }} /> : null}</View>}

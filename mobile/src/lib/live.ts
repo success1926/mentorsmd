@@ -1,12 +1,57 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, SITE } from "./api";
-import { initials, type Mentor } from "./sample";
+import { initialsOf } from "./format";
 
 // The real mentors on mentorsmd.com, read from the website's JSON routes
 // (app/api/mentors, app/api/mentors/[id]). Signed-in people send their
 // token, so a profile answers for them (e.g. mentors who only work with
 // students 18 and over); visitors read the same public data.
 export { SITE };
+
+// A mentor as the app shows them (list card, profile, guided match).
+export type Mentor = {
+  id: string;
+  name: string;
+  init: string;
+  photo?: string | null;
+  stage: string; // full rank, e.g. "Medical Student – Year 4"
+  school: string;
+  rate: number; // dollars an hour
+  rating: number | null;
+  reviews: number;
+  specialties: string[];
+  best: string[];
+  bg: string[];
+  roles: string[];
+  langs: string;
+  fun: string;
+  reply: string;
+  clients: string[];
+  // School name -> logo address, from the website (live mentors only).
+  logos?: Record<string, string>;
+  bio: string;
+  bundles: [number, number][]; // [hours, price]
+  pkgs: [string, string, number][]; // [title, what's in it, price]
+  highlights?: string[];
+  knownFor?: string[];
+  live?: boolean;
+  // Guided match + compare (src/lib/match.ts), in the website's codes.
+  match: {
+    best: string[]; // BEST_FOR codes
+    stages: string[]; // strongest stages
+    packageServices: string[];
+    prices: number[]; // every offer's price, in cents
+    roleTypes: string[];
+    languages: string[];
+    packageCount: number;
+    fromRate: number; // lowest dollars an hour
+  };
+  // Profile extras from the website (live mentors).
+  credential?: string;
+  specialtyInterest?: string;
+  research?: string;
+  stagesLabel?: string;
+};
 
 const RANKS: Record<string, string> = {
   UNDERGRAD: "Undergraduate Student",
@@ -38,12 +83,12 @@ type Card = {
 function fromCard(c: Card, logos: Record<string, string>): Mentor {
   return {
     logos,
-    id: c.id, name: c.name, init: initials(c.name), photo: c.photoUrl, live: true,
+    id: c.id, name: c.name, init: initialsOf(c.name), photo: c.photoUrl, live: true,
     stage: (c.mentorStage && RANKS[c.mentorStage]) || c.credential || "",
     school: c.medicalSchool || "",
     rate: dollars(c.fromRateCents ?? c.hourlyRateCents),
     rating: c.avgRating, reviews: c.reviewCount,
-    specialties: c.specialties || [], svc: [], best: (c.bestFor || []).map((b) => BEST[b] || b), bg: [], roles: [],
+    specialties: c.specialties || [], best: (c.bestFor || []).map((b) => BEST[b] || b), bg: [], roles: [],
     langs: (c.languages || []).join(", "), fun: "", reply: "", clients: c.clientSchools || [], bio: c.bio || "", bundles: [], pkgs: [],
     knownFor: c.knownFor ? [c.knownFor] : [], credential: c.credential || undefined,
     match: {
@@ -93,12 +138,12 @@ export async function liveProfile(id: string): Promise<{ mentor: Mentor; reviews
   const specialties = [...new Set([...stages.map((x) => SPEC[x]), ...pkgServices.map((x) => SVC_SPEC[x])].filter(Boolean))];
   const mentor: Mentor = {
     logos: d.schoolLogos || {},
-    id: s.id, name: s.name, init: initials(s.name), photo: s.photoUrl, live: true,
+    id: s.id, name: s.name, init: initialsOf(s.name), photo: s.photoUrl, live: true,
     stage: (s.mentorStage && RANKS[s.mentorStage]) || s.credential || "",
     school: (["UNDERGRAD", "GAP_YEAR", "OTHER"].includes(s.mentorStage) ? s.undergradSchool : s.medicalSchool) || s.medicalSchool || "",
     rate: dollars(offers.hourly?.rateCents ?? s.hourlyRateCents),
     rating: null, reviews: (d.reviews || []).length,
-    specialties, svc: [], best: (s.bestFor || []).map((b: string) => BEST[b] || b), bg: [],
+    specialties, best: (s.bestFor || []).map((b: string) => BEST[b] || b), bg: [],
     roles: (s.admissionsRoles || []).map((r: any) => [`${ROLE[r.type] || r.type}${r.former ? " (former)" : ""}`, r.place, r.years].filter(Boolean).join(" · ")),
     langs: (s.languages || []).map((l: any) => `${l.name}${l.level ? ` (${LEVEL[l.level] || l.level})` : ""}`).join(", "),
     fun: s.funFact || "", reply: "", clients: s.clientSchools || [], bio: s.bio || "",

@@ -4,14 +4,12 @@ import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useSafetySheet } from "../../../components/safety";
 import { CallCard, LoadError, MoveSheet, useRefresh, usePaySheet, type CalCall } from "../../../components/shared";
-import { Bar, Btn, Btns2, Card, Chip, Eyebrow, Field, H, Half, Hdr, KV, Link, Loading, Note, RowV, Screen, Sec, SecH, Small, SS, Stat3, TT } from "../../../components/ui";
+import { Bar, Btn, Btns2, Card, Chip, Eyebrow, Field, H, Half, Hdr, KV, Link, Loading, Note, RowV, Screen, Sec, SecH, Small, SS, Stat3, StatusBadge, TT } from "../../../components/ui";
 import { api, dollars, errorText, SITE, useApi } from "../../../lib/api";
-import { useOverlay } from "../../../lib/demo";
-import {
-  callMinutes, finishPhase, first, fmtDay, fmtWhen, hoursLabel, hoursSummary, hoursToRespond, joinState, lastRequestAvailable, LOW_HOURS_MINUTES,
-  packageStatus, pkgTitle, priceFor, RECORDING_NOTICE, shortHours, splitCredit, TOP_UP_HOURS, type Pkg,
-} from "../../../lib/orders";
+import { useOverlay } from "../../../lib/overlay";
+import { callMinutes, finishPhase, hoursLabel, hoursSummary, hoursToRespond, joinState, lastRequestAvailable, LOW_HOURS_MINUTES, pkgTitle, priceFor, RECORDING_NOTICE, shortHours, splitCredit, TOP_UP_HOURS, type Pkg } from "../../../lib/orders";
 import { fonts, useColors } from "../../../lib/theme";
+import { firstName, fmtDateTime, fmtDay } from "../../../lib/format";
 
 const KIND_LABEL: Record<string, string> = { HOURLY: "Hourly", BUNDLE: "Hour bundle", SPECIALIZED: "Specialized package", PAY_PER_CALL: "Pay-per-call" };
 const OUTCOME: Record<string, string> = { HELD: "Held", STUDENT_NO_SHOW: "You didn’t join (hours used)", MENTOR_NO_SHOW: "Your mentor didn’t join (no hours used)", NOBODY_JOINED: "Nobody joined", UNCLEAR: "Being checked by the MentorsMD team", FREE_REBOOK: "Free rebook (no hours used)" };
@@ -41,9 +39,8 @@ export default function Package() {
 
   const phase = finishPhase(o);
   const h = hoursSummary(o);
-  const st = packageStatus(o);
   const mentor = o.seller;
-  const mf = first(mentor?.name) || "Your mentor";
+  const mf = firstName(mentor?.name) || "Your mentor";
   const title = pkgTitle(o);
   const now = Date.now();
   const calls = (o.callBookings || []).filter((b) => b.status !== "CANCELLED");
@@ -66,12 +63,12 @@ export default function Package() {
   return (
     <Screen>
       <Hdr title={title} sub={`${KIND_LABEL[o.kind || ""] || "Package"} · with ${mentor?.name || ""}`} />
-      <RowV><Chip label={st.label} tone={st.tone} /></RowV>
+      <RowV><StatusBadge order={o} audience="student" /></RowV>
 
       {phase === "PAYING" ? <Card tone="tint"><Note ink>Confirming your payment with Stripe… this page updates in a few seconds.</Note></Card> : null}
       {takenSlot ? (
         <Card tone="warn">
-          <Note style={{ color: c.warnFg }}>Your call is paid for, but the time you picked ({fmtWhen(o.requestedCallStart)}) was taken while you were paying. Please pick another time.</Note>
+          <Note style={{ color: c.warnFg }}>Your call is paid for, but the time you picked ({fmtDateTime(o.requestedCallStart)}) was taken while you were paying. Please pick another time.</Note>
           <Btn sm label="Pick a new time" onPress={() => router.push(bookHref)} />
         </Card>
       ) : null}
@@ -134,7 +131,7 @@ export default function Package() {
           {past.length ? (
             <View>
               {past.map((b, i) => (
-                <KV key={b.id} k={`${fmtWhen(b.startTime)} · ${callMinutes(b)} min`} v={OUTCOME[b.outcome || ""] || "Waiting for the outcome"} kInk line={i < past.length - 1} />
+                <KV key={b.id} k={`${fmtDateTime(b.startTime)} · ${callMinutes(b)} min`} v={OUTCOME[b.outcome || ""] || "Waiting for the outcome"} kInk line={i < past.length - 1} />
               ))}
             </View>
           ) : null}
@@ -198,7 +195,7 @@ function Decision({ order, onChanged }: { order: Pkg; onChanged: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const left = hoursToRespond(order);
   const extra = lastRequestAvailable(order);
-  const mf = first(order.seller?.name) || "Your mentor";
+  const mf = firstName(order.seller?.name) || "Your mentor";
   const send = async (action: string, done: string) => {
     setBusy(true);
     setError(null);
@@ -276,7 +273,7 @@ function ReviewCard({ order, onDone }: { order: Pkg; onDone: () => void }) {
   };
   return (
     <Card>
-      <TT>Leave a review for {first(order.seller?.name)}</TT>
+      <TT>Leave a review for {firstName(order.seller?.name)}</TT>
       <View style={{ flexDirection: "row", gap: 6 }} accessibilityRole="radiogroup" accessibilityLabel="Rating">
         {[1, 2, 3, 4, 5].map((n) => (
           <Pressable key={n} accessibilityRole="radio" accessibilityState={{ selected: rating === n }} accessibilityLabel={`${n} star${n > 1 ? "s" : ""}`} onPress={() => setRating(n)} hitSlop={4}>

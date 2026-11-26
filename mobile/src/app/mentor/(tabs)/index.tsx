@@ -1,11 +1,14 @@
 import { useRouter } from "expo-router";
 import { useCallback } from "react";
 import { View } from "react-native";
-import { Bar, Btn, Card, Chip, Eyebrow, Grow, Link, Loading, Note, Row, RowV, Screen, Sec, SecH, SS, Stat, Stats, T, TT } from "../../../components/ui";
-import { ErrorBox, PackageChip, dayWord, finishPhase, firstName, fmtTime, hoursSummary, isLowOnHours, joinState, minutesBetween, openSite, payoutDayLabel, shortHours, useReloadOnFocus } from "../../../components/mentorSheets";
+import { Bar, Btn, Card, Chip, Eyebrow, Grow, Link, Loading, Note, Row, RowV, Screen, Sec, SecH, SS, Stat, Stats, StatusBadge, T, TT } from "../../../components/ui";
+import { ErrorBox, openSite, payoutDayLabel, useReloadOnFocus } from "../../../components/mentorSheets";
 import { dollars, useApi } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth";
+import { PLATFORM_FEE_PERCENT } from "../../../lib/fee";
 import { useColors } from "../../../lib/theme";
+import { dayWord, firstName, fmtTime, minutesBetween } from "../../../lib/format";
+import { finishPhase, hoursSummary, isLowOnHours, joinState, shortHours } from "../../../lib/orders";
 
 type Nav = {
   mentor: {
@@ -65,7 +68,7 @@ export default function MentorHome() {
   return (
     <Screen>
       <View style={{ gap: 4 }}>
-        <Eyebrow>{new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</Eyebrow>
+        <Eyebrow>{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</Eyebrow>
         <T>Hi{first ? `, ${first}` : ""}</T>
       </View>
       {loading ? <Loading /> : error && !nav.data ? <ErrorBox error={error} onRetry={reloadAll} /> : (
@@ -125,7 +128,7 @@ export default function MentorHome() {
                 <Card key={p.id} onPress={() => router.push(`/mentor/package/${p.id}`)}>
                   <RowV style={{ justifyContent: "space-between" }}>
                     <Grow><TT>{p.buyer?.name}</TT><SS numberOfLines={1}>{p.title}</SS></Grow>
-                    {finishPhase(p) !== "WORKING" ? <PackageChip order={p} /> : isLowOnHours(p) ? <Chip label="Running low" tone="warn" /> : null}
+                    {finishPhase(p) !== "WORKING" ? <StatusBadge order={p} audience="mentor" /> : isLowOnHours(p) ? <Chip label="Running low" tone="warn" /> : null}
                   </RowV>
                   <Bar pct={h.purchased ? ((h.used + h.reserved) / h.purchased) * 100 : 0} />
                   <SS>{shortHours(h.left)} left of {shortHours(h.purchased)}{p.newMessages > 0 ? ` · ${p.newMessages} new message${p.newMessages === 1 ? "" : "s"}` : ""}</SS>
@@ -136,7 +139,7 @@ export default function MentorHome() {
 
           <Card tone="tint" onPress={() => openSite("/dashboard/offer-guide")}>
             <TT>Not Sure How To Structure Your Offers?</TT>
-            <Note>Open the Offer Guide on mentorsmd.com. You earn 70% of each hour, paid on the 24th of each month.</Note>
+            <Note>Open the Offer Guide on mentorsmd.com. You earn {100 - PLATFORM_FEE_PERCENT}% of each hour, paid on the 24th of each month.</Note>
           </Card>
         </>
       )}

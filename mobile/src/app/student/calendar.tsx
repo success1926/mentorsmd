@@ -3,8 +3,9 @@ import { View } from "react-native";
 import { CallCard, LoadError, MoveSheet, useRefresh, type CalCall } from "../../components/shared";
 import { Card, Chip, Eyebrow, Grow, Hdr, Link, Loading, Note, Row, Screen, Sec, SS, TT } from "../../components/ui";
 import { SITE, useApi } from "../../lib/api";
-import { useOverlay } from "../../lib/demo";
-import { callMinutes, fmtDay, fmtTime } from "../../lib/orders";
+import { useOverlay } from "../../lib/overlay";
+import { callMinutes } from "../../lib/orders";
+import { fmtDay, fmtTime } from "../../lib/format";
 
 type Cal = { upcoming: CalCall[]; past: CalCall[]; feedConnected: boolean };
 

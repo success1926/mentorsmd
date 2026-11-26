@@ -2,6 +2,9 @@
 // (lib/hours.ts, lib/finishing.ts, lib/calls.ts, lib/pricing.ts on the
 // website). Pure functions over the JSON the website's routes send, so the
 // app shows the same hours left, the same status and the same Join window.
+// The one copy for both the student and the mentor screens; status wording
+// is in lib/statusLabels.ts, the fee in lib/fee.ts, dates in lib/format.ts.
+import { minutesBetween } from "./format";
 
 type DateLike = string | Date | null | undefined;
 const ms = (d: DateLike) => (d ? new Date(d).getTime() : NaN);
@@ -26,6 +29,7 @@ export type Pkg = {
   creditAppliedCents: number;
   minutesPurchased: number;
   disputed: boolean;
+  disputeResolvedAt?: string | null;
   disputeReason?: string | null;
   markedCompleteAt?: string | null;
   responseDeadline?: string | null;
@@ -52,15 +56,18 @@ export type Pkg = {
 };
 
 export const pkgTitle = (o: { title?: string; packageTitle?: string | null; gig?: { title: string } | null }) => o.title || o.packageTitle || o.gig?.title || "Package";
-export const first = (n?: string | null) => (n || "").replace(/^Dr\.?\s+/, "").split(" ")[0];
-export const initials = (n?: string | null) => (n || "").split(" ").filter(Boolean).slice(0, 2).map((x) => x[0]).join("").toUpperCase() || "?";
 
 // ---------- hours ----------
 // Calls that a no-show by the mentor (or an admin) freed: they use no hours.
 const FREES_THE_CALL = ["MENTOR_NO_SHOW", "FREE_REBOOK"];
-export const callMinutes = (b: { startTime: DateLike; endTime: DateLike }) => Math.round((ms(b.endTime) - ms(b.startTime)) / 60_000);
+export const callMinutes = (b: { startTime: DateLike; endTime: DateLike }) => minutesBetween(b.startTime, b.endTime);
 
-export function hoursSummary(o: Pick<Pkg, "minutesPurchased" | "hourEntries" | "callBookings">) {
+type Entry = { type: string; minutes: number; voidedAt?: string | null; callBookingId?: string | null };
+type Call = { id: string; startTime: string; endTime: string; status: string; outcome?: string | null; kind?: string | null };
+export type HoursLike = { minutesPurchased: number; hourEntries?: Entry[]; callBookings?: Call[] };
+
+// Hours used, held for booked calls, and left; plus the calls still to come.
+export function hoursSummary(o: HoursLike, now: Date = new Date()) {
   const entries = (o.hourEntries || []).filter((e) => !e.voidedAt);
   const usedCalls = entries.filter((e) => e.type === "CALL").reduce((s, e) => s + e.minutes, 0);
   const usedWritten = entries.filter((e) => e.type === "WRITTEN").reduce((s, e) => s + e.minutes, 0);
@@ -70,7 +77,8 @@ export function hoursSummary(o: Pick<Pkg, "minutesPurchased" | "hourEntries" | "
     .filter((b) => b.status === "BOOKED" && (b.kind ?? "ORDER") === "ORDER" && !logged.has(b.id) && !FREES_THE_CALL.includes(b.outcome || ""))
     .reduce((s, b) => s + callMinutes(b), 0);
   const purchased = Math.max(0, o.minutesPurchased || 0);
-  return { purchased, used, usedCalls, usedWritten, reserved, left: Math.max(0, purchased - used - reserved), callsHeld: entries.filter((e) => e.type === "CALL").length };
+  const upcoming = (o.callBookings || []).filter((b) => b.status === "BOOKED" && ms(b.endTime) > now.getTime()).sort((a, b) => ms(a.startTime) - ms(b.startTime));
+  return { purchased, used, usedCalls, usedWritten, reserved, left: Math.max(0, purchased - used - reserved), callsHeld: entries.filter((e) => e.type === "CALL").length, upcoming };
 }
 
 // "3 h", "30 min", "1.5 h"
@@ -98,8 +106,9 @@ export function splitCredit(totalCents: number, balanceCents: number) {
 }
 
 // ---------- finishing ----------
+export type FinishLike = { status: string; disputed?: boolean; markedCompleteAt?: DateLike; responseDeadline?: DateLike; lastCallUsedAt?: DateLike; lastRevisionUsedAt?: DateLike; approvedAt?: DateLike };
 export type Phase = "PAYING" | "WORKING" | "AWAITING_STUDENT" | "APPROVED" | "DISPUTED" | "CLOSED";
-export function finishPhase(o: Pick<Pkg, "status" | "disputed" | "markedCompleteAt" | "responseDeadline" | "approvedAt">): Phase {
+export function finishPhase(o: FinishLike): Phase {
   if (o.status === "PENDING_PAYMENT") return "PAYING";
   if (o.approvedAt || o.status === "COMPLETED" || o.status === "RELEASED") return "APPROVED";
   if (o.status !== "IN_ESCROW") return "CLOSED";
@@ -107,25 +116,25 @@ export function finishPhase(o: Pick<Pkg, "status" | "disputed" | "markedComplete
   if (o.markedCompleteAt && o.responseDeadline) return "AWAITING_STUDENT";
   return "WORKING";
 }
-export const lastRequestAvailable = (o: Pick<Pkg, "lastCallUsedAt" | "lastRevisionUsedAt">) => !o.lastCallUsedAt && !o.lastRevisionUsedAt;
-export function hoursToRespond(o: Pkg, now = Date.now()) {
+export const lastRequestAvailable = (o: FinishLike) => !o.lastCallUsedAt && !o.lastRevisionUsedAt;
+// Whole hours left for the student to respond (rounded up), or null.
+export function hoursToRespond(o: FinishLike, now: Date = new Date()) {
   if (finishPhase(o) !== "AWAITING_STUDENT" || !o.responseDeadline) return null;
-  return Math.max(0, Math.ceil((ms(o.responseDeadline) - now) / 3600_000));
+  return Math.max(0, Math.ceil((ms(o.responseDeadline) - now.getTime()) / 3600_000));
 }
+export const isActive = (o: FinishLike) => ["WORKING", "AWAITING_STUDENT", "DISPUTED", "PAYING"].includes(finishPhase(o));
+// Running low: 1 hour or less left on an active package that started with more.
+export const isLowOnHours = (o: HoursLike & FinishLike) => finishPhase(o) === "WORKING" && (o.minutesPurchased || 0) > LOW_HOURS_MINUTES && hoursSummary(o).left <= LOW_HOURS_MINUTES;
 
-export type Tone = "plain" | "ok" | "warn" | "bad" | "gray";
-// The badge on a package, same words as the website.
-export function packageStatus(o: Pkg): { label: string; tone: Tone } {
+// Why the mentor can't mark the package complete yet (null = they can).
+export function markCompleteBlocker(o: FinishLike & { upcomingCalls?: number }) {
   const phase = finishPhase(o);
-  if (phase === "PAYING") return { label: "Awaiting payment", tone: "gray" };
-  if (phase === "DISPUTED") return { label: "Disputed", tone: "bad" };
-  if (phase === "APPROVED") return { label: "Completed", tone: "ok" };
-  if (phase === "CLOSED") return { label: o.status === "REFUNDED" ? "Refunded" : "Cancelled", tone: "gray" };
-  if (phase === "AWAITING_STUDENT") return { label: `Respond in ${hoursToRespond(o)} h`, tone: "warn" };
-  if (o.lastCallUsedAt || o.lastRevisionUsedAt) return { label: o.lastCallUsedAt ? "Last call requested" : "Last revision requested", tone: "plain" };
-  return { label: "Active", tone: "plain" };
+  if (phase === "AWAITING_STUDENT") return "You've already marked this complete. The student is reviewing it.";
+  if (phase === "DISPUTED") return "This order has an open dispute. An admin will resolve it.";
+  if (phase !== "WORKING") return "This package isn't active.";
+  if ((o.upcomingCalls || 0) > 0) return "A call is still booked on this package. Mark it complete after the call (or cancel it).";
+  return null;
 }
-export const isActive = (o: Pkg) => ["WORKING", "AWAITING_STUDENT", "DISPUTED", "PAYING"].includes(finishPhase(o));
 
 // ---------- calls ----------
 export const JOIN_OPENS_MINUTES_BEFORE = 10;
@@ -136,31 +145,14 @@ export function joinState(b: { startTime: DateLike; endTime: DateLike }, now = D
   return "open";
 }
 // More than 24 hours away: can be moved or cancelled in the app without a reason.
-export const canChangeOnline = (b: { startTime: DateLike }, now = Date.now()) => ms(b.startTime) - now > 24 * 3600_000;
+export const CANCEL_CUTOFF_HOURS = 24;
+export const canChangeOnline = (b: { startTime: DateLike }, now = Date.now()) => ms(b.startTime) - now > CANCEL_CUTOFF_HOURS * 3600_000;
+// Inside the cutoff but not started: moving needs a reason (sent as a message).
+export const isLateChange = (b: { startTime: DateLike }, now = Date.now()) => !canChangeOnline(b, now) && ms(b.startTime) > now;
+export const LATE_REASON_MIN = 20;
 export const RECORDING_NOTICE = "Calls may be recorded for safety and quality. Only the mentor on the call and the MentorsMD team can watch a recording; the team only looks if there's a problem with an order.";
 
-// ---------- dates ----------
-export const fmtDay = (d: DateLike) => (d ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "");
-export const fmtDayYear = (d: DateLike) => (d ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "");
-export const fmtTime = (d: DateLike) => (d ? new Date(d).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "");
-export const fmtWhen = (d: DateLike) => (d ? `${new Date(d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}, ${fmtTime(d)}` : "");
+// ---------- date boxes ----------
+// "MON" and "24" for the little date box on a call card.
 export const dow = (d: DateLike) => new Date(d as string).toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
 export const dayNum = (d: DateLike) => String(new Date(d as string).getDate());
-// "2h", "Yesterday", "Oct 2" for message lists.
-export function ago(d: DateLike) {
-  const t = ms(d);
-  if (isNaN(t)) return "";
-  const diff = Date.now() - t;
-  if (diff < 60_000) return "Now";
-  if (diff < 3600_000) return `${Math.floor(diff / 60_000)}m`;
-  if (diff < 24 * 3600_000) return `${Math.floor(diff / 3600_000)}h`;
-  if (diff < 48 * 3600_000) return "Yesterday";
-  return fmtDay(d);
-}
-export function localZone() {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-  } catch {
-    return "";
-  }
-}
