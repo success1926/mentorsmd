@@ -4,6 +4,7 @@ import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 import { applyTopUp, cancelUnpaid, fulfilAppPayment, fulfilOrderPayment } from "@/lib/hourCheckout";
 import { cancelUnpaidGift, fulfilGift } from "@/lib/gifts";
+import { cardRefunded, chargebackClosed, chargebackOpened } from "@/lib/chargebacks";
 
 // Stripe calls this URL directly (not the browser), so it's the only
 // reliable place to confirm a payment actually succeeded - never trust the
@@ -79,6 +80,14 @@ export async function POST(req: Request) {
       else if (orderId) await cancelUnpaid({ orderId });
     }
   }
+
+  // Chargebacks and card refunds made in Stripe (lib/chargebacks.ts): the
+  // package goes on hold and the team is told. (Enable charge.dispute.created,
+  // charge.dispute.closed and charge.refunded on the webhook in your Stripe
+  // dashboard.)
+  if (event.type === "charge.dispute.created") await chargebackOpened(event.data.object as Stripe.Dispute);
+  if (event.type === "charge.dispute.closed") await chargebackClosed(event.data.object as Stripe.Dispute);
+  if (event.type === "charge.refunded") await cardRefunded(event.data.object as Stripe.Charge);
 
   return NextResponse.json({ received: true });
 }
