@@ -8,23 +8,22 @@
 // log written work, recordings of their calls, messages and files, and
 // "Mark work complete".
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useDisputeThread } from "@/lib/hooks/useDisputeThread";
 import { Attendance, CallRow, PastCallOutcome, Recordings } from "@/components/Calls";
-import { AddHoursModal, BookCallModal, DecisionBanner, HoursLog, HoursMeter, LogWrittenWork, PackageBadge, showLowHours, PackageThread, SuggestHoursModal, ReportProblem, SharedFiles, fmtDay, fmtWhen, postJson } from "@/components/Packages";
-import { MinorBadge, PersonAvatar, StaffBadge } from "@/components/ui";
+import { AddHoursModal, BookCallModal, DecisionBanner, HoursLog, HoursMeter, LogWrittenWork, showLowHours, PackageThread, SuggestHoursModal, ReportProblem, SharedFiles, postJson } from "@/components/Packages";
+import { Collapsible, LoadingBlock, MinorBadge, PageHeader, PersonAvatar, StaffBadge, StatusBadge } from "@/components/ui";
 import { ReportDialog } from "@/components/Safety";
 import { StudentCard } from "@/components/StudentCard";
 import { hoursSummary, shortHours, LOW_HOURS_MINUTES } from "@/lib/hours";
 import { finishPhase, markCompleteBlocker } from "@/lib/finishing";
 import { KIND_LABEL, hoursLabel, priceFor } from "@/lib/pricing";
 import { FORMATS, labelFor, money } from "@/lib/options";
-import { PLATFORM_FEE_PERCENT } from "@/lib/fee";
+import { PLATFORM_FEE_PERCENT, mentorShare } from "@/lib/fee";
+import { fmtDateTime as fmtWhen, fmtDay, firstName as first } from "@/lib/format";
 import { RECORDING_NOTICE, joinState } from "@/lib/calls";
 import { PAYOUT_STATUS_LABEL, nextPayoutDay, payoutDayLabel, periodLabel } from "@/lib/payoutRules";
-import { useAdminDialog } from "@/components/admin/AdminDialog";
+import { useConfirm } from "@/components/ConfirmDialog";
 
-const first = (n?: string | null) => (n || "").split(" ")[0];
 const ADMIN_PHASE: Record<string, string> = {
   PAYING: "Awaiting payment",
   WORKING: "Active",
@@ -49,7 +48,7 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
   const title = order.packageTitle || order.gig?.title;
 
   const [flash, setFlash] = useState<"" | "paid" | "hours" | "topup-cancelled">("");
-  const { confirm, dialog } = useAdminDialog();
+  const { confirm, dialog } = useConfirm();
   const [booking, setBooking] = useState(false);
   const [adding, setAdding] = useState(false);
   const [addPreset, setAddPreset] = useState<number | undefined>(undefined);
@@ -112,8 +111,10 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
 
   const canBook = isBuyer && phase === "WORKING" && h.left >= 30;
   const blocker = markCompleteBlocker({ ...order, upcomingCalls: upcoming.length });
-  const earnedCents = Math.round(priceFor(h.used, order.rateCents || 0) * (100 - PLATFORM_FEE_PERCENT) / 100);
-  const unusedCents = Math.round(priceFor(h.left, order.rateCents || 0) * (100 - PLATFORM_FEE_PERCENT) / 100);
+  // The mentor's share, worked out exactly as payouts do (lib/fee.ts).
+  const earnedCents = mentorShare(priceFor(h.used, order.rateCents || 0));
+  const unusedCents = mentorShare(priceFor(h.left, order.rateCents || 0));
+  const audience = isSeller ? "mentor" : isAdmin && !isBuyer ? "admin" : "student";
   const takenSlot = order.kind === "PAY_PER_CALL" && order.requestedCallStart && !(order.callBookings || []).some((b: any) => b.status === "BOOKED");
 
   async function markComplete() {
@@ -136,25 +137,20 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
   }
 
   return (
-    <div className="page">
+    <div className="page-mid">
       {dialog}
-      <Link href={isSeller ? "/dashboard" : isAdmin ? "/admin" : "/orders"} className="link small" style={{ display: "inline-block", marginBottom: 20 }}>
-        ← {isSeller ? "Dashboard" : isAdmin ? "Admin" : "My packages"}
-      </Link>
-
-      <div className="between" style={{ alignItems: "flex-start", marginBottom: 24, flexWrap: "wrap", gap: 16 }}>
-        <div className="stack-sm">
-          <span className="text-muted">{KIND_LABEL[order.kind] || "Package"} · {isSeller ? `with ${order.buyer?.name}` : `with ${order.seller?.name}`}</span>
-          <h1 className="page-title" style={{ fontSize: "clamp(30px, 3.4vw, 42px)" }}>{title}</h1>
-          <div className="row-wrap">
-            <PackageBadge order={order} />
+      <PageHeader
+        back={isSeller ? { href: "/dashboard/students", label: "Students & packages" } : isAdmin && !isBuyer ? { href: "/admin/orders", label: "Orders & payouts" } : { href: "/orders", label: "My packages" }}
+        eyebrow={`${KIND_LABEL[order.kind] || "Package"} · with ${isSeller ? order.buyer?.name : order.seller?.name}`}
+        title={title}
+        lede={
+          <span className="row-wrap">
+            <StatusBadge order={order} audience={audience} />
             {isSeller && <MinorBadge person={order.buyer} />}
-          </div>
-        </div>
-        {canBook && (
-          <button className="btn btn-primary" onClick={() => setBooking(true)}>Book a call</button>
-        )}
-      </div>
+          </span>
+        }
+        actions={canBook ? <button className="btn btn-primary" onClick={() => setBooking(true)}>Book a call</button> : undefined}
+      />
 
       <div className="order-grid">
         <div className="stack-lg" style={{ gap: 20 }}>
@@ -198,7 +194,7 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
 
           {/* Hours */}
           <div className="card stack" style={{ gap: 16 }}>
-            <div className="between"><b style={{ fontSize: 18 }}>Hours</b>{order.rateCents ? <span className="text-muted small">{money(order.rateCents)} an hour</span> : null}</div>
+            <div className="between"><b className="card-title">Hours</b>{order.rateCents ? <span className="text-muted small">{money(order.rateCents)} an hour</span> : null}</div>
             <HoursMeter order={order} />
             {isBuyer && phase === "WORKING" && (
               <div className="row-wrap">
@@ -214,13 +210,13 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
             )}
             {isSeller && showLowHours(order) && (
               <div className="alert alert-warning">
-                {order.buyer?.name?.split(" ")[0] || "Your student"} has {shortHours(h.left)} left (booked calls count as used). We&apos;ve emailed them a reminder that they can add hours. If the work needs more time than that, suggest how many more hours you expect.
+                {first(order.buyer?.name) || "Your student"} has {shortHours(h.left)} left (booked calls count as used). We&apos;ve emailed them a reminder that they can add hours. If the work needs more time than that, suggest how many more hours you expect.
               </div>
             )}
             {isSeller && phase === "WORKING" && (
               <div className="row-wrap">
                 <button className="btn btn-sm" onClick={() => setSuggesting(true)}>Suggest more hours</button>
-                <span className="text-muted small">If the work will take longer than the hours left. {order.buyer?.name?.split(" ")[0] || "The student"} gets a message and a one-click Add hours button.</span>
+                <span className="text-muted small">If the work will take longer than the hours left. {first(order.buyer?.name) || "The student"} gets a message and a one-click Add hours button.</span>
               </div>
             )}
             {isSeller && phase === "WORKING" && (
@@ -234,7 +230,7 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
           {/* Calls */}
           {(upcoming.length > 0 || past.length > 0) && (
             <div className="card stack" style={{ gap: 12 }}>
-              <b style={{ fontSize: 18 }}>Calls</b>
+              <b className="card-title">Calls</b>
               {upcoming.map((b: any) => (
                 <CallRow key={b.id} booking={b} order={order} canManage={isBuyer || isSeller} isSeller={isSeller} isAdmin={isAdmin} blocked={blocked} onChanged={reload} />
               ))}
@@ -257,11 +253,11 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
 
           {/* Dispute thread */}
           {order.disputed && (
-            <div className="card stack" style={{ borderColor: "#F3D0D0" }}>
-              <b>Dispute: conversation with the MentorsMD team</b>
+            <div className="card stack dispute-card">
+              <b className="card-title">Dispute: conversation with the MentorsMD team</b>
               <span className="text-secondary">An admin reviews it and decides. Reply here if they ask for more details.</span>
               <div className="msg-thread ph-no-capture">
-                {disputeMessages.length === 0 && <p className="text-muted">Loading…</p>}
+                {disputeMessages.length === 0 && <LoadingBlock title={false} lines={2} />}
                 {disputeMessages.map((m: any) => (
                   <div key={m.id} className={`msg-bubble ${m.sender?.role === "ADMIN" ? "msg-theirs" : "msg-mine"}`}>
                     <div style={{ fontSize: 11, opacity: 0.85, marginBottom: 2 }}>{m.sender?.name} {m.sender?.role === "ADMIN" && <StaffBadge />}</div>
@@ -285,15 +281,14 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
           )}
 
           {/* Hours log */}
-          <div className="card stack" style={{ gap: 10 }}>
-            <b style={{ fontSize: 18 }}>Hours log</b>
+          <Collapsible title="Hours log" count={(order.hourEntries || []).length}>
             <HoursLog entries={order.hourEntries} />
-          </div>
+          </Collapsible>
 
           {/* Review */}
           {isBuyer && phase === "APPROVED" && !order.review && (
             <div className="card stack">
-              <b>Leave a review for {first(order.seller?.name)}</b>
+              <b className="card-title">Leave a review for {first(order.seller?.name)}</b>
               <div className="row" style={{ gap: 4 }} role="radiogroup" aria-label="Rating">
                 {[1, 2, 3, 4, 5].map((n) => (
                   <button key={n} role="radio" aria-checked={reviewRating === n} aria-label={`${n} star${n > 1 ? "s" : ""}`} onClick={() => setReviewRating(n)}
@@ -324,14 +319,12 @@ export function HoursPackage({ order, viewer, reload }: { order: any; viewer: an
               ))}
               {order.creditAppliedCents > 0 && <div className="between"><span className="text-secondary">Credit applied</span><span>{money(order.creditAppliedCents)}</span></div>}
               {order.format && <div className="between"><span className="text-secondary">Format</span><span>{labelFor(FORMATS, order.format)}</span></div>}
-              <div className="between"><span className="text-secondary">Due date</span><span>None</span></div>
               <div className="between"><span className="text-secondary">Started</span><span>{fmtDay(order.paidAt || order.createdAt)}</span></div>
             </div>
             {order.packageDescription && (
-              <details className="collapse">
-                <summary style={{ padding: "10px 14px", fontSize: 14 }}>What&apos;s included</summary>
-                <div className="collapse-body" style={{ padding: "0 14px 12px" }}><p className="small text-secondary" style={{ whiteSpace: "pre-wrap" }}>{order.packageDescription}</p></div>
-              </details>
+              <Collapsible title="What's included" variant="inline">
+                <p className="small text-secondary" style={{ whiteSpace: "pre-wrap" }}>{order.packageDescription}</p>
+              </Collapsible>
             )}
           </div>
 

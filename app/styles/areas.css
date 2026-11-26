@@ -1,1 +1,18 @@
 /* Student and mentor area styles that only those pages use. Shared pieces live in globals.css. */
+
+/* One package in a list (components/PackageRow.tsx). */
+.pkg-entry { display: flex; align-items: flex-start; gap: 14px; padding: 14px 0; color: inherit; }
+a.pkg-entry:hover { opacity: 1; }
+a.pkg-entry:hover .pkg-entry-name { color: var(--primary-deep); }
+.pkg-entry + .pkg-entry { border-top: 1px solid var(--line); }
+.pkg-entry.is-card { border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 14px 16px; background: var(--surface); }
+.pkg-entry.is-card + .pkg-entry.is-card { margin-top: 10px; }
+.pkg-entry-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.pkg-entry-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px 12px; flex-wrap: wrap; }
+.pkg-entry-heading { display: flex; flex-direction: column; gap: 0; min-width: 0; color: inherit; }
+.pkg-entry-name { font-size: 15px; gap: 6px; }
+.pkg-entry-badges { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pkg-entry-actions { gap: 6px; margin-top: 2px; }
+.pkg-entry-list { display: flex; flex-direction: column; }
+.card.pkg-entry-list { padding-top: 6px; padding-bottom: 6px; }
+.dispute-card { border-color: var(--danger-bg); }
