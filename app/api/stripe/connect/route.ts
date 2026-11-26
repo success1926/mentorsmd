@@ -16,7 +16,7 @@ import { getSession } from "@/lib/session";
 // exactly what a payout-only seller needs: the ability to receive
 // Transfers from us, nothing about accepting their own separate
 // payments. Once created, this account still works as the `destination`
-// on a normal Transfer (see lib/orderRelease.ts) - that part of Stripe's
+// on a normal Transfer (see lib/payouts.ts) - that part of Stripe's
 // API didn't change.
 const STRIPE_API_BASE = "https://api.stripe.com/v2/core";
 const STRIPE_VERSION = "2026-08-26.preview";
@@ -52,32 +52,42 @@ export async function POST() {
 
   try {
     if (!accountId) {
-      const account = await stripeV2Request("/accounts", {
-        contact_email: user.email,
-        display_name: user.name,
-        dashboard: "express",
-        identity: { country: "us" },
-        // Required by Stripe's v2 API whenever an account can receive
-        // Transfers: who's on the hook for processing fees and any
-        // losses (like chargebacks) on this account. As the platform,
-        // that's us ("application"), not Stripe.
-        defaults: {
-          responsibilities: {
-            fees_collector: "application",
-            losses_collector: "application",
-          },
-        },
-        configuration: {
-          recipient: {
-            capabilities: {
-              stripe_balance: { stripe_transfers: { requested: true } },
+      // One account per mentor: a double click waits here, then finds the
+      // account the first click made instead of making a second one.
+      accountId = await prisma.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"stripe-connect:" + userId}))`;
+          const fresh = await tx.user.findUnique({ where: { id: userId }, select: { stripeAccountId: true } });
+          if (fresh?.stripeAccountId) return fresh.stripeAccountId;
+          const account = await stripeV2Request("/accounts", {
+            contact_email: user.email,
+            display_name: user.name,
+            dashboard: "express",
+            identity: { country: "us" },
+            // Required by Stripe's v2 API whenever an account can receive
+            // Transfers: who's on the hook for processing fees and any
+            // losses (like chargebacks) on this account. As the platform,
+            // that's us ("application"), not Stripe.
+            defaults: {
+              responsibilities: {
+                fees_collector: "application",
+                losses_collector: "application",
+              },
             },
-          },
+            configuration: {
+              recipient: {
+                capabilities: {
+                  stripe_balance: { stripe_transfers: { requested: true } },
+                },
+              },
+            },
+            include: ["configuration.recipient", "identity", "requirements"],
+          });
+          await tx.user.update({ where: { id: userId }, data: { stripeAccountId: account.id } });
+          return account.id as string;
         },
-        include: ["configuration.recipient", "identity", "requirements"],
-      });
-      accountId = account.id;
-      await prisma.user.update({ where: { id: userId }, data: { stripeAccountId: accountId } });
+        { timeout: 30_000, maxWait: 30_000 }
+      );
     }
 
     const accountLink = await stripeV2Request("/account_links", {
