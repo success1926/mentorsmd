@@ -1,5 +1,5 @@
 // The parts of a mentor's profile that never change while the page is open
-// (About, Known for, Specialties, Admissions experience, Credentials,
+// (About, shown beside the photo; then Known for, Specialties, Admissions experience, Credentials,
 // Clinical & research, Languages, Fun fact, and the reviews list). They are
 // rendered on the server and handed to ProfileClient, so the browser only
 // runs code for the buttons and pop-ups. No hooks here.
@@ -49,44 +49,49 @@ function LongText({ text, className, limit = 600 }: { text: string; className?: 
   );
 }
 
+// About: the bio, quick facts and "students got into" logos. Shown beside
+// the photo at the top of the profile (badge layout, Nov 2026), so it is
+// its own piece rather than part of ProfileBody.
+export function ProfileAbout({ seller, offers, reviews, logos = {} }: { seller: any; offers: OffersLike; reviews: { rating: number }[]; logos?: LogoMap }) {
+  const { first, clientSchools, knownFor, facts } = profileBasics(seller, offers, reviews);
+  if (!(seller.bio || facts.length || clientSchools.length)) return null;
+  return (
+    <section id="pf-about" className="pf-about" aria-labelledby="about-title">
+      {knownFor[0] ? (
+        <h2 id="about-title" className="pf-lead-title">{knownFor[0]}<span className="pf-dot">.</span></h2>
+      ) : (
+        <h2 id="about-title" className="sr-only">About {first}</h2>
+      )}
+      {seller.bio && <LongText text={seller.bio} className="pf-bio" limit={420} />}
+      {facts.length > 0 && (
+        <ul className="profile-facts">
+          {facts.map((f) => (
+            <li key={f.label}>
+              <b>{f.value}</b>
+              <span>{f.label}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {clientSchools.length > 0 && (
+        <div className="profile-panel">
+          <ClientSchools schools={clientSchools} logos={logos} size={44} label={`${first}'s students got into:`} />
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function ProfileBody({ seller, offers, reviews, logos = {} }: { seller: any; offers: OffersLike; reviews: { rating: number }[]; logos?: LogoMap }) {
-  const { first, bestFor, clientSchools, specialties, roles, highlights, knownFor, languages, facts } = profileBasics(seller, offers, reviews);
+  const { first, bestFor, specialties, roles, highlights, knownFor, languages } = profileBasics(seller, offers, reviews);
   const stages: string[] = (seller.strongestStages || []).map((s: string) => labelFor(STRONGEST_STAGES, s));
   const experience = [
     ...roles.map((r) => ({ title: `${labelFor(ADMISSIONS_ROLE_TYPES, r.type)}${r.former ? " (former)" : ""}`, sub: [r.place, r.years].filter(Boolean).join(" · ") })),
     ...(typeof seller.yearsAdvising === "number" ? [{ title: `${seller.yearsAdvising} ${seller.yearsAdvising === 1 ? "year" : "years"} advising applicants`, sub: "" }] : []),
     ...(typeof seller.applicantsSupported === "number" ? [{ title: `About ${seller.applicantsSupported} applicants supported`, sub: "" }] : []),
   ];
-  const showAbout = !!(seller.bio || facts.length || clientSchools.length);
   return (
     <>
-      {showAbout && (
-        <section id="pf-about" className="pf-sec" aria-labelledby="about-title">
-          <span className="eyebrow">About {first}</span>
-          {knownFor[0] ? (
-            <h2 id="about-title" className="pf-lead-title">{knownFor[0]}<span className="pf-dot">.</span></h2>
-          ) : (
-            <h2 id="about-title" className="sr-only">About {first}</h2>
-          )}
-          {seller.bio && <LongText text={seller.bio} className="pf-bio" limit={900} />}
-          {facts.length > 0 && (
-            <ul className="profile-facts">
-              {facts.map((f) => (
-                <li key={f.label}>
-                  <b>{f.value}</b>
-                  <span>{f.label}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          {clientSchools.length > 0 && (
-            <div className="profile-panel">
-              <ClientSchools schools={clientSchools} logos={logos} size={44} label={`${first}'s students got into:`} />
-            </div>
-          )}
-        </section>
-      )}
-
       {knownFor.length > 0 && (
         <section id="pf-known" className="pf-sec" aria-labelledby="known-title">
           <h2 id="known-title">What {first} is <em>known for</em></h2>
