@@ -109,7 +109,7 @@ function NotVisibleTag() {
   return <span className="preview-tag" title="Only you can see this in preview">Not visible to students</span>;
 }
 
-export function ProfileClient({ seller, offers, reviews, previewState = null, logos = {}, body, reviewList }: { seller: any; offers: Offers; reviews: any[]; previewState?: PreviewState; logos?: LogoMap; body: React.ReactNode; reviewList: React.ReactNode }) {
+export function ProfileClient({ seller, offers, reviews, previewState = null, logos = {}, about, body, reviewList }: { seller: any; offers: Offers; reviews: any[]; previewState?: PreviewState; logos?: LogoMap; about: React.ReactNode; body: React.ReactNode; reviewList: React.ReactNode }) {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -117,7 +117,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
   const isBuyer = role === "BUYER";
   const isSelf = (session?.user as any)?.id === seller.id;
   const preview = isSelf && previewState !== null;
-  const { first, reviewCount, avg, bestFor, school, rank, clientSchools, specialties, roles, highlights, knownFor, languages, facts } = profileBasics(seller, offers, reviews);
+  const { first, reviewCount, avg, bestFor, school, rank, specialties, roles, highlights, knownFor, languages } = profileBasics(seller, offers, reviews);
   const loginHref = `/login?callbackUrl=${encodeURIComponent(`/mentors/${seller.id}`)}`;
 
   const [unlock, setUnlock] = useState<Unlock | null>(null);
@@ -250,7 +250,6 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
 
   // Sections, in page order, for the menu at the top of the right column.
   const sections: { id: string; label: string }[] = [
-    ...(seller.bio || facts.length || clientSchools.length ? [{ id: "about", label: "About" }] : []),
     ...(knownFor.length ? [{ id: "known", label: "Known for" }] : []),
     ...(specialties.length || bestFor.length ? [{ id: "specialties", label: "Specialties" }] : []),
     ...(roles.length || (seller.strongestStages || []).length || typeof seller.yearsAdvising === "number" || typeof seller.applicantsSupported === "number" ? [{ id: "experience", label: "Experience" }] : []),
@@ -293,11 +292,11 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
         </div>
       </section>
 
-      {/* ---------- Badge + prices (Nov 26 2026) ----------
+      {/* ---------- Badge + who they are (Nov 2026) ----------
           Left: the mentor's "hospital badge" (photo with their school's
-          logo, name, credential, school, best for). Right, in order: the
-          hourly rate, hour packs (bundles), then bigger packages, plus
-          the free intro call and Message. */}
+          logo). Right: name, credential, school, rating, best for and
+          About. Below, full width: the prices in order (hourly with the
+          free intro call and Message, hour packs, bigger packages). */}
       <section className="pf-top">
         <div className="pf-wrap pf-top-grid">
           <div className="pf-badge-col">
@@ -320,24 +319,8 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
                   </span>
                 )}
               </div>
-              <div className="pf-info">
-                <div className="between" style={{ alignItems: "flex-start", gap: 10 }}>
-                  <h1 className="pf-name">{seller.name}</h1>
-                  {reviewCount === 0 && <span className="badge badge-brand" style={{ marginTop: 6 }}>New</span>}
-                </div>
-                {credentialLine(seller.credential, seller.mentorStage) && <span className="pf-cred">{credentialLine(seller.credential, seller.mentorStage)}</span>}
-                {(school || rank) && (
-                  <span className="pf-school">
-                    {school && <b>{school}</b>}
-                    <span className="text-secondary">{[rank, labelFor(SCHOOL_TYPES, seller.schoolType)].filter(Boolean).join(" · ")}</span>
-                  </span>
-                )}
-                {reviewCount > 0 && (MOMENTS.profileStars && avg !== null ? <StarsFill avg={avg} count={reviewCount} /> : <Rating avg={avg} count={reviewCount} />)}
-                {bestFor.length > 0 && (
-                  <div className="row-wrap" style={{ gap: 6 }} aria-label="Best for">
-                    {bestFor.map((t) => <span key={t} className="badge">{t}</span>)}
-                  </div>
-                )}
+              <div className="pf-badge-name">
+                <span>{seller.name}</span>
               </div>
             </div>
 
@@ -362,7 +345,7 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
             />
           </div>
 
-          <div className="pf-buy">
+          <div className="pf-person">
             {!seller.available && (
               <div className="alert alert-warning">
                 <b>{first} is away{seller.pausedUntil ? ` until ${fmtDay(seller.pausedUntil, { timeZone: "UTC" })}` : ""}.</b>{" "}
@@ -375,96 +358,122 @@ export function ProfileClient({ seller, offers, reviews, previewState = null, lo
               </div>
             )}
 
-            {/* 1. Hourly, with the free intro call and Message */}
-            <div className="pf-hourly">
-              {hourlyRate !== null && (
-                <div className="pf-hourly-rate">
-                  <span className="pf-label">Hourly</span>
-                  <span className="pf-rate-big">{money(hourlyRate)}<small> / hour</small></span>
-                  <span className="text-muted small">Calls and written work</span>
+            <div className="pf-person-head">
+              <div className="between" style={{ alignItems: "flex-start", gap: 10 }}>
+                <h1 className="pf-name">{seller.name}</h1>
+                {reviewCount === 0 && <span className="badge badge-brand" style={{ marginTop: 6 }}>New</span>}
+              </div>
+              {credentialLine(seller.credential, seller.mentorStage) && <span className="pf-cred">{credentialLine(seller.credential, seller.mentorStage)}</span>}
+              {(school || rank) && (
+                <span className="pf-school">
+                  {school && <b>{school}</b>}
+                  <span className="text-secondary">{[rank, labelFor(SCHOOL_TYPES, seller.schoolType)].filter(Boolean).join(" · ")}</span>
+                </span>
+              )}
+              {reviewCount > 0 && (MOMENTS.profileStars && avg !== null ? <StarsFill avg={avg} count={reviewCount} /> : <Rating avg={avg} count={reviewCount} />)}
+              {bestFor.length > 0 && (
+                <div className="row-wrap" style={{ gap: 6 }} aria-label="Best for">
+                  {bestFor.map((t) => <span key={t} className="badge">{t}</span>)}
                 </div>
               )}
-              <div className="pf-hourly-actions">
-                {actions(false)}
-                {offers.hourly &&
-                  (preview ? (
-                    <PreviewOnly>
-                      <button className="btn btn-dark" disabled>Buy 1 hour</button>
-                    </PreviewOnly>
-                  ) : (
-                    <button className="btn btn-dark" disabled={!!blockedNote} onClick={() => setDialog({ t: "details", offerId: offers.hourly!.id })} aria-haspopup="dialog">
-                      Buy 1 hour
-                    </button>
-                  ))}
-              </div>
-              {offers.hourly?.hiddenFromStudents && <NotVisibleTag />}
-              {!seller.listed && !isSelf && seller.available && <span className="text-muted small">{first} isn&apos;t taking new students right now.</span>}
-              {isBuyer && blockedNote ? <span className="text-muted small">{blockedNote}</span> : isBuyer && unlock && <UnlockNote unlock={unlock} first={first} />}
             </div>
+            {about}
+          </div>
+        </div>
+      </section>
 
-            {/* 2. Hour packs (bundles) */}
-            {offers.bundles.length > 0 && (
-              <div className="pf-buy-group">
-                <span className="pf-buy-title">Hour packs <span>· use the hours for calls or written work, whenever you need them</span></span>
-                <div className="pf-packs">
-                  {offers.bundles.map((o) => {
-                    const save = offers.hourly && o.rateCents < offers.hourly.rateCents ? Math.round((1 - o.rateCents / offers.hourly.rateCents) * 100) : 0;
-                    return (
-                      <button key={o.id} type="button" className="pf-pack" onClick={() => setDialog({ t: "details", offerId: o.id })} aria-haspopup="dialog">
-                        <b>{hoursLabel(o.minutes)}</b>
-                        <span className="pf-pack-price">{money(o.price)}</span>
-                        <small>{money(o.rateCents)}/hr{save > 0 ? ` · save ${save}%` : ""}</small>
-                        {o.hiddenFromStudents && <NotVisibleTag />}
-                      </button>
-                    );
-                  })}
-                </div>
+      {/* ---------- Prices, below the photo and info ---------- */}
+      <section className="pf-prices" aria-label={`Book ${first}`}>
+        <div className="pf-wrap pf-buy">
+          {/* 1. Hourly, with the free intro call and Message */}
+          <div className="pf-hourly">
+            {hourlyRate !== null && (
+              <div className="pf-hourly-rate">
+                <span className="pf-label">Hourly</span>
+                <span className="pf-rate-big">{money(hourlyRate)}<small> / hour</small></span>
+                <span className="text-muted small">Calls and written work</span>
               </div>
             )}
-
-            {/* 3. Bigger packages */}
-            {offers.packages.length > 0 && (
-              <div className="pf-buy-group" id="pf-packages">
-                <span className="pf-buy-title">Bigger packages <span>· a set plan with a finished result</span></span>
-                <div className="pf-tickets">
-                  {offers.packages.slice(0, PACKAGES_SHOWN).map((p) => (
-                    <button key={p.id} type="button" className="pf-ticket" onClick={() => setDialog({ t: "details", offerId: p.id })} aria-haspopup="dialog">
-                      {p.coverUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={stripFocus(p.coverUrl)} alt="" loading="lazy" decoding="async" width={72} height={72} style={{ objectPosition: focusPosition(p.coverUrl) }} />
-                      )}
-                      <span className="pf-ticket-body">
-                        <b>{p.title}</b>
-                        <span>About {hoursLabel(p.minutes)} · {labelFor(FORMATS, p.format)}</span>
-                        {p.hiddenFromStudents && <NotVisibleTag />}
-                      </span>
-                      <span className="pf-ticket-stub">{money(p.price)}</span>
-                    </button>
-                  ))}
-                </div>
-                {offers.packages.length > PACKAGES_SHOWN && (
-                  <button type="button" className="link-btn" style={{ alignSelf: "flex-start", fontWeight: 700 }} onClick={() => setDialog({ t: "all" })} aria-haspopup="dialog">
-                    See all {offers.packages.length} packages →
+            <div className="pf-hourly-actions">
+              {actions(false)}
+              {offers.hourly &&
+                (preview ? (
+                  <PreviewOnly>
+                    <button className="btn btn-dark" disabled>Buy 1 hour</button>
+                  </PreviewOnly>
+                ) : (
+                  <button className="btn btn-dark" disabled={!!blockedNote} onClick={() => setDialog({ t: "details", offerId: offers.hourly!.id })} aria-haspopup="dialog">
+                    Buy 1 hour
                   </button>
-                )}
-              </div>
-            )}
-
-            {allOffers.length === 0 && (
-              <EmptyState action={preview ? <Link href="/dashboard/packages" className="link">Set your rate</Link> : undefined}>
-                {first} hasn&apos;t set up their hours yet. You can still message them.
-              </EmptyState>
-            )}
-
-            <div className="pf-buy-foot">
-              <span className="pf-fine-line">
-                <Icon d={ICONS.lock} size={16} />
-                <span>
-                  <b>Secure payment, every hour logged.</b> When {first} marks work complete, you have 48 hours to approve it or ask for one last call or revision.
-                </span>
-              </span>
-              {!preview && <CompareToggle mentor={compareMe} label="Add to compare" />}
+                ))}
             </div>
+            {offers.hourly?.hiddenFromStudents && <NotVisibleTag />}
+            {!seller.listed && !isSelf && seller.available && <span className="text-muted small">{first} isn&apos;t taking new students right now.</span>}
+            {isBuyer && blockedNote ? <span className="text-muted small">{blockedNote}</span> : isBuyer && unlock && <UnlockNote unlock={unlock} first={first} />}
+          </div>
+
+          {/* 2. Hour packs (bundles) */}
+          {offers.bundles.length > 0 && (
+            <div className="pf-buy-group">
+              <span className="pf-buy-title">Hour packs <span>· use the hours for calls or written work, whenever you need them</span></span>
+              <div className="pf-packs">
+                {offers.bundles.map((o) => {
+                  const save = offers.hourly && o.rateCents < offers.hourly.rateCents ? Math.round((1 - o.rateCents / offers.hourly.rateCents) * 100) : 0;
+                  return (
+                    <button key={o.id} type="button" className="pf-pack" onClick={() => setDialog({ t: "details", offerId: o.id })} aria-haspopup="dialog">
+                      <b>{hoursLabel(o.minutes)}</b>
+                      <span className="pf-pack-price">{money(o.price)}</span>
+                      <small>{money(o.rateCents)}/hr{save > 0 ? ` · save ${save}%` : ""}</small>
+                      {o.hiddenFromStudents && <NotVisibleTag />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 3. Bigger packages */}
+          {offers.packages.length > 0 && (
+            <div className="pf-buy-group" id="pf-packages">
+              <span className="pf-buy-title">Bigger packages <span>· a set plan with a finished result</span></span>
+              <div className="pf-tickets">
+                {offers.packages.slice(0, PACKAGES_SHOWN).map((p) => (
+                  <button key={p.id} type="button" className="pf-ticket" onClick={() => setDialog({ t: "details", offerId: p.id })} aria-haspopup="dialog">
+                    {p.coverUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={stripFocus(p.coverUrl)} alt="" loading="lazy" decoding="async" width={72} height={72} style={{ objectPosition: focusPosition(p.coverUrl) }} />
+                    )}
+                    <span className="pf-ticket-body">
+                      <b>{p.title}</b>
+                      <span>About {hoursLabel(p.minutes)} · {labelFor(FORMATS, p.format)}</span>
+                      {p.hiddenFromStudents && <NotVisibleTag />}
+                    </span>
+                    <span className="pf-ticket-stub">{money(p.price)}</span>
+                  </button>
+                ))}
+              </div>
+              {offers.packages.length > PACKAGES_SHOWN && (
+                <button type="button" className="link-btn" style={{ alignSelf: "flex-start", fontWeight: 700 }} onClick={() => setDialog({ t: "all" })} aria-haspopup="dialog">
+                  See all {offers.packages.length} packages →
+                </button>
+              )}
+            </div>
+          )}
+
+          {allOffers.length === 0 && (
+            <EmptyState action={preview ? <Link href="/dashboard/packages" className="link">Set your rate</Link> : undefined}>
+              {first} hasn&apos;t set up their hours yet. You can still message them.
+            </EmptyState>
+          )}
+
+          <div className="pf-buy-foot">
+            <span className="pf-fine-line">
+              <Icon d={ICONS.lock} size={16} />
+              <span>
+                <b>Secure payment, every hour logged.</b> When {first} marks work complete, you have 48 hours to approve it or ask for one last call or revision.
+              </span>
+            </span>
+            {!preview && <CompareToggle mentor={compareMe} label="Add to compare" />}
           </div>
         </div>
       </section>

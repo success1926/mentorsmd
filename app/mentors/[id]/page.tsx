@@ -5,7 +5,7 @@ import { isMentorListed } from "@/lib/mentor";
 import { toDate } from "@/lib/publicCache";
 import { cachedPublicProfile, mentorProfileView } from "@/lib/mentorProfile";
 import { ProfileClient } from "./ProfileClient";
-import { ProfileBody, ReviewList } from "./ProfileStatic";
+import { ProfileAbout, ProfileBody, ReviewList } from "./ProfileStatic";
 import { firstName } from "@/lib/format";
 import { getSchoolLogos } from "@/lib/schoolLogos";
 import type { Metadata } from "next";
@@ -55,6 +55,7 @@ export default async function MentorProfilePage({ params }: { params: { id: stri
       offers={view.offers}
       reviews={view.reviews}
       logos={logos}
+      about={<ProfileAbout seller={view.seller} offers={view.offers} reviews={view.reviews} logos={logos} />}
       body={<ProfileBody seller={view.seller} offers={view.offers} reviews={view.reviews} logos={logos} />}
       reviewList={<ReviewList reviews={view.reviews as any} first={first} />}
     />
