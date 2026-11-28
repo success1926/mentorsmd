@@ -78,8 +78,11 @@
       ],
       "./plugins/withoutTapAndPay"
     ],
+    "updates": {
+      "url": "https://u.expo.dev/2835cfe3-685a-4b68-be24-9f7afcc80451"
+    },
     "runtimeVersion": {
-      "policy": "appVersion"
+      "policy": "fingerprint"
     },
     "extra": {
       "router": {

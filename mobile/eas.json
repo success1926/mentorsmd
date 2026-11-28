@@ -9,19 +9,22 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_SITE_URL": "https://REPLACE-WITH-A-PREVIEW-URL.vercel.app"
-      }
+      },
+      "channel": "development"
     },
     "preview": {
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_SITE_URL": "https://REPLACE-WITH-A-PREVIEW-URL.vercel.app"
-      }
+      },
+      "channel": "preview"
     },
     "production": {
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_SITE_URL": "https://www.mentorsmd.com"
-      }
+      },
+      "channel": "production"
     },
     "simulator": {
       "extends": "production",
@@ -29,7 +32,8 @@
       "autoIncrement": false,
       "ios": {
         "simulator": true
-      }
+      },
+      "channel": "simulator"
     },
     "android-test": {
       "extends": "production",
@@ -37,7 +41,8 @@
       "autoIncrement": false,
       "android": {
         "buildType": "apk"
-      }
+      },
+      "channel": "android-test"
     }
   },
   "submit": {
