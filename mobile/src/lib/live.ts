@@ -51,6 +51,9 @@ export type Mentor = {
   specialtyInterest?: string;
   research?: string;
   stagesLabel?: string;
+  // Quick facts under the bio (live mentors).
+  yearsAdvising?: number;
+  applicantsSupported?: number;
 };
 
 const RANKS: Record<string, string> = {
@@ -152,6 +155,8 @@ export async function liveProfile(id: string): Promise<{ mentor: Mentor; reviews
     highlights: s.highlights || [], knownFor: s.knownFor || [],
     credential: s.credential || undefined, specialtyInterest: s.specialtyInterest || undefined, research: s.researchSummary || undefined,
     stagesLabel: stages.map((x) => STAGE[x]).filter(Boolean).join(", ") || undefined,
+    yearsAdvising: typeof s.yearsAdvising === "number" && s.yearsAdvising > 0 ? s.yearsAdvising : undefined,
+    applicantsSupported: typeof s.applicantsSupported === "number" && s.applicantsSupported > 0 ? s.applicantsSupported : undefined,
     match: {
       best: s.bestFor || [], stages, packageServices: pkgServices, prices: all.map((o) => o.price).filter((p) => p > 0),
       roleTypes: (s.admissionsRoles || []).map((r: any) => r.type), languages: (s.languages || []).map((l: any) => l.name),
