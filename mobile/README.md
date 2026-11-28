@@ -30,6 +30,16 @@ Build profiles in `eas.json`: `development` and `preview` (internal installs), `
 
 iPhone releases go through `scripts/ios-release.sh`, run from `mobile/`. It signs in to Apple with the MentorsMD App Store Connect API key kept in `~/.appstoreconnect/` (see the top of the script), builds the `production` profile on EAS and sends it to App Store Connect for TestFlight. `./scripts/ios-release.sh simulator` builds a simulator copy only. Apple Pay and App Attest are switched on by hand for `com.mentorsmd.app` on Apple's developer site.
 
-`app.json` sets `runtimeVersion` (an expo-updates setting), but expo-updates isn't installed, so there are no over-the-air updates yet: every app change reaches phones with the next store build.
+### Over-the-air updates
+
+Store builds made from the `production` profile listen on the `production` update channel (`expo-updates`, `updates.url` in `app.json`). An app change that's only JavaScript (screens, wording, colours) can reach phones without a new store build:
+
+```
+npx eas update --channel production --platform ios --environment production --message "what changed"
+```
+
+Phones pick it up the next time the app is opened, then show it on the open after that. `runtimeVersion` uses the `fingerprint` policy: an update only goes to builds whose native parts match it. If a change adds or upgrades a native package (anything that changes `ios/` after `expo prebuild`), the fingerprint changes and it needs a new store build instead. `npx expo-updates fingerprint:generate --platform ios` shows the current fingerprint to compare with the build's.
+
+Store builds made before expo-updates was added (TestFlight build 4 and earlier) can't receive updates.
 
 The website's `tsconfig.json` excludes `mobile/`, so the website build ignores this folder.
